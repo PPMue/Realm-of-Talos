@@ -170,6 +170,15 @@ func play_pulse(color: Color) -> void:
 	t.tween_property(_body, "modulate", Color.WHITE, 0.35)
 
 
+## Only the leaning shape itself counts as the panel, so neighbours that tuck under each other
+## do not steal clicks.
+func _has_point(point: Vector2) -> bool:
+	if point.y < 0.0 or point.y > size.y:
+		return false
+	var lean := UiTheme.SLANT * (size.y - point.y)
+	return point.x >= lean and point.x <= lean + W - UiTheme.SLANT * H
+
+
 func _gui_input(event: InputEvent) -> void:
 	var mb := event as InputEventMouseButton
 	if mb != null and mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:

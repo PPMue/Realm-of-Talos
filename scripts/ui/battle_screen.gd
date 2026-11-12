@@ -7,11 +7,16 @@ extends Control
 
 enum Mode { IDLE, TARGET_ATTACK, TARGET_SKILL }
 
-const STAGE_LEFT := 700.0
-const STAGE_RIGHT := 40.0
-const STAGE_TOP := 84.0
-const PARTY_HEIGHT := 292.0
-const ENEMY_GAP := 30
+## The part of the screen the enemies stand in (margins from each edge, at 1920x1080).
+const STAGE_LEFT := 670.0
+const STAGE_RIGHT := 24.0
+const STAGE_TOP := 70.0
+const PARTY_HEIGHT := 276.0
+## With this many enemies or more, every second one stands a step back and the art may overlap.
+const STAGGER_FROM := 3
+## How much wider than its slot an enemy's art may be, side by side and staggered.
+const ART_OVERLAP := 1.1
+const ART_OVERLAP_STAGGERED := 1.45
 
 @export var setup: BattleSetup
 
@@ -31,7 +36,7 @@ var _enemy_views: Dictionary = {}    # EnemyUnit -> EnemyView
 
 var _tick_label: Label
 var _menu := ActionMenu.new()
-var _enemy_row := HBoxContainer.new()
+var _stage := Control.new()
 var _party_row := HBoxContainer.new()
 var _banner := SlantPanel.new()
 var _banner_label: Label
@@ -63,7 +68,7 @@ func start_battle() -> void:
 	_seed = rng.seed
 	battle = Battle.new(setup.companions, setup.enemies, rng)
 
-	for child in _party_row.get_children() + _enemy_row.get_children() + _popups.get_children():
+	for child in _party_row.get_children() + _stage.get_children() + _popups.get_children():
 		child.get_parent().remove_child(child)
 		child.queue_free()
 	_party_panels.clear()
@@ -78,14 +83,14 @@ func start_battle() -> void:
 		_party_panels[c] = panel
 	_party_row.add_child(_row_marker("FRONT ›"))
 
-	var fit := _enemy_fit_scale()
 	for e in battle.enemies:
 		var view := EnemyView.new()
-		view.setup(e, fit)
+		view.setup(e)
 		view.clicked.connect(strike_enemy.bind(e))
 		view.hover_changed.connect(_on_enemy_hover.bind(e))
-		_enemy_row.add_child(view)
+		_stage.add_child(view)
 		_enemy_views[e] = view
+	_layout_enemies()
 
 	_log.clear()
 	_logged = 0
@@ -504,13 +509,33 @@ func _stat_sheet(u: Combatant, keys: Array[String]) -> String:
 	return "\n".join(rows)
 
 
-## Shrinks enemy art when there are too many enemies to stand side by side at full size.
-func _enemy_fit_scale() -> float:
-	var available := get_viewport_rect().size.x - STAGE_LEFT - STAGE_RIGHT
-	var wanted := 0.0
-	for d in setup.enemies:
-		wanted += maxf(EnemyView.BASE_SIDE * d.stage_scale, EnemyView.MIN_WIDTH) + ENEMY_GAP
-	return clampf(available / maxf(1.0, wanted), 0.5, 1.0)
+## Gives every enemy a column of the stage and sizes the art to fit.
+## One or two enemies stand side by side at full size. From three, every second enemy stands
+## a step back and the art is allowed to overlap, so it stays large instead of shrinking to fit.
+func _layout_enemies() -> void:
+	if battle == null or battle.enemies.is_empty():
+		return
+	var area := Rect2(STAGE_LEFT, STAGE_TOP, size.x - STAGE_LEFT - STAGE_RIGHT, size.y - STAGE_TOP - PARTY_HEIGHT)
+	var count := battle.enemies.size()
+	var staggered := count >= STAGGER_FROM
+	var overlap := ART_OVERLAP_STAGGERED if staggered else ART_OVERLAP
+	var largest := 0.0
+	for e in battle.enemies:
+		largest = maxf(largest, e.data.stage_scale)
+	var tallest := area.size.y - EnemyView.PLATE_H - (EnemyView.BACK_RAISE if staggered else 0.0)
+	# Art wider than its slot spills past the first and last slot; narrow the slots until it fits.
+	var slot_w := minf(area.size.x / count, EnemyView.MAX_SLOT)
+	var fit := 1.0
+	for pass_index in 3:
+		fit = minf(1.0, minf(slot_w * overlap, tallest) / (EnemyView.BASE_SIDE * largest))
+		var spill := maxf(0.0, EnemyView.BASE_SIDE * largest * fit - slot_w)
+		slot_w = minf((area.size.x - spill) / count, EnemyView.MAX_SLOT)
+	var x := area.position.x + (area.size.x - slot_w * count) * 0.5
+	for i in count:
+		var e := battle.enemies[i]
+		var view: EnemyView = _enemy_views[e]
+		view.position = Vector2(x + slot_w * i, area.position.y)
+		view.layout(Vector2(slot_w, area.size.y), EnemyView.BASE_SIDE * e.data.stage_scale * fit, staggered and i % 2 == 1)
 
 
 func _toggle_log() -> void:
@@ -526,16 +551,11 @@ func _build_ui() -> void:
 	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(backdrop)
 
-	# Enemies stand on the stage, feet on one line.
-	_enemy_row.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_enemy_row.offset_left = STAGE_LEFT
-	_enemy_row.offset_right = -STAGE_RIGHT
-	_enemy_row.offset_top = STAGE_TOP
-	_enemy_row.offset_bottom = -PARTY_HEIGHT
-	_enemy_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	_enemy_row.add_theme_constant_override("separation", ENEMY_GAP)
-	_enemy_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_enemy_row)
+	# Enemies stand on the stage; _layout_enemies() places them.
+	_stage.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_stage)
+	resized.connect(_layout_enemies)
 
 	# Chosen companion and their actions.
 	_menu.position = Vector2(34, 92)
@@ -547,7 +567,8 @@ func _build_ui() -> void:
 	_party_row.offset_top = -(PartyPanel.H + PartyPanel.LIFT) - 14.0
 	_party_row.offset_bottom = -14.0
 	_party_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	_party_row.add_theme_constant_override("separation", 2)
+	# Negative gap: the leaning panels tuck under each other, so five still fit across.
+	_party_row.add_theme_constant_override("separation", -50)
 	_party_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_party_row)
 
@@ -669,6 +690,7 @@ func _build_ui() -> void:
 func _row_marker(text: String) -> Label:
 	var l := UiTheme.label(text, 24, Color(UiTheme.MUTED, 0.8), true, 6)
 	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	l.custom_minimum_size = Vector2(110, 0)
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	# Wide enough to stay clear of the panels, which tuck under their neighbours.
+	l.custom_minimum_size = Vector2(190, 0)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT if text.begins_with("‹") else HORIZONTAL_ALIGNMENT_RIGHT
 	return l

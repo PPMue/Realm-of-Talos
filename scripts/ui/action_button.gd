@@ -5,7 +5,7 @@ extends Control
 signal pressed
 signal hover_changed(inside: bool)
 
-const W := 372.0
+const W := 336.0
 const H := 66.0
 const NUDGE := 18.0
 

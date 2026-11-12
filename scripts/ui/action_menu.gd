@@ -12,7 +12,7 @@ const FOCUS := "focus"
 const WAIT := "wait"
 
 const ART_SIZE := Vector2(420, 620)
-const BUTTON_X := 318.0
+const BUTTON_X := 300.0
 const BUTTON_Y := 64.0
 const BUTTON_STEP := 80.0
 
