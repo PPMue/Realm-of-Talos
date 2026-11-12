@@ -19,6 +19,9 @@ var enemies: Array[EnemyUnit] = []
 var tick: int = 0
 var outcome: Outcome = Outcome.ONGOING
 var log_lines: Array[String] = []
+## What happened during the last command, in order, for the UI to play back.
+## Each entry has a "type" plus fields; see the _emit calls. Cleared at the start of every tick.
+var events: Array[Dictionary] = []
 
 
 func _init(companion_data: Array[CompanionData], enemy_data: Array[EnemyData], p_rng: RandomNumberGenerator = null) -> void:
@@ -137,6 +140,7 @@ func attack(c: CompanionUnit, target: EnemyUnit) -> bool:
 		return false
 	_begin_tick()
 	_log("%s attacks %s with %s." % [c.display_name, target.display_name, c.weapon().display_name])
+	_emit({"type": "strike", "actor": c, "target": target, "name": "Attack"})
 	_companion_strike(c, target, false)
 	_end_player_action(c, BattleConfig.RECOVERY_ATTACK)
 	return true
@@ -149,6 +153,7 @@ func use_skill(c: CompanionUnit, target: EnemyUnit) -> bool:
 	var s := c.skill()
 	c.stamina -= s.stamina_cost
 	_log("%s uses %s on %s (-%d STA)." % [c.display_name, s.display_name, target.display_name, s.stamina_cost])
+	_emit({"type": "strike", "actor": c, "target": target, "name": s.display_name})
 	_companion_strike(c, target, true)
 	_end_player_action(c, BattleConfig.RECOVERY_SKILL)
 	return true
@@ -160,6 +165,7 @@ func guard(c: CompanionUnit) -> bool:
 	_begin_tick()
 	c.add_effect(StatusEffect.guard())
 	_log("%s guards." % c.display_name)
+	_emit({"type": "guard", "actor": c})
 	_end_player_action(c, BattleConfig.RECOVERY_GUARD)
 	return true
 
@@ -171,6 +177,7 @@ func focus(c: CompanionUnit) -> bool:
 	var before := c.stamina
 	c.stamina = mini(c.max_stamina(), c.stamina + focus_amount(c))
 	_log("%s focuses (+%d STA, %d/%d)." % [c.display_name, c.stamina - before, c.stamina, c.max_stamina()])
+	_emit({"type": "focus", "actor": c, "amount": c.stamina - before})
 	_end_player_action(c, BattleConfig.RECOVERY_FOCUS)
 	return true
 
@@ -180,6 +187,7 @@ func wait() -> bool:
 		return false
 	_begin_tick()
 	_log("The party waits.")
+	_emit({"type": "wait"})
 	_advance(null)
 	return true
 
@@ -193,6 +201,7 @@ func heal(c: CompanionUnit, amount: int) -> void:
 	if c.is_injured() and c.hp > 0:
 		c.state = CompanionUnit.State.ACTIVE
 		_log("%s is back on their feet (%d HP)." % [c.display_name, c.hp])
+		_emit({"type": "revived", "target": c})
 
 
 # ---------------------------------------------------------------- enemy side (public for tests)
@@ -209,12 +218,14 @@ func pick_next_action(e: EnemyUnit) -> void:
 	var action := actions[_weighted_index(weights)]
 	e.pending_action = action
 	e.countdown = maxi(BattleConfig.MIN_ACTION_COUNTDOWN, action.countdown)
+	_emit({"type": "intent", "enemy": e})
 
 
 func perform_enemy_action(e: EnemyUnit, action: EnemyActionData) -> void:
 	if action == null:
 		return
 	_log("%s uses %s." % [e.display_name, action.display_name])
+	_emit({"type": "enemy_action", "enemy": e, "action": action})
 	match action.targeting:
 		EnemyActionData.Targeting.SELF:
 			if action.effect != null:
@@ -244,6 +255,7 @@ func _is_valid_target(target: EnemyUnit) -> bool:
 
 func _begin_tick() -> void:
 	tick += 1
+	events.clear()
 	_log("== Tick %d ==" % tick)
 
 
@@ -255,8 +267,11 @@ func _end_player_action(c: CompanionUnit, recovery: int) -> void:
 func _advance(acted: CompanionUnit) -> void:
 	if _check_end():
 		return
+	var countdowns := {}
 	for e in living_enemies():
 		e.countdown -= 1
+		countdowns[e] = e.countdown
+	_emit({"type": "countdown", "countdowns": countdowns})
 	for e in enemies:
 		if e.is_alive() and e.countdown <= 0:
 			perform_enemy_action(e, e.pending_action)
@@ -277,13 +292,16 @@ func _companion_strike(c: CompanionUnit, target: EnemyUnit, use_skill_bonus: boo
 	var f := forecast(c, target, use_skill_bonus)
 	if not _roll(f.hit):
 		_log("  Miss! (%d%% to hit)" % f.hit)
+		_emit({"type": "miss", "target": target})
 		return
 	var crit := _roll(f.crit)
 	var dmg := f.crit_damage if crit else f.damage
 	target.hp -= dmg
 	_log("  %s%s takes %d damage (%d/%d HP)." % ["CRITICAL! " if crit else "", target.display_name, dmg, maxi(target.hp, 0), target.max_hp()])
+	_emit({"type": "damage", "target": target, "amount": dmg, "crit": crit, "hp": target.hp})
 	if not target.is_alive():
 		_log("  %s is defeated!" % target.display_name)
+		_emit({"type": "defeated", "target": target})
 
 
 func _enemy_strike(e: EnemyUnit, action: EnemyActionData, target: CompanionUnit) -> void:
@@ -291,6 +309,7 @@ func _enemy_strike(e: EnemyUnit, action: EnemyActionData, target: CompanionUnit)
 		var f := CombatMath.forecast(e, action.might, action.hit, 0, target)
 		if not _roll(f.hit):
 			_log("  %s dodges. (%d%% to hit)" % [target.display_name, f.hit])
+			_emit({"type": "miss", "target": target})
 			return
 		var crit := _roll(f.crit)
 		_damage_companion(target, f.crit_damage if crit else f.damage, crit)
@@ -303,19 +322,23 @@ func _damage_companion(c: CompanionUnit, dmg: int, crit: bool) -> void:
 	var was_injured := c.is_injured()
 	c.hp -= dmg
 	_log("  %s%s takes %d damage (%d/%d HP)." % ["CRITICAL! " if crit else "", c.display_name, dmg, c.hp, c.max_hp()])
+	_emit({"type": "damage", "target": c, "amount": dmg, "crit": crit, "hp": c.hp})
 	if was_injured:
 		c.state = CompanionUnit.State.GONE
 		c.effects.clear()
 		_log("  %s is gone!" % c.display_name)
+		_emit({"type": "gone", "target": c})
 	elif c.hp <= 0:
 		c.state = CompanionUnit.State.INJURED
 		_log("  %s is injured!" % c.display_name)
+		_emit({"type": "injured", "target": c})
 
 
 func _apply_effect(unit: Combatant, data: StatusEffectData) -> void:
 	var effect := StatusEffect.from_data(data)
 	unit.add_effect(effect)
 	_log("  %s gains %s." % [unit.display_name, effect.describe()])
+	_emit({"type": "effect", "target": unit, "name": effect.display_name})
 
 
 ## Returns true if the battle is over (and sets outcome on the first call that sees it).
@@ -362,3 +385,7 @@ func _weighted_index(weights: Array[float]) -> int:
 
 func _log(text: String) -> void:
 	log_lines.append(text)
+
+
+func _emit(event: Dictionary) -> void:
+	events.append(event)

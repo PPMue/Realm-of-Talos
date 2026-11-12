@@ -31,6 +31,7 @@ func _init() -> void:
 		test_defeat_no_companions_left,
 		test_defeat_all_injured,
 		test_skill_costs_stamina_and_focus_restores,
+		test_events_record_the_tick,
 		test_prototype_data_simulation,
 	]
 	for t in tests:
@@ -191,6 +192,26 @@ func test_weight_penalty() -> void:
 
 
 # ---------------------------------------------------------------- countdowns
+
+## The UI plays a tick back from Battle.events, so their order and reset matter.
+func test_events_record_the_tick() -> void:
+	var acts: Array[EnemyActionData] = [make_action("Poke", 1)]
+	var b := make_battle(three_companions(100), one_enemy(make_enemy("E", acts)))
+	b.guard(b.roster[0])
+	var types: Array[String] = []
+	for ev in b.events:
+		types.append(str(ev.type))
+	for wanted: String in ["guard", "countdown", "enemy_action", "intent"]:
+		check(types.has(wanted), "tick events include %s" % wanted)
+	check(types.find("guard") < types.find("countdown"), "player action comes before the countdown drop")
+	check(types.find("countdown") < types.find("enemy_action"), "countdown drop comes before the enemy acts")
+	check(types.find("enemy_action") < types.rfind("intent"), "the next intent is revealed after the enemy acts")
+	b.focus(b.roster[1])
+	types.clear()
+	for ev in b.events:
+		types.append(str(ev.type))
+	check(types.has("focus") and not types.has("guard"), "events are cleared at the start of each tick")
+
 
 func test_countdown_ticks_and_repicks() -> void:
 	var acts: Array[EnemyActionData] = [make_action("Poke", 3)]

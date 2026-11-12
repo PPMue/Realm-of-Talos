@@ -5,6 +5,8 @@ extends Resource
 @export var display_name: String = ""
 @export var portrait: Texture2D
 @export var color: Color = Color.GRAY
+## Where the face is in the portrait art (0-1 on each axis); the UI crops around it.
+@export var portrait_focus: Vector2 = Vector2(0.5, 0.2)
 
 @export_group("Stats")
 @export var max_hp: int = 20

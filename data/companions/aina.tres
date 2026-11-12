@@ -9,6 +9,7 @@ script = ExtResource("2_a05xp")
 display_name = "Aina"
 portrait = ExtResource("1_cvger")
 color = Color(0.7, 0.2, 0.2, 1)
+portrait_focus = Vector2(0.534, 0.216)
 max_hp = 26
 strength = 8
 magic = 2

@@ -9,6 +9,7 @@ script = ExtResource("2_4m3k1")
 display_name = "Ingrid"
 portrait = ExtResource("1_t8c8j")
 color = Color(0.15, 0.5, 0.4, 1)
+portrait_focus = Vector2(0.453, 0.184)
 max_hp = 27
 strength = 9
 magic = 2

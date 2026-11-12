@@ -55,6 +55,7 @@ script = ExtResource("4_x3si0")
 display_name = "Goblin Thief"
 portrait = ExtResource("3_ooh7f")
 color = Color(0.45, 0.4, 0.2, 1)
+stage_scale = 0.86
 max_hp = 40
 strength = 10
 magic = 2

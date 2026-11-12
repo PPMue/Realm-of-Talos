@@ -5,6 +5,8 @@ extends Resource
 @export var display_name: String = ""
 @export var portrait: Texture2D
 @export var color: Color = Color.DARK_RED
+## How large the art stands on the battle stage relative to a normal-sized enemy.
+@export var stage_scale: float = 1.0
 
 @export_group("Stats")
 @export var max_hp: int = 20
