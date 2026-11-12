@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="BattleSetup" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/companion_data.gd" id="1_huu5b"]
+[ext_resource type="Resource" path="res://data/companions/elena.tres" id="2_g21tx"]
+[ext_resource type="Resource" path="res://data/companions/aina.tres" id="3_kkgld"]
+[ext_resource type="Resource" path="res://data/companions/erik.tres" id="4_mh6l6"]
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="5_6lpve"]
+[ext_resource type="Resource" path="res://data/enemies/orc.tres" id="6_rg6fw"]
+[ext_resource type="Resource" path="res://data/enemies/goblin_thief.tres" id="7_3due8"]
+[ext_resource type="Script" path="res://scripts/data/battle_setup.gd" id="8_l4qrv"]
+
+[resource]
+script = ExtResource("8_l4qrv")
+companions = Array[ExtResource("1_huu5b")]([ExtResource("2_g21tx"), ExtResource("3_kkgld"), ExtResource("4_mh6l6")])
+enemies = Array[ExtResource("5_6lpve")]([ExtResource("6_rg6fw"), ExtResource("7_3due8")])

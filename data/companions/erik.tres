@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="CompanionData" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/character/erik.png" id="1_4f0ir"]
+[ext_resource type="Script" path="res://scripts/data/companion_data.gd" id="2_wfi8r"]
+[ext_resource type="Resource" path="res://data/weapons/iron_bow.tres" id="3_ktahn"]
+
+[resource]
+script = ExtResource("2_wfi8r")
+display_name = "Erik"
+portrait = ExtResource("1_4f0ir")
+color = Color(0.3, 0.45, 0.25, 1)
+max_hp = 22
+strength = 7
+magic = 3
+crit = 7
+dexterity = 11
+speed = 8
+resistance = 5
+luck = 5
+weapon = ExtResource("3_ktahn")

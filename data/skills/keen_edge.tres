@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="SkillData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/skill_data.gd" id="1_nouir"]
+
+[resource]
+script = ExtResource("1_nouir")
+display_name = "Keen Edge"
+description = "A precise cut at a weak point."
+stamina_cost = 8
+might_bonus = 3
+hit_bonus = 10
+crit_bonus = 15

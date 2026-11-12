@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="CompanionData" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/character/aina.png" id="1_cvger"]
+[ext_resource type="Script" path="res://scripts/data/companion_data.gd" id="2_a05xp"]
+[ext_resource type="Resource" path="res://data/weapons/iron_sword.tres" id="3_rxjye"]
+
+[resource]
+script = ExtResource("2_a05xp")
+display_name = "Aina"
+portrait = ExtResource("1_cvger")
+color = Color(0.7, 0.2, 0.2, 1)
+max_hp = 26
+strength = 8
+magic = 2
+crit = 8
+dexterity = 10
+speed = 10
+defense = 6
+resistance = 3
+luck = 6
+build = 6
+weapon = ExtResource("3_rxjye")

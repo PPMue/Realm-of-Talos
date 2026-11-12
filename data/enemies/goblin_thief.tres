@@ -1,0 +1,67 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_action_data.gd" id="1_7ukbm"]
+[ext_resource type="Script" path="res://scripts/data/status_effect_data.gd" id="2_50c7f"]
+[ext_resource type="Texture2D" path="res://assets/enemy/goblin-thief.png" id="3_ooh7f"]
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="4_x3si0"]
+
+[sub_resource type="Resource" id="Resource_s7voq"]
+script = ExtResource("1_7ukbm")
+display_name = "Stab"
+pick_weight = 3.0
+might = 4
+hit = 90
+
+[sub_resource type="Resource" id="Resource_stsnd"]
+script = ExtResource("1_7ukbm")
+display_name = "Fire Bomb"
+targeting = 1
+countdown = 4
+pick_weight = 2.0
+might = 5
+
+[sub_resource type="Resource" id="Resource_aua6b"]
+script = ExtResource("2_50c7f")
+display_name = "Take Cover"
+damage_taken_mult = 0.5
+
+[sub_resource type="Resource" id="Resource_n2jib"]
+script = ExtResource("1_7ukbm")
+display_name = "Take Cover"
+intent = 1
+targeting = 2
+deals_damage = false
+hit = 0
+effect = SubResource("Resource_aua6b")
+
+[sub_resource type="Resource" id="Resource_2uqag"]
+script = ExtResource("2_50c7f")
+display_name = "Blinded"
+stat_mods = {
+"DEX": -4
+}
+
+[sub_resource type="Resource" id="Resource_3jau8"]
+script = ExtResource("1_7ukbm")
+display_name = "Pocket Sand"
+intent = 3
+countdown = 3
+deals_damage = false
+hit = 0
+effect = SubResource("Resource_2uqag")
+
+[resource]
+script = ExtResource("4_x3si0")
+display_name = "Goblin Thief"
+portrait = ExtResource("3_ooh7f")
+color = Color(0.45, 0.4, 0.2, 1)
+max_hp = 40
+strength = 10
+magic = 2
+crit = 2
+dexterity = 9
+speed = 11
+defense = 2
+resistance = 3
+luck = 4
+actions = Array[ExtResource("1_7ukbm")]([SubResource("Resource_s7voq"), SubResource("Resource_stsnd"), SubResource("Resource_n2jib"), SubResource("Resource_3jau8")])

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="SkillData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/skill_data.gd" id="1_mi0kl"]
+
+[resource]
+script = ExtResource("1_mi0kl")
+display_name = "Aimed Shot"
+description = "A carefully drawn shot."
+stamina_cost = 8
+might_bonus = 4
+crit_bonus = 10

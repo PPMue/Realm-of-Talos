@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="CompanionData" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/character/ingrid.png" id="1_t8c8j"]
+[ext_resource type="Script" path="res://scripts/data/companion_data.gd" id="2_4m3k1"]
+[ext_resource type="Resource" path="res://data/weapons/iron_spear.tres" id="3_03pa1"]
+
+[resource]
+script = ExtResource("2_4m3k1")
+display_name = "Ingrid"
+portrait = ExtResource("1_t8c8j")
+color = Color(0.15, 0.5, 0.4, 1)
+max_hp = 27
+strength = 9
+magic = 2
+crit = 5
+dexterity = 8
+speed = 7
+defense = 6
+resistance = 3
+luck = 4
+build = 7
+weapon = ExtResource("3_03pa1")

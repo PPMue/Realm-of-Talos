@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="WeaponData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_data.gd" id="1_j885c"]
+[ext_resource type="Resource" path="res://data/skills/backstab.tres" id="2_4fni0"]
+
+[resource]
+script = ExtResource("1_j885c")
+weapon_type = 4
+might = 3
+hit = 95
+skill = ExtResource("2_4fni0")
+display_name = "Iron Dagger"
+weight = 2
