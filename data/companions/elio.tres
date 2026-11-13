@@ -1,0 +1,40 @@
+[gd_resource type="Resource" script_class="CompanionData" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/character/elio.png" id="1_art"]
+[ext_resource type="Script" path="res://scripts/data/companion_data.gd" id="2_script"]
+[ext_resource type="Resource" path="res://data/weapons/iron_dagger.tres" id="3_weapon"]
+[ext_resource type="Resource" path="res://data/spells/white/ward.tres" id="4_spell"]
+
+[resource]
+script = ExtResource("2_script")
+display_name = "Elio"
+portrait = ExtResource("1_art")
+color = Color(0.9, 0.8, 0.5, 1)
+portrait_focus = Vector2(0.478, 0.209)
+figure_scale = 0.8
+max_hp = 17
+max_sta = 25
+strength = 2
+magic = 9
+crit = 3
+dexterity = 7
+speed = 9
+defense = 1
+resistance = 6
+luck = 10
+build = 3
+weapon = ExtResource("3_weapon")
+start_grade_white = 3
+signature_spell = ExtResource("4_spell")
+growths = {
+"HP": 30,
+"STA": 45,
+"STR": 5,
+"MAG": 70,
+"CRT": 25,
+"DEX": 40,
+"SPD": 50,
+"DEF": 10,
+"RES": 50,
+"LCK": 65
+}

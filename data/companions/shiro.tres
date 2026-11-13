@@ -1,0 +1,41 @@
+[gd_resource type="Resource" script_class="CompanionData" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/character/shiro.png" id="1_art"]
+[ext_resource type="Script" path="res://scripts/data/companion_data.gd" id="2_script"]
+[ext_resource type="Resource" path="res://data/weapons/iron_dagger.tres" id="3_weapon"]
+[ext_resource type="Resource" path="res://data/arts/dagger/venom_edge.tres" id="4_sig"]
+
+[resource]
+script = ExtResource("2_script")
+display_name = "Shiro"
+portrait = ExtResource("1_art")
+color = Color(0.5, 0.3, 0.65, 1)
+portrait_focus = Vector2(0.358, 0.146)
+figure_scale = 1.05
+max_hp = 25
+max_sta = 30
+strength = 8
+magic = 2
+crit = 6
+dexterity = 11
+speed = 9
+defense = 5
+resistance = 4
+luck = 4
+build = 6
+weapon = ExtResource("3_weapon")
+start_grade_sword = 1
+start_grade_dagger = 2
+signature_art = ExtResource("4_sig")
+growths = {
+"HP": 55,
+"STA": 40,
+"STR": 50,
+"MAG": 15,
+"CRT": 35,
+"DEX": 60,
+"SPD": 45,
+"DEF": 35,
+"RES": 30,
+"LCK": 30
+}

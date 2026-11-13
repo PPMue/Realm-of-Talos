@@ -1,0 +1,40 @@
+[gd_resource type="Resource" script_class="CompanionData" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/character/kaito.png" id="1_art"]
+[ext_resource type="Script" path="res://scripts/data/companion_data.gd" id="2_script"]
+[ext_resource type="Resource" path="res://data/weapons/iron_sword.tres" id="3_weapon"]
+[ext_resource type="Resource" path="res://data/arts/sword/twin_cut.tres" id="4_sig"]
+
+[resource]
+script = ExtResource("2_script")
+display_name = "Kaito"
+portrait = ExtResource("1_art")
+color = Color(0.7, 0.15, 0.2, 1)
+portrait_focus = Vector2(0.438, 0.279)
+figure_scale = 1.25
+max_hp = 22
+max_sta = 30
+strength = 10
+magic = 1
+crit = 12
+dexterity = 9
+speed = 9
+defense = 3
+resistance = 2
+luck = 2
+build = 6
+weapon = ExtResource("3_weapon")
+start_grade_sword = 3
+signature_art = ExtResource("4_sig")
+growths = {
+"HP": 40,
+"STA": 50,
+"STR": 60,
+"MAG": 5,
+"CRT": 65,
+"DEX": 55,
+"SPD": 55,
+"DEF": 20,
+"RES": 20,
+"LCK": 15
+}

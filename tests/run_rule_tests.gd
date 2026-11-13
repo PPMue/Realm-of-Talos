@@ -695,7 +695,7 @@ func test_event_choices() -> void:
 
 func test_run_content() -> void:
 	var rc := content()
-	t.eq(rc.companions.size(), 7, "five fighters and two mages")
+	t.eq(rc.companions.size(), 14, "ten fighters and four mages")
 	t.eq(rc.bosses.size(), 9, "nine bosses, three for each boss day")
 	for d in range(1, RunConfig.DAYS + 1):
 		for danger in [1, 2, 3]:

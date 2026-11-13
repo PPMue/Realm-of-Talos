@@ -1,0 +1,41 @@
+[gd_resource type="Resource" script_class="CompanionData" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/character/sylas.png" id="1_art"]
+[ext_resource type="Script" path="res://scripts/data/companion_data.gd" id="2_script"]
+[ext_resource type="Resource" path="res://data/weapons/iron_dagger.tres" id="3_weapon"]
+[ext_resource type="Resource" path="res://data/spells/black/frost_needle.tres" id="4_spell"]
+
+[resource]
+script = ExtResource("2_script")
+display_name = "Sylas"
+portrait = ExtResource("1_art")
+color = Color(0.25, 0.6, 0.5, 1)
+portrait_focus = Vector2(0.539, 0.119)
+figure_scale = 1.25
+max_hp = 24
+max_sta = 25
+strength = 4
+magic = 8
+crit = 4
+dexterity = 10
+speed = 6
+defense = 4
+resistance = 9
+luck = 4
+build = 6
+weapon = ExtResource("3_weapon")
+start_grade_black = 2
+start_grade_white = 1
+signature_spell = ExtResource("4_spell")
+growths = {
+"HP": 50,
+"STA": 35,
+"STR": 15,
+"MAG": 55,
+"CRT": 25,
+"DEX": 55,
+"SPD": 30,
+"DEF": 30,
+"RES": 60,
+"LCK": 35
+}

@@ -1,0 +1,41 @@
+[gd_resource type="Resource" script_class="CompanionData" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/character/raizen.png" id="1_art"]
+[ext_resource type="Script" path="res://scripts/data/companion_data.gd" id="2_script"]
+[ext_resource type="Resource" path="res://data/weapons/iron_spear.tres" id="3_weapon"]
+[ext_resource type="Resource" path="res://data/arts/spear/brace.tres" id="4_sig"]
+
+[resource]
+script = ExtResource("2_script")
+display_name = "Raizen"
+portrait = ExtResource("1_art")
+color = Color(0.2, 0.35, 0.7, 1)
+portrait_focus = Vector2(0.5, 0.282)
+figure_scale = 1.2
+max_hp = 23
+max_sta = 30
+strength = 7
+magic = 1
+crit = 7
+dexterity = 10
+speed = 11
+defense = 4
+resistance = 3
+luck = 5
+build = 8
+weapon = ExtResource("3_weapon")
+start_grade_spear = 2
+start_grade_bow = 1
+signature_art = ExtResource("4_sig")
+growths = {
+"HP": 45,
+"STA": 50,
+"STR": 45,
+"MAG": 10,
+"CRT": 45,
+"DEX": 55,
+"SPD": 55,
+"DEF": 25,
+"RES": 30,
+"LCK": 35
+}

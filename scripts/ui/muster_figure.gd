@@ -204,6 +204,8 @@ func _draw_art(tint: Color, rail: float) -> void:
 	var art := Vector2(h * ts.x / maxf(1.0, ts.y), h)
 	var face := Vector2(size.x * 0.5, BENCH_FACE_Y if _bench else FACE_Y)
 	var top_left := face - companion.data.portrait_focus * art
+	# Someone short stands on the floor behind the rail, not in the air above it.
+	top_left.y = maxf(top_left.y, rail - art.y)
 	var shown := clampf((rail - top_left.y) / art.y, 0.0, 1.0)
 	draw_texture_rect_region(tex, Rect2(top_left, Vector2(art.x, art.y * shown)), Rect2(0, 0, ts.x, ts.y * shown), tint)
 

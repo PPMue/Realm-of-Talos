@@ -1,0 +1,41 @@
+[gd_resource type="Resource" script_class="CompanionData" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/character/koharu.png" id="1_art"]
+[ext_resource type="Script" path="res://scripts/data/companion_data.gd" id="2_script"]
+[ext_resource type="Resource" path="res://data/weapons/iron_bow.tres" id="3_weapon"]
+[ext_resource type="Resource" path="res://data/arts/bow/pinning_shot.tres" id="4_sig"]
+
+[resource]
+script = ExtResource("2_script")
+display_name = "Koharu"
+portrait = ExtResource("1_art")
+color = Color(0.85, 0.65, 0.35, 1)
+portrait_focus = Vector2(0.336, 0.249)
+figure_scale = 1.15
+max_hp = 19
+max_sta = 25
+strength = 5
+magic = 2
+crit = 5
+dexterity = 9
+speed = 11
+defense = 3
+resistance = 6
+luck = 9
+build = 5
+weapon = ExtResource("3_weapon")
+start_grade_bow = 2
+start_grade_dagger = 1
+signature_art = ExtResource("4_sig")
+growths = {
+"HP": 40,
+"STA": 50,
+"STR": 35,
+"MAG": 20,
+"CRT": 35,
+"DEX": 45,
+"SPD": 60,
+"DEF": 20,
+"RES": 40,
+"LCK": 60
+}

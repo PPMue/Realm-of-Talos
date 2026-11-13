@@ -96,6 +96,13 @@
 [ext_resource type="Resource" path="res://data/run/groups/rotting_skies.tres" id="fly2"]
 [ext_resource type="Resource" path="res://data/companions/aveline.tres" id="mage0"]
 [ext_resource type="Resource" path="res://data/companions/freya.tres" id="mage1"]
+[ext_resource type="Resource" path="res://data/companions/asterion.tres" id="comp_asterion"]
+[ext_resource type="Resource" path="res://data/companions/kaito.tres" id="comp_kaito"]
+[ext_resource type="Resource" path="res://data/companions/koharu.tres" id="comp_koharu"]
+[ext_resource type="Resource" path="res://data/companions/raizen.tres" id="comp_raizen"]
+[ext_resource type="Resource" path="res://data/companions/shiro.tres" id="comp_shiro"]
+[ext_resource type="Resource" path="res://data/companions/elio.tres" id="comp_elio"]
+[ext_resource type="Resource" path="res://data/companions/sylas.tres" id="comp_sylas"]
 [ext_resource type="Resource" path="res://data/run/shop/whisper_fang.tres" id="mw0"]
 [ext_resource type="Resource" path="res://data/run/shop/emberglass_sword.tres" id="mw1"]
 [ext_resource type="Resource" path="res://data/run/shop/moonthread_bow.tres" id="mw2"]
@@ -103,7 +110,7 @@
 
 [resource]
 script = ExtResource("36_u1xmb")
-companions = Array[ExtResource("5_6xlu8")]([ExtResource("6_64ssa"), ExtResource("7_7165y"), ExtResource("8_g12j4"), ExtResource("9_i7ch2"), ExtResource("10_vu134"), ExtResource("mage0"), ExtResource("mage1")])
+companions = Array[ExtResource("5_6xlu8")]([ExtResource("6_64ssa"), ExtResource("7_7165y"), ExtResource("8_g12j4"), ExtResource("9_i7ch2"), ExtResource("10_vu134"), ExtResource("mage0"), ExtResource("mage1"), ExtResource("comp_asterion"), ExtResource("comp_kaito"), ExtResource("comp_koharu"), ExtResource("comp_raizen"), ExtResource("comp_shiro"), ExtResource("comp_elio"), ExtResource("comp_sylas")])
 sites = Array[ExtResource("53_ty18x")]([ExtResource("54_ivjjd"), ExtResource("55_47mqp"), ExtResource("56_phhbp"), ExtResource("57_fdmxj"), ExtResource("58_v2we7"), ExtResource("59_jhpo8"), ExtResource("60_hp1g4")])
 groups = Array[ExtResource("1_ny5wk")]([ExtResource("19_vr6g6"), ExtResource("20_sjhgu"), ExtResource("21_aiqqi"), ExtResource("22_idulu"), ExtResource("23_sh0cw"), ExtResource("24_nmcoe"), ExtResource("25_nsiy6"), ExtResource("26_i0aot"), ExtResource("27_gie27"), ExtResource("28_3pir8"), ExtResource("29_lxoi7"), ExtResource("30_61rpm"), ExtResource("31_tlae4"), ExtResource("32_gkulx"), ExtResource("33_fm5n1"), ExtResource("34_now7c"), ExtResource("35_3j4fk"), ExtResource("fly0"), ExtResource("fly1"), ExtResource("fly2"), ExtResource("48_apir0"), ExtResource("49_dboa5"), ExtResource("50_6eykm"), ExtResource("51_7oudm"), ExtResource("52_ty18x"), ExtResource("53_ivjjd"), ExtResource("54_47mqp"), ExtResource("55_phhbp"), ExtResource("56_fdmxj"), ExtResource("57_v2we7"), ExtResource("58_jhpo8"), ExtResource("59_hp1g4"), ExtResource("60_y08g5"), ExtResource("61_01awq"), ExtResource("62_rvtt3"), ExtResource("63_0u640"), ExtResource("64_pwty6"), ExtResource("65_qbdcj"), ExtResource("66_jjp6m"), ExtResource("67_urggs"), ExtResource("68_3gxv8"), ExtResource("69_qgdso"), ExtResource("70_tsw85"), ExtResource("71_ux8ht")])
 bosses = Array[ExtResource("1_ny5wk")]([ExtResource("2_b5hu8"), ExtResource("3_483ua"), ExtResource("4_qyg4j"), ExtResource("5_ybdeg"), ExtResource("4_3372o"), ExtResource("7_gl5td"), ExtResource("8_20mlb"), ExtResource("9_vnit3"), ExtResource("10_gjj8i")])
