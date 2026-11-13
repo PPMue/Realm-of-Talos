@@ -1,7 +1,8 @@
 class_name BattleResult
 extends Control
 ## After a battle, over the field, in three beats:
-##   1. won or lost and what it gave or cost, with the company in a row and their XP bars filling;
+##   1. won or lost and what it gave or cost, with the company in a row and their XP bars filling,
+##      each by their own share (a skull for every enemy they felled, gold marks for whoever did most);
 ##   2. one LevelUpPanel for every level gained, the stats coming up one at a time;
 ##   3. the company again, and the way back.
 ## A click, Space or Enter moves it on (advance()). It only reads the report; the run has already
@@ -68,8 +69,9 @@ func _notification(what: int) -> void:
 		_layout()
 
 
-## Shows what `report` says about a battle fought by `roster`.
-func open(report: BattleReport, roster: Array[CompanionUnit]) -> void:
+## Shows what `report` says about a battle fought by `roster`. `battle`, when given, is asked who
+## felled how many.
+func open(report: BattleReport, roster: Array[CompanionUnit], battle: Battle = null) -> void:
 	_generation += 1
 	_won = report.won
 	_rewards.clear()
@@ -94,8 +96,16 @@ func open(report: BattleReport, roster: Array[CompanionUnit]) -> void:
 		child.queue_free()
 	_queue.clear()
 	_next = 0
+	# Whoever did the most, when one companion stands out.
+	var best := 0
+	var shared := false
 	for c in roster:
-		_cards.add_child(_card_for(c, report))
+		var p := report.points_of(c.display_name)
+		shared = p == best if p >= best else shared
+		best = maxi(best, p)
+	for c in roster:
+		var foremost := report.won and best > 0 and not shared and report.points_of(c.display_name) == best
+		_cards.add_child(_card_for(c, report, battle.kills_of(c) if battle != null else 0, foremost))
 	_button.text = "Continue" if report.run_over else "Back to the city"
 	_button.visible = false
 	_hint.visible = false
@@ -173,7 +183,7 @@ func _finish() -> void:
 
 
 ## The card of one companion, and their level-ups added to the queue.
-func _card_for(c: CompanionUnit, report: BattleReport) -> SpoilsCard:
+func _card_for(c: CompanionUnit, report: BattleReport, kills: int, foremost: bool) -> SpoilsCard:
 	var who := c.display_name
 	var ups: Array[Dictionary] = []
 	for up in report.level_ups:
@@ -229,8 +239,17 @@ func _card_for(c: CompanionUnit, report: BattleReport) -> SpoilsCard:
 				learned.append((g.spell as SpellData).display_name)
 
 	var card := SpoilsCard.new()
-	card.setup(c.data, who, level_before, level_after, xp_before, c.progress.xp, gained, lines, learned, status)
+	card.setup(c.data, who, level_before, level_after, xp_before, c.progress.xp, gained, lines, learned, status, kills, foremost)
 	var tip := "%s, level %d" % [who, level_after]
+	if gained > 0:
+		tip += "
++%d XP of the %d shared out: a quarter evenly, the rest by what each did." % [gained, report.xp_total()]
+	if kills > 0:
+		tip += "
+Felled %d." % kills
+	if foremost:
+		tip += "
+Did the most in this fight."
 	if not ups.is_empty():
 		var all := {}
 		for up in ups:

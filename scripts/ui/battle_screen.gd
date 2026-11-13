@@ -786,7 +786,7 @@ func _play_big_banner() -> void:
 ## shown stat by stat (see BattleResult).
 func show_report(report: BattleReport) -> void:
 	inspect(null)
-	_overlay.open(report, battle.roster)
+	_overlay.open(report, battle.roster, battle)
 
 
 ## Result screen button: back to whoever started the battle.

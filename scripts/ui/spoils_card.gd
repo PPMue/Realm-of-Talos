@@ -2,7 +2,9 @@ class_name SpoilsCard
 extends Control
 ## One companion after a battle: their face, their level with the XP bar filling by what the battle
 ## gave (the level number turns over each time the bar fills), and how far their weapon and magic
-## grades came. Hurt or lost is written across the face. The details are in the tooltip.
+## grades came. XP is shared by what each did, so the card also shows it: a skull on the face for every
+## enemy they felled, and gold marks beside the name of whoever did the most. Hurt or lost is written
+## across the face. The details are in the tooltip.
 
 const W := 244.0
 const H := 392.0
@@ -21,6 +23,8 @@ var _xp_gained := 0
 var _lines: Array = []
 var _learned: Array[String] = []
 var _status := ""
+var _kills := 0
+var _foremost := false
 ## XP of this battle counted in so far.
 var _shown := 0.0
 var _tween: Tween
@@ -45,7 +49,9 @@ func _init() -> void:
 
 ## `status`: "" or "INJURED" or "LOST".
 func setup(data: CompanionData, display_name: String, level_before: int, level_after: int, xp_before: int, xp_after: int, xp_gained: int,
-		lines: Array, learned: Array[String], status: String) -> void:
+		lines: Array, learned: Array[String], status: String, kills: int = 0, foremost: bool = false) -> void:
+	_kills = kills
+	_foremost = foremost
 	_name = display_name
 	_level_before = level_before
 	_level_after = level_after
@@ -113,7 +119,12 @@ func _draw() -> void:
 	var italic := UiTheme.italic_font()
 	var lost := _status == "LOST"
 	var y := PAD + PORTRAIT_H + 8.0
-	UiTheme.draw_text(self, display, Vector2(0, y), _name, 27, UiTheme.MUTED if lost else UiTheme.TEXT, 4, W, HORIZONTAL_ALIGNMENT_CENTER)
+	var name_ink := UiTheme.MUTED if lost else (UiTheme.GOLD if _foremost else UiTheme.TEXT)
+	UiTheme.draw_text(self, display, Vector2(0, y), _name, 27, name_ink, 4, W, HORIZONTAL_ALIGNMENT_CENTER)
+	if _foremost:
+		var half := display.get_string_size(_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 27).x * 0.5 + 16.0
+		for side: float in [-1.0, 1.0]:
+			UiIcons.diamond(self, Vector2(W * 0.5 + side * half, y + 19.0), 5.0, UiTheme.GOLD)
 	y += 36.0
 	UiTheme.draw_text(self, italic, Vector2(0, y), "Level %d" % st.x, 20, UiTheme.GOLD if rose else UiTheme.MUTED, 0, W,
 		HORIZONTAL_ALIGNMENT_CENTER)
@@ -126,12 +137,12 @@ func _draw() -> void:
 	else:
 		draw_rect(bar, UiTheme.GOLD_DEEP)
 	draw_rect(bar, Color(UiTheme.EDGE, 0.9), false, 1.0)
-	y += 16.0
+	y += 15.0
 	if _xp_gained > 0:
-		UiTheme.draw_text(self, body, Vector2(20.0, y), "+%d XP" % int(floor(_shown)), 15, UiTheme.GOLD)
-	UiTheme.draw_text(self, body, Vector2(20.0, y), "top level" if st.z == 0 else "%d / %d" % [st.y, st.z], 15, UiTheme.MUTED, 0, W - 40.0,
+		UiTheme.draw_text(self, display, Vector2(20.0, y), "+%d XP" % int(floor(_shown)), 21, UiTheme.GOLD, 3)
+	UiTheme.draw_text(self, body, Vector2(20.0, y + 5.0), "top level" if st.z == 0 else "%d / %d" % [st.y, st.z], 15, UiTheme.MUTED, 0, W - 40.0,
 		HORIZONTAL_ALIGNMENT_RIGHT)
-	y += 30.0
+	y += 33.0
 	# Grades: the name, what the battle added, and a thin line of the way to the next grade.
 	for line: Dictionary in _lines:
 		var ink := UiTheme.GOLD if line.rose else UiTheme.TEXT.lerp(UiTheme.MUTED, 0.3)
@@ -159,6 +170,12 @@ func _draw_marks() -> void:
 		_marks.draw_rect(band, Color(UiTheme.INK, 0.86))
 		_marks.draw_rect(Rect2(0, 29.0, w, 1.5), UiTheme.GOLD)
 		UiTheme.draw_text(_marks, display, Vector2(0, 3.0), "LEVEL UP", 19, UiTheme.GOLD, 0, w, HORIZONTAL_ALIGNMENT_CENTER)
+	# A skull for every enemy they felled, along the foot of the face.
+	var foot := _marks.size.y - (32.0 if _status != "" else 0.0)
+	for i in _kills:
+		var at := Vector2(18.0 + i * 28.0, foot - 18.0)
+		_marks.draw_circle(at, 13.0, Color(UiTheme.INK, 0.82))
+		UiIcons.skull(_marks, at, 17.0, UiTheme.TEXT)
 	if _status != "":
 		var color := UiTheme.INJURED if _status == "INJURED" else UiTheme.MUTED
 		var band := Rect2(0, _marks.size.y - 32.0, w, 32.0)
