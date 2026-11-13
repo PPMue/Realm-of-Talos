@@ -135,17 +135,27 @@ func toggle_fielded() -> void:
 func place(c: RunCompanion, index: int) -> void:
 	if c == null or not run.can_change_party():
 		return
-	if index < 0:
-		run.bench(c)
-	elif run.is_fielded(c):
-		run.move_in_line(c, index)
-	elif run.lineup.size() < RunConfig.MAX_FIELDED:
-		run.field(c, index)
-	elif index < run.lineup.size():
-		run.bench(run.lineup[index])
-		run.field(c, index)
+	set_down(run, c, index)
 	_selected = c
 	refresh()
+
+
+## The rule behind place(), shared with the war table: `c` goes to place `index` of the line (0 = the
+## rear) or to the bench (-1). From the bench onto a full line they change places with whoever stood
+## there. Returns whether anything changed.
+static func set_down(r: Run, c: RunCompanion, index: int) -> bool:
+	if c == null or not r.can_change_party():
+		return false
+	if index < 0:
+		return r.bench(c)
+	if r.is_fielded(c):
+		return r.move_in_line(c, index)
+	if r.lineup.size() < RunConfig.MAX_FIELDED:
+		return r.field(c, index)
+	if index < r.lineup.size():
+		r.bench(r.lineup[index])
+		return r.field(c, index)
+	return false
 
 
 func equip(w: OwnedWeapon) -> void:
