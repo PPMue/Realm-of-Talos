@@ -256,25 +256,25 @@ func test_scavenge_chance_arithmetic() -> void:
 		set_stat(a, Stat.SPD, case[0])
 		t.eq(run.scavenge_slot_score(site, 0, a), case[1], "SPD %d against 10 scores %d" % case)
 	t.eq(run.scavenge_slot_score(site, 0, null), -30, "an empty place -30")
-	# Low risk: 75 + the average.
+	# Low risk: 60 + the average.
 	set_stat(a, Stat.SPD, 10)   # +15
 	set_stat(b, Stat.STR, 9)    # -6
-	t.eq(run.scavenge_chance(site, [a, b]), 75 + roundi(4.5), "75 + (15 - 6) / 2, rounded")
-	t.eq(run.scavenge_chance(site, [a]), 75 + roundi(-7.5), "a missing place counts as empty")
-	t.eq(run.scavenge_chance(site, [a, null]), 75 + roundi(-7.5), "and so does a null")
+	t.eq(run.scavenge_chance(site, [a, b]), 60 + roundi(4.5), "60 + (15 - 6) / 2, rounded")
+	t.eq(run.scavenge_chance(site, [a]), 60 + roundi(-7.5), "a missing place counts as empty")
+	t.eq(run.scavenge_chance(site, [a, null]), 60 + roundi(-7.5), "and so does a null")
 	set_stat(a, Stat.SPD, 20)
 	set_stat(b, Stat.STR, 20)
-	t.eq(run.scavenge_chance(site, [a, b]), 95, "75 + 30 clamped to 95")
-	# High risk: 45 + the average, at least 25.
+	t.eq(run.scavenge_chance(site, [a, b]), 90, "60 + 30: the most a low-risk site gives")
+	# High risk: 30 + the average, at least 25.
 	var high := make_site(run, ScavengeSite.Risk.HIGH, [Stat.SPD, Stat.STR] as Array[String], [10, 10] as Array[int])
-	t.eq(run.scavenge_chance(high, [a, b]), 75, "45 + 30")
-	t.eq(run.scavenge_chance(high, []), 25, "45 - 30 clamped to 25")
+	t.eq(run.scavenge_chance(high, [a, b]), 60, "30 + 30")
+	t.eq(run.scavenge_chance(high, []), 25, "30 - 30 held to 25")
 	set_stat(a, Stat.SPD, 10)
 	set_stat(b, Stat.STR, 10)
-	t.eq(run.scavenge_chance(high, [a, b]), 60, "45 + 15")
+	t.eq(run.scavenge_chance(high, [a, b]), 45, "30 + 15")
 	var medium := make_site(run, ScavengeSite.Risk.MEDIUM, [Stat.SPD] as Array[String], [10] as Array[int])
-	t.eq(run.scavenge_chance(medium, [a]), 75, "medium: 60 + 15")
-	t.eq(RunConfig.SCAVENGE_BASE_CHANCE, [75, 60, 45] as Array[int], "bases 75 / 60 / 45")
+	t.eq(run.scavenge_chance(medium, [a]), 60, "medium: 45 + 15")
+	t.eq(RunConfig.SCAVENGE_BASE_CHANCE, [60, 45, 30] as Array[int], "bases 60 / 45 / 30")
 
 
 func test_scavenge_block_reasons() -> void:
@@ -345,7 +345,7 @@ func test_scavenge_full_haul() -> void:
 	var run: Run = got[0]
 	var site: ScavengeSite = got[1]
 	var r: ScavengeResult = got[3]
-	t.eq(r.chance, 45 + roundi((15 - 18) / 2.0), "the chance shown")
+	t.eq(r.chance, 30 + roundi((15 - 18) / 2.0), "the chance shown")
 	t.check(r.roll <= r.chance, "the roll is under it")
 	t.eq(run.gold, 50 + 101, "the whole gold")
 	t.eq(r.gold, 101, "reported")
@@ -372,7 +372,7 @@ func test_scavenge_full_haul() -> void:
 		t.check(r2.weapon_found != null, "a weapon found")
 		t.eq(run2.inventory.unheld().size(), before + 1, "into the armory")
 		found += 1
-	t.check(found > 20, "most of 40 at 95%% found one (%d)" % found)
+	t.check(found > 20, "most of 40 at 90%% found one (%d)" % found)
 	# No weapon at weapon chance 0.
 	t.check(r.weapon_found == null, "none at 0%")
 

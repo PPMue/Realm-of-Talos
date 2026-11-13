@@ -184,7 +184,7 @@ const SCAVENGE_XP_SHARE := 0.3
 ## clamped to MIN..MAX. A slot scores MEET + PER_POINT_ABOVE per point above the target (at most
 ## SLOT_MAX) when the companion meets it, else -PER_POINT_SHORT per point short (at least SLOT_MIN);
 ## an empty slot scores EMPTY.
-const SCAVENGE_BASE_CHANCE: Array[int] = [75, 60, 45]
+const SCAVENGE_BASE_CHANCE: Array[int] = [60, 45, 30]
 const SCAVENGE_MEET := 15
 const SCAVENGE_PER_POINT_ABOVE := 3
 const SCAVENGE_SLOT_MAX := 30
