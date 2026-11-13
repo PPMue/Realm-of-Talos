@@ -56,9 +56,15 @@ func _init() -> void:
 		test_art_ignores_defense,
 		test_art_debuffs_target,
 		test_art_buffs_user,
+		test_art_reflecting_stance,
+		test_art_bleed_kills_enemy,
+		test_art_stances_change_aim,
+		test_art_debuff_stacks,
+		test_art_oath_raises_damage_taken,
 		test_equip_requirement,
 		test_progress_survives_into_second_battle,
 		test_art_content,
+		test_art_counts_and_basics,
 		test_prototype_data_simulation,
 		test_prototype_progression,
 	]
@@ -1035,7 +1041,169 @@ func test_art_buffs_user() -> void:
 			break
 	var taken := make_art("Parry")
 	taken.self_effect = make_effect("Parry", {}, 2, 0.5)
-	eq(taken.effect_summary(), "User gains Parry (takes 50% less damage, 2 ticks).", "summary describes the buff")
+	eq(taken.effect_summary(), "User gains Parry (takes 50% less damage, 2 turns).", "summary describes the buff")
+
+
+func load_art(path: String) -> CombatArtData:
+	return load("res://data/arts/%s.tres" % path) as CombatArtData
+
+
+func count_events(b: Battle, type: String) -> int:
+	var n := 0
+	for ev in b.events:
+		if ev.type == type:
+			n += 1
+	return n
+
+
+func log_has(b: Battle, text: String) -> bool:
+	for line_text in b.log_lines:
+		if line_text.contains(text):
+			return true
+	return false
+
+
+## An enemy whose single physical blow (STR 10 + Mt 20) lands every tick.
+func brute(hp: int = 1000, targeting: EnemyActionData.Targeting = EnemyActionData.Targeting.SINGLE,
+		countdown: int = 1) -> EnemyData:
+	var acts: Array[EnemyActionData] = [make_action("Smash", countdown, targeting, 20)]
+	return make_enemy("Brute", acts, hp)
+
+
+## Riposte on a companion: an enemy's physical blow that lands hurts the enemy for 30% of it.
+func test_art_reflecting_stance() -> void:
+	var riposte := load_art("sword/riposte")
+	eq(riposte.self_effect.reflect_percent, 30, "Riposte reflects 30%")
+	var cs: Array[CompanionData] = [make_companion("A", 100)]
+	var b := make_battle(cs, one_enemy(brute()))
+	var c := b.roster[0]
+	var e := b.enemies[0]
+	give_art(c, riposte)
+	check(b.use_art(c, riposte, e), "Riposte used")
+	eq(c.hp, 100 - 30, "the Brute's blow still lands in full")
+	eq(e.hp, 1000 - 18 - 9, "Riposte's strike (18), then 30% of the 30 dealt back")
+	eq(count_events(b, "riposte"), 1, "a riposte event for playback")
+	check(log_has(b, "A's Riposte strikes back at Brute!"), "the log says so")
+	b.guard(c)
+	b.guard(c)
+	eq(count_events(b, "riposte"), 0, "worn off after 2 ticks: nothing reflected")
+	# Magic is never reflected.
+	var mage := brute()
+	mage.actions[0].damage_type = CombatMath.DamageType.MAGIC
+	var b2 := make_battle(cs, one_enemy(mage))
+	give_art(b2.roster[0], riposte)
+	b2.use_art(b2.roster[0], riposte, b2.enemies[0])
+	eq(b2.enemies[0].hp, 1000 - 18, "a magic blow is not reflected")
+	# At least 1 is reflected.
+	var tough: Array[CompanionData] = [make_companion("A", 100, 100)]
+	var b3 := make_battle(tough, one_enemy(brute()))
+	give_art(b3.roster[0], riposte)
+	b3.use_art(b3.roster[0], riposte, b3.enemies[0])
+	eq(b3.roster[0].hp, 100 - 1, "the blow deals only 1")
+	eq(b3.enemies[0].hp, 1000 - 18 - 1, "and still 1 comes back")
+	# The reflected damage can defeat the enemy, which ends the battle.
+	var b4 := make_battle(cs, one_enemy(brute(20)))
+	give_art(b4.roster[0], riposte)
+	b4.use_art(b4.roster[0], riposte, b4.enemies[0])
+	check(not b4.enemies[0].is_alive(), "struck down by its own blow")
+	check(log_has(b4, "Brute is defeated!"), "the defeat is logged")
+	eq(b4.outcome, Battle.Outcome.VICTORY, "and the battle is won")
+	# An enemy struck down partway through an attack on everyone stops there.
+	var two: Array[CompanionData] = [make_companion("A", 100), make_companion("B", 100)]
+	var b5 := make_battle(two, one_enemy(brute(18 + 18 + 9, EnemyActionData.Targeting.ALL_COMPANIONS, 2)))
+	give_art(b5.roster[0], riposte)
+	give_art(b5.roster[1], riposte)
+	b5.use_art(b5.roster[0], riposte, b5.enemies[0])
+	b5.use_art(b5.roster[1], riposte, b5.enemies[0])
+	eq(b5.roster[0].hp, 100 - 30, "A is hit and strikes back")
+	eq(b5.roster[1].hp, 100, "B is never reached")
+	eq(b5.outcome, Battle.Outcome.VICTORY, "won")
+	eq(load_art("spear/set_spear").self_effect.reflect_percent, 40, "Set Spear reflects 40%")
+
+
+## Bleeding Cut: the enemy loses HP at the end of every tick and can die of it.
+func test_art_bleed_kills_enemy() -> void:
+	var cut := load_art("dagger/bleeding_cut")
+	var cs: Array[CompanionData] = [make_companion("A", 100, 0, make_weapon(5, 999, 0, WeaponData.WeaponType.DAGGER))]
+	var b := make_battle(cs, one_enemy(idle_enemy(20)))
+	var c := b.roster[0]
+	var e := b.enemies[0]
+	give_art(c, cut)
+	check(b.use_art(c, cut, e), "Bleeding Cut used")
+	eq(e.hp, 20 - 16 - 2, "16 from the cut, then 2 at the end of the tick")
+	eq(count_events(b, "dot"), 1, "a dot event for playback")
+	check(log_has(b, "Dummy loses 2 HP to Bleeding"), "the log names the bleeding")
+	b.guard(c)
+	check(not e.is_alive(), "bled out")
+	check(log_has(b, "Dummy is defeated!"), "the defeat is logged")
+	eq(b.outcome, Battle.Outcome.VICTORY, "and the battle is won")
+	for path in ["bow/barbed_arrow", "dagger/night_venom", "spear/impale"]:
+		check(load_art(path).target_effect.damage_per_tick > 0, "%s bleeds the target" % path)
+
+
+## Challenge, Phalanx and Fade change how likely enemies are to aim at the user.
+func test_art_stances_change_aim() -> void:
+	var cs: Array[CompanionData] = [
+		make_companion("Axe", 100, 0, make_weapon(5, 999, 0, WeaponData.WeaponType.AXE)),
+		make_companion("Spear", 100, 0, make_weapon(5, 999, 0, WeaponData.WeaponType.SPEAR)),
+		make_companion("Dagger", 100, 0, make_weapon(5, 999, 0, WeaponData.WeaponType.DAGGER))]
+	var b := make_battle(cs, one_enemy(idle_enemy(1000)), 777)
+	var challenge := load_art("axe/challenge")
+	var phalanx := load_art("spear/phalanx")
+	var fade := load_art("dagger/fade")
+	give_art(b.roster[0], challenge)
+	give_art(b.roster[1], phalanx)
+	give_art(b.roster[2], fade)
+	eq(b.target_weights(), [1.0, 2.0, 4.0] as Array[float], "base weights")
+	b.use_art(b.roster[0], challenge, b.enemies[0])
+	eq(b.target_weights(), [3.0, 2.0, 4.0] as Array[float], "Challenging: three times as likely")
+	var counts := [0, 0, 0]
+	var n := 9000
+	for i in n:
+		counts[b.line().find(b.pick_target())] += 1
+	check(absf(counts[0] / float(n) - 3.0 / 9.0) < 0.02, "the challenger draws a third of the blows (%d)" % counts[0])
+	b.use_art(b.roster[1], phalanx, b.enemies[0])
+	eq(b.target_weights(), [1.0, 4.0, 4.0] as Array[float], "Challenging worn off, Phalanx doubles")
+	b.use_art(b.roster[2], fade, b.enemies[0])
+	var w := b.target_weights()
+	check(is_equal_approx(w[2], 1.6), "Faded: 60%% less likely (%s)" % str(w[2]))
+	eq(w[1], 4.0, "Phalanx still up")
+
+
+## Hew: every landed hit adds a stack of DEF -2, up to 3.
+func test_art_debuff_stacks() -> void:
+	var hew := load_art("axe/hew")
+	var cs: Array[CompanionData] = [make_companion("A", 100, 0, make_weapon(5, 999, 0, WeaponData.WeaponType.AXE))]
+	var b := make_battle(cs, one_enemy(idle_enemy(1000)))
+	var c := b.roster[0]
+	var e := b.enemies[0]
+	e.base_stats[Stat.DEF] = 10
+	give_art(c, hew)
+	for i in 4:
+		c.stamina = c.max_stamina()
+		check(b.use_art(c, hew, e), "Hew %d" % (i + 1))
+		eq(e.get_effect("Hewn").stacks, mini(i + 1, 3), "stacks after hit %d" % (i + 1))
+		eq(e.stat(Stat.DEF), 10 - 2 * mini(i + 1, 3), "DEF after hit %d" % (i + 1))
+	eq(e.effects.size(), 1, "still one effect")
+
+
+## Duelist's Oath: the user hits harder but takes 25% more damage while it lasts.
+func test_art_oath_raises_damage_taken() -> void:
+	var oath := load_art("sword/duelists_oath")
+	var cs: Array[CompanionData] = [make_companion("A", 100)]
+	var b := make_battle(cs, one_enemy(brute(1000, EnemyActionData.Targeting.SINGLE, 2)))
+	var c := b.roster[0]
+	give_art(c, oath)
+	eq(CombatMath.forecast(b.enemies[0], 20, 999, 0, c).damage, 30, "30 before the oath")
+	check(b.use_art(c, oath, b.enemies[0]), "Duelist's Oath used")
+	eq(c.stat(Stat.STR), 13, "STR +3")
+	eq(c.damage_taken_mult(), 1.25, "takes 25% more")
+	b.guard(c)   # the Brute strikes this tick, into a Guard (x0.5) and the oath (x1.25)
+	eq(c.hp, 100 - floori(30 * 0.5 * 1.25), "guarded blow raised by the oath")
+	b.guard(c)
+	eq(c.hp, 100 - 18, "no blow this tick")
+	b.attack(c, b.enemies[0])   # the Brute strikes again, no Guard this time
+	eq(c.hp, 100 - 18 - floori(30 * 1.25), "a plain blow raised by the oath: 37")
 
 
 func test_equip_requirement() -> void:
@@ -1111,21 +1279,21 @@ func test_art_content() -> void:
 		eq(d.weapon.required_grade, Proficiency.Grade.E, "%s requires E" % d.weapon.display_name)
 		check(CompanionProgress.create(d).can_equip_weapon(d.weapon), "%s can equip their own weapon" % d.display_name)
 	var names := {}
-	for a in lib.arts + signatures:
+	for a in lib.arts:
 		check(not names.has(a.display_name), "art names are unique (%s)" % a.display_name)
 		names[a.display_name] = true
 		check(a.tier >= 1 and a.tier <= 3, "%s tier 1-3" % a.display_name)
 		check(a.stamina_cost > 0 and a.recovery >= 1, "%s costs something" % a.display_name)
 		check(a.description != "", "%s has a description" % a.display_name)
 	for a in signatures:
-		check(not lib.arts.has(a), "signature %s is not in the learnable pool" % a.display_name)
+		check(lib.arts.has(a), "signature %s is one of the arts of its weapon" % a.display_name)
 	for t: int in WeaponData.WeaponType.values():
 		var tier_count := [0, 0, 0, 0]
 		var cost_min := [0, 999, 999, 999]
 		var cost_max := [0, 0, 0, 0]
 		var rec_min := [0, 999, 999, 999]
 		var rec_max := [0, 0, 0, 0]
-		for a in lib.arts + signatures:
+		for a in lib.arts:
 			if a.weapon_type != t:
 				continue
 			if lib.arts.has(a):
@@ -1135,14 +1303,48 @@ func test_art_content() -> void:
 			rec_min[a.tier] = mini(rec_min[a.tier], a.recovery)
 			rec_max[a.tier] = maxi(rec_max[a.tier], a.recovery)
 		var kind := WeaponData.type_name(t)
-		if t in [WeaponData.WeaponType.SWORD, WeaponData.WeaponType.AXE, WeaponData.WeaponType.BOW]:
-			check(tier_count[1] >= 3 and tier_count[2] >= 2 and tier_count[3] >= 2, "%s has 3/2/2 learnable arts by tier (%s)" % [kind, str(tier_count)])
-		else:
-			check(tier_count[1] + tier_count[2] + tier_count[3] >= 2, "%s has at least 2 learnable arts" % kind)
+		# Twelve arts per type, 5 / 4 / 3 by tier, signatures included.
+		eq(tier_count, [0, 5, 4, 3], "%s learnable arts by tier" % kind)
 		for tier in [1, 2]:
 			if cost_max[tier] > 0 and cost_min[tier + 1] < 999:
 				check(cost_max[tier] < cost_min[tier + 1], "%s tier %d costs less stamina than tier %d" % [kind, tier, tier + 1])
 				check(rec_max[tier] < rec_min[tier + 1], "%s tier %d recovers faster than tier %d" % [kind, tier, tier + 1])
+
+
+## Every weapon type has exactly 12 arts in the library (every signature art is one of them),
+## 5 of tier 1, 4 of tier 2 and 3 of tier 3. Every art has a name, a description, a cost and
+## recovery equal to its tier.
+func test_art_counts_and_basics() -> void:
+	var lib := ArtLibrary.load_default()
+	var every: Array[CombatArtData] = []
+	for a in lib.arts:
+		check(not every.has(a), "%s is listed once" % a.display_name)
+		every.append(a)
+	var dir := DirAccess.open("res://data/companions")
+	for f in dir.get_files():
+		if not f.ends_with(".tres"):
+			continue
+		var d: CompanionData = load("res://data/companions/" + f)
+		if d.signature_art != null:
+			check(every.has(d.signature_art), "%s's signature art is in the library" % d.display_name)
+	var names := {}
+	for a in every:
+		check(a.display_name != "", "%s has a name" % a.resource_path)
+		check(a.description != "", "%s has a description" % a.display_name)
+		check(a.stamina_cost > 0, "%s costs stamina" % a.display_name)
+		eq(a.recovery, a.tier, "%s recovery equals its tier" % a.display_name)
+		check(not names.has(a.display_name), "no other art is called %s" % a.display_name)
+		names[a.display_name] = true
+	for t: int in WeaponData.WeaponType.values():
+		var tier_count := [0, 0, 0, 0]
+		for a in every:
+			if a.weapon_type == t:
+				tier_count[a.tier] += 1
+		eq(tier_count, [0, 5, 4, 3], "%s arts by tier" % WeaponData.type_name(t))
+	var sig := {"asterion": "Challenge", "kaito": "Feint", "raizen": "Long Reach", "koharu": "Barbed Arrow"}
+	for n: String in sig:
+		var d: CompanionData = load("res://data/companions/%s.tres" % n)
+		eq(d.signature_art.display_name, sig[n], "%s's signature art" % d.display_name)
 
 
 # ---------------------------------------------------------------- whole battles from the real data

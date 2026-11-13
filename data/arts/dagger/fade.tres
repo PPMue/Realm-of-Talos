@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="CombatArtData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/combat_art_data.gd" id="1_art"]
+[ext_resource type="Script" path="res://scripts/data/status_effect_data.gd" id="2_fx"]
+
+[sub_resource type="Resource" id="Resource_self"]
+script = ExtResource("2_fx")
+display_name = "Faded"
+target_weight_mult = 0.4
+duration_ticks = 3
+
+[resource]
+script = ExtResource("1_art")
+display_name = "Fade"
+description = "Cut, then slip back into the shadows."
+weapon_type = 4
+tier = 1
+stamina_cost = 4
+recovery = 1
+durability_cost = 1
+might_bonus = -1
+self_effect = SubResource("Resource_self")

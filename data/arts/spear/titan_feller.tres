@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CombatArtData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/combat_art_data.gd" id="1_art"]
+
+[resource]
+script = ExtResource("1_art")
+display_name = "Titan Feller"
+description = "A thrust meant for giants: it splits any armour."
+weapon_type = 2
+tier = 3
+stamina_cost = 15
+recovery = 3
+durability_cost = 3
+might_bonus = 9
+hit_bonus = 10
+ignore_def_percent = 60

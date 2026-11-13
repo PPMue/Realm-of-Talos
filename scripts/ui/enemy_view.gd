@@ -220,7 +220,7 @@ func _set_reflect(percent: int) -> void:
 			if e.reflect_percent > 0:
 				ticks = maxi(ticks, e.ticks_left)
 		_reflect_label.text = "REFLECTS %d%%" % percent
-		_reflect_tag.tooltip_text = ("Reflecting stance: every weapon strike or combat art that lands on it deals %d%% of its damage back to the striker. Spells pass through. It lasts %d more tick%s." %
+		_reflect_tag.tooltip_text = ("Reflecting stance: every weapon strike or combat art that lands on it deals %d%% of its damage back to the striker. Spells pass through. It lasts %d more turn%s." %
 			[percent, ticks, "" if ticks == 1 else "s"])
 		_reflect_tag.custom_minimum_size.x = UiTheme.display_font().get_string_size(_reflect_label.text,
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 17).x + 34.0
@@ -395,7 +395,7 @@ func _draw() -> void:
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
-## Hourglass, ticks left, and the kind of action that is coming.
+## Hourglass, turns left, and the kind of action that is coming.
 func _draw_plate() -> void:
 	if not _has_intent or _defeated:
 		return

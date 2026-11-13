@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="CombatArtData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/combat_art_data.gd" id="1_art"]
+[ext_resource type="Script" path="res://scripts/data/status_effect_data.gd" id="2_fx"]
+
+[sub_resource type="Resource" id="Resource_target"]
+script = ExtResource("2_fx")
+display_name = "Suppressed"
+stat_mods = {
+"STR": -2
+}
+duration_ticks = 3
+
+[resource]
+script = ExtResource("1_art")
+display_name = "Suppressing Volley"
+description = "Keep the arrows coming so no one dares swing freely."
+weapon_type = 3
+tier = 2
+stamina_cost = 9
+recovery = 2
+durability_cost = 2
+might_bonus = -2
+hits_all_enemies = true
+target_effect = SubResource("Resource_target")

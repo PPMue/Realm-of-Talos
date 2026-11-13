@@ -210,7 +210,7 @@ func show_companion(c: CompanionUnit, battle: Battle, active_id: String, enabled
 	var w := c.weapon()
 	_descriptions[ATTACK] = "Strike one enemy with %s%s. Costs nothing, then sits out the next action." % [w.display_name,
 		" (magic: MAG against RES)" if w.is_magic() else ""]
-	_descriptions[GUARD] = "Until this tick ends: take half damage, and enemies are %dx as likely to aim at %s. Then sits out the next action." % [
+	_descriptions[GUARD] = "Until this turn ends: take half damage, and enemies are %dx as likely to aim at %s. Then sits out the next action." % [
 		roundi(BattleConfig.GUARD_TARGET_WEIGHT_MULT), c.display_name]
 	_descriptions[FOCUS] = "Recover %d stamina. Then sits out the next action." % battle.focus_amount(c)
 	(_buttons[FOCUS] as ActionButton).detail = "+%d stamina" % battle.focus_amount(c)
@@ -340,7 +340,7 @@ static func spell_info(sp: SpellData, c: CompanionUnit, battle: Battle) -> Strin
 	return text
 
 
-## Shown when nobody can act: the only option is to let a tick pass.
+## Shown when nobody can act: the only option is to let a turn pass (a tick, in the rules' own word).
 ## `next_up` is whoever will be ready soonest; their art is shown dimmed.
 func show_wait(enabled: bool, next_up: CompanionUnit) -> void:
 	visible = true
@@ -358,7 +358,7 @@ func show_wait(enabled: bool, next_up: CompanionUnit) -> void:
 	var b: ActionButton = _buttons[WAIT]
 	b.disabled = not enabled
 	b.active = false
-	_descriptions[WAIT] = "Let one tick pass. Enemy countdowns drop by 1 and recovering companions get closer to ready."
+	_descriptions[WAIT] = "Let one turn pass. Enemy countdowns drop by 1 and recovering companions get closer to ready."
 	_default_info = "Nobody is ready to act."
 	_update_info()
 

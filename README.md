@@ -34,13 +34,13 @@ godot --path .
 - Magic changes the list to the companion's spells, each with its school, tier and uses left (number keys; Back, Esc or right-click returns; more than six spells page with More). A spell with no uses left is greyed out and says why.
 - For Attack and single-target arts, point at an enemy to see hit %, damage and crit %, then click it to strike. Arts that strike every enemy light up every enemy at once; click any of them to confirm. Right-click or Esc backs out.
 - A spell aimed at a companion is cast by clicking their portrait below; each portrait shows what it would do (for a heal, HP before and after). A spell for every ally or every enemy lights them all up; one click confirms.
-- Under each enemy: its HP, an hourglass with the ticks left until it acts, and the kind of action coming. Every action you take, art, spell or not, is one tick. A pending action already pushed back by a spell shows its countdown in pale blue with a DELAYED tag; one brought forward by another enemy's order shows it in orange with a HASTENED tag (and pops SOONER -N).
+- Under each enemy: its HP, an hourglass with the turns left until it acts, and the kind of action coming. Every action you take, art, spell or not, is one turn (the code and the data files call a turn a `tick`). A pending action already pushed back by a spell shows its countdown in pale blue with a DELAYED tag; one brought forward by another enemy's order shows it in orange with a HASTENED tag (and pops SOONER -N).
 - Traits such as FLYING show as a tag above an enemy's name (hover it). The forecast says EFFECTIVE when the strike doubles Mt, and MAGIC when it is MAG against RES.
-- Lasting effects show on the unit with the ticks left (on party panels under the status tag; poison and burning in green-yellow). Poison pops its damage at the end of each tick.
+- Lasting effects show on the unit with the turns left (on party panels under the status tag; poison and burning in green-yellow). Poison pops its damage at the end of each turn.
 - A reflecting stance wraps the enemy in a ring of pink thorns with a REFLECTS N% tag; the forecast turns pink and says what striking costs you (normal and critical). Spells pass through.
 - An enemy that aims from the left carries an AIMS LEFT tag. The party panels' "targeted N%" then counts it: with only such enemies the figure is the mirrored one ("aims from the left"); with both kinds the panel shows both ("targeted N% · from the left N%").
 - A second phase gets the big banner (PHASE TWO, its name and one line) and a tag under the enemy. Recovery added by an enemy pops +N RECOVERY on the panel; an enemy's heal pops +N on it.
-- When nobody is ready, Wait (1 or Space) lets a tick pass. L opens the battle log. Clicking during playback speeds it up.
+- When nobody is ready, Wait (1 or Space) lets a turn pass. L opens the battle log. Clicking during playback speeds it up.
 - Hold Shift while pointing at an enemy or a companion for what is known about them: stats, grades, arts, traits and what is on them now. Let go of Shift, or move off them, and the sheet goes. Nothing of the kind pops up on hover alone.
 
 Proficiency and arts:
@@ -53,7 +53,7 @@ Proficiency and arts:
 ### Magic
 
 - Two schools: **Black Magic** (offence) and **White Magic** (support). Every companion has a grade in each, with the same grades and thresholds as weapons. Casting gives 4 points in the spell's school, up to 12 magic points per battle (separate from the weapon cap). Every school grade reached teaches a random spell of that school not yet known, with the same tier odds, no-duplicate rule and fall-through as combat arts. All known spells can be cast; there are no slots.
-- A spell costs one tick and no stamina, then a recovery of its tier (1-3). Each spell has a number of uses per companion (6 / 4 / 2 by tier, set per spell); uses last between battles and days and only Rest restores them.
+- A spell costs one turn and no stamina, then a recovery of its tier (1-3). Each spell has a number of uses per companion (6 / 4 / 2 by tier, set per spell); uses last between battles and days and only Rest restores them.
 - Black spells: damage = caster MAG + spell Mt - target RES (at least 1), with the normal accuracy and crit formulas using the spell's own Hit. They may strike every enemy, ignore part of RES, debuff the target, and delay the target's pending action: a pending action can be delayed only once; the next one it picks can be delayed again. Combat arts never touch countdowns.
 - White spells always succeed: heals (caster MAG + the spell's power, on anyone still in the line; lifting an injured companion above 0 HP clears the injury; companions removed from the run cannot be healed), buffs, less damage taken, a veil (enemies aim elsewhere) or a beacon (enemies aim here), and removing debuffs, on one ally or all. Healing spells can also be cast from a mage's page in the Barracks between battles, spending uses.
 - Enemy actions are physical (STR against DEF) or magic (MAG against RES); Guard halves both. The Goblin Wizard, the casters of the bestiary, the Rimeclaw Wyvern's frost, the Oathbreaker's Black Tide, and the Faceless Princess, Forsaken Seraph and Eclipse Sovereign are magic. Enemy MAG grows with the day like STR.
@@ -82,7 +82,7 @@ Every normal enemy belongs to a band (`EnemyData.band`); its groups never appear
 ### Enemy mechanics
 
 All in the battle rules and driven by data (`EnemyActionData`, `EnemyData`, `StatusEffectData`):
-- **Damage over time** (`damage_per_tick`): at the end of every tick; Guard does not halve it. It can injure a companion but never removes an injured one. White magic that removes debuffs clears it.
+- **Damage over time** (`damage_per_tick`): at the end of every turn; Guard does not halve it. It can injure a companion but never removes an injured one. White magic that removes debuffs clears it.
 - **Reflection** (`reflect_percent`): a weapon strike or combat art that lands on the bearer deals that share of its damage (at least 1) back to the striker. Spells are exempt.
 - **Healing** (`heal_percent`) on the enemy itself, or on every enemy with the ALL_ALLIES targeting (which also spreads buffs).
 - **Reversed targeting** (`EnemyData.reversed_targeting` or per action): the position weights mirrored.
@@ -115,7 +115,7 @@ Exit code 0 means every test passed. `TEST_ONLY=playthrough` runs only tests who
 
 ## Combat arts
 
-An art belongs to one weapon type, can only be used with a weapon of that type in hand, and costs stamina and a recovery like any action (always one tick). Tier 1: 4-6 STA, sits out 1 action; tier 2: 8-10 STA, 2 actions; tier 3: 13-15 STA, 3 actions. Effects are limited to bonus Mt/Hit/Crit, striking every enemy, striking twice, ignoring part of DEF, a debuff on each enemy hit and a buff on the user. `WeaponData.unique_art` is reserved for rare weapons that grant an art of their own; nothing uses it yet, nor `CombatArtData.durability_cost`.
+An art belongs to one weapon type, can only be used with a weapon of that type in hand, and costs stamina and a recovery like any action (always one turn). Tier 1: 4-6 STA, sits out 1 action; tier 2: 8-10 STA, 2 actions; tier 3: 13-15 STA, 3 actions. Every weapon type has 12 arts, 5 / 4 / 3 by tier (`data/arts/`, all listed in `art_library.tres`). A companion's signature art is one of the twelve: they start knowing it, and the other user of that weapon can learn it. Effects are limited to bonus Mt/Hit/Crit, striking every enemy, striking twice, ignoring part of DEF, effectiveness against a trait, a debuff on each enemy hit (lowered stats, some of which stack; taking more damage; bleeding or poison every turn, which can kill) and a buff on the user (raised stats; taking less damage; being aimed at more or less often; a stance that answers physical blows: an enemy whose physical action lands on the user is hurt for a share of the damage, at least 1, and can die of it; magic is never answered). `WeaponData.unique_art` is reserved for rare weapons that grant an art of their own; nothing uses it yet, nor `CombatArtData.durability_cost`.
 
 ## Not built yet
 

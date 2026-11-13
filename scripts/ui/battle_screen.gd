@@ -482,7 +482,7 @@ func _commit(actor: CompanionUnit) -> void:
 		if actor.recovery > 0 and not battle.is_lone_companion(actor):
 			panel.set_status(PartyPanel.Status.RECOVERING, actor.recovery)
 	_refresh_menu()
-	_tick_label.text = "TICK %d" % battle.tick
+	_tick_label.text = _turn_text()
 	_draw_log()
 	_play(battle.events.duplicate(), _generation)
 
@@ -621,6 +621,12 @@ func _show_event(ev: Dictionary) -> float:
 				panel.play_pulse(UiTheme.POISON)
 			_popup(_anchor_of(ev.target), text, UiTheme.POISON, 48)
 			return 0.34
+		"riposte":
+			# A companion's stance (Riposte, Set Spear) answering the enemy that struck them.
+			var stance: PartyPanel = _party_panels[ev.source]
+			stance.play_pulse(UiTheme.GOLD)
+			_popup(stance.popup_anchor() + Vector2(0, -60), "STRIKES BACK", UiTheme.GOLD, 40)
+			return 0.25
 		"reflect":
 			var panel: PartyPanel = _party_panels[ev.target]
 			panel.play_pulse(UiTheme.REFLECT)
@@ -801,8 +807,15 @@ func _after_change() -> void:
 	_refresh()
 
 
+## "TURN 3": players count turns where the rules count ticks. While an order is being played out it
+## is the turn that order began; while the commander is choosing, the one about to begin.
+func _turn_text() -> String:
+	var n := battle.tick if (_busy or battle.is_over()) else battle.tick + 1
+	return "TURN %d" % maxi(1, n)
+
+
 func _refresh() -> void:
-	_tick_label.text = "TICK %d" % battle.tick
+	_tick_label.text = _turn_text()
 	_refresh_party()
 	_refresh_enemies()
 	_refresh_menu()
@@ -1125,11 +1138,11 @@ func _build_ui() -> void:
 	pennant.offset_top = 14.0
 	pennant.offset_bottom = 72.0
 	add_child(pennant)
-	_tick_label = UiTheme.label("TICK 0", 22, Color(UiTheme.GOLD, 0.8), true, 6)
+	_tick_label = UiTheme.label("TURN 1", 22, Color(UiTheme.GOLD, 0.8), true, 6)
 	_tick_label.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_tick_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_tick_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_tick_label.tooltip_text = "One tick passes every time you act. Each tick, every enemy's countdown drops by 1."
+	_tick_label.tooltip_text = "One turn passes every time you give an order. Each turn, every enemy's countdown drops by 1."
 	_tick_label.mouse_filter = Control.MOUSE_FILTER_STOP
 	pennant.add_child(_tick_label)
 

@@ -56,7 +56,7 @@ func is_harmful() -> bool:
 	return damage_taken_mult > 1.0 or damage_per_tick > 0
 
 
-## "Poison 3/tick (2 left)", "Enraged x2 STR+4 (battle)".
+## "Poison 3/turn (2 left)", "Enraged x2 STR+4 (battle)".
 func describe() -> String:
 	var parts: Array[String] = []
 	for key: String in stat_mods:
@@ -66,7 +66,7 @@ func describe() -> String:
 	if target_weight_mult != 1.0:
 		parts.append("aim x%s" % str(target_weight_mult))
 	if damage_per_tick > 0:
-		parts.append("%d/tick" % damage_per_tick)
+		parts.append("%d/turn" % damage_per_tick)
 	if reflect_percent > 0:
 		parts.append("reflects %d%%" % reflect_percent)
 	var detail := (" " + ", ".join(parts)) if not parts.is_empty() else ""

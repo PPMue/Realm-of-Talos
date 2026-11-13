@@ -14,7 +14,8 @@ extends RefCounted
 ## order, never below 1), add to companions' recovery, and aim single targets with the position weights
 ## mirrored. An enemy with a second phase switches action lists when its HP falls to a threshold, or
 ## when it is the last one standing. An enemy carrying a reflecting effect hurts whoever lands a weapon
-## strike or combat art on it; spells are never reflected.
+## strike or combat art on it; a companion carrying one (from an art) hurts an enemy whose physical
+## action lands on them. Spells and magic are never reflected.
 ##
 ## Attacking and using combat arts raise the actor's proficiency in the weapon type held
 ## (stored in their CompanionProgress, which outlives the battle). Each grade reached teaches
@@ -168,7 +169,8 @@ func forecast(c: CompanionUnit, target: EnemyUnit, art: CombatArtData = null) ->
 
 ## Damage a weapon strike or art dealing `dealt` to `target` would deal back to `c` (0 if the target
 ## reflects nothing): the target's reflect share of it, at least 1, then `c`'s damage-taken multiplier.
-func reflect_amount(c: CompanionUnit, target: EnemyUnit, dealt: int) -> int:
+## Works both ways: an enemy striking a companion who reflects is hurt the same way.
+func reflect_amount(c: Combatant, target: Combatant, dealt: int) -> int:
 	var percent := target.reflect_percent()
 	if percent <= 0 or dealt <= 0:
 		return 0
@@ -431,8 +433,10 @@ func perform_enemy_action(e: EnemyUnit, action: EnemyActionData) -> void:
 				_enemy_strike(e, action, target)
 		EnemyActionData.Targeting.ALL_COMPANIONS:
 			for target in line():
+				if not e.is_alive():
+					break   # struck down by a reflecting stance partway through
 				_enemy_strike(e, action, target)
-	if action.hasten_allies > 0:
+	if action.hasten_allies > 0 and e.is_alive():
 		_hasten_others(e, action.hasten_allies)
 
 
@@ -496,7 +500,7 @@ func _is_valid_target(target: EnemyUnit) -> bool:
 func _begin_tick() -> void:
 	tick += 1
 	events.clear()
-	_log("== Tick %d ==" % tick)
+	_log("== Turn %d ==" % tick)
 
 
 func _end_player_action(c: CompanionUnit, recovery: int) -> void:
@@ -515,7 +519,8 @@ func _advance(acted: CompanionUnit) -> void:
 	for e in enemies:
 		if e.is_alive() and e.countdown <= 0:
 			perform_enemy_action(e, e.pending_action)
-			pick_next_action(e)
+			if e.is_alive():   # a reflecting stance can fell the enemy during its own action
+				pick_next_action(e)
 			if _check_end():
 				return
 	for c in line():
@@ -555,8 +560,8 @@ func _companion_strike(c: CompanionUnit, target: EnemyUnit, art: CombatArtData) 
 	return true
 
 
-func _reflect_name(e: EnemyUnit) -> String:
-	for fx in e.effects:
+func _reflect_name(unit: Combatant) -> String:
+	for fx in unit.effects:
 		if fx.reflect_percent > 0:
 			return fx.display_name
 	return "reflection"
@@ -751,11 +756,30 @@ func _enemy_strike(e: EnemyUnit, action: EnemyActionData, target: CompanionUnit)
 			_emit({"type": "miss", "target": target})
 			return
 		var crit := _roll(f.crit)
-		_damage_companion(target, f.crit_damage if crit else f.damage, crit)
+		var dmg := f.crit_damage if crit else f.damage
+		# A companion's reflecting stance (Riposte, Set Spear) answers physical blows, even one that
+		# fells them. Magic is never reflected. Worked out first: a companion who is gone loses effects.
+		var back := reflect_amount(e, target, dmg) if action.damage_type == CombatMath.DamageType.PHYSICAL else 0
+		var stance := _reflect_name(target)
+		_damage_companion(target, dmg, crit)
+		if back > 0 and e.is_alive():
+			_reflect_on_enemy(target, stance, e, back)
 	if action.effect != null and not target.is_gone():
 		_apply_effect(target, action.effect, false)
 	if action.add_recovery > 0:
 		add_recovery(target, action.add_recovery)
+
+
+## A companion's reflecting stance (`stance`, its name) hurting the enemy that struck them for `amount`.
+## The enemy can be defeated by it.
+func _reflect_on_enemy(c: CompanionUnit, stance: String, e: EnemyUnit, amount: int) -> void:
+	_log("  %s's %s strikes back at %s!" % [c.display_name, stance, e.display_name])
+	_emit({"type": "riposte", "source": c, "target": e, "amount": amount})
+	e.hp -= amount
+	_log("  %s takes %d damage (%d/%d HP)." % [e.display_name, amount, maxi(e.hp, 0), e.max_hp()])
+	_emit({"type": "damage", "target": e, "amount": amount, "crit": false, "hp": e.hp,
+		"effective": false, "magic": false})
+	_after_enemy_hurt(e)
 
 
 ## A landed hit. Injured companions who are hit again are gone for good.

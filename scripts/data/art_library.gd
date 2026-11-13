@@ -1,7 +1,8 @@
 class_name ArtLibrary
 extends Resource
 ## Every combat art that can be learned by raising a weapon grade.
-## Signature arts are not listed here: each belongs to one companion (CompanionData.signature_art).
+## Twelve for each weapon type. A companion's signature art (CompanionData.signature_art) is one of
+## them: they start a run knowing it, and the other user of that weapon can learn it like any other.
 
 const DEFAULT_PATH := "res://data/arts/art_library.tres"
 

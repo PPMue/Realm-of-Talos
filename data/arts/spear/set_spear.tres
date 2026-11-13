@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="CombatArtData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/combat_art_data.gd" id="1_art"]
+[ext_resource type="Script" path="res://scripts/data/status_effect_data.gd" id="2_fx"]
+
+[sub_resource type="Resource" id="Resource_self"]
+script = ExtResource("2_fx")
+display_name = "Set Spear"
+duration_ticks = 2
+reflect_percent = 40
+
+[resource]
+script = ExtResource("1_art")
+display_name = "Set Spear"
+description = "Plant the butt in the ground and let them run onto the point."
+weapon_type = 2
+tier = 1
+stamina_cost = 5
+recovery = 1
+durability_cost = 1
+might_bonus = -1
+self_effect = SubResource("Resource_self")

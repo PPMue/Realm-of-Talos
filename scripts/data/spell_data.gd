@@ -88,7 +88,7 @@ func effect_summary() -> String:
 		if not effective_against.is_empty():
 			parts.append("Effective against %s (Mt x%d)" % [", ".join(effective_against), BattleConfig.EFFECTIVE_MIGHT_MULT])
 		if delay_ticks > 0:
-			parts.append("Delays the target's action by %d tick%s (once per action)" % [delay_ticks, "" if delay_ticks == 1 else "s"])
+			parts.append("Delays the target's action by %d turn%s (once per action)" % [delay_ticks, "" if delay_ticks == 1 else "s"])
 		if effect != null:
 			parts.append("On hit: %s" % effect.summary())
 	else:

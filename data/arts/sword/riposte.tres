@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="CombatArtData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/combat_art_data.gd" id="1_art"]
+[ext_resource type="Script" path="res://scripts/data/status_effect_data.gd" id="2_fx"]
+
+[sub_resource type="Resource" id="Resource_self"]
+script = ExtResource("2_fx")
+display_name = "Riposte"
+duration_ticks = 2
+reflect_percent = 30
+
+[resource]
+script = ExtResource("1_art")
+display_name = "Riposte"
+description = "Strike, then wait for the answer and turn it back."
+tier = 2
+stamina_cost = 9
+recovery = 2
+durability_cost = 2
+might_bonus = 3
+self_effect = SubResource("Resource_self")

@@ -3,7 +3,7 @@
 [ext_resource type="Texture2D" path="res://assets/character/koharu.png" id="1_art"]
 [ext_resource type="Script" path="res://scripts/data/companion_data.gd" id="2_script"]
 [ext_resource type="Resource" path="res://data/weapons/iron_bow.tres" id="3_weapon"]
-[ext_resource type="Resource" path="res://data/arts/bow/pinning_shot.tres" id="4_sig"]
+[ext_resource type="Resource" path="res://data/arts/bow/barbed_arrow.tres" id="4_sig"]
 
 [resource]
 script = ExtResource("2_script")

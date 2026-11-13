@@ -21,7 +21,7 @@ extends Resource
 @export var max_stacks: int = 1
 
 
-## "Sundered (DEF -3, 3 ticks)"
+## "Sundered (DEF -3, 3 turns)". Players count turns; the rules and the data call one a tick.
 func summary() -> String:
 	var parts: Array[String] = []
 	for key: String in stat_mods:
@@ -36,12 +36,12 @@ func summary() -> String:
 	elif target_weight_mult > 1.0:
 		parts.append("%sx as likely to be aimed at" % _mult_text(target_weight_mult))
 	if damage_per_tick > 0:
-		parts.append("loses %d HP every tick" % damage_per_tick)
+		parts.append("loses %d HP every turn" % damage_per_tick)
 	if reflect_percent > 0:
 		parts.append("reflects %d%% of weapon and art damage" % reflect_percent)
 	if max_stacks > 1:
 		parts.append("stacks up to %d times" % max_stacks)
-	parts.append("%d tick%s" % [duration_ticks, "" if duration_ticks == 1 else "s"] if duration_ticks < 99 else "until the battle ends")
+	parts.append("%d turn%s" % [duration_ticks, "" if duration_ticks == 1 else "s"] if duration_ticks < 99 else "until the battle ends")
 	return "%s (%s)" % [display_name, ", ".join(parts)]
 
 
