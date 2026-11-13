@@ -835,13 +835,14 @@ func test_tavern_hiring() -> void:
 func test_repair() -> void:
 	var run := make_run(21)
 	force_day(run, RunCalendar.DayType.FREE)
-	run.materials = {RunConfig.IRON_ORE: 1, RunConfig.TIMBER: 2}
+	run.materials = {RunConfig.IRON_ORE: 1, RunConfig.TIMBER: 3}
+	t.eq(RunConfig.REPAIR_COST, {RunConfig.TIMBER: 3}, "3 timber, no ore")
 	t.check(not run.repair(), "nothing to repair at full health")
 	run.city_health = 90
 	t.check(run.repair(), "repair")
 	t.eq(run.city_health, 100, "capped at 100")
 	t.eq(run.material(RunConfig.TIMBER), 0, "timber spent")
-	t.eq(run.material(RunConfig.IRON_ORE), 0, "iron spent")
+	t.eq(run.material(RunConfig.IRON_ORE), 1, "no iron")
 	t.eq(run.actions_left, 0, "the masons use the day's action")
 	force_day(run, RunCalendar.DayType.FREE)
 	run.city_health = 50
@@ -1342,6 +1343,12 @@ func test_playthrough() -> void:
 	var yielded := 0
 	var scavenged: Array[int] = [0, 0, 0]
 	var scavenge_injured := 0
+	var upgrades := {}
+	var upgrades_total := 0
+	var enchants := 0
+	var moves := 0
+	var swaps := 0
+	var taken := {RunConfig.TIMBER: 0, RunConfig.IRON_ORE: 0}
 	var walls_after_empty := 0   # runs lost by the walls after a day given up for want of anyone
 	var beaten := {}   # boss group -> times beaten
 	for s in runs:
@@ -1354,6 +1361,14 @@ func test_playthrough() -> void:
 		for k in 3:
 			scavenged[k] += policy.scavenged[k]
 		scavenge_injured += policy.scavenge_injured
+		for f: int in policy.upgrades:
+			upgrades[f] = int(upgrades.get(f, 0)) + int(policy.upgrades[f])
+			upgrades_total += int(policy.upgrades[f])
+		enchants += policy.enchant_levels
+		moves += policy.moves
+		swaps += policy.swaps
+		for m: String in taken:
+			taken[m] += int(run.materials_taken.get(m, 0))
 		yielded += policy.yielded
 		if run.outcome == Run.Outcome.DEFEAT and run.city_health <= 0 and policy.yielded > 0:
 			walls_after_empty += 1
@@ -1421,6 +1436,12 @@ func test_playthrough() -> void:
 	print("    scavenging: %.1f trips per run (full %d%%, half %d%%, nothing %d%%); %.2f injured per run" % [
 		float(trips) / runs, roundi(100.0 * scavenged[0] / maxf(1, trips)), roundi(100.0 * scavenged[1] / maxf(1, trips)),
 		roundi(100.0 * scavenged[2] / maxf(1, trips)), float(scavenge_injured) / runs])
+	var built: Array[String] = []
+	for f: int in Run.Facility.values():
+		built.append("%s %.2f" % [Run.FACILITY_NAMES[f], float(upgrades.get(f, 0)) / runs])
+	print("    city: %.1f upgrades per run (%s); %.1f enchant levels, %.2f moves, %.1f swaps per run" % [
+		float(upgrades_total) / runs, ", ".join(built), float(enchants) / runs, float(moves) / runs, float(swaps) / runs])
+	print("    materials taken in per run: %.1f timber, %.1f iron ore" % [float(taken[RunConfig.TIMBER]) / runs, float(taken[RunConfig.IRON_ORE]) / runs])
 	print("    bosses (faced / beaten / beaten %):")
 	for g in content().bosses:
 		var f: int = faced.get(g, 0)

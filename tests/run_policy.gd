@@ -13,6 +13,21 @@ var yielded := 0
 ## Scavenging trips by outcome (ScavengeResult.Outcome: full, half, nothing), and companions injured on them.
 var scavenged: Array[int] = [0, 0, 0]
 var scavenge_injured := 0
+## City errands: upgrades bought (Run.Facility -> levels), enchantment levels gained, enchantments
+## moved, material swaps.
+var upgrades: Dictionary = {}
+var enchant_levels := 0
+var moves := 0
+var swaps := 0
+
+## The order the city is built up in, timber facilities: what helps the company stay in the fight
+## first (shorter stays, better overnight heal, stronger walls, XP for the bench), then the rest.
+const TIMBER_ORDER := [
+	[Run.Facility.INFIRMARY, 1], [Run.Facility.INN, 1], [Run.Facility.MASON, 1], [Run.Facility.BARRACKS, 1],
+	[Run.Facility.TAVERN, 1], [Run.Facility.YARD, 1], [Run.Facility.INFIRMARY, 2], [Run.Facility.INN, 2],
+	[Run.Facility.WATCHTOWER, 1], [Run.Facility.MASON, 2], [Run.Facility.BARRACKS, 2], [Run.Facility.TAVERN, 2],
+	[Run.Facility.YARD, 2], [Run.Facility.WATCHTOWER, 2],
+]
 
 
 func _init(p_rng: RandomNumberGenerator) -> void:
@@ -137,7 +152,81 @@ func free_day(run: Run) -> void:
 		scavenge(run)
 	train(run)
 	scavenge(run)
+	city_errands(run)
 	run.end_free_day()
+
+
+## At the day's end, with what the action and the repairs left: swap a pile of one material, build up
+## the city (timber in TIMBER_ORDER, only while the walls are down 20 or less, keeping a repair's worth then),
+## and spend iron ore: the Smithy first, then the line's weapons up to +2, the Gate, the Smithy's
+## second level, the line's weapons to their caps, the Gate's second level. Each list stops at the
+## first thing it cannot pay for, to save up for it. Enchanting keeps 60 gold back.
+func city_errands(run: Run) -> void:
+	if run.errand_block_reason() != "":
+		return
+	_swap_piles(run)
+	var missing := run.max_city_health() - run.city_health
+	var reserve: int = int(RunConfig.REPAIR_COST.get(RunConfig.TIMBER, 0)) * mini(2, missing / run.repair_amount())
+	if missing > 20:
+		reserve = 1000   # the walls first: no timber facility while they are down more than 20
+	for step: Array in TIMBER_ORDER:
+		var f: Run.Facility = step[0]
+		if run.facility_level(f) >= step[1]:
+			continue
+		var cost := run.upgrade_cost(f)
+		if run.material(RunConfig.TIMBER) - int(cost.get(RunConfig.TIMBER, 0)) < reserve or not _upgrade(run, f):
+			break
+	for step: Array in [["up", Run.Facility.SMITHY, 1], ["enchant", 2], ["up", Run.Facility.GATE, 1], ["up", Run.Facility.SMITHY, 2],
+			["enchant", 99], ["up", Run.Facility.GATE, 2]]:
+		if step[0] == "up":
+			if run.facility_level(step[1]) >= step[2]:
+				continue
+			if not _upgrade(run, step[1]):
+				break
+		elif not _enchant_line(run, step[1]):
+			break
+
+
+func _upgrade(run: Run, f: Run.Facility) -> bool:
+	if not run.upgrade(f):
+		return false
+	upgrades[f] = int(upgrades.get(f, 0)) + 1
+	return true
+
+
+## Enchants the weapons in the line's hands up to +`up_to` (their caps at most), the least enchanted
+## first. False if one was left short for want of ore or gold (to save up), true if all are there.
+func _enchant_line(run: Run, up_to: int) -> bool:
+	if run.facility_level(Run.Facility.SMITHY) < 1:
+		return false
+	while true:
+		var pick: OwnedWeapon = null
+		for c in run.lineup:
+			var w := run.inventory.held_by(c)
+			if w == null or w.enchant_level >= mini(up_to, Run.enchant_cap(w)):
+				continue
+			if pick == null or w.enchant_level < pick.enchant_level:
+				pick = w
+		if pick == null:
+			return true
+		if run.gold - int(run.enchant_cost(pick).get("gold", 0)) < 60 or run.enchant_block_reason(pick) != "":
+			return false
+		var r := run.enchant(pick)
+		enchant_levels += r.levels_gained
+	return true
+
+
+## A pile: while one material is 8 or more and at least 4 above the other, 2 of it become 1 of the other.
+## And while the walls are down 20 or more and the timber is short of a repair, ore becomes timber.
+func _swap_piles(run: Run) -> void:
+	var need := int(RunConfig.REPAIR_COST.get(RunConfig.TIMBER, 0))
+	while run.max_city_health() - run.city_health >= run.repair_amount() and run.material(RunConfig.TIMBER) < need 			and run.swap(RunConfig.IRON_ORE, RunConfig.TIMBER):
+		swaps += 1
+	for pair in [[RunConfig.IRON_ORE, RunConfig.TIMBER], [RunConfig.TIMBER, RunConfig.IRON_ORE]]:
+		while run.material(pair[0]) >= 8 and run.material(pair[0]) >= run.material(pair[1]) + 4:
+			if not run.swap(pair[0], pair[1]):
+				break
+			swaps += 1
 
 
 ## Sends a party to the site with the best expected haul: for each site the party that gives the best
@@ -482,7 +571,11 @@ func _equip_best(run: Run, c: RunCompanion) -> void:
 		if w.data.weapon_type == c.weapon().weapon_type and _power(c, w.data) > _power(c, best.data) \
 				and run.inventory.equip_block_reason(c, w) == "":
 			best = w
-	if best != run.inventory.held_by(c):
+	var old := run.inventory.held_by(c)
+	if best != old:
+		if old.enchant_level > 0 and run.move_enchant_block_reason(old, best) == "":
+			run.move_enchant(old, best)   # the enchantment goes with them to the better weapon
+			moves += 1
 		run.equip_weapon(c, best)
 
 

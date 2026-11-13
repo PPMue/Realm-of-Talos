@@ -56,8 +56,16 @@ func release(c: RunCompanion) -> void:
 	var w := held_by(c)
 	if w != null:
 		w.holder = null
+	c.progress.enchant = {}
+
+
+## After `w`'s enchantment changed: its holder carries the new one.
+func refresh(w: OwnedWeapon) -> void:
+	if w != null and w.holder != null:
+		w.holder.progress.enchant = w.enchant_stats
 
 
 func _hand_to(w: OwnedWeapon, c: RunCompanion) -> void:
 	w.holder = c
 	c.progress.weapon = w.data
+	c.progress.enchant = w.enchant_stats

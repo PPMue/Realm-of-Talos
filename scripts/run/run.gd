@@ -20,6 +20,24 @@ enum FreeAction { REST, SHOP, TAVERN, REPAIR, TRAIN, CURE, SCAVENGE }
 
 const FREE_ACTION_NAMES: Array[String] = ["Rest", "Shop", "Tavern", "Repair", "Train", "Cure", "Scavenge"]
 
+## The city's facilities, each built up to two levels (see upgrade).
+enum Facility { WATCHTOWER, SMITHY, TAVERN, INN, INFIRMARY, YARD, BARRACKS, MASON, GATE }
+
+const FACILITY_NAMES: Array[String] = ["Watchtower", "Smithy", "Tavern", "Inn", "Infirmary", "Drill Yard", "Barracks",
+	"Mason's Yard", "Gate"]
+## What each level does, as the design words it: [level 1, level 2] by Facility.
+const FACILITY_LINES := [
+	["The boss days and which boss comes are known", "Tomorrow's fronts are known a day early"],
+	["Opens enchanting", "An enchantment comes out +2 twice as often"],
+	["One more hire offered each week", "Hires cost 25 gold less"],
+	["Everyone heals 30% overnight instead of 20%", "Every spell gets one use back each night"],
+	["Stays are 3 days instead of 4", "Cures cost a quarter less"],
+	["Drills never come out poor", "A third drill is posted each week"],
+	["The reserve gets a quarter share of a battle's XP", "The reserve heals fully overnight"],
+	["Repairs mend 30 instead of 20", "The walls hold 120 instead of 100"],
+	["A third scavenging site each day", "A lost front costs the walls 5 less"],
+]
+
 var rng: RandomNumberGenerator
 var content: RunContent
 var art_pool: Array[CombatArtData] = []
@@ -41,6 +59,9 @@ var city_health: int = RunConfig.CITY_MAX_HEALTH
 var gold: int = 0
 ## Material id -> amount.
 var materials: Dictionary = {}
+## Every piece of material the run has taken in so far (battles, bosses, events, scavenging), by id;
+## for the record and the balance checks.
+var materials_taken: Dictionary = {}
 ## Every companion in the run (fielded, bench and infirmary), in the order they joined. Nobody is ever
 ## removed.
 var roster: Array[RunCompanion] = []
@@ -68,6 +89,11 @@ var actions_left: int = 0
 var actions_used: Array[int] = []
 ## Free days: the places beyond the walls a party can be sent to today (see scavenge_sites()).
 var _scavenge_sites: Array[ScavengeSite] = []
+## Facility -> level (missing: 0). See facility_level.
+var facilities: Dictionary = {}
+## The Watchtower level 2: the fronts of day _next_fronts_day, rolled a day early (see tomorrow_fronts).
+var _next_fronts: Array[Front] = []
+var _next_fronts_day: int = 0
 ## Who the tavern offers this week. Rolled on the first day of each week; a hire leaves the list.
 var tavern_offers: Array[CompanionData] = []
 ## What the smithy sells this week: RunConfig.SHOP_WEAPONS_PER_WEEK ladder weapons whose tiers climb
@@ -144,16 +170,19 @@ func day_type(d: int = -1) -> int:
 	return calendar[at - 1]
 
 
-## The boss group waiting on boss day `d`, drawn when the run began; null on other days.
+## The boss group waiting on boss day `d`, drawn when the run began; null on other days, and for a
+## day ahead while the watch does not know the bosses (boss_days_known).
 func boss_on(d: int) -> EnemyGroupData:
+	if d > day and not boss_days_known():
+		return null
 	return boss_draw.get(d)
 
 
-## Boss days still ahead (today included), in order.
+## Boss days still ahead (today included), in order; while the watch does not know them, at most today.
 func boss_days_ahead() -> Array[int]:
 	var out: Array[int] = []
 	for d in range(day, calendar.size() + 1):
-		if calendar[d - 1] == RunCalendar.DayType.BOSS:
+		if calendar[d - 1] == RunCalendar.DayType.BOSS and (d == day or boss_days_known()):
 			out.append(d)
 	return out
 
@@ -167,11 +196,12 @@ static func band_of_day(d: int) -> int:
 	return b
 
 
-## Day types from today through `ahead` days after it (fewer near the end of the run).
+## Day types from today through `ahead` days after it (fewer near the end of the run), as the watch
+## sees them (seen_day_type: a boss day ahead is a battle day until the boss days are known).
 func upcoming(ahead: int = RunConfig.DAYS_SHOWN_AHEAD) -> Array[int]:
 	var out: Array[int] = []
 	for d in range(day, mini(day + ahead, calendar.size()) + 1):
-		out.append(calendar[d - 1])
+		out.append(seen_day_type(d))
 	return out
 
 
@@ -273,7 +303,9 @@ func equip_block_reason(c: RunCompanion, w: OwnedWeapon) -> String:
 func equip_weapon(c: RunCompanion, w: OwnedWeapon) -> bool:
 	if equip_block_reason(c, w) != "":
 		return false
-	return inventory.equip(c, w)
+	var done := inventory.equip(c, w)
+	c.hp = mini(c.hp, c.max_hp())   # an enchantment that gave Health is no longer in hand
+	return done
 
 
 # ---------------------------------------------------------------- battle and boss days
@@ -382,6 +414,8 @@ func finish_battle(battle: Battle) -> BattleReport:
 	if report.won:
 		battles_won += 1
 		_grant_xp(report, front.xp_pool, standing, points)
+		if facility_level(Facility.BARRACKS) >= 1:
+			_grant_reserve_xp(report, front.xp_pool)
 		# Weapons that pay for kills (WeaponData.gold_per_kill): only on a win.
 		for i in fielded.size():
 			var unit := battle.roster[i]
@@ -455,10 +489,10 @@ func free_action_block_reason(a: FreeAction) -> String:
 			if tavern_offers.is_empty():
 				return "Nobody is looking for work."
 		FreeAction.REPAIR:
-			if city_health >= RunConfig.CITY_MAX_HEALTH:
+			if city_health >= max_city_health():
 				return "The city is at full health."
-			if not _can_pay(RunConfig.REPAIR_COST):
-				return "Needs %s." % cost_text(RunConfig.REPAIR_COST)
+			if not _can_pay(repair_cost()):
+				return "Needs %s." % cost_text(repair_cost())
 		FreeAction.TRAIN:
 			if gold < RunConfig.DRILL_COST:
 				return "Needs %d gold." % RunConfig.DRILL_COST
@@ -499,7 +533,10 @@ func rest() -> bool:
 func cure_cost(c: RunCompanion) -> int:
 	if c == null or not c.injured:
 		return 0
-	return c.days_left(day) * (RunConfig.CURE_GOLD_PER_DAY_BASE + RunConfig.CURE_GOLD_PER_DAY_PER_LEVEL * c.level())
+	var cost := c.days_left(day) * (RunConfig.CURE_GOLD_PER_DAY_BASE + RunConfig.CURE_GOLD_PER_DAY_PER_LEVEL * c.level())
+	if facility_level(Facility.INFIRMARY) >= 2:
+		cost = roundi(cost * (100 - RunConfig.INFIRMARY_CURE_DISCOUNT_PERCENT) / 100.0)
+	return cost
 
 
 ## Why `c` cannot be cured now, or "". Curing is a free-day errand (FreeAction.CURE): gold only, never
@@ -529,8 +566,8 @@ func repair() -> bool:
 	if free_action_block_reason(FreeAction.REPAIR) != "":
 		return false
 	_spend(FreeAction.REPAIR)
-	_pay(RunConfig.REPAIR_COST)
-	city_health = mini(RunConfig.CITY_MAX_HEALTH, city_health + RunConfig.REPAIR_AMOUNT)
+	_pay(repair_cost())
+	city_health = mini(max_city_health(), city_health + repair_amount())
 	return true
 
 
@@ -600,8 +637,8 @@ func hire_block_reason(data: CompanionData) -> String:
 		return why
 	if not tavern_offers.has(data):
 		return "Not at the tavern this week."
-	if gold < RunConfig.HIRE_COST:
-		return "Needs %d gold." % RunConfig.HIRE_COST
+	if gold < hire_cost():
+		return "Needs %d gold." % hire_cost()
 	return ""
 
 
@@ -611,7 +648,7 @@ func hire_block_reason(data: CompanionData) -> String:
 func hire(data: CompanionData) -> RunCompanion:
 	if hire_block_reason(data) != "":
 		return null
-	gold -= RunConfig.HIRE_COST
+	gold -= hire_cost()
 	tavern_offers.erase(data)
 	var level := hire_level()
 	var c := _join(data)
@@ -709,6 +746,8 @@ func _roll_drill_quality() -> DrillResult.Quality:
 	for q in RunConfig.DRILL_QUALITY_WEIGHTS.size():
 		r -= RunConfig.DRILL_QUALITY_WEIGHTS[q]
 		if r <= 0:
+			if q == DrillResult.Quality.POOR and facility_level(Facility.YARD) >= 1:
+				return DrillResult.Quality.GOOD   # the Drill Yard level 1: never poor
 			return q as DrillResult.Quality
 	return DrillResult.Quality.GOOD
 
@@ -955,7 +994,8 @@ func _scavenge_xp(m: ScavengeResult.Member, amount: int) -> void:
 func _roll_scavenge_sites() -> void:
 	_scavenge_sites.clear()
 	var names: Array[String] = ScavengeSite.NAMES.duplicate()
-	for i in RunConfig.SCAVENGE_SITES_PER_DAY:
+	var count := RunConfig.SCAVENGE_SITES_PER_DAY + (RunConfig.GATE_EXTRA_SITES if facility_level(Facility.GATE) >= 1 else 0)
+	for i in count:
 		var site_name: String = names.pop_at(rng.randi_range(0, names.size() - 1)) if not names.is_empty() else "The Wilds"
 		_scavenge_sites.append(_roll_site(site_name, 3))
 	var fit := available().size()
@@ -1006,6 +1046,310 @@ func _roll_weighted(weights: Array) -> int:
 	return last
 
 
+# ---------------------------------------------------------------- the city's facilities
+
+## The level of facility `f` (0: not built; at most facility_max_level()).
+func facility_level(f: Facility) -> int:
+	return int(facilities.get(f, 0))
+
+
+static func facility_max_level() -> int:
+	return RunConfig.FACILITY_MAX_LEVEL
+
+
+static func facility_name(f: Facility) -> String:
+	return FACILITY_NAMES[f]
+
+
+## What level `level` (1 or 2) of facility `f` does, one short line ("" for other levels).
+static func facility_lines(f: Facility, level: int) -> String:
+	if level < 1 or level > FACILITY_LINES[f].size():
+		return ""
+	return FACILITY_LINES[f][level - 1]
+
+
+## What the next level of `f` costs (material id -> amount); empty when it is built to the full.
+func upgrade_cost(f: Facility) -> Dictionary:
+	var level := facility_level(f)
+	if level >= RunConfig.FACILITY_MAX_LEVEL:
+		return {}
+	return {RunConfig.FACILITY_MATERIAL[f]: RunConfig.UPGRADE_COST[level]}
+
+
+## Why `f` cannot be built up now, or "". An errand: free days once the event is answered, never the
+## day's action; one level at a time, level 1 before level 2.
+func upgrade_block_reason(f: Facility) -> String:
+	var why := errand_block_reason()
+	if why != "":
+		return why
+	if facility_level(f) >= RunConfig.FACILITY_MAX_LEVEL:
+		return "The %s is built to the full." % FACILITY_NAMES[f]
+	var cost := upgrade_cost(f)
+	if not _can_pay(cost):
+		return "Needs %s." % cost_text(cost)
+	return ""
+
+
+## Pays upgrade_cost(f) and raises `f` one level. It works at once (see _on_upgrade).
+func upgrade(f: Facility) -> bool:
+	if upgrade_block_reason(f) != "":
+		return false
+	_pay(upgrade_cost(f))
+	facilities[f] = facility_level(f) + 1
+	_on_upgrade(f, facility_level(f))
+	return true
+
+
+## What an upgrade changes the moment it is paid for: a Tavern offer, a drill or a scavenging site
+## more today, Infirmary stays already running a day shorter, tomorrow's fronts read from the
+## Watchtower, the lost-front cost of fronts already rolled.
+func _on_upgrade(f: Facility, level: int) -> void:
+	match [f, level]:
+		[Facility.WATCHTOWER, 2]:
+			_roll_tomorrow()
+		[Facility.TAVERN, 1]:
+			_offer_more(RunConfig.TAVERN_EXTRA_OFFERS)
+		[Facility.INFIRMARY, 1]:
+			var less := RunConfig.INFIRMARY_DAYS - RunConfig.INFIRMARY_UPGRADED_DAYS
+			for c in _infirmary:
+				c.back_on_day = maxi(day + 1, c.back_on_day - less)
+		[Facility.YARD, 2]:
+			_post_more_drills(RunConfig.YARD_EXTRA_DRILLS)
+		[Facility.GATE, 1]:
+			if day_type() == RunCalendar.DayType.FREE and not is_over():
+				var names: Array[String] = []
+				for n in ScavengeSite.NAMES:
+					if not _scavenge_sites.any(func(s: ScavengeSite) -> bool: return s.display_name == n):
+						names.append(n)
+				for i in RunConfig.GATE_EXTRA_SITES:
+					var site_name: String = names.pop_at(rng.randi_range(0, names.size() - 1)) if not names.is_empty() else "The Wilds"
+					_scavenge_sites.append(_roll_site(site_name, 3))
+		[Facility.GATE, 2]:
+			for fr in _next_fronts:
+				if not fr.is_boss:
+					fr.city_damage = front_city_damage(fr.danger)
+
+
+## The most city health the walls hold (the Mason's Yard level 2 raises it).
+func max_city_health() -> int:
+	return RunConfig.MASON_CITY_MAX_HEALTH if facility_level(Facility.MASON) >= 2 else RunConfig.CITY_MAX_HEALTH
+
+
+## What mending the walls costs (material id -> amount).
+func repair_cost() -> Dictionary:
+	return RunConfig.REPAIR_COST.duplicate()
+
+
+## City health one repair mends (the Mason's Yard level 1 raises it).
+func repair_amount() -> int:
+	return RunConfig.MASON_REPAIR_AMOUNT if facility_level(Facility.MASON) >= 1 else RunConfig.REPAIR_AMOUNT
+
+
+## Gold a hire costs (the Tavern level 2 lowers it).
+func hire_cost() -> int:
+	return RunConfig.HIRE_COST - (RunConfig.TAVERN_HIRE_DISCOUNT if facility_level(Facility.TAVERN) >= 2 else 0)
+
+
+## City health a lost front of `danger` costs (the Gate level 2 lowers it).
+func front_city_damage(danger: int) -> int:
+	var less := RunConfig.GATE_CITY_DAMAGE_LESS if facility_level(Facility.GATE) >= 2 else 0
+	return maxi(0, RunConfig.CITY_DAMAGE_BY_DANGER[danger - 1] - less)
+
+
+## Why `from_id` cannot be swapped for `to_id` at the Mason's Yard now, or "". An errand.
+func swap_block_reason(from_id: String, to_id: String) -> String:
+	var why := errand_block_reason()
+	if why != "":
+		return why
+	if not RunConfig.MATERIAL_ORDER.has(from_id) or not RunConfig.MATERIAL_ORDER.has(to_id) or from_id == to_id:
+		return "Choose two different materials."
+	if material(from_id) < RunConfig.SWAP_GIVE:
+		return "Needs %d %s." % [RunConfig.SWAP_GIVE, RunConfig.MATERIAL_NAMES[from_id]]
+	return ""
+
+
+## RunConfig.SWAP_GIVE of `from_id` for RunConfig.SWAP_GET of `to_id`; any number of times.
+func swap(from_id: String, to_id: String) -> bool:
+	if swap_block_reason(from_id, to_id) != "":
+		return false
+	materials[from_id] = material(from_id) - RunConfig.SWAP_GIVE
+	materials[to_id] = material(to_id) + RunConfig.SWAP_GET
+	return true
+
+
+# ---------------------------------------------------------------- the watch
+
+## What the watch knows: true once the Watchtower has its level 1. Until then the boss days ahead are
+## not marked (upcoming shows them as battle days) and the bosses are not named (boss_on is null for a
+## day ahead, boss_days_ahead holds at most today).
+func boss_days_known() -> bool:
+	return facility_level(Facility.WATCHTOWER) >= 1
+
+
+## The type of day `d` (default today) as the watch sees it: a boss day ahead shows as a battle day
+## until the Watchtower knows the boss days. Today, and the past, as they are.
+func seen_day_type(d: int = -1) -> int:
+	var at := day if d < 0 else d
+	var t := day_type(at)
+	if t == RunCalendar.DayType.BOSS and at > day and not boss_days_known():
+		return RunCalendar.DayType.BATTLE
+	return t
+
+
+## Tomorrow's fronts, rolled a day early once the Watchtower has its level 2 (they are the fronts
+## tomorrow brings); empty otherwise, or when tomorrow is not a battle or boss day.
+func tomorrow_fronts() -> Array[Front]:
+	if facility_level(Facility.WATCHTOWER) < 2 or _next_fronts_day != day + 1 or is_over():
+		return []
+	return _next_fronts.duplicate()
+
+
+## Rolls tomorrow's fronts now, when the Watchtower has its level 2.
+func _roll_tomorrow() -> void:
+	var d := day + 1
+	if facility_level(Facility.WATCHTOWER) < 2 or is_over() or d > calendar.size() or _next_fronts_day == d:
+		return
+	_next_fronts.clear()
+	_next_fronts_day = 0
+	match day_type(d):
+		RunCalendar.DayType.BATTLE:
+			_next_fronts = _roll_fronts(d)
+			_next_fronts_day = d
+		RunCalendar.DayType.BOSS:
+			_next_fronts = [_make_boss_front(d)]
+			_next_fronts_day = d
+
+
+# ---------------------------------------------------------------- enchanting
+
+## The most levels `w` can hold: by tier (RunConfig.ENCHANT_CAP_BY_TIER), a rare weapon
+## RunConfig.ENCHANT_RARE_CAP.
+static func enchant_cap(w: OwnedWeapon) -> int:
+	if w == null or w.data == null:
+		return 0
+	if w.data.is_rare():
+		return RunConfig.ENCHANT_RARE_CAP
+	return RunConfig.ENCHANT_CAP_BY_TIER[clampi(w.data.tier, 0, RunConfig.ENCHANT_CAP_BY_TIER.size() - 1)]
+
+
+## What the next attempt on `w` costs: going from +n, (n + 1) x RunConfig.ENCHANT_ORE_PER_LEVEL iron
+## ore and (n + 1) x RunConfig.ENCHANT_GOLD_PER_LEVEL gold ("gold").
+func enchant_cost(w: OwnedWeapon) -> Dictionary:
+	var step := (w.enchant_level if w != null else 0) + 1
+	return {RunConfig.IRON_ORE: step * RunConfig.ENCHANT_ORE_PER_LEVEL, "gold": step * RunConfig.ENCHANT_GOLD_PER_LEVEL}
+
+
+## Why `w` cannot be enchanted now, or "". An errand at the Smithy once it has its level 1; any weapon
+## the company owns, in hand or in the armory, below its cap.
+func enchant_block_reason(w: OwnedWeapon) -> String:
+	var why := errand_block_reason()
+	if why != "":
+		return why
+	if facility_level(Facility.SMITHY) < 1:
+		return "The smithy cannot enchant until it is built up."
+	if w == null or not inventory.weapons.has(w):
+		return "That weapon is not the company's."
+	if w.enchant_level >= enchant_cap(w):
+		return "%s holds no more than +%d." % [w.data.display_name, enchant_cap(w)]
+	var cost := enchant_cost(w)
+	if not _can_afford(cost):
+		return "Needs %s." % _cost_with_gold(cost)
+	return ""
+
+
+## One attempt: pays enchant_cost(w) and adds a level, or two with RunConfig.ENCHANT_DOUBLE_PERCENT
+## (by Smithy level) when the cap leaves room. Each level is +1 to a stat drawn at random from all
+## eleven while the weapon is held (the same stat can come up again). The holder's HP rises with any
+## Health it gives. Returns what happened, or null if not allowed.
+func enchant(w: OwnedWeapon) -> EnchantResult:
+	if enchant_block_reason(w) != "":
+		return null
+	var r := EnchantResult.new()
+	r.weapon = w
+	r.level_before = w.enchant_level
+	r.cost = enchant_cost(w)
+	_pay_with_gold(r.cost)
+	var percent: int = RunConfig.ENCHANT_DOUBLE_PERCENT[clampi(facility_level(Facility.SMITHY) - 1, 0, RunConfig.ENCHANT_DOUBLE_PERCENT.size() - 1)]
+	r.double = rng.randi_range(1, 100) <= percent
+	r.levels_gained = 2 if r.double and w.enchant_level + 2 <= enchant_cap(w) else 1
+	for i in r.levels_gained:
+		var key: String = Stat.COMPANION_KEYS[rng.randi_range(0, Stat.COMPANION_KEYS.size() - 1)]
+		w.enchant_order.append(key)
+		r.stats.append(key)
+	inventory.refresh(w)
+	if w.holder != null:
+		w.holder.hp = mini(w.holder.max_hp(), w.holder.hp + r.stats.count(Stat.HP))
+	return r
+
+
+## What moving an enchantment costs (material id -> amount).
+func move_enchant_cost() -> Dictionary:
+	return RunConfig.MOVE_ENCHANT_COST.duplicate()
+
+
+## Why `from`'s enchantment cannot be moved to `to` now, or "". An errand at the Smithy (level 1): both
+## the company's, the same weapon type, `from` enchanted and `to` not.
+func move_enchant_block_reason(from: OwnedWeapon, to: OwnedWeapon) -> String:
+	var why := errand_block_reason()
+	if why != "":
+		return why
+	if facility_level(Facility.SMITHY) < 1:
+		return "The smithy cannot enchant until it is built up."
+	if from == null or to == null or not inventory.weapons.has(from) or not inventory.weapons.has(to):
+		return "That weapon is not the company's."
+	if from == to:
+		return "Choose another weapon to move it to."
+	if from.enchant_level == 0:
+		return "%s has no enchantment." % from.data.display_name
+	if to.enchant_level > 0:
+		return "%s is already enchanted." % to.title()
+	if from.data.weapon_type != to.data.weapon_type:
+		return "Only to a weapon of the same type (%s)." % WeaponData.type_name(from.data.weapon_type).to_lower()
+	if not _can_pay(move_enchant_cost()):
+		return "Needs %s." % cost_text(move_enchant_cost())
+	return ""
+
+
+## Moves `from`'s whole enchantment to `to` for move_enchant_cost(). Levels above `to`'s cap are lost,
+## the last ones gained first.
+func move_enchant(from: OwnedWeapon, to: OwnedWeapon) -> bool:
+	if move_enchant_block_reason(from, to) != "":
+		return false
+	_pay(move_enchant_cost())
+	to.enchant_order = from.enchant_order.slice(0, enchant_cap(to))
+	from.enchant_order.clear()
+	inventory.refresh(from)
+	inventory.refresh(to)
+	if from.holder != null:
+		from.holder.hp = mini(from.holder.hp, from.holder.max_hp())
+	return true
+
+
+func _can_afford(cost: Dictionary) -> bool:
+	if gold < int(cost.get("gold", 0)):
+		return false
+	for m in RunConfig.MATERIAL_ORDER:
+		if material(m) < int(cost.get(m, 0)):
+			return false
+	return true
+
+
+func _pay_with_gold(cost: Dictionary) -> void:
+	gold -= int(cost.get("gold", 0))
+	for m in RunConfig.MATERIAL_ORDER:
+		if cost.has(m):
+			materials[m] = material(m) - int(cost[m])
+
+
+## "2 Iron Ore and 40 gold".
+static func _cost_with_gold(cost: Dictionary) -> String:
+	var text := cost_text(cost)
+	var g := int(cost.get("gold", 0))
+	if g > 0:
+		text = ("%s and %d gold" % [text, g]) if text != "" else "%d gold" % g
+	return text
+
+
 # ---------------------------------------------------------------- traits
 
 ## The traits of `data` standing in the tavern this week (rolled with the week's offers; shown before
@@ -1018,14 +1362,16 @@ func offer_traits(data: CompanionData) -> Array[TraitData]:
 
 ## Days `c` stays in the Infirmary when injured: RunConfig.INFIRMARY_DAYS plus what their traits add.
 func infirmary_days(c: RunCompanion) -> int:
-	return maxi(1, RunConfig.INFIRMARY_DAYS + TraitRules.total(c.traits, TraitModifier.Kind.INFIRMARY_DAYS))
+	var base := RunConfig.INFIRMARY_UPGRADED_DAYS if facility_level(Facility.INFIRMARY) >= 1 else RunConfig.INFIRMARY_DAYS
+	return maxi(1, base + TraitRules.total(c.traits, TraitModifier.Kind.INFIRMARY_DAYS))
 
 
 ## HP `c` heals at the end of the day: RunConfig.DAILY_HEAL_FRACTION of max HP, changed by their traits
 ## (TraitModifier.Kind.DAY_HEAL_PERCENT), rounded up.
 func day_heal(c: RunCompanion) -> int:
 	var percent := TraitRules.total(c.traits, TraitModifier.Kind.DAY_HEAL_PERCENT)
-	return maxi(0, ceili(c.max_hp() * RunConfig.DAILY_HEAL_FRACTION * (100 + percent) / 100.0))
+	var fraction := RunConfig.INN_DAILY_HEAL_FRACTION if facility_level(Facility.INN) >= 1 else RunConfig.DAILY_HEAL_FRACTION
+	return maxi(0, ceili(c.max_hp() * fraction * (100 + percent) / 100.0))
 
 
 ## Points a proficiency drill of `quality` gives `c`: RunConfig.DRILL_POINTS, changed by their traits
@@ -1105,6 +1451,20 @@ static func _trait_fits(t: TraitData, p: CompanionProgress) -> bool:
 	return true
 
 
+## The Barracks level 1: everyone on the bench (not fielded, not in the infirmary) gets a share of a won
+## battle's XP: RunConfig.BARRACKS_RESERVE_XP_SHARE of an even share (pool / MAX_FIELDED), rounded,
+## changed by their traits. In report.reserve_xp; level-ups in report.level_ups.
+func _grant_reserve_xp(report: BattleReport, pool: int) -> void:
+	for c in reserve():
+		var xp := Levels.with_traits(c.progress, roundi(float(pool) / RunConfig.MAX_FIELDED * RunConfig.BARRACKS_RESERVE_XP_SHARE))
+		if xp <= 0:
+			continue
+		report.reserve_xp[c.display_name()] = xp
+		for up in Levels.add_xp(c.progress, xp, rng):
+			c.hp += int(up.gains.get(Stat.HP, 0))
+			report.level_ups.append({"name": c.display_name(), "level": up.level, "gains": up.gains})
+
+
 ## Level a companion hired today joins at: the roster's average level, rounded down.
 func hire_level() -> int:
 	if roster.is_empty():
@@ -1145,7 +1505,7 @@ func choose(choice: EventChoiceData) -> String:
 		return ""
 	gold += choice.gold
 	_add_materials(choice.materials)
-	city_health = clampi(city_health + choice.city_health, 0, RunConfig.CITY_MAX_HEALTH)
+	city_health = clampi(city_health + choice.city_health, 0, max_city_health())
 	if choice.companion_hp != 0:
 		for c in hp_targets(choice):
 			c.heal(choice.companion_hp)
@@ -1202,22 +1562,32 @@ func _begin_day() -> void:
 	_scavenge_sites.clear()
 	if RunCalendar.is_week_start(day):
 		_restock_week()
+	var early := _next_fronts.duplicate() if _next_fronts_day == day else []
+	_next_fronts.clear()
+	_next_fronts_day = 0
 	match day_type():
 		RunCalendar.DayType.BATTLE:
-			_make_fronts()
+			fronts.assign(early if not early.is_empty() else _roll_fronts(day))
 		RunCalendar.DayType.BOSS:
-			fronts.append(_make_boss_front())
+			fronts.assign(early if not early.is_empty() else [_make_boss_front(day)])
 		RunCalendar.DayType.FREE:
 			actions_left = RunConfig.FREE_DAY_ACTIONS
 			if has_event_day():
 				event = _pick_event()
 				_draw_event_weapons()
 			_roll_scavenge_sites()
+	_roll_tomorrow()
 
 
 func _end_day() -> void:
 	for c in available():
 		c.heal(day_heal(c))
+		if facility_level(Facility.INN) >= 2:
+			for sp in c.progress.known_spells:
+				c.progress.spell_uses[sp] = mini(c.progress.max_uses(sp), c.progress.uses_left(sp) + RunConfig.INN_USES_PER_NIGHT)
+	if facility_level(Facility.BARRACKS) >= 2:
+		for c in reserve():
+			c.hp = c.max_hp()
 	if not is_over():
 		if city_health <= 0:
 			city_health = 0
@@ -1243,38 +1613,40 @@ func _end(result: Outcome, reason: String) -> void:
 	end_reason = reason
 
 
-## Two or three fronts of different danger. Three fronts are always danger 1, 2 and 3; two are
-## two different dangers.
-func _make_fronts() -> void:
+## Two or three fronts of different danger for day `d`. Three fronts are always danger 1, 2 and 3; two
+## are two different dangers.
+func _roll_fronts(d: int) -> Array[Front]:
+	var out: Array[Front] = []
 	var dangers: Array[int] = [1, 2, 3]
 	if rng.randf() >= RunConfig.THREE_FRONTS_CHANCE:
 		dangers.remove_at(rng.randi_range(0, 2))
 	var sites := content.sites.duplicate()
 	for danger in dangers:
-		var options := content.groups_for(danger, day)
+		var options := content.groups_for(danger, d)
 		if options.is_empty():
 			continue
 		var f := Front.new()
 		f.danger = danger
-		f.group = _pick_group(options)
+		f.group = _pick_group(options, d)
 		f.site = sites.pop_at(rng.randi_range(0, sites.size() - 1)) if not sites.is_empty() else null
 		for e in f.group.enemies:
-			f.enemies.append(scaled_enemy(e, day))
-		var growth := 1.0 + RunConfig.REWARD_GROWTH_PER_DAY * (day - 1)
+			f.enemies.append(scaled_enemy(e, d))
+		var growth := 1.0 + RunConfig.REWARD_GROWTH_PER_DAY * (d - 1)
 		var spread := rng.randf_range(1.0 - RunConfig.REWARD_GOLD_SPREAD, 1.0 + RunConfig.REWARD_GOLD_SPREAD)
 		f.reward_gold = roundi(RunConfig.REWARD_GOLD_BY_DANGER[danger - 1] * growth * spread)
 		if rng.randf() < RunConfig.REWARD_MATERIAL_CHANCE[danger - 1]:
 			var m: String = RunConfig.MATERIAL_ORDER[rng.randi_range(0, RunConfig.MATERIAL_ORDER.size() - 1)]
 			f.reward_materials[m] = RunConfig.REWARD_MATERIAL_AMOUNT[danger - 1]
-		f.city_damage = RunConfig.CITY_DAMAGE_BY_DANGER[danger - 1]
-		f.xp_pool = xp_pool(danger, day)
-		fronts.append(f)
+		f.city_damage = front_city_damage(danger)
+		f.xp_pool = xp_pool(danger, d)
+		out.append(f)
+	return out
 
 
 ## A group for a front, favouring the band of the day: a group from an older band is less likely
 ## (RunConfig.BAND_AGE_WEIGHT), one from a later band never appears (groups' days rule it out).
-func _pick_group(options: Array[EnemyGroupData]) -> EnemyGroupData:
-	var now := band_of_day(day)
+func _pick_group(options: Array[EnemyGroupData], d: int) -> EnemyGroupData:
+	var now := band_of_day(d)
 	var weights: Array[float] = []
 	var total := 0.0
 	for g in options:
@@ -1306,21 +1678,21 @@ func _draw_boss(d: int) -> void:
 	boss_draw[d] = pool[rng.randi_range(0, pool.size() - 1)]
 
 
-func _make_boss_front() -> Front:
-	var index := maxi(0, RunCalendar.boss_index(day))
+func _make_boss_front(d: int) -> Front:
+	var index := maxi(0, RunCalendar.boss_index(d))
 	var f := Front.new()
 	f.is_boss = true
 	f.danger = 3
-	f.group = boss_on(day)
+	f.group = boss_draw.get(d)
 	if f.group == null:
-		_draw_boss(day)
-		f.group = boss_on(day)
+		_draw_boss(d)
+		f.group = boss_draw.get(d)
 	# The first enemy is the boss, built for its day; any escorts grow with the day like other enemies.
 	for i in f.group.enemies.size():
 		var e := f.group.enemies[i]
-		f.enemies.append(e if i == 0 else scaled_enemy(e, day))
+		f.enemies.append(e if i == 0 else scaled_enemy(e, d))
 	f.reward_gold = RunConfig.BOSS_REWARD_GOLD[clampi(index, 0, RunConfig.BOSS_REWARD_GOLD.size() - 1)]
-	if day < RunConfig.DAYS:
+	if d < RunConfig.DAYS:
 		for m in RunConfig.MATERIAL_ORDER:
 			f.reward_materials[m] = RunConfig.BOSS_REWARD_MATERIALS
 	f.city_damage = 0
@@ -1373,7 +1745,8 @@ func _post_drills() -> void:
 				useful.append(d)
 				break
 	var picked: Array[int] = []
-	while picked.size() < RunConfig.DRILLS_PROFICIENCY_PER_WEEK and picked.size() < useful.size():
+	var want := RunConfig.DRILLS_PROFICIENCY_PER_WEEK + (RunConfig.YARD_EXTRA_DRILLS if facility_level(Facility.YARD) >= 2 else 0)
+	while picked.size() < want and picked.size() < useful.size():
 		var i := rng.randi_range(0, useful.size() - 1)
 		if not picked.has(i):
 			picked.append(i)
@@ -1382,13 +1755,51 @@ func _post_drills() -> void:
 		drills.append(useful[i])
 
 
+## `n` more proficiency drills this week (the Drill Yard's level 2, bought mid-week), from the useful
+## ones not posted yet; the list stays weapon types first, then schools.
+func _post_more_drills(n: int) -> void:
+	var options: Array[Drill] = []
+	for wt: int in WeaponData.WeaponType.values():
+		options.append(Drill.weapon(wt))
+	for s: int in SpellData.School.values():
+		options.append(Drill.magic(s))
+	var fresh: Array[Drill] = []
+	for d in options:
+		if drills.any(func(x: Drill) -> bool: return x.kind == d.kind and x.weapon_type == d.weapon_type and x.school == d.school):
+			continue
+		for c in roster:
+			if _drill_unfit_reason(d, c) == "":
+				fresh.append(d)
+				break
+	for i in mini(n, fresh.size()):
+		drills.append(fresh.pop_at(rng.randi_range(0, fresh.size() - 1)))
+	var sparring := drills.filter(func(x: Drill) -> bool: return not x.is_proficiency())
+	var rest := drills.filter(func(x: Drill) -> bool: return x.is_proficiency())
+	rest.sort_custom(func(a: Drill, b: Drill) -> bool:
+		return [a.kind, a.weapon_type, a.school] < [b.kind, b.weapon_type, b.school])
+	drills.assign(sparring + rest)
+
+
 func _make_tavern_offers() -> void:
 	var pool: Array[CompanionData] = []
 	for d in content.companions:
 		if not _in_roster(d):
 			pool.append(d)
-	var count := mini(rng.randi_range(RunConfig.TAVERN_OFFERS_MIN, RunConfig.TAVERN_OFFERS_MAX), pool.size())
+	var extra := RunConfig.TAVERN_EXTRA_OFFERS if facility_level(Facility.TAVERN) >= 1 else 0
+	var count := mini(rng.randi_range(RunConfig.TAVERN_OFFERS_MIN, RunConfig.TAVERN_OFFERS_MAX) + extra, pool.size())
 	for i in count:
+		var d: CompanionData = pool.pop_at(rng.randi_range(0, pool.size() - 1))
+		tavern_offers.append(d)
+		_offer_traits[d] = _roll_traits(CompanionProgress.create(d))
+
+
+## `n` more tavern offers this week (the Tavern's level 1, bought mid-week), if anyone is left.
+func _offer_more(n: int) -> void:
+	var pool: Array[CompanionData] = []
+	for d in content.companions:
+		if not _in_roster(d) and not tavern_offers.has(d):
+			pool.append(d)
+	for i in mini(n, pool.size()):
 		var d: CompanionData = pool.pop_at(rng.randi_range(0, pool.size() - 1))
 		tavern_offers.append(d)
 		_offer_traits[d] = _roll_traits(CompanionProgress.create(d))
@@ -1620,3 +2031,5 @@ func _pay(cost: Dictionary) -> void:
 func _add_materials(gain: Dictionary) -> void:
 	for m: String in gain:
 		materials[m] = maxi(0, material(m) + int(gain[m]))
+		if int(gain[m]) > 0:
+			materials_taken[m] = int(materials_taken.get(m, 0)) + int(gain[m])

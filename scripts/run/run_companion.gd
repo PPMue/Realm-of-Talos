@@ -57,10 +57,16 @@ func weapon() -> WeaponData:
 
 ## The attacker's part of weapon damage with `w` in hand (default: the weapon held), from the stats
 ## the companion carries between battles, after the weight penalty `w` would bring (see
-## CombatMath.attack_power_from). Effects in battle can change it.
-func attack_power(w: WeaponData = null) -> int:
+## CombatMath.attack_power_from). Effects in battle can change it. With another weapon than the one
+## held, the held weapon's enchantment is left out and `enchant` (that weapon's: see attack_with) put in.
+func attack_power(w: WeaponData = null, enchant: Dictionary = {}) -> int:
 	var held := w if w != null else weapon()
 	var st := progress.stats()
+	if w != null and (w != weapon() or not enchant.is_empty()):
+		for key: String in progress.enchant:
+			st[key] = int(st.get(key, 0)) - int(progress.enchant[key])
+		for key: String in enchant:
+			st[key] = int(st.get(key, 0)) + int(enchant[key])
 	if held != null:
 		for key: String in held.held_stats:
 			st[key] = int(st.get(key, 0)) + int(held.held_stats[key])
@@ -77,9 +83,21 @@ func attack_power(w: WeaponData = null) -> int:
 ## "Attack" on the barracks page: attack power with `w` (default: the weapon held) + its Mt for this
 ## companion (WeaponData.might_for). A strike deals this minus the target's DEF (RES for a magic
 ## weapon). Bonuses while held count.
-func attack(w: WeaponData = null) -> int:
+func attack(w: WeaponData = null, enchant: Dictionary = {}) -> int:
 	var held := w if w != null else weapon()
-	return attack_power(held) + (held.might_for(progress) if held != null else 0)
+	return attack_power(w, enchant) + (held.might_for(progress) if held != null else 0)
+
+
+## The Attack with owned weapon `ow` in hand, its enchantment included (the one held: attack()).
+func attack_with(ow: OwnedWeapon) -> int:
+	if ow == null:
+		return attack()
+	if ow.holder == self:
+		return attack()
+	var e := ow.enchant_stats
+	if e.is_empty():
+		e = {"": 0}   # not empty: leave the held weapon's enchantment out even for the same weapon kind
+	return attack(ow.data, e)
 
 
 func heal(amount: int) -> int:

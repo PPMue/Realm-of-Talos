@@ -26,6 +26,8 @@ var xp_gained: Dictionary = {}
 ## Contribution points each fielded companion still in the run earned in the battle, by name, in line
 ## order (won or lost). See Battle.points.
 var points: Dictionary = {}
+## XP the reserve got (the Barracks level 1), by name; empty otherwise.
+var reserve_xp: Dictionary = {}
 ## One entry per level reached: {"name", "level", "gains"} (gains: stat key -> amount).
 var level_ups: Array[Dictionary] = []
 ## The weapon a beaten boss dropped into the armory (Run.boss_weapon_tier), or null.

@@ -647,9 +647,9 @@ func test_boss_draw() -> void:
 		var run := make_run(7000 + s)
 		var again := make_run(7000 + s)
 		for d in BOSS_DAYS:
-			var g := run.boss_on(d)
+			var g: EnemyGroupData = run.boss_draw.get(d)
 			t.check(g != null and rc.bosses_for(d).has(g), "seed %d: day %d draws from its own pool" % [s, d])
-			t.eq(again.boss_on(d), g, "seed %d: the same seed draws the same boss" % s)
+			t.eq(again.boss_draw.get(d), g, "seed %d: the same seed draws the same boss" % s)
 			seen[g] = true
 	t.eq(seen.size(), 9, "all nine bosses are reachable")
 	# The boss front fights the boss that was drawn.
@@ -658,7 +658,9 @@ func test_boss_draw() -> void:
 	run.calendar[13] = RunCalendar.DayType.BOSS
 	run._begin_day()
 	t.eq(run.fronts[0].group, run.boss_on(14), "the day 14 front is the drawn boss")
-	t.eq(run.boss_days_ahead(), [14, 28, 42] as Array[int], "boss days ahead")
+	t.eq(run.boss_days_ahead(), [14] as Array[int], "without the Watchtower: only today's boss")
+	run.facilities[Run.Facility.WATCHTOWER] = 1
+	t.eq(run.boss_days_ahead(), [14, 28, 42] as Array[int], "with it: every boss day ahead")
 	t.check(not rc.bosses.any(func(g: EnemyGroupData) -> bool: return g.display_name == "Frostfang Warden"),
 		"the Frostfang Warden is retired")
 	for g in rc.bosses:

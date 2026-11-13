@@ -128,8 +128,12 @@ const HIRE_COST := 100
 ## How many companions the tavern offers (at most; fewer if fewer are left to hire).
 const TAVERN_OFFERS_MIN := 1
 const TAVERN_OFFERS_MAX := 2
-const REPAIR_COST := {TIMBER: 2, IRON_ORE: 1}
+## Mending the walls (a free-day action): timber only. See Run.repair_cost / repair_amount.
+const REPAIR_COST := {TIMBER: 3}
 const REPAIR_AMOUNT := 20
+## The Mason's Yard swaps materials (an errand): SWAP_GIVE of one for SWAP_GET of the other.
+const SWAP_GIVE := 2
+const SWAP_GET := 1
 
 # --- The training ground (a free-day action; see Run.train) ---
 # Each week (with the tavern and smithy restock) three drills are posted: Sparring, and two
@@ -207,6 +211,48 @@ const SCAVENGE_HALF_CHANCE := 50
 ## Share of max HP (rounded up, never below 1 HP left) everyone sent loses: medium risk on nothing;
 ## high risk on half a haul, and on nothing for all but the one injured.
 const SCAVENGE_HP_LOSS_FRACTION := 0.25
+
+# --- The city's facilities (Run.Facility; see Run.upgrade and design/city-and-enchanting.md) ---
+const FACILITY_MAX_LEVEL := 2
+## What each facility pays in, by Run.Facility (Watchtower, Smithy, Tavern, Inn, Infirmary, Drill Yard,
+## Barracks, Mason's Yard, Gate): timber builds the city, iron ore the Smithy and the Gate.
+const FACILITY_MATERIAL: Array[String] = [TIMBER, IRON_ORE, TIMBER, TIMBER, TIMBER, TIMBER, TIMBER, TIMBER, IRON_ORE]
+## Pieces of that material for level 1 and level 2. Set from the automated runs' income: a run that
+## reaches day 42 takes in about 22 timber and 23 iron ore (see README, The city's upgrades).
+const UPGRADE_COST: Array[int] = [3, 5]
+## Tavern: offers more each week (level 1); hires cost less (level 2).
+const TAVERN_EXTRA_OFFERS := 1
+const TAVERN_HIRE_DISCOUNT := 25
+## Inn: the overnight heal (level 1); spell uses back each night, every spell (level 2).
+const INN_DAILY_HEAL_FRACTION := 0.3
+const INN_USES_PER_NIGHT := 1
+## Infirmary: the stay (level 1); cures cost this percent less (level 2), rounded.
+const INFIRMARY_UPGRADED_DAYS := 3
+const INFIRMARY_CURE_DISCOUNT_PERCENT := 25
+## Drill Yard: proficiency drills posted each week on top of DRILLS_PROFICIENCY_PER_WEEK (level 2).
+const YARD_EXTRA_DRILLS := 1
+## Barracks: the reserve's share of a won battle's XP, as a share of an even share
+## (pool / MAX_FIELDED), rounded (level 1).
+const BARRACKS_RESERVE_XP_SHARE := 0.25
+## Mason's Yard: what a repair mends (level 1); the walls' most (level 2).
+const MASON_REPAIR_AMOUNT := 30
+const MASON_CITY_MAX_HEALTH := 120
+## Gate: scavenging sites a day on top of SCAVENGE_SITES_PER_DAY (level 1); city health a lost front
+## costs less (level 2).
+const GATE_EXTRA_SITES := 1
+const GATE_CITY_DAMAGE_LESS := 5
+
+# --- Enchanting (at the Smithy, from its level 1; see Run.enchant) ---
+## The most levels a weapon can hold, by tier (wooden .. platinum); a rare weapon: RARE.
+const ENCHANT_CAP_BY_TIER: Array[int] = [1, 2, 3, 4, 5, 5]
+const ENCHANT_RARE_CAP := 4
+## Chance (percent) an attempt adds 2 levels instead of 1 (room allowing), by Smithy level 1 / 2.
+const ENCHANT_DOUBLE_PERCENT: Array[int] = [20, 40]
+## To go from +n: (n + 1) x ORE iron ore and (n + 1) x GOLD gold.
+const ENCHANT_ORE_PER_LEVEL := 1
+const ENCHANT_GOLD_PER_LEVEL := 20
+## Moving a whole enchantment to another weapon of the same type.
+const MOVE_ENCHANT_COST := {IRON_ORE: 2}
 
 # --- Starting resources ---
 const STARTING_GOLD := 60

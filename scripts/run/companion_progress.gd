@@ -26,6 +26,8 @@ var known_spells: Array[SpellData] = []
 var spell_uses: Dictionary = {}
 ## What this companion is (TraitData), rolled when they join a run and never changed. See TraitRules.
 var traits: Array[TraitData] = []
+## The held weapon's enchantment (OwnedWeapon.enchant_stats): stat key -> amount; kept by RunInventory.
+var enchant: Dictionary = {}
 
 
 ## Fresh progress at the start of a run: starting grades, signature art known and equipped.
@@ -65,22 +67,28 @@ func copy() -> CompanionProgress:
 	p.known_spells = known_spells.duplicate()
 	p.spell_uses = spell_uses.duplicate()
 	p.traits = traits.duplicate()
+	p.enchant = enchant.duplicate()
 	return p
 
 
 # ---------------------------------------------------------------- stats
 
-## Base stats plus level-up gains plus what traits add without conditions (trait_stat_bonus), never
-## below 0 (Health never below 1). Bonuses that depend on the battle (a place in the line, say) are
-## added in battle by CompanionUnit.stat.
+## Base stats plus level-up gains plus what traits add without conditions (trait_stat_bonus) plus the
+## held weapon's enchantment (enchant_stat_bonus), never below 0 (Health never below 1). Bonuses that
+## depend on the battle (a place in the line, say) are added in battle by CompanionUnit.stat.
 func stats() -> Dictionary:
 	var s := data.base_stats()
 	for key: String in stat_gains:
 		s[key] = int(s.get(key, 0)) + int(stat_gains[key])
-	if not traits.is_empty():
+	if not traits.is_empty() or not enchant.is_empty():
 		for key: String in s:
-			s[key] = maxi(1 if key == Stat.HP else 0, int(s[key]) + trait_stat_bonus(key))
+			s[key] = maxi(1 if key == Stat.HP else 0, int(s[key]) + trait_stat_bonus(key) + enchant_stat_bonus(key))
 	return s
+
+
+## What the held weapon's enchantment adds to stat `key`. Included in stats().
+func enchant_stat_bonus(key: String) -> int:
+	return int(enchant.get(key, 0))
 
 
 ## What traits add to stat `key` without conditions (can be negative). Included in stats().
