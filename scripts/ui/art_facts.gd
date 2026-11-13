@@ -7,14 +7,17 @@ extends RefCounted
 ## orders in a battle and the barracks sheet; `k` scales it and the inks suit the ground it is drawn on.
 
 
-## The figures of an art: [[number, word], ...].
-static func art_figures(art: CombatArtData) -> Array:
-	return [[str(art.stamina_cost), "STAMINA"], [str(art.recovery), "RECOVERY"]]
+## The figures of an art: [[number, word], ...]. `cost` (when 0 or more) is what it costs whoever
+## would use it (their traits can change it); otherwise the art's own cost.
+static func art_figures(art: CombatArtData, cost: int = -1) -> Array:
+	return [[str(cost if cost >= 0 else art.stamina_cost), "STAMINA"], [str(art.recovery), "RECOVERY"]]
 
 
-## The figures of a spell. `uses_left` (when 0 or more) shows how many casts remain of its uses.
-static func spell_figures(sp: SpellData, uses_left: int = -1) -> Array:
-	var uses := [str(sp.uses), "USES"] if uses_left < 0 else [str(uses_left), "OF %d USES" % sp.uses]
+## The figures of a spell. `uses_left` (when 0 or more) shows how many casts remain of its uses;
+## `max_uses` (when above 0) is how many the caster has of it (their traits can change it).
+static func spell_figures(sp: SpellData, uses_left: int = -1, max_uses: int = 0) -> Array:
+	var most := max_uses if max_uses > 0 else sp.uses
+	var uses := [str(most), "USES"] if uses_left < 0 else [str(uses_left), "OF %d USES" % most]
 	return [uses, [str(sp.recovery), "RECOVERY"]]
 
 
@@ -94,6 +97,48 @@ static func draw(ci: CanvasItem, origin: Vector2, width: float, figures: Array, 
 		UiTheme.draw_text(ci, body, Vector2(origin.x + indent, y), String(row[0]), size, ink, outline)
 		y += step
 	return y - origin.y
+
+
+## A companion's traits written out: the name, then what each gives (and, for a two-edged one, what it
+## takes, in `bad`), from `origin`, no wider than `width`. `k` scales it; returns the height used.
+static func draw_traits(ci: CanvasItem, origin: Vector2, width: float, traits: Array[TraitData], ink: Color, muted: Color, bad: Color,
+		k: float = 1.0, outline: int = 0) -> float:
+	var display := UiTheme.display_font()
+	var body := UiTheme.body_font()
+	var italic := UiTheme.italic_font()
+	var name_size := int(round(20.0 * k))
+	var line_size := maxi(13, int(round(16.0 * k)))
+	var y := origin.y
+	for t in traits:
+		UiTheme.draw_text(ci, display, Vector2(origin.x, y), t.display_name, name_size, ink, outline, width)
+		if t.rarity != TraitData.Rarity.COMMON:
+			UiTheme.draw_text(ci, italic, Vector2(origin.x, y + 4.0 * k), t.rarity_name().to_lower(), maxi(12, line_size - 2), muted, outline, width,
+				HORIZONTAL_ALIGNMENT_RIGHT)
+		y += name_size * 1.32
+		for row in _wrap(body, "  ·  ".join(t.lines()), line_size, width):
+			UiTheme.draw_text(ci, body, Vector2(origin.x, y), row, line_size, muted, outline)
+			y += body.get_height(line_size) + 1.0
+		if not t.drawback_lines().is_empty():
+			for row in _wrap(body, "  ·  ".join(t.drawback_lines()), line_size, width):
+				UiTheme.draw_text(ci, body, Vector2(origin.x, y), row, line_size, bad, outline)
+				y += body.get_height(line_size) + 1.0
+		y += 7.0 * k
+	return y - origin.y
+
+
+## Height draw_traits would use.
+static func traits_height(width: float, traits: Array[TraitData], k: float = 1.0) -> float:
+	var display := UiTheme.display_font()
+	var body := UiTheme.body_font()
+	var name_size := int(round(20.0 * k))
+	var line_size := maxi(13, int(round(16.0 * k)))
+	var h := 0.0
+	for t in traits:
+		h += name_size * 1.32 + 7.0 * k
+		h += _wrap(body, "  ·  ".join(t.lines()), line_size, width).size() * (body.get_height(line_size) + 1.0)
+		if not t.drawback_lines().is_empty():
+			h += _wrap(body, "  ·  ".join(t.drawback_lines()), line_size, width).size() * (body.get_height(line_size) + 1.0)
+	return h
 
 
 static func _step(font: Font, size: int) -> float:

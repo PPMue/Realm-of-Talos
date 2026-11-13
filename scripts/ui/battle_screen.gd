@@ -878,8 +878,13 @@ func _refresh_party() -> void:
 		if not c.spells().is_empty():
 			var spells: Array[String] = []
 			for sp in c.spells():
-				spells.append("%s %d/%d" % [sp.display_name, c.progress.uses_left(sp), sp.uses])
+				spells.append("%s %d/%d" % [sp.display_name, c.progress.uses_left(sp), c.progress.max_uses(sp)])
 			magic += "\nSpells: " + ", ".join(spells)
+		# What they are: each trait and what it does.
+		for t in c.traits():
+			magic += "%s%s: %s" % ["\n\n" if t == c.traits()[0] else "\n", t.display_name, ", ".join(t.lines())]
+			if not t.drawback_lines().is_empty():
+				magic += "; " + ", ".join(t.drawback_lines())
 		# Not a tooltip: the battle screen shows it while Shift is held (see inspect).
 		var held := c.weapon().display_name
 		for note in StoreScreen.weapon_notes(c.weapon()):

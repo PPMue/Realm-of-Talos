@@ -162,8 +162,8 @@ static func _place_x(i: int, n: int) -> float:
 
 
 ## The share (percent) of the enemy's single blows each place in the line draws: each place forward
-## counts BattleConfig.TARGET_WEIGHT_GROWTH times the one behind, times what the held weapon does
-## to it (as Battle weighs targets when nobody is guarding or veiled).
+## counts BattleConfig.TARGET_WEIGHT_GROWTH times the one behind, times what the held weapon and
+## the companion's traits do to it (as Battle weighs targets when nobody is guarding or veiled).
 func blow_shares() -> Array[int]:
 	var weights: Array[float] = []
 	var total := 0.0
@@ -172,6 +172,11 @@ func blow_shares() -> Array[int]:
 		var held := run.lineup[i].weapon()
 		if held != null:
 			w *= held.target_weight_mult
+		# Traits that draw the enemy's eye or turn it away, whatever the place.
+		for t in run.lineup[i].traits:
+			for m in t.modifiers:
+				if m.kind == TraitModifier.Kind.AIM and m.who == TraitModifier.Who.SELF and m.place == TraitModifier.Place.ANY:
+					w *= m.mult
 		weights.append(w)
 		total += w
 	var out: Array[int] = []

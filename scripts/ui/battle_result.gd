@@ -306,7 +306,7 @@ Did the most in this fight."
 	if purse > 0 and c.weapon() != null:
 		tip += "\n%s brought in %d gold, counted in the gold above." % [c.weapon().display_name, purse]
 	if status == "INJURED":
-		tip += "\nInjured: %d days in the infirmary." % RunConfig.INFIRMARY_DAYS
+		tip += "\nInjured: bound for the infirmary."
 	for line in tips:
 		tip += "\n" + line
 	if not learned.is_empty():

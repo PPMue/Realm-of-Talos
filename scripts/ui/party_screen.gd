@@ -38,9 +38,13 @@ const C3_W := 444.0
 const TOP := 26.0
 ## Column 1.
 const CARD_H := 208.0
-const STATS_Y := TOP + CARD_H + 22.0
-const GROWTH_Y := STATS_Y + StatTable.HEAD_H + 180.0 + 18.0
-const ORDERS_Y := GROWTH_Y + StatTable.HEAD_H + 180.0 + 20.0
+const STATS_Y := TOP + CARD_H + 16.0
+const STAT_ROW := 27.0
+const GROWTH_ROW := 33.0
+const GROWTH_Y := STATS_Y + StatTable.HEAD_H + STAT_ROW * 6.0 + 12.0
+const TRAITS_Y := GROWTH_Y + StatTable.HEAD_H + GROWTH_ROW * 5.0 + 12.0
+## The orders that move them: one line of three at the foot of the first column.
+const ORDERS_Y := SHEET.size.y - PAD - 36.0
 ## Column 2.
 const GRADE_ROW := 46.0
 const GRADES_Y := SHEET.size.y - PAD - StatTable.HEAD_H - GRADE_ROW * 4.0
@@ -257,22 +261,18 @@ func _refresh_sheet() -> void:
 	var can := run.can_change_party() and not abed
 
 	# Column 1: the orders that move them.
-	var back := _order(0, "Step back", "←", "Move one place toward the rear, away from the enemy.", move.bind(-1))
-	back.disabled = not fielded or index <= 0 or not can
-	var fwd := _order(1, "Step forward", "→", "Move one place toward the front, nearer the enemy.", move.bind(1))
-	fwd.disabled = not fielded or index >= run.lineup.size() - 1 or not can
+	_order(0, "Step back", "Move one place toward the rear, away from the enemy.\nKey: Left", move.bind(-1),
+		not fielded or index <= 0 or not can)
+	_order(1, "Step forward", "Move one place toward the front, nearer the enemy.\nKey: Right", move.bind(1),
+		not fielded or index >= run.lineup.size() - 1 or not can)
 	var full := not fielded and run.lineup.size() >= RunConfig.MAX_FIELDED
 	var field_tip := "Leave the line and wait on the bench. Those on the bench do not fight." if fielded else \
 		"Join the line, at the front." if not full else \
 		"The line is full (%d). Send someone to the bench first, or carry %s onto the one to replace." % [RunConfig.MAX_FIELDED, c.display_name()]
 	if abed:
 		field_tip = run.infirmary_block_reason(c)
-	var f := _order(2, "To the bench" if fielded else "Into the line", "F", field_tip, toggle_fielded)
-	f.disabled = full or not can
-	if abed:
-		f.detail = "in the infirmary"
-	elif full:
-		f.detail = "line full"
+	_order(2, "To the bench" if fielded else ("In the infirmary" if abed else ("Line full" if full else "Into the line")),
+		field_tip + "\nKey: F", toggle_fielded, full or not can)
 
 	# Column 2: the weapon in hand, then the armory.
 	var w := c.weapon()
@@ -389,7 +389,7 @@ func _art_row(p: CompanionProgress, art: CombatArtData) -> RowButton:
 	row.paper = true
 	row.title = art.display_name
 	row.sub = "%s  ·  tier %s  ·  %d stamina%s" % [art.type_name().to_lower(), CombatArtData.tier_numeral(art.tier),
-		art.stamina_cost, "  ·  signature" if art == p.data.signature_art else ""]
+		p.art_cost(art), "  ·  signature" if art == p.data.signature_art else ""]
 	var slot := p.equipped_arts.find(art) + 1
 	var wrong := p.weapon == null or p.weapon.weapon_type != art.weapon_type
 	if slot > 0:
@@ -402,7 +402,7 @@ func _art_row(p: CompanionProgress, art: CombatArtData) -> RowButton:
 	else:
 		row.detail = "needs a %s" % art.type_name().to_lower() if wrong else "left behind"
 	row.pressed.connect(toggle_art.bind(art))
-	_read_on_hover(row, {"figures": ArtFacts.art_figures(art),
+	_read_on_hover(row, {"figures": ArtFacts.art_figures(art, p.art_cost(art)),
 		"lines": ArtFacts.art_lines(art, p.weapon.weapon_type if p.weapon != null else -1)})
 	return row
 
@@ -414,8 +414,8 @@ func _spell_row(p: CompanionProgress, sp: SpellData) -> RowButton:
 	row.title = sp.display_name
 	row.sub = "%s  ·  tier %s%s" % [sp.school_text().to_lower(), CombatArtData.tier_numeral(sp.tier),
 		"  ·  signature" if sp == p.data.signature_spell else ""]
-	row.detail = "%d of %d uses" % [p.uses_left(sp), sp.uses]
-	_read_on_hover(row, {"figures": ArtFacts.spell_figures(sp, p.uses_left(sp)), "lines": ArtFacts.spell_lines(sp)})
+	row.detail = "%d of %d uses" % [p.uses_left(sp), p.max_uses(sp)]
+	_read_on_hover(row, {"figures": ArtFacts.spell_figures(sp, p.uses_left(sp), p.max_uses(sp)), "lines": ArtFacts.spell_lines(sp)})
 	return row
 
 
@@ -491,17 +491,39 @@ func _section(text: String, w: float) -> Label:
 
 
 ## One of the three orders, stacked at the foot of the first column.
-func _order(slot: int, title: String, hotkey: String, tip: String, action: Callable) -> ActionButton:
-	var b := ActionButton.new()
-	b.paper = true
-	b.h = 44.0
-	b.title = title
-	b.hotkey = hotkey
-	b.tooltip_text = tip
-	b.position = Vector2(0, slot * 44.0)
-	b.pressed.connect(action)
-	_orders.add_child(b)
-	return b
+## One of the three orders at the foot of the first column: words written on the sheet that can be
+## clicked, a third of the column each.
+func _order(slot: int, title: String, tip: String, action: Callable, disabled: bool) -> void:
+	var link := Control.new()
+	var w := C1_W / 3.0
+	link.position = Vector2(slot * w, 0)
+	link.size = Vector2(w, 36.0)
+	link.tooltip_text = tip
+	link.mouse_filter = Control.MOUSE_FILTER_STOP
+	link.mouse_default_cursor_shape = Control.CURSOR_ARROW if disabled else Control.CURSOR_POINTING_HAND
+	var state := {"hover": false}
+	link.mouse_entered.connect(func() -> void:
+		state.hover = true
+		link.queue_redraw())
+	link.mouse_exited.connect(func() -> void:
+		state.hover = false
+		link.queue_redraw())
+	link.gui_input.connect(func(event: InputEvent) -> void:
+		var mb := event as InputEventMouseButton
+		if mb != null and mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT and not disabled:
+			link.accept_event()
+			action.call_deferred())
+	link.draw.connect(func() -> void:
+		var lit: bool = state.hover and not disabled
+		var ink := Color(UiTheme.PARCHMENT_MUTED, 0.55) if disabled else (UiTheme.WAX.darkened(0.2) if lit else UiTheme.PARCHMENT_INK)
+		var font := UiTheme.display_font()
+		var align := [HORIZONTAL_ALIGNMENT_LEFT, HORIZONTAL_ALIGNMENT_CENTER, HORIZONTAL_ALIGNMENT_RIGHT][slot] as HorizontalAlignment
+		UiTheme.draw_text(link, font, Vector2(0, 6.0), title, 19, ink, 0, w, align)
+		if lit:
+			var tw := font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, 19).x
+			var x0: float = [0.0, (w - tw) * 0.5, w - tw][slot]
+			link.draw_line(Vector2(x0, 31.0), Vector2(x0 + tw, 31.0), ink, 1.5))
+	_orders.add_child(link)
 
 
 static func _clear(node: Node) -> void:
@@ -559,10 +581,21 @@ func _draw_sheet() -> void:
 	values[Stat.BLD] = c.data.build
 	StatTable.head(_sheet, Vector2(C1_X, STATS_Y), C1_W, "STATS")
 	# Health here is the most they can have; what they have now is on the card above.
-	StatTable.draw_values(_sheet, Vector2(C1_X, STATS_Y + StatTable.HEAD_H), C1_W, 2, values)
+	# What their traits add to a number is written small before it.
+	var from_traits := {}
+	for key: String in values:
+		from_traits[key] = p.trait_stat_bonus(key)
+	StatTable.draw_values(_sheet, Vector2(C1_X, STATS_Y + StatTable.HEAD_H), C1_W, 2, values, "", STAT_ROW, from_traits)
 	StatTable.head(_sheet, Vector2(C1_X, GROWTH_Y), C1_W, "GROWTH", "the chance to rise with a level")
-	StatTable.draw_growth(_sheet, Vector2(C1_X, GROWTH_Y + StatTable.HEAD_H), C1_W, 2, c.data)
-	StatTable.head(_sheet, Vector2(C1_X, ORDERS_Y), C1_W, "IN THE LINE")
+	StatTable.draw_growth(_sheet, Vector2(C1_X, GROWTH_Y + StatTable.HEAD_H), C1_W, 2, c.data, GROWTH_ROW, Levels.rates(c.data, p))
+	# What they are: rolled when they joined, and theirs for the run.
+	StatTable.head(_sheet, Vector2(C1_X, TRAITS_Y), C1_W, "TRAITS" if c.traits.size() != 1 else "TRAIT")
+	var room := ORDERS_Y - 10.0 - (TRAITS_Y + StatTable.HEAD_H)
+	var k := 1.0
+	while k > 0.8 and ArtFacts.traits_height(C1_W, c.traits, k) > room:
+		k -= 0.04
+	ArtFacts.draw_traits(_sheet, Vector2(C1_X, TRAITS_Y + StatTable.HEAD_H - 2.0), C1_W, c.traits, ink, muted, UiTheme.WAX, k)
+	_sheet.draw_line(Vector2(C1_X, ORDERS_Y - 6.0), Vector2(C1_X + C1_W, ORDERS_Y - 6.0), Color(ink, 0.3), 1.0)
 
 	# Column 2.
 	var heavy := c.weapon().weight - c.data.build
@@ -657,8 +690,8 @@ func _build() -> void:
 	_sheet.mouse_filter = Control.MOUSE_FILTER_STOP
 	_sheet.draw.connect(_draw_sheet)
 	add_child(_sheet)
-	_orders.position = Vector2(C1_X - 6.0, ORDERS_Y + StatTable.HEAD_H - 2.0)
-	_orders.size = Vector2(C1_W, 132)
+	_orders.position = Vector2(C1_X, ORDERS_Y)
+	_orders.size = Vector2(C1_W, 36)
 	_orders.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_sheet.add_child(_orders)
 	_held.position = Vector2(C2_X, TOP + StatTable.HEAD_H)

@@ -198,7 +198,7 @@ func _draw_card(card: Control, index: int, hover: bool) -> void:
 	UiTheme.draw_text(card, display, Vector2(pad, 36.0), art.display_name, name_size, Color(UiTheme.TEXT, a), 6)
 	UiTheme.draw_text(card, display, Vector2(pad, 80.0), ArtFacts.art_tag(art), 15, Color(UiTheme.MUTED, a), 4)
 	var held := _progress.weapon.weapon_type if _progress.weapon != null else -1
-	ArtFacts.draw(card, Vector2(pad, 106.0), inner, ArtFacts.art_figures(art), ArtFacts.art_lines(art, held),
+	ArtFacts.draw(card, Vector2(pad, 106.0), inner, ArtFacts.art_figures(art, _progress.art_cost(art)), ArtFacts.art_lines(art, held),
 		Color(tone if is_new else UiTheme.GOLD, a), Color(UiTheme.TEXT, a), Color(UiTheme.TEXT.lerp(UiTheme.MUTED, 0.3), a), 0.6,
 		h - 106.0 - 110.0, 4, "", Color.WHITE, 20)
 	# The foot: what happens to it, or what a click would do.
@@ -265,13 +265,13 @@ func _draw() -> void:
 		kicker = "%s LEARNS A COMBAT ART" % _name.to_upper()
 		title = _art.display_name
 		tag = ArtFacts.art_tag(_art)
-		figures = ArtFacts.art_figures(_art)
+		figures = ArtFacts.art_figures(_art, p.art_cost(_art))
 		lines = ArtFacts.art_lines(_art, p.weapon.weapon_type if p.weapon != null else -1)
 	else:
 		kicker = "%s LEARNS A SPELL" % _name.to_upper()
 		title = _spell.display_name
 		tag = ArtFacts.spell_tag(_spell)
-		figures = ArtFacts.spell_figures(_spell)
+		figures = ArtFacts.spell_figures(_spell, -1, p.max_uses(_spell))
 		lines = ArtFacts.spell_lines(_spell)
 	UiTheme.draw_text(self, display, Vector2(X, 30.0), kicker, 24, school_ink, 4)
 	UiTheme.draw_text(self, display, Vector2(X, 34.0), tag, 19, UiTheme.MUTED, 4, W, HORIZONTAL_ALIGNMENT_RIGHT)

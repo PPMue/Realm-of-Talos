@@ -49,10 +49,15 @@ static func describe(c: RunCompanion) -> String:
 	if not c.progress.known_spells.is_empty():
 		var spells: Array[String] = []
 		for sp in c.progress.known_spells:
-			spells.append("%s %d/%d" % [sp.display_name, c.progress.uses_left(sp), sp.uses])
+			spells.append("%s %d/%d" % [sp.display_name, c.progress.uses_left(sp), c.progress.max_uses(sp)])
 		for s in c.progress.spell_schools():
 			text += "\n%s grade %s" % [SpellData.school_name(s), Proficiency.grade_name(c.progress.magic_grade(s))]
 		text += "\nSpells: " + ", ".join(spells)
+	if not c.traits.is_empty():
+		var names: Array[String] = []
+		for owned in c.traits:
+			names.append(owned.display_name)
+		text += "\nTraits: " + ", ".join(names)
 	return text
 
 

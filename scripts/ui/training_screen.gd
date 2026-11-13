@@ -201,11 +201,12 @@ func _first_able(company: Array[RunCompanion]) -> RunCompanion:
 	return company[0] if not company.is_empty() else null
 
 
-## What the drill `d` gives when it goes poorly, well and very well.
+## What the drill `d` gives whoever is chosen when it goes poorly, well and very well (their traits
+## can change it).
 func _amounts(d: Drill) -> Array[int]:
 	var out: Array[int] = []
 	for q in 3:
-		out.append(run.drill_xp(q) if d.kind == Drill.Kind.SPARRING else RunConfig.DRILL_POINTS[q])
+		out.append(run.drill_xp_for(_who, q) if d.kind == Drill.Kind.SPARRING else run.drill_points(d, _who, q))
 	return out
 
 

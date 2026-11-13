@@ -243,7 +243,8 @@ func show_companion(c: CompanionUnit, battle: Battle, active_id: String, enabled
 		var art := arts[i]
 		var b: ActionButton = _buttons[art_id(i)]
 		b.title = art.display_name
-		b.detail = "%d stamina" % art.stamina_cost
+		var cost := battle.art_cost(c, art)
+		b.detail = "%d stamina" % cost
 		var about := art_info(art)
 		var why := ""
 		if battle.art_block_reason(c, art) != "":
@@ -253,10 +254,10 @@ func show_companion(c: CompanionUnit, battle: Battle, active_id: String, enabled
 				b.detail = "%s ONLY" % art.type_name().to_upper()
 				why = "Needs a %s in hand." % art.type_name().to_lower()
 			else:
-				why = "Needs %d stamina, %s has %d. Focus to recover." % [art.stamina_cost, c.display_name, c.stamina]
+				why = "Needs %d stamina, %s has %d. Focus to recover." % [cost, c.display_name, c.stamina]
 			about = "%s\n%s" % [why, about]
 		_descriptions[art_id(i)] = about
-		_facts[art_id(i)] = {"figures": ArtFacts.art_figures(art), "lines": ArtFacts.art_lines(art), "accent": UiTheme.GOLD, "note": why}
+		_facts[art_id(i)] = {"figures": ArtFacts.art_figures(art, cost), "lines": ArtFacts.art_lines(art), "accent": UiTheme.GOLD, "note": why}
 
 	if active_id != "":
 		var index := art_index(active_id)
@@ -305,18 +306,19 @@ func show_spells(c: CompanionUnit, battle: Battle, active_id: String, enabled: b
 		b.title = sp.display_name
 		b.accent = UiTheme.school_color(sp.school)
 		var left := c.progress.uses_left(sp)
+		var most := c.progress.max_uses(sp)
 		b.detail = "%s %s  ·  %d/%d" % ["black" if sp.school == SpellData.School.BLACK else "white",
-			CombatArtData.tier_numeral(sp.tier), left, sp.uses]
+			CombatArtData.tier_numeral(sp.tier), left, most]
 		var about := spell_info(sp, c, battle)
 		var why := battle.spell_block_reason(c, sp)
 		if why != "":
-			b.detail = "spent  ·  0/%d" % sp.uses
+			b.detail = "spent  ·  0/%d" % most
 			about = "%s\n%s" % [why, about]
 		_descriptions[id] = about
 		var lines := ArtFacts.spell_lines(sp)
 		if sp.heals:
 			lines.append("Heals %d now" % battle.heal_amount(c, sp))
-		_facts[id] = {"figures": ArtFacts.spell_figures(sp, left), "lines": lines, "accent": UiTheme.school_color(sp.school), "note": why}
+		_facts[id] = {"figures": ArtFacts.spell_figures(sp, left, most), "lines": lines, "accent": UiTheme.school_color(sp.school), "note": why}
 	for id in order:
 		var b: ActionButton = _buttons[id]
 		b.active = id == active_id
@@ -350,7 +352,7 @@ static func art_info(art: CombatArtData) -> String:
 ## School, tier, uses, recovery and effect of a spell, for the info panel.
 static func spell_info(sp: SpellData, c: CompanionUnit, battle: Battle) -> String:
 	var text := "%s %s · %d/%d uses · Recovery %d\n%s" % [sp.school_text(), CombatArtData.tier_numeral(sp.tier),
-		c.progress.uses_left(sp), sp.uses, sp.recovery, sp.effect_summary()]
+		c.progress.uses_left(sp), c.progress.max_uses(sp), sp.recovery, sp.effect_summary()]
 	if sp.heals:
 		text += " Heals %d now." % battle.heal_amount(c, sp)
 	return text

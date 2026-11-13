@@ -69,7 +69,9 @@ func _bed(c: RunCompanion, h: float) -> Control:
 	bed.size = Vector2(BED.x, h)
 	bed.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var left := c.days_left(run.day)
-	var served := clampi(RunConfig.INFIRMARY_DAYS - left, 0, RunConfig.INFIRMARY_DAYS)
+	# A trait can lengthen or shorten the stay.
+	var stay := maxi(run.infirmary_days(c), left)
+	var served := clampi(stay - left, 0, stay)
 	bed.draw.connect(func() -> void:
 		var display := UiTheme.display_font()
 		var italic := UiTheme.italic_font()
@@ -105,14 +107,14 @@ func _bed(c: RunCompanion, h: float) -> Control:
 		var nw := display.get_string_size(c.display_name(), HORIZONTAL_ALIGNMENT_LEFT, -1, 38).x
 		UiTheme.draw_text(bed, italic, Vector2(x + nw + 16.0, 20.0), "level %d" % c.level(), 20, UiTheme.TEXT.lerp(UiTheme.MUTED, 0.45), 4)
 		# The days of the stay: the ones served filled in.
-		for d in RunConfig.INFIRMARY_DAYS:
+		for d in stay:
 			var at := Vector2(x + 12.0 + d * 30.0, 70.0)
 			if d < served:
 				UiIcons.diamond(bed, at, 9.0, UiTheme.GOLD)
 			else:
 				bed.draw_arc(at, 7.0, 0.0, TAU, 20, UiTheme.TEXT.lerp(UiTheme.MUTED, 0.5), 1.5, true)
 		var word := "Up tomorrow" if left <= 1 else "%d days to go" % left
-		UiTheme.draw_text(bed, display, Vector2(x + RunConfig.INFIRMARY_DAYS * 30.0 + 16.0, 56.0), word, 24, UiTheme.TEXT, 4)
+		UiTheme.draw_text(bed, display, Vector2(x + stay * 30.0 + 16.0, 56.0), word, 24, UiTheme.TEXT, 4)
 		UiTheme.draw_text(bed, italic, Vector2(x, 90.0), "on their feet on day %d" % (run.day + left), 20, UiTheme.TEXT.lerp(UiTheme.MUTED, 0.45), 4)
 		# The slip under the healer's price.
 		bed.draw_rect(Rect2(x + 4.0, h - 62.0 + 4.0, ActionButton.W + 26.0, 56.0), Color(0, 0, 0, 0.3))

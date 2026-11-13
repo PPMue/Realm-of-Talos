@@ -3,6 +3,7 @@ extends Control
 ## The tavern and the smithy, from inside.
 ## Tavern: whoever is looking for work stands at the counter, with their paper laid on it: who they
 ## are, their stats and how they grow, what they bring, and the price. The seal on the paper hires them.
+## Beside each, in light on a soft shadow, their traits: known before the hire is made.
 ## Smithy: the smith's price list on the right, and the company down the left. Pointing at a weapon
 ## shows, beside each companion, whether they could hold it and what their Attack would become
 ## (attack power for that kind of weapon plus its might; see RunCompanion.attack). A weapon just
@@ -27,6 +28,10 @@ const PAPER_PAD := 28.0
 const PAPER_STATS_Y := 136.0
 const PAPER_STAT_ROW := 25.0
 const PAPER_GROWTH_ROW := 30.0
+## What is said of a hire (their traits), written in light beside them.
+const SAID_X := 214.0
+const SAID_Y := 250.0
+const SAID_W := 240.0
 ## Smithy: the price list, and the company beside it.
 const PAGE := Rect2(770, 110, 1110, 946)
 const PAGE_PAD := 36.0
@@ -202,6 +207,19 @@ func _draw_tavern() -> void:
 		top_left.y = maxf(top_left.y, COUNTER_Y - art.y)
 		var shown := clampf((COUNTER_Y - top_left.y) / art.y, 0.0, 1.0)
 		_tavern.draw_texture_rect_region(tex, Rect2(top_left, Vector2(art.x, art.y * shown)), Rect2(0, 0, ts.x, ts.y * shown))
+	# What is said of each: their traits, in light on a soft shadow beside them.
+	for i in offers.size():
+		var traits := run.offer_traits(offers[i])
+		if traits.is_empty():
+			continue
+		var at := Vector2(_hire_x(i, offers.size()) + SAID_X, SAID_Y)
+		var tall := ArtFacts.traits_height(SAID_W, traits, 1.1) + 34.0
+		for g in 12:
+			_tavern.draw_rect(Rect2(at - Vector2(10.0, 6.0), Vector2(SAID_W + 20.0, tall + 10.0)).grow(g * 4.0), Color(0, 0, 0, 0.055))
+		UiTheme.draw_text(_tavern, UiTheme.display_font(), at, "TRAITS" if traits.size() > 1 else "TRAIT", 15, UiTheme.MUTED, 4)
+		_tavern.draw_line(at + Vector2(0, 24.0), at + Vector2(SAID_W, 24.0), Color(UiTheme.GOLD_DEEP, 0.7), 1.0)
+		ArtFacts.draw_traits(_tavern, at + Vector2(0, 32.0), SAID_W, traits, UiTheme.GOLD, UiTheme.TEXT.lerp(UiTheme.MUTED, 0.25),
+			UiTheme.INJURED.lightened(0.15), 1.1, 4)
 	# The counter: a long board across the room.
 	var w := maxf(size.x, 1920.0)
 	var board := Rect2(0, COUNTER_Y, w, COUNTER_H)
@@ -227,6 +245,16 @@ func _paper_for(data: CompanionData, x: float) -> Control:
 	paper.mouse_filter = Control.MOUSE_FILTER_STOP
 	var inner := PAPER.x - PAPER_PAD * 2.0
 	var level := run.hire_level()
+	# Their numbers with their traits counted, as they will be once hired.
+	var traits := run.offer_traits(data)
+	var values := data.base_stats()
+	var from_traits := {}
+	var rates := {}
+	for key: String in values:
+		from_traits[key] = TraitRules.plain_stat(traits, key)
+		values[key] = maxi(1 if key == Stat.HP else 0, int(values[key]) + int(from_traits[key]))
+	for key in Levels.GROWTH_STATS:
+		rates[key] = clampi(Levels.growth_rate(data, key) + TraitRules.total(traits, TraitModifier.Kind.GROWTH, -1, -1, 0, level + 1, key), 0, 100)
 	paper.draw.connect(func() -> void:
 		UiTheme.draw_parchment(paper, Rect2(Vector2.ZERO, PAPER), 0.45)
 		var display := UiTheme.display_font()
@@ -242,9 +270,9 @@ func _paper_for(data: CompanionData, x: float) -> Control:
 		var half := (inner - 30.0) * 0.5
 		var top := PAPER_STATS_Y + StatTable.HEAD_H
 		StatTable.head(paper, Vector2(PAPER_PAD, PAPER_STATS_Y), half, "STATS")
-		StatTable.draw_values(paper, Vector2(PAPER_PAD, top), half, 2, data.base_stats(), "", PAPER_STAT_ROW)
+		StatTable.draw_values(paper, Vector2(PAPER_PAD, top), half, 2, values, "", PAPER_STAT_ROW, from_traits)
 		StatTable.head(paper, Vector2(PAPER_PAD + half + 30.0, PAPER_STATS_Y), half, "GROWTH", "chance to rise")
-		StatTable.draw_growth(paper, Vector2(PAPER_PAD + half + 30.0, top), half, 2, data, PAPER_GROWTH_ROW)
+		StatTable.draw_growth(paper, Vector2(PAPER_PAD + half + 30.0, top), half, 2, data, PAPER_GROWTH_ROW, rates)
 		paper.draw_line(Vector2(PAPER_PAD, _paper_stats_end() + 6.0), Vector2(PAPER_PAD + inner, _paper_stats_end() + 6.0), Color(ink, 0.45), 1.0))
 	var seal := ActionButton.new()
 	seal.paper = true
