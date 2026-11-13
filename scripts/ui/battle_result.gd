@@ -79,6 +79,8 @@ func open(report: BattleReport, roster: Array[CompanionUnit]) -> void:
 			if int(report.materials.get(m, 0)) > 0:
 				_rewards.append({"icon": "timber" if m.contains("timber") or m.contains("wood") else "ore",
 					"text": "+%d %s" % [int(report.materials[m]), String(RunConfig.MATERIAL_NAMES[m]).to_lower()], "color": UiTheme.TEXT})
+		if report.weapon_found != null:
+			_rewards.append({"icon": "swords", "text": "found: %s" % report.weapon_found.display_name, "color": UiTheme.GOLD})
 		if report.xp_each > 0:
 			_rewards.append({"icon": "diamond", "text": "+%d XP each" % report.xp_each, "color": UiTheme.TEXT})
 	elif report.front != null and report.front.is_boss:
@@ -302,6 +304,8 @@ func _draw_head() -> void:
 				UiIcons.timber(_head, c, 30.0, color)
 			"rampart":
 				UiIcons.rampart(_head, c, 30.0, color)
+			"swords":
+				UiIcons.swords(_head, c, 30.0, color)
 			_:
 				UiIcons.diamond(_head, c, 9.0, UiTheme.GOLD)
 		UiTheme.draw_text(_head, display, Vector2(x + icon_w, mid - display.get_height(font_size) * 0.5), String(r.text), font_size, color, 6)

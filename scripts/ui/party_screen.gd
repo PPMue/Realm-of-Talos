@@ -4,7 +4,7 @@ extends Control
 ## reserve on the bench below; a companion is moved by carrying them to another place or to the bench
 ## (or with the orders on their page). On the right is the muster roll, open at whoever is selected:
 ## what they are, what they hold, and the armory to choose a weapon from (with the reason when one
-## cannot be held). A mage's healing spells can be cast from the page. Opens the arts screen.
+## cannot be held), with the Attack they have now and would have with each. Opens the arts screen.
 ## Every change is a Run command; the screen only reads the run and redraws.
 
 signal closed
@@ -39,9 +39,6 @@ var _buttons := Control.new()
 var _weapons := VBoxContainer.new()
 var _weapons_head: Label
 ## A healing spell waiting for its target (clicking a companion casts it), and its caster.
-var _casting: SpellData
-var _caster: RunCompanion
-var _cast_hint: Label
 var _arts_screen := ArtsScreen.new()
 
 
@@ -53,9 +50,6 @@ func _init() -> void:
 
 func open(p_run: Run, select: RunCompanion = null) -> void:
 	run = p_run
-	_casting = null
-	_caster = null
-	_cast_hint.text = ""
 	_selected = select if select != null and run.roster.has(select) else (run.lineup[-1] if not run.lineup.is_empty() else
 		(run.roster[0] if not run.roster.is_empty() else null))
 	visible = true
@@ -68,58 +62,12 @@ func close() -> void:
 	if _arts_screen.visible:
 		_arts_screen.close()
 		return
-	if _casting != null:
-		cancel_cast()
-		return
 	visible = false
 	closed.emit()
 
 
 func select(c: RunCompanion) -> void:
-	if _casting != null:
-		cast_on(c)
-		return
 	_selected = c
-	refresh()
-
-
-## Starts aiming a healing spell of the selected companion; the next companion clicked receives it.
-func begin_cast(spell: SpellData) -> void:
-	if _selected == null or spell == null or not spell.heals or _selected.progress.uses_left(spell) <= 0 or not run.can_change_party():
-		return
-	_casting = spell
-	_caster = _selected
-	_cast_hint.text = "%s: choose who %s heals (+%d HP)%s. Esc to put it away." % [spell.display_name, _caster.display_name(),
-		run.heal_amount(_caster, spell), ", or anyone to heal the whole company" if spell.targeting == SpellData.Targeting.ALL_ALLIES else ""]
-	_cast_hint.add_theme_color_override("font_color", UiTheme.HEAL)
-	refresh()
-
-
-func cancel_cast() -> void:
-	_casting = null
-	_caster = null
-	_cast_hint.text = ""
-	refresh()
-
-
-## Casts the spell being aimed on `target` (or on everyone, for spells that reach every ally).
-func cast_on(target: RunCompanion) -> void:
-	if _casting == null:
-		return
-	var spell := _casting
-	var caster := _caster
-	var why := run.heal_block_reason(caster, spell, target)
-	if why != "":
-		_cast_hint.text = why
-		_cast_hint.add_theme_color_override("font_color", UiTheme.RECOVERING)
-		return
-	var healed := run.cast_heal(caster, spell, target)
-	_casting = null
-	_caster = null
-	var who := "everyone" if spell.targeting == SpellData.Targeting.ALL_ALLIES else target.display_name()
-	_cast_hint.text = "%s casts %s on %s: +%d HP. %d of %d uses left." % [caster.display_name(), spell.display_name, who, healed,
-		caster.progress.uses_left(spell), spell.uses]
-	_cast_hint.add_theme_color_override("font_color", UiTheme.HEAL)
 	refresh()
 
 
@@ -144,7 +92,7 @@ func toggle_fielded() -> void:
 ## Sets `c` down at place `index` of the line (0 = the rear), or on the bench when `index` is -1.
 ## Someone from the bench set down on a full line changes places with whoever stood there.
 func place(c: RunCompanion, index: int) -> void:
-	if c == null or not run.can_change_party() or _casting != null:
+	if c == null or not run.can_change_party():
 		return
 	if index < 0:
 		run.bench(c)
@@ -197,13 +145,11 @@ func refresh() -> void:
 
 func _figure(c: RunCompanion, bench: bool) -> MusterFigure:
 	var f := MusterFigure.new()
-	f.can_carry = run.can_change_party() and _casting == null
+	f.can_carry = run.can_change_party()
 	f.setup(c, bench)
 	if c == null:
 		return f
 	f.set_selected(c == _selected)
-	if _casting != null and (_casting.targeting == SpellData.Targeting.ALL_ALLIES or c.hp < c.max_hp()):
-		f.set_heal_preview(mini(c.max_hp(), c.hp + run.heal_amount(_caster, _casting)))
 	f.pressed.connect(select.bind(c))
 	return f
 
@@ -237,7 +183,7 @@ func _refresh_page() -> void:
 	else:
 		_place.text = "Place %d of %d in the line, counting from the rear." % [index + 1, run.lineup.size()]
 	var heavy := w.weight - c.data.build
-	_holds.text = "In hand: %s  ·  %s grade %s%s" % [w.display_name, WeaponData.type_name(t).to_lower(),
+	_holds.text = "In hand: %s  ·  Attack %d  ·  %s grade %s%s" % [w.display_name, c.attack(), WeaponData.type_name(t).to_lower(),
 		Proficiency.grade_name(c.progress.grade(t)), "\nToo heavy: -%d DEX, -%d SPD" % [heavy, heavy] if heavy > 0 else ""]
 	for s in c.progress.spell_schools():
 		_holds.text += "  ·  %s grade %s" % [SpellData.school_name(s).to_lower(), Proficiency.grade_name(c.progress.magic_grade(s))]
@@ -262,7 +208,7 @@ func _refresh_page() -> void:
 
 	_weapons_head.text = "THE ARMORY  ·  %d WEAPONS" % run.inventory.weapons.size()
 	if not c.progress.known_spells.is_empty():
-		_weapons.add_child(_section("Spells  ·  uses come back with a rest at the inn; healing can be cast here"))
+		_weapons.add_child(_section("Spells  ·  cast in battle; uses come back with a rest at the inn"))
 		for sp in c.progress.known_spells:
 			_weapons.add_child(_spell_row(c, sp))
 		_weapons.add_child(_section("Weapons"))
@@ -291,7 +237,7 @@ func _refresh_page() -> void:
 			row.disabled = true
 			row.detail = ("held by %s" % item.holder.display_name()) if item.holder != null else why.trim_suffix(".")
 		else:
-			row.detail = "take in hand"
+			row.detail = "take in hand  ·  Attack %d" % c.attack(d)
 			row.pressed.connect(equip.bind(item))
 		row.tooltip_text = why if why != "" and item.holder != c else ""
 		_weapons.add_child(row)
@@ -299,31 +245,11 @@ func _refresh_page() -> void:
 
 func _spell_row(c: RunCompanion, sp: SpellData) -> RowButton:
 	var row := _row()
+	row.mouse_default_cursor_shape = Control.CURSOR_ARROW
 	row.title = sp.display_name
 	row.sub = "%s  ·  tier %s  ·  %s" % [sp.school_text().to_lower(), CombatArtData.tier_numeral(sp.tier), sp.effect_summary()]
 	row.tooltip_text = sp.description + "\n" + sp.effect_summary()
-	var left := c.progress.uses_left(sp)
-	var uses := "%d of %d uses" % [left, sp.uses]
-	if not sp.heals:
-		row.disabled = true
-		row.detail = "%s  ·  in battle only" % uses
-		return row
-	if _casting == sp and _caster == c:
-		row.active = true
-		row.detail = "choose who"
-		row.pressed.connect(cancel_cast)
-		return row
-	var why := run.heal_block_reason(c, sp, c) if sp.targeting == SpellData.Targeting.ALL_ALLIES else ""
-	if why == "" and left <= 0:
-		why = "No uses left"
-	if why == "" and not run.can_change_party():
-		why = "Not now"
-	if why != "":
-		row.disabled = true
-		row.detail = "%s  ·  %s" % [uses, why.trim_suffix(".").to_lower()]
-		return row
-	row.detail = "cast  ·  %s" % uses
-	row.pressed.connect(begin_cast.bind(sp))
+	row.detail = "%d of %d uses" % [c.progress.uses_left(sp), sp.uses]
 	return row
 
 
@@ -380,10 +306,6 @@ func _build() -> void:
 	hint.add_theme_font_override("font", UiTheme.italic_font())
 	hint.position = Vector2(64, 78)
 	add_child(hint)
-	_cast_hint = UiTheme.label("", 20, UiTheme.HEAL, true, 6)
-	_cast_hint.position = Vector2(64, 104)
-	_cast_hint.size = Vector2(1060, 28)
-	add_child(_cast_hint)
 
 	_line.position = Vector2(LINE_X, LINE_Y)
 	_line.size = Vector2(LINE_STEP * RunConfig.MAX_FIELDED, MusterFigure.H)
@@ -491,7 +413,7 @@ func _build() -> void:
 
 
 func _can_bench(_at: Vector2, data: Variant) -> bool:
-	return run != null and run.can_change_party() and _casting == null and data is Dictionary \
+	return run != null and run.can_change_party() and data is Dictionary \
 		and (data as Dictionary).get("companion") is RunCompanion and run.is_fielded((data as Dictionary)["companion"])
 
 
@@ -592,10 +514,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		KEY_ESCAPE:
 			close()
 		KEY_P:
-			if _casting != null:
-				cancel_cast()
-			else:
-				close()
+			close()
 		KEY_LEFT:
 			move(-1)
 		KEY_RIGHT:

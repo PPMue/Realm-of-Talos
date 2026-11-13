@@ -36,20 +36,13 @@ var _bench := false
 var _selected := false
 var _hover := false
 var _drop_hot := false
-var _heal_to := -1
 var _hp := SlantBar.new()
-var _over := Control.new()
 
 
 func _init() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_hp.visible = false
 	add_child(_hp)
-	_over.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# Above the neighbours' art, which runs over into this place.
-	_over.z_index = 1
-	_over.draw.connect(_draw_over)
-	add_child(_over)
 	mouse_entered.connect(func() -> void:
 		_hover = true
 		queue_redraw())
@@ -84,14 +77,6 @@ func setup(c: RunCompanion, bench: bool = false) -> void:
 
 func set_selected(v: bool) -> void:
 	_selected = v
-	queue_redraw()
-
-
-## While a heal is being aimed: the HP it would bring this companion to. -1 clears it.
-func set_heal_preview(hp_after: int) -> void:
-	_heal_to = hp_after
-	_hp.set_heal_preview(float(hp_after) if hp_after >= 0 else -INF)
-	_over.queue_redraw()
 	queue_redraw()
 
 
@@ -163,9 +148,7 @@ func _draw() -> void:
 
 	# Light on the wall behind whoever is picked out.
 	var glow := Color(0, 0, 0, 0)
-	if _heal_to >= 0:
-		glow = UiTheme.HEAL
-	elif _drop_hot:
+	if _drop_hot:
 		glow = Color("fff0c0")
 	elif _selected:
 		glow = UiTheme.GOLD
@@ -179,7 +162,7 @@ func _draw() -> void:
 	var tint := Color.WHITE
 	if _bench:
 		tint = Color(0.72, 0.7, 0.68) if not (_selected or _hover) else Color(0.9, 0.88, 0.86)
-	elif not (_selected or _hover or _drop_hot or _heal_to >= 0):
+	elif not (_selected or _hover or _drop_hot):
 		tint = Color(0.86, 0.85, 0.84)
 	_draw_art(tint, rail)
 
@@ -238,17 +221,6 @@ func _draw_art(tint: Color, rail: float) -> void:
 			uvs.append((at - top_left) / art)
 			cols.append(Color(tint, alpha[corner.x]))
 		draw_polygon(pts, cols, uvs, tex)
-
-
-## Over the figure: what a heal being aimed would do.
-func _draw_over() -> void:
-	if _heal_to < 0 or companion == null:
-		return
-	var font := UiTheme.display_font()
-	var band := Rect2(14.0, _rail_y() - 38.0, size.x - 28.0, 30.0)
-	UiTheme.draw_frame(_over, band, Color(UiTheme.INK, 0.9), Color(UiTheme.HEAL, 0.8), 1.5, false)
-	UiTheme.draw_text(_over, font, Vector2(band.position.x, band.position.y + (band.size.y - font.get_height(16)) * 0.5),
-		"HP %d → %d" % [companion.hp, _heal_to], 16, UiTheme.HEAL, 0, band.size.x, HORIZONTAL_ALIGNMENT_CENTER)
 
 
 func _ellipse(c: Vector2, r: Vector2, color: Color) -> void:

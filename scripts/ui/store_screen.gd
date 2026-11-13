@@ -4,7 +4,8 @@ extends Control
 ## Tavern: whoever is looking for work stands at the counter, with their paper laid on it: who they
 ## are, their stats and how they grow, what they bring, and the price. The seal on the paper hires them.
 ## Smithy: the smith's price list on the right, and the company down the left. Pointing at a weapon
-## shows, beside each companion, whether they could hold it and what it would change.
+## shows, beside each companion, whether they could hold it and what their Attack would become
+## (attack power for that kind of weapon plus its might; see RunCompanion.attack).
 ## The first hire or purchase of a day spends the day's free action; the rules decide (see Run).
 
 signal closed
@@ -304,11 +305,11 @@ func _crew_row(c: RunCompanion, h: float) -> Control:
 	var line := ""
 	var ink := UiTheme.TEXT.lerp(UiTheme.MUTED, 0.45)
 	if _pointed == null:
-		line = "%s  ·  Mt %d  ·  %s %s" % [held.display_name, held.might, WeaponData.type_name(held.weapon_type).to_lower(),
+		line = "%s  ·  Attack %d  ·  %s %s" % [held.display_name, c.attack(), WeaponData.type_name(held.weapon_type).to_lower(),
 			Proficiency.grade_name(c.progress.grade(held.weapon_type))]
 	elif able:
 		var heavy := _pointed.weight - c.data.build
-		line = "can hold it  ·  Mt %d → %d%s" % [held.might, _pointed.might, "  ·  too heavy: -%d DEX and SPD" % heavy if heavy > 0 else ""]
+		line = "can hold it  ·  Attack %d → %d%s" % [c.attack(), c.attack(_pointed), "  ·  too heavy: -%d DEX and SPD" % heavy if heavy > 0 else ""]
 		ink = UiTheme.GOLD
 	else:
 		var t := _pointed.weapon_type
