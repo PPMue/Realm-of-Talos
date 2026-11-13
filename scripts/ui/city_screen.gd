@@ -76,7 +76,10 @@ func refresh() -> void:
 	_gold_label.text = str(run.gold)
 	_iron_label.text = str(run.material(RunConfig.IRON_ORE))
 	_timber_label.text = str(run.material(RunConfig.TIMBER))
-	_strip.set_days(run.day, run.upcoming())
+	var bosses := {}
+	for d in run.boss_days_ahead():
+		bosses[d] = run.boss_on(d)
+	_strip.set_days(run.day, run.upcoming(), bosses)
 	_strip.position.x = (size.x - _strip.size.x) * 0.5 if size.x > 0 else (1920.0 - _strip.size.x) * 0.5
 	_build_activity()
 	_build_roster()

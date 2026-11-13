@@ -17,6 +17,8 @@ const PLATE_H := 134.0
 ## How much higher (further away) the back row stands.
 const BACK_RAISE := 58.0
 const BACK_TINT := Color(0.8, 0.82, 0.9)
+## The art while a reflecting stance is up.
+const REFLECT_TINT := Color(1.25, 0.82, 1.08)
 ## Below this slot width the intent chip drops its word and shows the icon only.
 const COMPACT_BELOW := 262.0
 
@@ -27,6 +29,8 @@ var _home := Vector2.ZERO
 var _compact := false
 var _base_tint := Color.WHITE
 var _rig := Control.new()
+## Behind the art: the glow and thorns of a reflecting stance.
+var _aura := Control.new()
 var _sprite := TextureRect.new()
 var _plate := Control.new()
 var _overlay := Control.new()
@@ -38,11 +42,20 @@ var _forecast_label: Label
 var _forecast_kicker: Label
 ## Traits (e.g. FLYING) as small tags above the name; hovering one explains it.
 var _traits := HBoxContainer.new()
+## Shown in the traits row while a reflecting stance is up, and after a phase change.
+var _reflect_tag: SlantPanel
+var _reflect_label: Label
+var _phase_tag: SlantPanel
+var _phase_label: Label
 
 var _countdown := 0
 var _intent := EnemyActionData.Intent.ATTACK
 var _has_intent := false
 var _delayed := false
+var _hastened := false
+var _back := false
+## Share of weapon and art damage reflected right now (0: none).
+var _reflect := 0
 var _targetable := false
 var _hot := false
 var _defeated := false
@@ -57,6 +70,9 @@ func setup(p_unit: EnemyUnit) -> void:
 
 	_rig.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_rig)
+	_aura.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_aura.draw.connect(_draw_aura)
+	_rig.add_child(_aura)
 	_sprite.texture = unit.data.portrait
 	_sprite.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_sprite.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -81,6 +97,17 @@ func setup(p_unit: EnemyUnit) -> void:
 	_plate.add_child(_traits)
 	for t in unit.traits():
 		_traits.add_child(_trait_tag(t))
+	if unit.data.ever_reversed():
+		_traits.add_child(_trait_tag("AIMS LEFT", UiTheme.DANGER,
+			"Aims at the far end of the line: its single-target attacks use the position weights mirrored, so the leftmost companion is aimed at most. Guard, Veil and injury still count as usual."))
+	_reflect_tag = _trait_tag("REFLECTING", UiTheme.REFLECT, "")
+	_reflect_label = _reflect_tag.get_child(0) as Label
+	_reflect_tag.visible = false
+	_traits.add_child(_reflect_tag)
+	_phase_tag = _trait_tag("PHASE II", UiTheme.GOLD, unit.data.phase_text)
+	_phase_label = _phase_tag.get_child(0) as Label
+	_phase_tag.visible = false
+	_traits.add_child(_phase_tag)
 
 	_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_overlay.z_index = 3
@@ -115,10 +142,12 @@ func layout(slot: Vector2, side: float, back: bool) -> void:
 	_home = Vector2((slot.x - side) * 0.5, slot.y - PLATE_H - raise - side)
 	_rig.size = slot
 	_rig.z_index = 0 if back else 1
+	_aura.size = slot
 	_sprite.position = _home
 	_sprite.size = Vector2(side, side)
 	_sprite.pivot_offset = Vector2(side * 0.5, side)
-	_base_tint = BACK_TINT if back else Color.WHITE
+	_back = back
+	_base_tint = _tint()
 	_sprite.modulate = _base_tint
 
 	_plate.position = Vector2(0, slot.y - PLATE_H)
@@ -158,12 +187,48 @@ func refresh(targetable: bool, hot: bool, tooltip: String) -> void:
 		_intent = unit.pending_action.intent
 	_countdown = unit.countdown
 	_delayed = unit.delayed
+	_hastened = unit.hastened
 	var parts: Array[String] = []
 	for e in unit.effects:
-		parts.append(e.describe())
+		if e.reflect_percent <= 0:
+			parts.append(e.describe())
 	_effects.text = "   ".join(parts)
+	_set_reflect(unit.reflect_percent())
+	if unit.phase > 0 and not _phase_tag.visible:
+		_phase_label.text = unit.data.phase_title if unit.data.phase_title != "" else "PHASE II"
+		_phase_tag.custom_minimum_size.x = UiTheme.display_font().get_string_size(_phase_label.text,
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 17).x + 34.0
+		_phase_tag.visible = true
 	_set_target_state(targetable, hot)
 	_plate.queue_redraw()
+
+
+## A reflecting stance went up (percent > 0) or came down (0): the aura behind the art, a tag over the
+## name, and a tint on the art.
+func _set_reflect(percent: int) -> void:
+	if percent == _reflect:
+		return
+	_reflect = percent
+	_reflect_tag.visible = percent > 0
+	if percent > 0:
+		var ticks := 0
+		for e in unit.effects:
+			if e.reflect_percent > 0:
+				ticks = maxi(ticks, e.ticks_left)
+		_reflect_label.text = "REFLECTS %d%%" % percent
+		_reflect_tag.tooltip_text = ("Reflecting stance: every weapon strike or combat art that lands on it deals %d%% of its damage back to the striker. Spells pass through. It lasts %d more tick%s." %
+			[percent, ticks, "" if ticks == 1 else "s"])
+		_reflect_tag.custom_minimum_size.x = UiTheme.display_font().get_string_size(_reflect_label.text,
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 17).x + 34.0
+	if not _defeated:
+		_base_tint = _tint()
+		_sprite.modulate = _base_tint
+	_aura.queue_redraw()
+
+
+## The art's resting colour: dimmer in the back row, flushed while reflecting.
+func _tint() -> Color:
+	return (BACK_TINT if _back else Color.WHITE) * (REFLECT_TINT if _reflect > 0 else Color.WHITE)
 
 
 func clear_targeting() -> void:
@@ -182,6 +247,16 @@ func show_delay(value: int) -> void:
 	_plate.queue_redraw()
 
 
+## An order brought the pending action forward: new countdown, marked as hastened, with a flash.
+func show_hasten(value: int) -> void:
+	_countdown = value
+	_hastened = true
+	_plate.queue_redraw()
+	var t := create_tween()
+	_plate.modulate = Color(1.6, 1.2, 0.8)
+	t.tween_property(_plate, "modulate", Color.WHITE, 0.4)
+
+
 func show_hp(hp: int) -> void:
 	_hp.set_values(maxi(hp, 0), unit.max_hp())
 
@@ -189,24 +264,30 @@ func show_hp(hp: int) -> void:
 ## Shows what the pending strike would do; pass null to hide. `strikes` > 1 shows "DMG 8x2".
 ## A kicker above says when the strike is magic and when it is effective (Mt doubled).
 ## `note` adds a line of its own (e.g. "DELAYS +2" or "ALREADY DELAYED").
+## A strike into a reflecting stance turns the forecast to the warning colour and says what it costs.
 func set_forecast(f: AttackForecast, strikes: int = 1, note: String = "") -> void:
 	_forecast.visible = f != null
 	_hp.set_preview(f.damage * strikes if f != null else 0)
 	var kicker: Array[String] = []
+	var warn := f != null and f.reflect > 0
 	if f != null:
 		var dmg := str(f.damage) if strikes <= 1 else "%dx%d" % [f.damage, strikes]
 		_forecast_label.text = "HIT %d%%    DMG %s    CRIT %d%%" % [f.hit, dmg, f.crit]
-		_forecast.border = UiTheme.EFFECTIVE if f.effective else (UiTheme.BLACK_MAGIC if f.magic else UiTheme.GOLD)
+		_forecast.border = UiTheme.REFLECT if warn else (UiTheme.EFFECTIVE if f.effective else (UiTheme.BLACK_MAGIC if f.magic else UiTheme.GOLD))
+		if warn:
+			var cost := f.reflect * strikes
+			kicker.append("REFLECTED: STRIKING COSTS YOU %d HP" % cost if strikes > 1
+				else "REFLECTED: STRIKING COSTS YOU %d HP (CRIT %d)" % [f.reflect, f.reflect_crit])
 		if f.effective:
 			kicker.append("EFFECTIVE  ·  MT x%d" % BattleConfig.EFFECTIVE_MIGHT_MULT)
-		if f.magic:
+		if f.magic and not warn:
 			kicker.append("MAGIC")
 		if note != "":
 			kicker.append(note)
 	_forecast_kicker.text = "   ·   ".join(kicker)
 	_forecast_kicker.visible = not kicker.is_empty()
-	_forecast_kicker.add_theme_color_override("font_color",
-		UiTheme.EFFECTIVE if f != null and f.effective else (UiTheme.BLACK_MAGIC if f != null and f.magic else UiTheme.GOLD))
+	_forecast_kicker.add_theme_color_override("font_color", UiTheme.REFLECT if warn else
+		(UiTheme.EFFECTIVE if f != null and f.effective else (UiTheme.BLACK_MAGIC if f != null and f.magic else UiTheme.GOLD)))
 
 
 func popup_anchor() -> Vector2:
@@ -238,6 +319,7 @@ func play_defeat() -> void:
 	_defeated = true
 	_set_target_state(false, false)
 	set_forecast(null)
+	_aura.queue_redraw()
 	var t := create_tween().set_parallel(true)
 	t.tween_property(_rig, "modulate", Color(0.2, 0.2, 0.28, 0.0), 0.5)
 	t.tween_property(_plate, "modulate:a", 0.0, 0.4)
@@ -269,6 +351,8 @@ func _process(delta: float) -> void:
 		_rig.position.y = sin(_time * 1.5 + _phase) * 4.0
 	if _targetable:
 		_overlay.queue_redraw()
+	if _reflect > 0 and not _defeated:
+		_aura.queue_redraw()
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -276,6 +360,26 @@ func _gui_input(event: InputEvent) -> void:
 	if mb != null and mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
 		clicked.emit()
 		accept_event()
+
+
+## A reflecting stance: a pulsing ring of thorns and a glow behind the art.
+func _draw_aura() -> void:
+	if _reflect <= 0 or _defeated:
+		return
+	var pulse := 0.5 + 0.5 * sin(_time * 4.0)
+	var center := _home + Vector2(_side * 0.5, _side * 0.5)
+	var r := _side * 0.44
+	for i in 5:
+		_aura.draw_circle(center, r * (1.08 - i * 0.12), Color(UiTheme.REFLECT, 0.05 + 0.03 * pulse))
+	var spikes := 28
+	var outer := PackedVector2Array()
+	for i in spikes * 2:
+		var a := TAU * i / (spikes * 2) + _time * 0.25
+		var rr := r * (1.12 + 0.03 * pulse) if i % 2 == 0 else r * 0.98
+		outer.append(center + Vector2(cos(a), sin(a)) * rr)
+	outer.append(outer[0])
+	_aura.draw_polyline(outer, Color(UiTheme.REFLECT, 0.55 + 0.35 * pulse), 4.0, true)
+	_aura.draw_arc(center, r * 0.98, 0.0, TAU, 96, Color(UiTheme.REFLECT, 0.35 + 0.3 * pulse), 2.0, true)
 
 
 ## Shadow on the ground under the art.
@@ -301,17 +405,20 @@ func _draw_plate() -> void:
 	var chip_w := (word_w + 78.0) if not _compact else 66.0
 	var chip_h := 40.0
 	# A delayed action: a "DELAYED" tag after the intent (a short bar in compact slots).
-	var delay_word := "" if _compact else "DELAYED"
+	# Brought forward by an order: a "HASTENED" tag instead (both cannot fit; the delay mark wins).
+	var marked := _delayed or _hastened
+	var mark_color := UiTheme.WHITE_MAGIC if _delayed else UiTheme.HASTE
+	var delay_word := "" if _compact else ("DELAYED" if _delayed else "HASTENED")
 	var delay_w := 0.0
-	if _delayed:
+	if marked:
 		delay_w = 14.0 + (font.get_string_size(delay_word, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x + 30.0 if not _compact else 22.0)
 	var total := 34.0 + 10.0 + number_w + 16.0 + chip_w + delay_w
 	var x := (_plate.size.x - total) * 0.5
 	var mid := 100.0
 	var urgent := _countdown <= 1
 	var count_color := UiTheme.DANGER if urgent else UiTheme.GOLD
-	if _delayed:
-		count_color = UiTheme.WHITE_MAGIC
+	if marked:
+		count_color = mark_color
 
 	UiTheme.draw_hourglass(_plate, Vector2(x + 17.0, mid), 34.0, count_color)
 	x += 44.0
@@ -325,26 +432,27 @@ func _draw_plate() -> void:
 	UiTheme.draw_intent_icon(_plate, _intent, Vector2(x + 34.0, mid), 22.0, UiTheme.INK)
 	if not _compact:
 		UiTheme.draw_text(_plate, font, Vector2(x + 54.0, mid - font.get_height(word_size) * 0.5), word, word_size, UiTheme.INK)
-	if _delayed:
+	if marked:
 		var tag := Rect2(x + chip_w + 14.0, mid - 15.0, delay_w - 14.0, 30.0)
 		UiTheme.fill_para(_plate, tag, Color(UiTheme.INK, 0.92))
-		UiTheme.stroke_para(_plate, tag, UiTheme.WHITE_MAGIC, 2.0)
+		UiTheme.stroke_para(_plate, tag, mark_color, 2.0)
 		if not _compact:
 			UiTheme.draw_text(_plate, font, Vector2(tag.position.x, mid - font.get_height(18) * 0.5), delay_word, 18,
-				UiTheme.WHITE_MAGIC, 0, tag.size.x, HORIZONTAL_ALIGNMENT_CENTER)
+				mark_color, 0, tag.size.x, HORIZONTAL_ALIGNMENT_CENTER)
 
 
-func _trait_tag(t: String) -> Control:
+## A small tag above the name. Traits use the effectiveness colour and explain themselves.
+func _trait_tag(t: String, color: Color = UiTheme.EFFECTIVE, tip: String = "") -> SlantPanel:
 	var tag := SlantPanel.new()
 	var text := t.to_upper()
 	var w := UiTheme.display_font().get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 17).x + 34.0
 	tag.custom_minimum_size = Vector2(w, 26)
 	tag.fill = Color(UiTheme.INK, 0.92)
-	tag.border = UiTheme.EFFECTIVE
+	tag.border = color
 	tag.border_width = 2.0
 	tag.mouse_filter = Control.MOUSE_FILTER_PASS
-	tag.tooltip_text = EnemyTraits.describe(t)
-	var l := UiTheme.label(text, 17, UiTheme.EFFECTIVE, true, 4)
+	tag.tooltip_text = tip if tip != "" else EnemyTraits.describe(t)
+	var l := UiTheme.label(text, 17, color, true, 4)
 	l.set_anchors_preset(Control.PRESET_FULL_RECT)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER

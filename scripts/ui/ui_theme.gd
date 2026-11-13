@@ -23,6 +23,12 @@ const BLACK_MAGIC := Color("a77bff")
 const WHITE_MAGIC := Color("bfe6ff")
 ## An effective strike (e.g. a bow against a flying enemy).
 const EFFECTIVE := Color("ffd84a")
+## A reflecting stance: striking the enemy hurts the striker.
+const REFLECT := Color("ff4fa0")
+## Damage over time (poison, burning).
+const POISON := Color("b8e04a")
+## A countdown lowered by an order, and recovery lengthened by the enemy.
+const HASTE := Color("ff9a3c")
 
 const INTENT_COLORS := {
 	EnemyActionData.Intent.ATTACK: Color("f0564a"),

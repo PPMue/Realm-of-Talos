@@ -514,6 +514,45 @@ func _show_event(ev: Dictionary) -> float:
 			var view: EnemyView = _enemy_views[ev.enemy]
 			view.refresh(false, false, view.tooltip_text)
 			return 0.0
+		"dot":
+			var text := "-%d %s" % [ev.amount, String(ev.name).to_upper()]
+			if ev.target is EnemyUnit:
+				var view: EnemyView = _enemy_views[ev.target]
+				view.show_hp(ev.hp)
+				view.play_hit(false)
+			else:
+				var c: CompanionUnit = ev.target
+				var panel: PartyPanel = _party_panels[c]
+				panel.set_hp(ev.hp, c.max_hp())
+				panel.play_pulse(UiTheme.POISON)
+			_popup(_anchor_of(ev.target), text, UiTheme.POISON, 48)
+			return 0.34
+		"reflect":
+			var panel: PartyPanel = _party_panels[ev.target]
+			panel.play_pulse(UiTheme.REFLECT)
+			_popup(panel.popup_anchor() + Vector2(0, -60), "REFLECTED", UiTheme.REFLECT, 44)
+			_popup(_anchor_of(ev.source) + Vector2(0, 50), "REFLECTS %d" % ev.amount, UiTheme.REFLECT, 38)
+			return 0.3
+		"enemy_heal":
+			var view: EnemyView = _enemy_views[ev.target]
+			view.show_hp(ev.hp)
+			_popup(view.popup_anchor(), "+%d" % ev.amount, UiTheme.HEAL, 64)
+			return 0.36
+		"hasten":
+			var view: EnemyView = _enemy_views[ev.target]
+			view.show_hasten(ev.countdown)
+			_popup(view.popup_anchor() + Vector2(0, 60), "SOONER -%d" % ev.ticks, UiTheme.HASTE, 44)
+			return 0.36
+		"recovery":
+			var c: CompanionUnit = ev.target
+			var panel: PartyPanel = _party_panels[c]
+			panel.set_status(PartyPanel.Status.RECOVERING, ev.recovery)
+			panel.play_pulse(UiTheme.HASTE)
+			_popup(panel.popup_anchor() + Vector2(0, -40), "+%d RECOVERY" % ev.ticks, UiTheme.HASTE, 40)
+			return 0.3
+		"phase":
+			_show_phase(ev)
+			return 1.8
 	return 0.0
 
 
@@ -573,6 +612,22 @@ func _show_banner(text: String, color: Color) -> void:
 	_banner_tween.tween_property(_banner, "modulate:a", 0.0, 0.2)
 
 
+## An enemy changed to its second action list: the big banner, in the danger colour.
+func _show_phase(ev: Dictionary) -> void:
+	var e: EnemyUnit = ev.enemy
+	var color := UiTheme.DANGER
+	_grade_kicker.text = "PHASE TWO"
+	_grade_title.text = "%s  ·  %s" % [e.display_name.to_upper(), String(ev.title).to_upper()]
+	_grade_title.add_theme_color_override("font_color", color)
+	_grade_detail.text = String(ev.get("text", "")).to_upper()
+	_grade_banner.border = color
+	var view: EnemyView = _enemy_views[e]
+	view.refresh(false, false, view.tooltip_text)
+	view.play_lunge()
+	_popup(view.popup_anchor(), String(ev.title).to_upper(), color, 50)
+	_play_big_banner()
+
+
 ## A weapon or magic grade went up: a banner over the stage naming the companion, the grade and the
 ## art or spell learned.
 func _show_grade_up(ev: Dictionary) -> void:
@@ -605,6 +660,11 @@ func _show_grade_up(ev: Dictionary) -> void:
 	var panel: PartyPanel = _party_panels[c]
 	panel.play_pulse(color)
 	_popup(panel.popup_anchor() + Vector2(0, -60), "%s %s" % [kind, grade], color, 46)
+	_play_big_banner()
+
+
+## Shows the big banner (grade-up or phase) over the stage for a moment.
+func _play_big_banner() -> void:
 	if _grade_tween != null:
 		_grade_tween.kill()
 	# Takes the place of the art-name banner, which shows in the same spot.
@@ -751,10 +811,15 @@ func _refresh() -> void:
 
 func _refresh_party() -> void:
 	var line := battle.line()
+	var aim := _aim_kinds()
 	var weights := battle.target_weights()
 	var total := 0.0
 	for w in weights:
 		total += w
+	var rev_weights := battle.target_weights(true)
+	var rev_total := 0.0
+	for w in rev_weights:
+		rev_total += w
 	for c: CompanionUnit in _party_panels:
 		var panel: PartyPanel = _party_panels[c]
 		panel.visible = not c.is_gone()
@@ -772,14 +837,27 @@ func _refresh_party() -> void:
 		else:
 			panel.set_status(PartyPanel.Status.RECOVERING, c.recovery)
 		var effects: Array[String] = []
+		var harmful := false
 		for e in c.effects:
 			effects.append(e.describe())
-		panel.set_effects("  ".join(effects))
+			harmful = harmful or e.damage_per_tick > 0
+		panel.set_effects("  ".join(effects), harmful)
 		var share := 0
+		var rev_share := 0
 		var index := line.find(c)
 		if index >= 0 and total > 0.0:
 			share = roundi(weights[index] / total * 100.0)
-		panel.set_footer("%s   ·   targeted %d%%" % [c.weapon().display_name, share])
+			rev_share = roundi(rev_weights[index] / rev_total * 100.0)
+		var aim_tip := "Enemies aim at this spot %d%% of the time." % share
+		if aim.y == 0:
+			panel.set_footer("%s   ·   targeted %d%%" % [c.weapon().display_name, share])
+		elif aim.x == 0:
+			panel.set_footer("targeted %d%%   ·   aims from the left" % rev_share)
+			aim_tip = "Every enemy here aims from the left (mirrored): its single attacks hit this spot %d%% of the time." % rev_share
+		else:
+			panel.set_footer("targeted %d%%   ·   from the left %d%%" % [share, rev_share])
+			aim_tip = ("Most enemies aim at this spot %d%% of the time; those that aim from the left (mirrored) %d%% of the time." %
+				[share, rev_share])
 		var kind := c.weapon().weapon_type
 		var step := c.progress.progress_to_next(kind)
 		var arts: Array[String] = []
@@ -793,11 +871,11 @@ func _refresh_party() -> void:
 			for sp in c.spells():
 				spells.append("%s %d/%d" % [sp.display_name, c.progress.uses_left(sp), sp.uses])
 			magic += "\nSpells: " + ", ".join(spells)
-		panel.tooltip_text = "%s  ·  level %d\n%s\n\n%s %s%s\nArts: %s%s\n\nEnemies aim at this spot %d%% of the time." % [
-			c.display_name, c.progress.level, _stat_sheet(c, Stat.COMPANION_KEYS), WeaponData.type_name(kind),
+		panel.tooltip_text = "%s  ·  level %d  ·  %s\n%s\n\n%s %s%s\nArts: %s%s\n\n%s" % [
+			c.display_name, c.progress.level, c.weapon().display_name, _stat_sheet(c, Stat.COMPANION_KEYS), WeaponData.type_name(kind),
 			Proficiency.grade_name(c.progress.grade(kind)),
 			"" if step.y == 0 else "  (%d / %d to %s)" % [step.x, step.y, Proficiency.grade_name(c.progress.grade(kind) + 1)],
-			", ".join(arts) if not arts.is_empty() else "none", magic, share]
+			", ".join(arts) if not arts.is_empty() else "none", magic, aim_tip]
 		panel.set_selection(c == _selected, not _busy and battle.can_act(c))
 		if _mode == Mode.TARGET_ALLY and not _busy and _spell != null and line.has(c):
 			var hot := _spell.targets_all() or c == _hot_ally
@@ -805,6 +883,24 @@ func _refresh_party() -> void:
 				float(battle.hp_after_heal(_selected, _spell, c)) if _spell.heals else -INF)
 		else:
 			panel.set_spell_target(false, false)
+
+
+## How the living enemies aim their single-target attacks: x = enemies that aim the usual way, y = those
+## that aim from the left (mirrored weights). An enemy with both kinds counts in both.
+func _aim_kinds() -> Vector2i:
+	var out := Vector2i.ZERO
+	for e in battle.living_enemies():
+		var normal := false
+		var mirrored := false
+		for a in e.actions():
+			if a.targeting != EnemyActionData.Targeting.SINGLE:
+				continue
+			if e.aims_reversed(a):
+				mirrored = true
+			else:
+				normal = true
+		out += Vector2i(1 if normal else 0, 1 if mirrored else 0)
+	return out
 
 
 ## What the white spell waiting for a target would do to `c`, for the panel preview.
@@ -846,10 +942,26 @@ func _refresh_enemies() -> void:
 
 func _enemy_tooltip(e: EnemyUnit) -> String:
 	var tip := "%s\n%s" % [e.display_name, _stat_sheet(e, Stat.ENEMY_KEYS)]
+	if e.data.role != "":
+		tip += "\n" + e.data.role
 	for t in e.traits():
 		tip += "\n\n" + EnemyTraits.describe(t)
+	if e.ever_aims_reversed():
+		tip += "\n\nAims from the left: its single-target attacks use the position weights mirrored."
+	var effects: Array[String] = []
+	for fx in e.effects:
+		effects.append(fx.describe())
+	if not effects.is_empty():
+		tip += "\n\nNow: " + ", ".join(effects)
+	if e.reflect_percent() > 0:
+		tip += "\nWeapon strikes and arts that land on it deal %d%% of their damage back. Spells pass through." % e.reflect_percent()
 	if e.delayed and e.is_alive():
 		tip += "\n\nIts coming action has already been delayed once. Spells cannot delay it again until it acts."
+	if e.hastened and e.is_alive():
+		tip += "\n\nAn order brought its coming action forward."
+	if e.data.has_phase() and e.phase == 0:
+		tip += "\n\n" + ("At %d%% HP it changes." % e.data.phase_hp_percent if e.data.phase_trigger == EnemyData.PhaseTrigger.HP_BELOW
+			else "When it is the last one standing, it changes.")
 	return tip
 
 

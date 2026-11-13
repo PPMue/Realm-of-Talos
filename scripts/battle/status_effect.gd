@@ -17,6 +17,9 @@ var reflect_percent: int = 0
 var stacks: int = 1
 var max_stacks: int = 1
 
+## A duration this long or longer is shown as lasting the battle.
+const LASTING_TICKS := 90
+
 
 static func from_data(data: StatusEffectData) -> StatusEffect:
 	var e := StatusEffect.new()
@@ -68,5 +71,5 @@ func describe() -> String:
 		parts.append("reflects %d%%" % reflect_percent)
 	var detail := (" " + ", ".join(parts)) if not parts.is_empty() else ""
 	var stack_text := " x%d" % stacks if stacks > 1 else ""
-	var left := "battle" if ticks_left >= 99 else "%d left" % ticks_left
+	var left := "battle" if ticks_left >= LASTING_TICKS else "%d left" % ticks_left
 	return "%s%s%s (%s)" % [display_name, stack_text, detail, left]

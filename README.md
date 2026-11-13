@@ -18,7 +18,7 @@ godot --path .
 - Levels: every companion starts at level 1. A won battle grants an XP pool (by danger, growing with the day; shown on each front) split evenly among the fielded companions still in the run at its end, injured ones included; reserve companions and lost battles give none. On each level-up every stat but BLD rolls its own growth rate (each companion's own, about 40% on average) to rise by 1, and at least 2 stats always rise. Max HP gained raises current HP too. Tavern hires join at the roster's average level, rounded down. A companion fielded in every battle in a party of four ends the run around level 13.
 - HP carries over between days. At the end of every day each companion heals 20% of max HP. Stamina is full at the start of every battle. A companion injured in battle comes back at 1 HP, won or lost; one removed in battle is gone for the rest of the run (their weapon returns to the armory).
 - **Battle day**: 2 or 3 fronts (keys 1-3), each with its enemies, a danger of 1-3, the reward and the city health lost if the battle is lost (15/20/25). Fronts you do not pick have no consequence. Enemies get stronger as the days pass.
-- **Boss day**: one front. Losing ends the run; beating the day 30 boss wins it.
+- **Boss day**: one front. Losing ends the run; beating the day 30 boss wins it. Each boss day draws one of three bosses when the run begins (see Bosses). The calendar names the boss on its day, and when the next boss day is beyond the days shown, one more tile after the strip names it; hover a boss tile for every boss still ahead with its one-line warning. The boss card shows the boss large, its name, what makes it dangerous and any escorts.
 - **Free day**: 2 actions, each once a day: Rest (everyone to full HP and every spell back to full uses; nothing else restores spell uses), Shop (weapons; any number of purchases is one action; rare magic weapons turn up now and then from day 8), Tavern (hire 1 of 1-2 companions offered, mages included), Repair (materials for city health). End day (E) when done; unused actions are lost.
 - **Event day**: a short story and 2-3 choices (keys 1-3) that trade gold, materials, city health, companions' HP or a free weapon.
 - The run is lost when the city reaches 0, a boss wins, or no companions are left.
@@ -30,8 +30,12 @@ godot --path .
 - Magic opens the companion's spells in the same place, each with its school, tier and uses left (number keys; Back, Esc or right-click returns; more than six spells page with More). A spell with no uses left is greyed out and says why.
 - For Attack and single-target arts, point at an enemy to see hit %, damage and crit %, then click it to strike. Arts that strike every enemy light up every enemy at once; click any of them to confirm. Right-click or Esc backs out.
 - A spell aimed at a companion is cast by clicking their panel below; each panel shows what it would do (for a heal, HP before and after). A spell for every ally or every enemy lights them all up; one click confirms.
-- Under each enemy: its HP, an hourglass with the ticks left until it acts, and the kind of action coming. Every action you take, art, spell or not, is one tick. A pending action already pushed back by a spell shows its countdown in pale blue with a DELAYED tag.
+- Under each enemy: its HP, an hourglass with the ticks left until it acts, and the kind of action coming. Every action you take, art, spell or not, is one tick. A pending action already pushed back by a spell shows its countdown in pale blue with a DELAYED tag; one brought forward by another enemy's order shows it in orange with a HASTENED tag (and pops SOONER -N).
 - Traits such as FLYING show as a tag above an enemy's name (hover it). The forecast says EFFECTIVE when the strike doubles Mt, and MAGIC when it is MAG against RES.
+- Lasting effects show on the unit with the ticks left (on party panels under the status tag; poison and burning in green-yellow). Poison pops its damage at the end of each tick.
+- A reflecting stance wraps the enemy in a ring of pink thorns with a REFLECTS N% tag; the forecast turns pink and says what striking costs you (normal and critical). Spells pass through.
+- An enemy that aims from the left carries an AIMS LEFT tag. The party panels' "targeted N%" then counts it: with only such enemies the figure is the mirrored one ("aims from the left"); with both kinds the panel shows both ("targeted N% · from the left N%").
+- A second phase gets the big banner (PHASE TWO, its name and one line) and a tag under the enemy. Recovery added by an enemy pops +N RECOVERY on the panel; an enemy's heal pops +N on it.
 - When nobody is ready, Wait (1 or Space) lets a tick pass. L opens the battle log. Clicking during playback speeds it up.
 - Hover a companion or enemy for its stats.
 
@@ -48,10 +52,40 @@ Proficiency and arts:
 - A spell costs one tick and no stamina, then a recovery of its tier (1-3). Each spell has a number of uses per companion (6 / 4 / 2 by tier, set per spell); uses last between battles and days and only Rest restores them.
 - Black spells: damage = caster MAG + spell Mt - target RES (at least 1), with the normal accuracy and crit formulas using the spell's own Hit. They may strike every enemy, ignore part of RES, debuff the target, and delay the target's pending action: a pending action can be delayed only once; the next one it picks can be delayed again. Combat arts never touch countdowns.
 - White spells always succeed: heals (caster MAG + the spell's power, on anyone still in the line; lifting an injured companion above 0 HP clears the injury; companions removed from the run cannot be healed), buffs, less damage taken, a veil (enemies aim elsewhere) or a beacon (enemies aim here), and removing debuffs, on one ally or all. Healing spells can also be cast on the party screen between battles, spending uses.
-- Enemy actions are physical (STR against DEF) or magic (MAG against RES); Guard halves both. The Goblin Wizard, the Frostfang Warden's frost and the Oathbreaker's Black Tide are magic. Enemy MAG grows with the day like STR.
+- Enemy actions are physical (STR against DEF) or magic (MAG against RES); Guard halves both. The Goblin Wizard, the casters of the bestiary, the Rimeclaw Wyvern's frost, the Oathbreaker's Black Tide, and the Faceless Princess, Forsaken Seraph and Eclipse Sovereign are magic. Enemy MAG grows with the day like STR.
 - **Magic weapons** are rare variants of the normal types: Attack and arts with them use MAG against RES with the weapon's own Mt.
 - **Effectiveness**: enemies carry traits (so far Flying). Weapons, arts and spells list the traits they are effective against; every bow is effective against Flying. An effective strike doubles Mt (the weapon's, or the spell's) before DEF or RES is subtracted; effective through both weapon and art still doubles once. The multiplier is `BattleConfig.EFFECTIVE_MIGHT_MULT`.
 - The arts screen (Arts and Magic) shows both magic grades and every known spell with uses left; the party screen shows spell uses and casts heals; the battle result lists magic grades gained and spells learned.
+
+## Bestiary
+
+Every normal enemy belongs to a band (`EnemyData.band`); its groups never appear before the band begins, and fronts favour the band of the day (`RunConfig.BAND_AGE_WEIGHT`: older groups still turn up, scaled to the day). Danger 3 fronts from the middle band on can field four enemies.
+
+- **Early (days 1-9)**: Orc, Goblin Thief, Goblin Wizard, Stalker, Skeleton Bird*, Winged Zombie*, Slime Monster (soaks blows, re-forms, slows), Briarwing* (thorn mantle reflects 50%).
+- **Middle (days 11-19)**: Cursed Warrior, Armored Beast, Minotaur, Blackwing* (fast diver), Poisoned Wings* (poisons the line), Flame Eagle* (fire caster, burning), Poison Spawn (heavy poison, corrodes DEF/RES), One-Eye* (debuffer, its gaze adds recovery), Ancient Treant (protector: buffs and heals every enemy).
+- **Late (days 21-29)**: Stormcrest* (lightning caster), Void Raven* (its caw orders the others to act sooner), Shadowed Wings* (assassin that aims from the left), Faceless Spawn (burner), Cursed Dweller (slow heavy hitter, stacking frenzy), Forgotten Guardian* (wards every enemy, frost aegis reflects).
+
+\* Flying. Each enemy's data is in `data/enemies/`, its groups in `data/run/groups/`.
+
+## Bosses
+
+`data/enemies/bosses/` and `data/run/bosses/` (a boss group: the boss, then any escorts, who grow with the day; `description` is the one-line warning). Each boss day draws one from its pool by the run's seed (`Run.boss_draw`). Every boss has one idea:
+
+- **Day 10**: The Horned Tyrant (its War Bellow stacks: it grows stronger the longer the fight runs), Mossback Troll (regenerates 18% of its HP on every Buff it shows: burst it down), Rampart Golem (high DEF, no RES, slow and crushing, braces to halve damage: magic, DEF-ignoring arts and Guard).
+- **Day 20**: Rimeclaw Wyvern (flies, frost magic, Take Wing makes it very hard to hit: bows and accuracy), The Oathbreaker (its Oath of Thorns, a Defend, reflects 80% of weapon and art damage: read the intent, use spells), The Fallen Commander (with a One-Eye and a Flame Eagle: rallies every enemy and orders them to act sooner; alone it makes a last stand: choose the kill order).
+- **Day 30**: The Faceless Princess (aims from the left and poisons: put the sturdiest on the left), The Forsaken Seraph (flies, magic, charges Judgement on everyone: RES, bows, speed and a delay spell), The Eclipse Sovereign (adds recovery to everyone; at half HP turns faster and harsher).
+
+### Enemy mechanics
+
+All in the battle rules and driven by data (`EnemyActionData`, `EnemyData`, `StatusEffectData`):
+- **Damage over time** (`damage_per_tick`): at the end of every tick; Guard does not halve it. It can injure a companion but never removes an injured one. White magic that removes debuffs clears it.
+- **Reflection** (`reflect_percent`): a weapon strike or combat art that lands on the bearer deals that share of its damage (at least 1) back to the striker. Spells are exempt.
+- **Healing** (`heal_percent`) on the enemy itself, or on every enemy with the ALL_ALLIES targeting (which also spreads buffs).
+- **Reversed targeting** (`EnemyData.reversed_targeting` or per action): the position weights mirrored.
+- **Orders** (`hasten_allies`): every other enemy's countdown drops by N, never below 1.
+- **Recovery pressure** (`add_recovery`): adds to the recovery of each companion reached. A lone companion still ignores recovery.
+- **Phases** (`phase_trigger`: at an HP share, or when the last one standing): a second action list, a banner, an optional lasting effect, and the pending action is replaced.
+- Also: stacking effects (`max_stacks`) and actions never picked twice in a row (`no_repeat`).
 
 ## Tests
 
@@ -60,7 +94,7 @@ godot --headless --path . --import          # first time / after adding scripts:
 godot --headless --path . -s res://tests/run_tests.gd
 ```
 
-Exit code 0 means every test passed. `TEST_ONLY=playthrough` runs only tests whose name contains that text, `TEST_SKIP=playthrough` skips them; `TEST_VERBOSE=1` prints each test's name. Besides the battle rules (`run_tests.gd`), the run rules (`run_rule_tests.gd`) and magic and effectiveness (`magic_tests.gd`), the run prints a random-policy battle win rate, how fast grades rise, and an automated playthrough: a simple policy (`run_policy.gd`) plays 200 whole runs through the rule classes and reports how often it wins and on which day runs end.
+Exit code 0 means every test passed. `TEST_ONLY=playthrough` runs only tests whose name contains that text (several, comma-separated), `TEST_SKIP=playthrough` skips them; `TEST_VERBOSE=1` prints each test's name. Besides the battle rules (`run_tests.gd`), the run rules (`run_rule_tests.gd`), magic and effectiveness (`magic_tests.gd`) and the bestiary, bosses and their mechanics (`bestiary_tests.gd`), the run prints a random-policy battle win rate, how fast grades rise, and an automated playthrough: a simple policy (`run_policy.gd`) plays 200 whole runs through the rule classes and reports how often it wins, on which day runs end, and for each boss how often it was faced and beaten. The policy answers the mechanics in obvious ways: it never strikes into a reflecting stance, delays a long charged attack on everyone, guards a heavy blow aimed at it, and stands its sturdiest on the left against a boss that aims from the left.
 
 ## Layout
 
@@ -78,4 +112,4 @@ An art belongs to one weapon type, can only be used with a weapon of that type i
 
 ## Not built yet
 
-Room is left for, but nothing exists of: weapon durability (`WeaponData.max_uses`, `CombatArtData.durability_cost`), wooden weapons, damage over time, spell or skill books, crafting and the smithy (iron ore is only traded and used for repairs so far), city buildings, jobs for companions in reserve, skill books, and anything carried between runs.
+Room is left for, but nothing exists of: weapon durability (`WeaponData.max_uses`, `CombatArtData.durability_cost`), wooden weapons, spell or skill books, crafting and the smithy (iron ore is only traded and used for repairs so far), city buildings, jobs for companions in reserve, skill books, and anything carried between runs.

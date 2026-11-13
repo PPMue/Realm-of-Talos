@@ -43,6 +43,9 @@ func setup(p_front: Front, hotkey: String, why_not: String = "") -> void:
 	_bg.size = size
 	_bg.fill = Color(UiTheme.PANEL, 0.96)
 	add_child(_bg)
+	if front.is_boss:
+		_setup_boss(hotkey, why_not)
+		return
 
 	_build_art()
 
@@ -87,6 +90,91 @@ func setup(p_front: Front, hotkey: String, why_not: String = "") -> void:
 	_restyle()
 
 
+## The boss card: the boss's art large on the left; on the right its name, the one line on what makes
+## it dangerous, its escorts, the reward, what losing means, and the button.
+func _setup_boss(hotkey: String, why_not: String) -> void:
+	var boss := front.enemies[0]
+	var art := SlantPanel.new()
+	var art_w := 430.0
+	art.texture = boss.portrait
+	art.focus = Vector2(0.5, 0.42)
+	art.zoom = 1.0
+	art.shade = 0.35
+	art.border = Color(UiTheme.GOLD, 0.8)
+	art.border_width = 3.0
+	art.position = Vector2(_edge_x(H - PAD) + PAD, PAD)
+	art.size = Vector2(art_w, H - PAD * 2.0)
+	art.mouse_filter = Control.MOUSE_FILTER_PASS
+	art.tooltip_text = enemy_info(boss)
+	add_child(art)
+
+	var x0 := art.position.x + art_w + 6.0
+	var right := _w - 34.0
+	var y := 26.0
+	var day_text := "BOSS  ·  DAY %d" % front.group.min_day if front.group.min_day == front.group.max_day else "BOSS"
+	var kicker := UiTheme.label(day_text, 20, UiTheme.GOLD, true, 6)
+	kicker.position = Vector2(_edge_x(y + 24.0) + x0, y)
+	add_child(kicker)
+	y += 30.0
+	var title := UiTheme.label(boss.display_name.to_upper(), 46, UiTheme.TEXT, true, 8)
+	var size_px := 46
+	while size_px > 26 and UiTheme.display_font().get_string_size(title.text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px).x > right - x0 - 40.0:
+		size_px -= 2
+	title.add_theme_font_size_override("font_size", size_px)
+	title.position = Vector2(_edge_x(y + 52.0) + x0 - 4.0, y)
+	add_child(title)
+	y += 58.0
+	var desc := UiTheme.label(front.group.description, 19, UiTheme.TEXT.lerp(UiTheme.MUTED, 0.35), false, 4)
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	desc.position = Vector2(_edge_x(y + 84.0) + x0, y)
+	desc.size = Vector2(right - x0 - 130.0, 84.0)
+	add_child(desc)
+	y += 96.0
+
+	var escorts := front.enemies.slice(1)
+	var head := UiTheme.label("ESCORTS" if not escorts.is_empty() else "ALONE  ·  NO ESCORTS", 18, UiTheme.MUTED, true)
+	head.position = Vector2(_edge_x(y + 24.0) + x0, y)
+	add_child(head)
+	y += 28.0
+	if not escorts.is_empty():
+		var tile_w := 168.0
+		var tile_h := 92.0
+		for i in escorts.size():
+			var e: EnemyData = escorts[i]
+			var p := SlantPanel.new()
+			p.texture = e.portrait
+			p.focus = Vector2(0.5, 0.3)
+			p.zoom = 1.5
+			p.shade = 0.65
+			p.border = Color(UiTheme.INK, 0.9)
+			p.border_width = 2.0
+			p.position = Vector2(_edge_x(y + tile_h) + x0 + i * (tile_w + 10.0), y)
+			p.size = Vector2(tile_w, tile_h)
+			p.mouse_filter = Control.MOUSE_FILTER_PASS
+			p.tooltip_text = enemy_info(e)
+			add_child(p)
+			var n := UiTheme.label(e.display_name.to_upper(), 17, UiTheme.TEXT, true, 5)
+			n.position = Vector2(UiTheme.slant_for(tile_h) * 0.2 + 10.0, tile_h - 28.0)
+			p.add_child(n)
+		y += tile_h + 14.0
+	else:
+		y += 4.0
+
+	var rx := x0 - 22.0
+	y = _add_row(y, "REWARD", _reward_text(), UiTheme.GOLD, rx)
+	y = _add_row(y, "IF LOST", "THE RUN ENDS", UiTheme.INJURED, rx)
+
+	_button.title = "FACE THE BOSS"
+	_button.hotkey = hotkey
+	_button.detail = ""
+	_button.position = Vector2(_edge_x(H - 18.0) + x0 + (right - x0 - ActionButton.W) * 0.5 - 20.0, H - 18.0 - ActionButton.H)
+	_button.disabled = not _enabled
+	_button.pressed.connect(func() -> void: chosen.emit())
+	_button.tooltip_text = why_not if not _enabled else "Commit to the boss fight. The party fights now; losing ends the run."
+	add_child(_button)
+	_restyle()
+
+
 func _reward_text() -> String:
 	var parts: Array[String] = []
 	if front.reward_gold > 0:
@@ -101,12 +189,12 @@ func _reward_text() -> String:
 	return "  ·  ".join(parts)
 
 
-func _add_row(y: float, head: String, text: String, color: Color) -> float:
+func _add_row(y: float, head: String, text: String, color: Color, x: float = 0.0) -> float:
 	var h := UiTheme.label(head, 18, UiTheme.MUTED, true)
-	h.position = Vector2(_edge_x(y + 30.0) + 26.0, y + 4.0)
+	h.position = Vector2(_edge_x(y + 30.0) + 26.0 + x, y + 4.0)
 	add_child(h)
 	var l := UiTheme.label(text, 24, color, true, 6)
-	l.position = Vector2(_edge_x(y + 30.0) + 130.0, y)
+	l.position = Vector2(_edge_x(y + 30.0) + 130.0 + x, y)
 	add_child(l)
 	return y + 38.0
 
@@ -141,8 +229,12 @@ static func enemy_info(e: EnemyData) -> String:
 	var lines: Array[String] = [e.display_name,
 		"HP %d   STR %d   MAG %d   DEF %d   RES %d   SPD %d   DEX %d   LCK %d" % [e.max_hp, e.strength, e.magic, e.defense,
 			e.resistance, e.speed, e.dexterity, e.luck]]
+	if e.role != "":
+		lines.append(e.role)
 	for t in e.traits:
 		lines.append(EnemyTraits.describe(t))
+	if e.ever_reversed():
+		lines.append("Aims from the left: its single-target attacks use the position weights mirrored.")
 	lines.append("")
 	for a in e.actions:
 		var what := EnemyActionData.intent_name(a.intent).capitalize()
@@ -150,9 +242,23 @@ static func enemy_info(e: EnemyData) -> String:
 			what += ", everyone"
 		if a.deals_damage:
 			what += ", %s Mt %d" % ["magic" if a.damage_type == CombatMath.DamageType.MAGIC else "physical", a.might]
+		if a.targeting == EnemyActionData.Targeting.ALL_ALLIES:
+			what += ", every enemy"
+		if a.heal_percent > 0:
+			what += ", heals %d%% of max HP" % a.heal_percent
+		if a.hasten_allies > 0:
+			what += ", the other enemies act %d sooner" % a.hasten_allies
+		if a.add_recovery > 0:
+			what += ", +%d recovery" % a.add_recovery
 		if a.effect != null:
 			what += ", " + a.effect.summary()
 		lines.append("%s  (countdown %d): %s" % [a.display_name, a.countdown, what])
+	if e.has_phase():
+		lines.append("")
+		lines.append(("At %d%% HP: " % e.phase_hp_percent if e.phase_trigger == EnemyData.PhaseTrigger.HP_BELOW
+			else "When it stands alone: ") + (e.phase_title.capitalize() if e.phase_title != "" else "it changes"))
+		for a in e.phase_actions:
+			lines.append("  %s  (countdown %d)" % [a.display_name, a.countdown])
 	return "\n".join(lines)
 
 

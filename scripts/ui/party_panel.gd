@@ -72,9 +72,12 @@ func _init() -> void:
 	_tag_label.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_tag.add_child(_tag_label)
 
+	# Under the status tag, right-aligned over the portrait, so it never runs into the tag.
 	_effects = UiTheme.label("", 15, UiTheme.GOLD, false, 5)
-	_effects.position = Vector2(_edge_x(PAD + 34.0) + 18.0, PAD + 8.0)
-	_effects.size = Vector2(W * 0.5, 22)
+	_effects.position = Vector2(W * 0.3, PAD + 46.0)
+	_effects.size = Vector2(W * 0.7 - PAD - 16.0, 22)
+	_effects.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_effects.clip_text = true
 	_body.add_child(_effects)
 
 	_place(_hp, 138.0, 26.0, 12.0)
@@ -157,8 +160,10 @@ func set_status(status: Status, recovery: int = 0) -> void:
 			_portrait.tint = Color.WHITE
 
 
-func set_effects(text: String) -> void:
+## `harmful`: shown in the poison colour (a debuff or damage over time is on).
+func set_effects(text: String, harmful: bool = false) -> void:
 	_effects.text = text
+	_effects.add_theme_color_override("font_color", UiTheme.POISON if harmful else UiTheme.GOLD)
 
 
 func set_footer(text: String) -> void:
