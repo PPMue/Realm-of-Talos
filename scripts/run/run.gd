@@ -56,6 +56,8 @@ var tavern_offers: Array[CompanionData] = []
 var shop_today: Array[ShopItemData] = []
 ## Events already seen this run, so they do not repeat while unseen ones remain.
 var _seen_events: Array[EventData] = []
+## The boss group drawn for each boss day when the run began: boss day -> EnemyGroupData.
+var boss_draw: Dictionary = {}
 
 
 ## A new run. `p_rng` should already be seeded. Of the two starting companions, at least one is not a
@@ -83,6 +85,7 @@ static func create(p_rng: RandomNumberGenerator, p_content: RunContent = null, p
 		var pick: CompanionData = options[r.rng.randi_range(0, options.size() - 1)]
 		pool.erase(pick)
 		r._join(pick)
+	r._draw_bosses()
 	r._begin_day()
 	return r
 
@@ -98,6 +101,29 @@ func day_type(d: int = -1) -> int:
 	if at < 1 or at > calendar.size():
 		return -1
 	return calendar[at - 1]
+
+
+## The boss group waiting on boss day `d`, drawn when the run began; null on other days.
+func boss_on(d: int) -> EnemyGroupData:
+	return boss_draw.get(d)
+
+
+## Boss days still ahead (today included), in order.
+func boss_days_ahead() -> Array[int]:
+	var out: Array[int] = []
+	for d in range(day, calendar.size() + 1):
+		if calendar[d - 1] == RunCalendar.DayType.BOSS:
+			out.append(d)
+	return out
+
+
+## The bestiary band of `d`: 1 for days 1-10, 2 for 11-20, 3 from 21 (RunConfig.BAND_FIRST_DAY).
+static func band_of_day(d: int) -> int:
+	var b := 1
+	for i in RunConfig.BAND_FIRST_DAY.size():
+		if d >= RunConfig.BAND_FIRST_DAY[i]:
+			b = i + 1
+	return b
 
 
 ## Day types from today through `ahead` days after it (fewer near the end of the run).
@@ -559,7 +585,7 @@ func _make_fronts() -> void:
 			continue
 		var f := Front.new()
 		f.danger = danger
-		f.group = options[rng.randi_range(0, options.size() - 1)]
+		f.group = _pick_group(options)
 		f.site = sites.pop_at(rng.randi_range(0, sites.size() - 1)) if not sites.is_empty() else null
 		for e in f.group.enemies:
 			f.enemies.append(scaled_enemy(e, day))
@@ -574,12 +600,50 @@ func _make_fronts() -> void:
 		fronts.append(f)
 
 
+## A group for a front, favouring the band of the day: a group from an older band is less likely
+## (RunConfig.BAND_AGE_WEIGHT), one from a later band never appears (groups' days rule it out).
+func _pick_group(options: Array[EnemyGroupData]) -> EnemyGroupData:
+	var now := band_of_day(day)
+	var weights: Array[float] = []
+	var total := 0.0
+	for g in options:
+		var age := clampi(now - maxi(1, g.band()), 0, RunConfig.BAND_AGE_WEIGHT.size() - 1)
+		weights.append(RunConfig.BAND_AGE_WEIGHT[age])
+		total += weights[-1]
+	var r := rng.randf() * total
+	for i in options.size():
+		r -= weights[i]
+		if r < 0.0:
+			return options[i]
+	return options[-1]
+
+
+## One boss group for every boss day of the calendar, drawn from those whose days fit it.
+func _draw_bosses() -> void:
+	boss_draw.clear()
+	for d in range(1, calendar.size() + 1):
+		if calendar[d - 1] == RunCalendar.DayType.BOSS:
+			_draw_boss(d)
+
+
+func _draw_boss(d: int) -> void:
+	var pool := content.bosses_for(d)
+	if pool.is_empty():
+		if content.bosses.is_empty():
+			return
+		pool = [content.bosses[clampi(RunCalendar.boss_index(d), 0, content.bosses.size() - 1)]]
+	boss_draw[d] = pool[rng.randi_range(0, pool.size() - 1)]
+
+
 func _make_boss_front() -> Front:
-	var index := clampi(RunCalendar.boss_index(day), 0, content.bosses.size() - 1)
+	var index := maxi(0, RunCalendar.boss_index(day))
 	var f := Front.new()
 	f.is_boss = true
 	f.danger = 3
-	f.group = content.bosses[index]
+	f.group = boss_on(day)
+	if f.group == null:
+		_draw_boss(day)
+		f.group = boss_on(day)
 	# The first enemy is the boss, built for its day; any escorts grow with the day like other enemies.
 	for i in f.group.enemies.size():
 		var e := f.group.enemies[i]

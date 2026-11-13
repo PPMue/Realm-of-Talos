@@ -7,7 +7,14 @@ extends RefCounted
 ##   2. every living enemy's countdown drops by 1
 ##   3. enemies at 0 act, left to right, then pick their next action
 ##   4. companion recovery counters tick down (not the companion who just acted)
-##   5. timed effects (Guard, buffs, defends, debuffs) lose a tick and expire
+##   5. damage over time (poison, burning) strikes every unit that carries it
+##   6. timed effects (Guard, buffs, defends, debuffs) lose a tick and expire
+##
+## Enemy actions can also heal enemies, buff every enemy, lower the other enemies' countdowns (an
+## order, never below 1), add to companions' recovery, and aim single targets with the position weights
+## mirrored. An enemy with a second phase switches action lists when its HP falls to a threshold, or
+## when it is the last one standing. An enemy carrying a reflecting effect hurts whoever lands a weapon
+## strike or combat art on it; spells are never reflected.
 ##
 ## Attacking and using combat arts raise the actor's proficiency in the weapon type held
 ## (stored in their CompanionProgress, which outlives the battle). Each grade reached teaches
@@ -154,7 +161,19 @@ func forecast(c: CompanionUnit, target: EnemyUnit, art: CombatArtData = null) ->
 		f = CombatMath.forecast(c, might + art.might_bonus, w.hit + art.hit_bonus, art.crit_bonus, target,
 			art.ignore_def_percent, w.damage_type)
 	f.effective = effective
+	f.reflect = reflect_amount(c, target, f.damage)
+	f.reflect_crit = reflect_amount(c, target, f.crit_damage)
 	return f
+
+
+## Damage a weapon strike or art dealing `dealt` to `target` would deal back to `c` (0 if the target
+## reflects nothing): the target's reflect share of it, at least 1, then `c`'s damage-taken multiplier.
+func reflect_amount(c: CompanionUnit, target: EnemyUnit, dealt: int) -> int:
+	var percent := target.reflect_percent()
+	if percent <= 0 or dealt <= 0:
+		return 0
+	var base := maxi(BattleConfig.MIN_DAMAGE, floori(dealt * percent / 100.0))
+	return CombatMath.final_damage(base, false, c.damage_taken_mult())
 
 
 ## Whether `c`'s weapon (or `art`) is effective against one of the target's traits.
@@ -219,12 +238,14 @@ func spell_targets(spell: SpellData, target: Combatant = null) -> Array[Combatan
 	return out
 
 
-## Single-target weights for line(), left to right.
-func target_weights() -> Array[float]:
+## Single-target weights for line(), left to right. `reversed`: the position weights mirrored, so the
+## leftmost companion has the largest (Guard, veils, beacons and injury still apply the same way).
+func target_weights(reversed: bool = false) -> Array[float]:
 	var out: Array[float] = []
 	var l := line()
 	for i in l.size():
-		var w := BattleConfig.TARGET_WEIGHT_BASE * pow(BattleConfig.TARGET_WEIGHT_GROWTH, i)
+		var place := l.size() - 1 - i if reversed else i
+		var w := BattleConfig.TARGET_WEIGHT_BASE * pow(BattleConfig.TARGET_WEIGHT_GROWTH, place)
 		w *= l[i].target_weight_mult()
 		if l[i].is_injured():
 			w *= BattleConfig.INJURED_TARGET_WEIGHT_MULT
@@ -271,7 +292,7 @@ func use_art(c: CompanionUnit, art: CombatArtData, target: EnemyUnit = null) -> 
 	for t in targets:
 		var landed := false
 		for i in art.strikes:
-			if not t.is_alive():
+			if not t.is_alive() or not c.is_active():
 				break
 			if _companion_strike(c, t, art):
 				landed = true
@@ -366,19 +387,29 @@ func heal(c: CompanionUnit, amount: int) -> void:
 
 # ---------------------------------------------------------------- enemy side (public for tests)
 
+## Picks the enemy's next action from its current list by pick weight. An action marked no_repeat is
+## never picked right after itself while another action could be.
 func pick_next_action(e: EnemyUnit) -> void:
-	var actions := e.data.actions
+	var actions := e.actions()
 	if actions.is_empty():
 		e.pending_action = null
 		e.countdown = 0
 		return
 	var weights: Array[float] = []
+	var any_other := false
 	for a in actions:
-		weights.append(maxf(0.0, a.pick_weight))
+		var blocked := a.no_repeat and a == e.last_action
+		weights.append(0.0 if blocked else maxf(0.0, a.pick_weight))
+		any_other = any_other or (not blocked and a.pick_weight > 0.0)
+	if not any_other:
+		weights.clear()
+		for a in actions:
+			weights.append(maxf(0.0, a.pick_weight))
 	var action := actions[_weighted_index(weights)]
 	e.pending_action = action
 	e.countdown = maxi(BattleConfig.MIN_ACTION_COUNTDOWN, action.countdown)
 	e.delayed = false
+	e.hastened = false
 	_emit({"type": "intent", "enemy": e})
 
 
@@ -387,25 +418,73 @@ func perform_enemy_action(e: EnemyUnit, action: EnemyActionData) -> void:
 		return
 	_log("%s uses %s." % [e.display_name, action.display_name])
 	_emit({"type": "enemy_action", "enemy": e, "action": action})
+	e.last_action = action
 	match action.targeting:
 		EnemyActionData.Targeting.SELF:
-			if action.effect != null:
-				_apply_effect(e, action.effect, true)
+			_enemy_support(e, action)
+		EnemyActionData.Targeting.ALL_ALLIES:
+			for ally in living_enemies():
+				_enemy_support(ally, action)
 		EnemyActionData.Targeting.SINGLE:
-			var target := pick_target()
+			var target := pick_target(e.aims_reversed(action))
 			if target != null:
 				_enemy_strike(e, action, target)
 		EnemyActionData.Targeting.ALL_COMPANIONS:
 			for target in line():
 				_enemy_strike(e, action, target)
+	if action.hasten_allies > 0:
+		_hasten_others(e, action.hasten_allies)
 
 
-## Weighted random single target from the line; null if nobody is left.
-func pick_target() -> CompanionUnit:
+## Weighted random single target from the line; null if nobody is left. `reversed`: mirrored weights.
+func pick_target(reversed: bool = false) -> CompanionUnit:
 	var l := line()
 	if l.is_empty():
 		return null
-	return l[_weighted_index(target_weights())]
+	return l[_weighted_index(target_weights(reversed))]
+
+
+## An order: every other living enemy's countdown drops by `ticks`, never below 1. An enemy already at
+## 1 or 0 (0: about to act this tick) is left alone.
+func _hasten_others(actor: EnemyUnit, ticks: int) -> void:
+	for other in living_enemies():
+		if other == actor or other.pending_action == null or other.countdown <= BattleConfig.MIN_ACTION_COUNTDOWN:
+			continue
+		var before := other.countdown
+		other.countdown = maxi(BattleConfig.MIN_ACTION_COUNTDOWN, other.countdown - ticks)
+		other.hastened = true
+		_log("  %s's %s comes sooner: %d -> %d." % [other.display_name, other.pending_action.display_name, before, other.countdown])
+		_emit({"type": "hasten", "target": other, "ticks": before - other.countdown, "countdown": other.countdown})
+
+
+## A SELF or ALL_ALLIES action on one enemy: its heal, then its effect.
+func _enemy_support(e: EnemyUnit, action: EnemyActionData) -> void:
+	if not e.is_alive():
+		return
+	if action.heal_percent > 0:
+		heal_enemy(e, ceili(e.max_hp() * action.heal_percent / 100.0))
+	if action.effect != null:
+		_apply_effect(e, action.effect, true)
+
+
+## Restores an enemy's HP, up to its max.
+func heal_enemy(e: EnemyUnit, amount: int) -> void:
+	if not e.is_alive() or amount <= 0:
+		return
+	var before := e.hp
+	e.hp = mini(e.max_hp(), e.hp + amount)
+	_log("  %s recovers %d HP (%d/%d HP)." % [e.display_name, e.hp - before, e.hp, e.max_hp()])
+	_emit({"type": "enemy_heal", "target": e, "amount": e.hp - before, "hp": e.hp})
+
+
+## Recovery pressure: `c` sits out `ticks` more actions. Injured and gone companions are left alone,
+## and a lone companion still ignores recovery (see can_act).
+func add_recovery(c: CompanionUnit, ticks: int) -> void:
+	if not c.is_active() or ticks <= 0:
+		return
+	c.recovery += ticks
+	_log("  %s's recovery grows by %d (%d)." % [c.display_name, ticks, c.recovery])
+	_emit({"type": "recovery", "target": c, "ticks": ticks, "recovery": c.recovery})
 
 
 # ---------------------------------------------------------------- internals
@@ -443,6 +522,10 @@ func _advance(acted: CompanionUnit) -> void:
 		if c != acted and c.recovery > 0:
 			c.recovery -= 1
 	for unit: Combatant in roster + enemies:
+		_damage_over_time(unit)
+	if _check_end():
+		return
+	for unit: Combatant in roster + enemies:
 		for expired in unit.tick_effects():
 			if expired.display_name != "Guard":
 				_log("%s's %s wears off." % [unit.display_name, expired.display_name])
@@ -463,10 +546,81 @@ func _companion_strike(c: CompanionUnit, target: EnemyUnit, art: CombatArtData) 
 		"magic " if f.magic else "", ", effective" if f.effective else "", maxi(target.hp, 0), target.max_hp()])
 	_emit({"type": "damage", "target": target, "amount": dmg, "crit": crit, "hp": target.hp,
 		"effective": f.effective, "magic": f.magic})
-	if not target.is_alive():
-		_log("  %s is defeated!" % target.display_name)
-		_emit({"type": "defeated", "target": target})
+	var back := reflect_amount(c, target, dmg)
+	_after_enemy_hurt(target)
+	if back > 0 and c.is_active():
+		_log("  %s's %s strikes back at %s!" % [target.display_name, _reflect_name(target), c.display_name])
+		_emit({"type": "reflect", "source": target, "target": c, "amount": back})
+		_damage_companion(c, back, false)
 	return true
+
+
+func _reflect_name(e: EnemyUnit) -> String:
+	for fx in e.effects:
+		if fx.reflect_percent > 0:
+			return fx.display_name
+	return "reflection"
+
+
+## After an enemy lost HP: its defeat, or the start of its second phase. A defeat that leaves a
+## LAST_STANDING enemy alone starts that enemy's phase.
+func _after_enemy_hurt(e: EnemyUnit) -> void:
+	if not e.is_alive():
+		_log("  %s is defeated!" % e.display_name)
+		_emit({"type": "defeated", "target": e})
+		var left := living_enemies()
+		if left.size() == 1 and left[0].phase == 0 and left[0].data.has_phase() \
+				and left[0].data.phase_trigger == EnemyData.PhaseTrigger.LAST_STANDING:
+			_enter_phase(left[0])
+		return
+	if e.phase == 0 and e.data.has_phase() and e.data.phase_trigger == EnemyData.PhaseTrigger.HP_BELOW \
+			and e.hp * 100 <= e.max_hp() * e.data.phase_hp_percent:
+		_enter_phase(e)
+
+
+## Switches an enemy to its second action list, announced, and replaces its pending action.
+func _enter_phase(e: EnemyUnit) -> void:
+	e.phase = 1
+	var title := e.data.phase_title if e.data.phase_title != "" else "%s changes" % e.display_name
+	_log("%s: %s!" % [e.display_name, title])
+	_emit({"type": "phase", "enemy": e, "title": title, "text": e.data.phase_text})
+	if e.data.phase_effect != null:
+		_apply_effect(e, e.data.phase_effect, true)
+	pick_next_action(e)
+
+
+## Poison, burning and the like: every effect's damage per tick, added up. A companion can be injured by
+## it, but one already injured (or gone) takes none, so it never removes anyone.
+func _damage_over_time(unit: Combatant) -> void:
+	var total := 0
+	var names: Array[String] = []
+	for fx in unit.effects:
+		if fx.damage_per_tick > 0:
+			total += fx.damage_per_tick
+			names.append(fx.display_name)
+	if total <= 0:
+		return
+	if unit is CompanionUnit:
+		var c := unit as CompanionUnit
+		if not c.is_active():
+			return
+		c.hp -= total
+		_log("  %s loses %d HP to %s (%d/%d HP)." % [c.display_name, total, ", ".join(names), c.hp, c.max_hp()])
+		_emit({"type": "dot", "target": c, "amount": total, "hp": c.hp, "name": names[0]})
+		if c.hp <= 0:
+			c.state = CompanionUnit.State.INJURED
+			if not injured_ever.has(c):
+				injured_ever.append(c)
+			_log("  %s is injured!" % c.display_name)
+			_emit({"type": "injured", "target": c})
+	elif unit is EnemyUnit:
+		var e := unit as EnemyUnit
+		if not e.is_alive():
+			return
+		e.hp -= total
+		_log("  %s loses %d HP to %s (%d/%d HP)." % [e.display_name, total, ", ".join(names), maxi(e.hp, 0), e.max_hp()])
+		_emit({"type": "dot", "target": e, "amount": total, "hp": e.hp, "name": names[0]})
+		_after_enemy_hurt(e)
 
 
 ## A black spell striking one enemy: hit roll, damage, then a countdown delay and a debuff if it landed.
@@ -485,9 +639,8 @@ func _spell_strike(c: CompanionUnit, spell: SpellData, target: EnemyUnit) -> voi
 		", effective" if f.effective else "", maxi(target.hp, 0), target.max_hp()])
 	_emit({"type": "damage", "target": target, "amount": dmg, "crit": crit, "hp": target.hp,
 		"effective": f.effective, "magic": true})
+	_after_enemy_hurt(target)
 	if not target.is_alive():
-		_log("  %s is defeated!" % target.display_name)
-		_emit({"type": "defeated", "target": target})
 		return
 	if spell.delay_ticks > 0:
 		delay_action(target, spell.delay_ticks)
@@ -601,6 +754,8 @@ func _enemy_strike(e: EnemyUnit, action: EnemyActionData, target: CompanionUnit)
 		_damage_companion(target, f.crit_damage if crit else f.damage, crit)
 	if action.effect != null and not target.is_gone():
 		_apply_effect(target, action.effect, false)
+	if action.add_recovery > 0:
+		add_recovery(target, action.add_recovery)
 
 
 ## A landed hit. Injured companions who are hit again are gone for good.

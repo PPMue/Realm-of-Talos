@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="EnemyGroupData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_qbthf"]
+[ext_resource type="Resource" path="res://data/enemies/bosses/faceless_princess.tres" id="2_o8rb1"]
+[ext_resource type="Script" path="res://scripts/data/enemy_group_data.gd" id="3_by2gk"]
+
+[resource]
+script = ExtResource("3_by2gk")
+display_name = "The Faceless Princess"
+description = "Aims at the far left of your line, not the front, and poisons. Put your sturdiest on the left."
+danger = 3
+min_day = 30
+enemies = Array[ExtResource("1_qbthf")]([ExtResource("2_o8rb1")])

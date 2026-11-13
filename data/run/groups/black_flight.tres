@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="EnemyGroupData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_4ne0o"]
+[ext_resource type="Resource" path="res://data/enemies/blackwing.tres" id="2_ifgng"]
+[ext_resource type="Script" path="res://scripts/data/enemy_group_data.gd" id="3_41x8m"]
+
+[resource]
+script = ExtResource("3_41x8m")
+display_name = "Black Flight"
+min_day = 11
+enemies = Array[ExtResource("1_4ne0o")]([ExtResource("2_ifgng")])

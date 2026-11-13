@@ -39,6 +39,7 @@ effect = SubResource("Resource_1reke")
 
 [resource]
 script = ExtResource("4_c8yij")
+band = 2
 display_name = "Cursed Warrior"
 portrait = ExtResource("3_w6ut4")
 color = Color(0.25, 0.3, 0.45, 1)

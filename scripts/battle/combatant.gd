@@ -16,7 +16,7 @@ func max_hp() -> int:
 func stat(key: String) -> int:
 	var value := int(base_stats.get(key, 0))
 	for e in effects:
-		value += int(e.stat_mods.get(key, 0))
+		value += e.stat_mod(key)
 	value -= stat_penalty(key)
 	return maxi(0, value)
 
@@ -47,12 +47,30 @@ func has_effect(effect_name: String) -> bool:
 	return false
 
 
-## Adds an effect; an effect with the same name is refreshed rather than stacked.
+## Share (percent) of weapon and art damage this unit deals back to whoever lands it.
+func reflect_percent() -> int:
+	var total := 0
+	for e in effects:
+		total += e.reflect_percent
+	return total
+
+
+## Adds an effect; an effect with the same name is refreshed rather than stacked, unless it stacks
+## (max_stacks above 1): then it keeps its stacks, gains one up to the most, and is refreshed.
 func add_effect(effect: StatusEffect) -> void:
 	for e in effects.duplicate():
 		if e.display_name == effect.display_name:
+			if effect.max_stacks > 1:
+				effect.stacks = mini(effect.max_stacks, e.stacks + 1)
 			effects.erase(e)
 	effects.append(effect)
+
+
+func get_effect(effect_name: String) -> StatusEffect:
+	for e in effects:
+		if e.display_name == effect_name:
+			return e
+	return null
 
 
 ## Counts every effect down by one tick and returns the ones that expired.

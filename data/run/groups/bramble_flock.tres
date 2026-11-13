@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="EnemyGroupData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_002xv"]
+[ext_resource type="Resource" path="res://data/enemies/briarwing.tres" id="2_6qx13"]
+[ext_resource type="Resource" path="res://data/enemies/skeleton_bird.tres" id="3_k3hve"]
+[ext_resource type="Script" path="res://scripts/data/enemy_group_data.gd" id="4_cdsnm"]
+
+[resource]
+script = ExtResource("4_cdsnm")
+display_name = "Bramble Flock"
+danger = 2
+min_day = 3
+enemies = Array[ExtResource("1_002xv")]([ExtResource("2_6qx13"), ExtResource("3_k3hve")])

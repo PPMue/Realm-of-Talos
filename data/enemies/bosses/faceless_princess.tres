@@ -1,0 +1,65 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_action_data.gd" id="1_aun4q"]
+[ext_resource type="Script" path="res://scripts/data/status_effect_data.gd" id="2_wdmcc"]
+[ext_resource type="Texture2D" path="res://assets/enemy/faceless-princess.png" id="3_6cdff"]
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="4_ub7xb"]
+
+[sub_resource type="Resource" id="Resource_1dyti"]
+script = ExtResource("2_wdmcc")
+display_name = "Royal Venom"
+damage_per_tick = 4
+
+[sub_resource type="Resource" id="Resource_far7m"]
+script = ExtResource("1_aun4q")
+display_name = "Hollow Kiss"
+countdown = 3
+pick_weight = 3.0
+damage_type = 1
+might = 13
+hit = 90
+effect = SubResource("Resource_1dyti")
+
+[sub_resource type="Resource" id="Resource_msca8"]
+script = ExtResource("1_aun4q")
+display_name = "Scepter Blow"
+pick_weight = 2.0
+might = 10
+hit = 90
+
+[sub_resource type="Resource" id="Resource_nmg8l"]
+script = ExtResource("2_wdmcc")
+display_name = "Royal Venom"
+damage_per_tick = 4
+
+[sub_resource type="Resource" id="Resource_0j453"]
+script = ExtResource("1_aun4q")
+display_name = "Venom Veil"
+intent = 3
+targeting = 1
+countdown = 4
+pick_weight = 2.0
+no_repeat = true
+deals_damage = false
+hit = 0
+effect = SubResource("Resource_nmg8l")
+
+[resource]
+script = ExtResource("4_ub7xb")
+display_name = "The Faceless Princess"
+portrait = ExtResource("3_6cdff")
+color = Color(0.45, 0.2, 0.5, 1)
+stage_scale = 1.5
+band = 0
+role = "Aims at the far (left) end of your line first, and poisons."
+max_hp = 300
+strength = 14
+magic = 21
+crit = 6
+dexterity = 15
+speed = 13
+defense = 8
+resistance = 12
+luck = 8
+reversed_targeting = true
+actions = Array[ExtResource("1_aun4q")]([SubResource("Resource_far7m"), SubResource("Resource_msca8"), SubResource("Resource_0j453")])

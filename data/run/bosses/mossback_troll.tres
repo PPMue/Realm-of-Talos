@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="EnemyGroupData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_ofc3v"]
+[ext_resource type="Resource" path="res://data/enemies/bosses/mossback_troll.tres" id="2_jioap"]
+[ext_resource type="Script" path="res://scripts/data/enemy_group_data.gd" id="3_odrvt"]
+
+[resource]
+script = ExtResource("3_odrvt")
+display_name = "Mossback Troll"
+description = "Regenerates a large share of its health whenever it shows a Buff. Burst it down."
+danger = 3
+min_day = 10
+max_day = 10
+enemies = Array[ExtResource("1_ofc3v")]([ExtResource("2_jioap")])

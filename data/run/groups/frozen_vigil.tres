@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="EnemyGroupData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_e38xx"]
+[ext_resource type="Resource" path="res://data/enemies/forgotten_guardian.tres" id="2_5fhhs"]
+[ext_resource type="Resource" path="res://data/enemies/shadowed_wings.tres" id="3_qyawl"]
+[ext_resource type="Script" path="res://scripts/data/enemy_group_data.gd" id="4_bsncn"]
+
+[resource]
+script = ExtResource("4_bsncn")
+display_name = "Frozen Vigil"
+danger = 2
+min_day = 21
+enemies = Array[ExtResource("1_e38xx")]([ExtResource("2_5fhhs"), ExtResource("3_qyawl")])

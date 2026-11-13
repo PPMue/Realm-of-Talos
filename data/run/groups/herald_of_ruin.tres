@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="EnemyGroupData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_5dr4q"]
+[ext_resource type="Resource" path="res://data/enemies/void_raven.tres" id="2_kw0mk"]
+[ext_resource type="Resource" path="res://data/enemies/cursed_dweller.tres" id="3_h3cph"]
+[ext_resource type="Script" path="res://scripts/data/enemy_group_data.gd" id="4_26jmq"]
+
+[resource]
+script = ExtResource("4_26jmq")
+display_name = "Herald of Ruin"
+danger = 2
+min_day = 21
+enemies = Array[ExtResource("1_5dr4q")]([ExtResource("2_kw0mk"), ExtResource("3_h3cph")])

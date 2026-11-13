@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="EnemyGroupData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_sl3wl"]
+[ext_resource type="Resource" path="res://data/enemies/bosses/rimeclaw_wyvern.tres" id="2_73axt"]
+[ext_resource type="Script" path="res://scripts/data/enemy_group_data.gd" id="3_mac4n"]
+
+[resource]
+script = ExtResource("3_mac4n")
+display_name = "Rimeclaw Wyvern"
+description = "Flies, and takes to the air where it is very hard to hit. Bows and accuracy bring it down."
+danger = 3
+min_day = 20
+max_day = 20
+enemies = Array[ExtResource("1_sl3wl")]([ExtResource("2_73axt")])

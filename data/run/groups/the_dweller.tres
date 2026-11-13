@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="EnemyGroupData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_jk6nd"]
+[ext_resource type="Resource" path="res://data/enemies/cursed_dweller.tres" id="2_j5w0l"]
+[ext_resource type="Script" path="res://scripts/data/enemy_group_data.gd" id="3_53pac"]
+
+[resource]
+script = ExtResource("3_53pac")
+display_name = "The Dweller"
+min_day = 21
+enemies = Array[ExtResource("1_jk6nd")]([ExtResource("2_j5w0l")])

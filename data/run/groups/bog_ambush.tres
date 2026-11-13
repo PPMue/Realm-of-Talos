@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="EnemyGroupData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_bsjd1"]
+[ext_resource type="Resource" path="res://data/enemies/goblin_thief.tres" id="2_1ge5f"]
+[ext_resource type="Resource" path="res://data/enemies/slime_monster.tres" id="3_dlmtp"]
+[ext_resource type="Script" path="res://scripts/data/enemy_group_data.gd" id="4_u2prv"]
+
+[resource]
+script = ExtResource("4_u2prv")
+display_name = "Bog Ambush"
+danger = 2
+min_day = 2
+enemies = Array[ExtResource("1_bsjd1")]([ExtResource("2_1ge5f"), ExtResource("3_dlmtp")])

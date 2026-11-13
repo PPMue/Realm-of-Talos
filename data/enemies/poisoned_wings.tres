@@ -1,0 +1,71 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_action_data.gd" id="1_mmu7p"]
+[ext_resource type="Script" path="res://scripts/data/status_effect_data.gd" id="2_t81in"]
+[ext_resource type="Texture2D" path="res://assets/enemy/poisoned-wings.png" id="3_sfr62"]
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="4_qglsg"]
+
+[sub_resource type="Resource" id="Resource_o30so"]
+script = ExtResource("2_t81in")
+display_name = "Poison"
+damage_per_tick = 2
+
+[sub_resource type="Resource" id="Resource_xiods"]
+script = ExtResource("1_mmu7p")
+display_name = "Venom Rain"
+intent = 3
+targeting = 1
+countdown = 4
+pick_weight = 2.0
+no_repeat = true
+deals_damage = false
+hit = 0
+effect = SubResource("Resource_o30so")
+
+[sub_resource type="Resource" id="Resource_gbjbp"]
+script = ExtResource("2_t81in")
+display_name = "Poison"
+damage_per_tick = 2
+
+[sub_resource type="Resource" id="Resource_rv4ul"]
+script = ExtResource("1_mmu7p")
+display_name = "Toxic Peck"
+pick_weight = 3.0
+might = 5
+hit = 90
+effect = SubResource("Resource_gbjbp")
+
+[sub_resource type="Resource" id="Resource_s1xty"]
+script = ExtResource("2_t81in")
+display_name = "Miasma"
+damage_taken_mult = 0.6
+duration_ticks = 2
+
+[sub_resource type="Resource" id="Resource_8xjim"]
+script = ExtResource("1_mmu7p")
+display_name = "Miasma"
+intent = 1
+targeting = 2
+no_repeat = true
+deals_damage = false
+hit = 0
+effect = SubResource("Resource_s1xty")
+
+[resource]
+script = ExtResource("4_qglsg")
+display_name = "Poisoned Wings"
+portrait = ExtResource("3_sfr62")
+color = Color(0.4, 0.25, 0.55, 1)
+band = 2
+role = "Poisoner: rains venom on the whole line."
+max_hp = 40
+strength = 10
+magic = 6
+crit = 2
+dexterity = 11
+speed = 12
+defense = 2
+resistance = 5
+luck = 4
+traits = Array[String](["Flying"])
+actions = Array[ExtResource("1_mmu7p")]([SubResource("Resource_xiods"), SubResource("Resource_rv4ul"), SubResource("Resource_8xjim")])

@@ -595,11 +595,11 @@ func test_enemy_magic_uses_res_and_guard_halves() -> void:
 		if act.deals_damage:
 			t.eq(act.damage_type, CombatMath.DamageType.MAGIC, "Goblin Wizard's %s is magic" % act.display_name)
 	t.check(wiz.magic > 0, "the wizard has MAG")
-	var warden: EnemyData = load("res://data/enemies/bosses/frostfang_warden.tres")
-	for act in warden.actions:
+	var wyvern: EnemyData = load("res://data/enemies/bosses/rimeclaw_wyvern.tres")
+	for act in wyvern.actions:
 		if act.display_name in ["Frost Lance", "Blizzard"]:
 			t.eq(act.damage_type, CombatMath.DamageType.MAGIC, "%s is magic" % act.display_name)
-	t.check(warden.magic > 0, "the Warden has MAG")
+	t.check(wyvern.magic > 0, "the Wyvern has MAG")
 	var oath: EnemyData = load("res://data/enemies/bosses/oathbreaker.tres")
 	for act in oath.actions:
 		if act.display_name == "Black Tide":

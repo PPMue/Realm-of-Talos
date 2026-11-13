@@ -36,6 +36,8 @@ display_name = "Enraged"
 stat_mods = {
 "STR": 3
 }
+duration_ticks = 99
+max_stacks = 4
 
 [sub_resource type="Resource" id="Resource_rcpr0"]
 script = ExtResource("1_3uc3q")
@@ -48,6 +50,7 @@ effect = SubResource("Resource_1bo41")
 
 [resource]
 script = ExtResource("4_7ffoc")
+band = 0
 display_name = "The Horned Tyrant"
 portrait = ExtResource("3_t7cxe")
 color = Color(0.5, 0.25, 0.2, 1)

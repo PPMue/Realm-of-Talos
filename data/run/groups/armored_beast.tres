@@ -8,5 +8,5 @@
 script = ExtResource("3_gg13o")
 display_name = "Armored Beast"
 danger = 2
-min_day = 5
+min_day = 11
 enemies = Array[ExtResource("1_wvh63")]([ExtResource("2_mlawu")])

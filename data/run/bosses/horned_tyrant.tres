@@ -7,6 +7,7 @@
 [resource]
 script = ExtResource("3_eu5kn")
 display_name = "The Horned Tyrant"
+description = "Bellows itself stronger the longer the fight runs. End it quickly."
 danger = 3
 min_day = 10
 max_day = 10

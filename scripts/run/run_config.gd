@@ -38,6 +38,14 @@ const REWARD_MATERIAL_AMOUNT: Array[int] = [1, 2, 3]
 const BOSS_REWARD_GOLD: Array[int] = [150, 250, 0]
 const BOSS_REWARD_MATERIALS := 3
 
+# --- Bestiary bands ---
+# Every normal enemy belongs to a band (EnemyData.band): 1 early, 2 middle, 3 late. A band's enemies
+# appear from its first day on; groups never field an enemy before its band begins.
+const BAND_FIRST_DAY: Array[int] = [1, 11, 21]
+## How likely a group is to be picked for a front, by how many bands older than the day's band it is:
+## the day's own band, one band older, two bands older. Older groups still turn up, scaled to the day.
+const BAND_AGE_WEIGHT: Array[float] = [1.0, 0.3, 0.12]
+
 # --- Enemy scaling with the day (normal fronts only; bosses are built for their day) ---
 # Assumes companions level at the pace below (about level 13 by day 30, roughly +4 to +6 in each
 # main stat), plus better weapons and grades.

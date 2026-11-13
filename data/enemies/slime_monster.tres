@@ -1,0 +1,58 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_action_data.gd" id="1_0hgat"]
+[ext_resource type="Script" path="res://scripts/data/status_effect_data.gd" id="2_drmup"]
+[ext_resource type="Texture2D" path="res://assets/enemy/slime-monster.png" id="3_hxy06"]
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="4_3daer"]
+
+[sub_resource type="Resource" id="Resource_r8hpb"]
+script = ExtResource("1_0hgat")
+display_name = "Slam"
+countdown = 3
+pick_weight = 3.0
+might = 6
+hit = 85
+
+[sub_resource type="Resource" id="Resource_m67ui"]
+script = ExtResource("2_drmup")
+display_name = "Drenched"
+stat_mods = {
+"DEX": -2,
+"SPD": -3
+}
+
+[sub_resource type="Resource" id="Resource_0xtu4"]
+script = ExtResource("1_0hgat")
+display_name = "Engulf"
+intent = 3
+pick_weight = 2.0
+deals_damage = false
+hit = 0
+effect = SubResource("Resource_m67ui")
+
+[sub_resource type="Resource" id="Resource_oy0kq"]
+script = ExtResource("1_0hgat")
+display_name = "Re-form"
+intent = 2
+targeting = 2
+countdown = 3
+pick_weight = 2.0
+no_repeat = true
+deals_damage = false
+hit = 0
+heal_percent = 15
+
+[resource]
+script = ExtResource("4_3daer")
+display_name = "Slime Monster"
+portrait = ExtResource("3_hxy06")
+color = Color(0.2, 0.45, 0.7, 1)
+stage_scale = 0.95
+role = "Soaks up blows and re-forms; its grip slows."
+max_hp = 54
+strength = 10
+speed = 3
+defense = 1
+resistance = 7
+luck = 0
+actions = Array[ExtResource("1_0hgat")]([SubResource("Resource_r8hpb"), SubResource("Resource_0xtu4"), SubResource("Resource_oy0kq")])

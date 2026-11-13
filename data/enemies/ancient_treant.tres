@@ -1,0 +1,77 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_action_data.gd" id="1_iycii"]
+[ext_resource type="Script" path="res://scripts/data/status_effect_data.gd" id="2_c3fxt"]
+[ext_resource type="Texture2D" path="res://assets/enemy/ancient-human.png" id="3_f4sqa"]
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="4_bn18s"]
+
+[sub_resource type="Resource" id="Resource_v78dp"]
+script = ExtResource("2_c3fxt")
+display_name = "Barkskin"
+stat_mods = {
+"DEF": 3,
+"RES": 2
+}
+
+[sub_resource type="Resource" id="Resource_6ob1o"]
+script = ExtResource("1_iycii")
+display_name = "Barkskin"
+intent = 2
+targeting = 3
+countdown = 3
+pick_weight = 2.0
+deals_damage = false
+hit = 0
+effect = SubResource("Resource_v78dp")
+
+[sub_resource type="Resource" id="Resource_5utge"]
+script = ExtResource("1_iycii")
+display_name = "Sap of Life"
+intent = 2
+targeting = 3
+countdown = 4
+no_repeat = true
+deals_damage = false
+hit = 0
+heal_percent = 10
+
+[sub_resource type="Resource" id="Resource_olq7w"]
+script = ExtResource("2_c3fxt")
+display_name = "Rooted"
+stat_mods = {
+"SPD": -3
+}
+duration_ticks = 2
+
+[sub_resource type="Resource" id="Resource_d4mhh"]
+script = ExtResource("1_iycii")
+display_name = "Root Lash"
+targeting = 1
+countdown = 4
+pick_weight = 2.0
+might = 5
+effect = SubResource("Resource_olq7w")
+
+[sub_resource type="Resource" id="Resource_mllxp"]
+script = ExtResource("1_iycii")
+display_name = "Crushing Bough"
+countdown = 4
+pick_weight = 2.0
+might = 11
+
+[resource]
+script = ExtResource("4_bn18s")
+display_name = "Ancient Treant"
+portrait = ExtResource("3_f4sqa")
+color = Color(0.35, 0.4, 0.25, 1)
+stage_scale = 1.25
+band = 2
+role = "Slow protector: hardens and mends the other enemies."
+max_hp = 88
+strength = 13
+magic = 4
+speed = 2
+defense = 8
+resistance = 3
+luck = 1
+actions = Array[ExtResource("1_iycii")]([SubResource("Resource_6ob1o"), SubResource("Resource_5utge"), SubResource("Resource_d4mhh"), SubResource("Resource_mllxp")])

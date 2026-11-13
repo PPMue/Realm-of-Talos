@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="EnemyGroupData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_0p2rf"]
+[ext_resource type="Resource" path="res://data/enemies/poison_spawn.tres" id="2_2665y"]
+[ext_resource type="Resource" path="res://data/enemies/one_eye.tres" id="3_5p6c7"]
+[ext_resource type="Resource" path="res://data/enemies/blackwing.tres" id="4_cl2td"]
+[ext_resource type="Script" path="res://scripts/data/enemy_group_data.gd" id="5_n1pmp"]
+
+[resource]
+script = ExtResource("5_n1pmp")
+display_name = "Gaze of Ruin"
+danger = 3
+min_day = 11
+enemies = Array[ExtResource("1_0p2rf")]([ExtResource("2_2665y"), ExtResource("3_5p6c7"), ExtResource("4_cl2td")])

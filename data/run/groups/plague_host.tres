@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="EnemyGroupData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_sfehi"]
+[ext_resource type="Resource" path="res://data/enemies/poison_spawn.tres" id="2_s6n8t"]
+[ext_resource type="Resource" path="res://data/enemies/poisoned_wings.tres" id="3_r1y1o"]
+[ext_resource type="Script" path="res://scripts/data/enemy_group_data.gd" id="4_joh0y"]
+
+[resource]
+script = ExtResource("4_joh0y")
+display_name = "Plague Host"
+danger = 2
+min_day = 11
+enemies = Array[ExtResource("1_sfehi")]([ExtResource("2_s6n8t"), ExtResource("3_r1y1o")])

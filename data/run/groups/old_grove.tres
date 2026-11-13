@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="EnemyGroupData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_yhkfa"]
+[ext_resource type="Resource" path="res://data/enemies/ancient_treant.tres" id="2_8luqg"]
+[ext_resource type="Resource" path="res://data/enemies/blackwing.tres" id="3_8ypfi"]
+[ext_resource type="Script" path="res://scripts/data/enemy_group_data.gd" id="4_opkxo"]
+
+[resource]
+script = ExtResource("4_opkxo")
+display_name = "Old Grove"
+danger = 2
+min_day = 11
+enemies = Array[ExtResource("1_yhkfa")]([ExtResource("2_8luqg"), ExtResource("3_8ypfi")])

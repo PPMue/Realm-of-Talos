@@ -1,14 +1,14 @@
 [gd_resource type="Resource" script_class="EnemyGroupData" format=3]
 
-[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_hfadc"]
-[ext_resource type="Resource" path="res://data/enemies/bosses/oathbreaker.tres" id="2_065e8"]
-[ext_resource type="Resource" path="res://data/enemies/stalker.tres" id="3_lvp0d"]
-[ext_resource type="Resource" path="res://data/enemies/goblin_wizard.tres" id="4_jysi3"]
-[ext_resource type="Script" path="res://scripts/data/enemy_group_data.gd" id="5_negxu"]
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_gl4sa"]
+[ext_resource type="Resource" path="res://data/enemies/bosses/oathbreaker.tres" id="2_xrkia"]
+[ext_resource type="Script" path="res://scripts/data/enemy_group_data.gd" id="3_hfadc"]
 
 [resource]
-script = ExtResource("5_negxu")
+script = ExtResource("3_hfadc")
 display_name = "The Oathbreaker"
+description = "Its shield (a Defend) turns weapon blows and arts back on the striker. Spells pass through."
 danger = 3
-min_day = 30
-enemies = Array[ExtResource("1_hfadc")]([ExtResource("2_065e8"), ExtResource("3_lvp0d"), ExtResource("4_jysi3")])
+min_day = 20
+max_day = 20
+enemies = Array[ExtResource("1_gl4sa")]([ExtResource("2_xrkia")])

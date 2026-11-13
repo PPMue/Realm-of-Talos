@@ -1,0 +1,87 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_action_data.gd" id="1_tdh4c"]
+[ext_resource type="Script" path="res://scripts/data/status_effect_data.gd" id="2_d0aek"]
+[ext_resource type="Texture2D" path="res://assets/enemy/brute-wywern.png" id="3_4vwuu"]
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="4_raj28"]
+
+[sub_resource type="Resource" id="Resource_wk037"]
+script = ExtResource("1_tdh4c")
+display_name = "Frost Lance"
+countdown = 3
+pick_weight = 3.0
+damage_type = 1
+might = 10
+hit = 85
+
+[sub_resource type="Resource" id="Resource_ktutl"]
+script = ExtResource("2_d0aek")
+display_name = "Frozen"
+stat_mods = {
+"DEX": -2,
+"SPD": -4
+}
+duration_ticks = 2
+
+[sub_resource type="Resource" id="Resource_4jeww"]
+script = ExtResource("1_tdh4c")
+display_name = "Blizzard"
+targeting = 1
+countdown = 5
+pick_weight = 2.0
+damage_type = 1
+might = 5
+hit = 85
+effect = SubResource("Resource_ktutl")
+
+[sub_resource type="Resource" id="Resource_g0f1c"]
+script = ExtResource("2_d0aek")
+display_name = "Glacier Shell"
+damage_taken_mult = 0.5
+
+[sub_resource type="Resource" id="Resource_kl01o"]
+script = ExtResource("1_tdh4c")
+display_name = "Glacier Shell"
+intent = 1
+targeting = 2
+deals_damage = false
+hit = 0
+effect = SubResource("Resource_g0f1c")
+
+[sub_resource type="Resource" id="Resource_jrqi2"]
+script = ExtResource("2_d0aek")
+display_name = "Airborne"
+stat_mods = {
+"SPD": 10
+}
+
+[sub_resource type="Resource" id="Resource_arjpp"]
+script = ExtResource("1_tdh4c")
+display_name = "Take Wing"
+intent = 1
+targeting = 2
+pick_weight = 2.0
+no_repeat = true
+deals_damage = false
+hit = 0
+effect = SubResource("Resource_jrqi2")
+
+[resource]
+script = ExtResource("4_raj28")
+display_name = "Rimeclaw Wyvern"
+portrait = ExtResource("3_4vwuu")
+color = Color(0.3, 0.45, 0.6, 1)
+stage_scale = 1.5
+band = 0
+role = "Frost breath, and it takes to the air where it is very hard to hit."
+max_hp = 230
+strength = 18
+magic = 16
+crit = 3
+dexterity = 10
+speed = 8
+defense = 9
+resistance = 6
+luck = 4
+traits = Array[String](["Flying"])
+actions = Array[ExtResource("1_tdh4c")]([SubResource("Resource_wk037"), SubResource("Resource_4jeww"), SubResource("Resource_kl01o"), SubResource("Resource_arjpp")])

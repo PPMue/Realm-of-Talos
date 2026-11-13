@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="EnemyGroupData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_rq7w5"]
+[ext_resource type="Resource" path="res://data/enemies/forgotten_guardian.tres" id="2_gbkd7"]
+[ext_resource type="Resource" path="res://data/enemies/cursed_dweller.tres" id="3_xvjf5"]
+[ext_resource type="Resource" path="res://data/enemies/void_raven.tres" id="4_0wgwg"]
+[ext_resource type="Resource" path="res://data/enemies/faceless_spawn.tres" id="5_kgfv4"]
+[ext_resource type="Script" path="res://scripts/data/enemy_group_data.gd" id="6_ol7d6"]
+
+[resource]
+script = ExtResource("6_ol7d6")
+display_name = "Eclipse Vanguard"
+danger = 3
+min_day = 21
+enemies = Array[ExtResource("1_rq7w5")]([ExtResource("2_gbkd7"), ExtResource("3_xvjf5"), ExtResource("4_0wgwg"), ExtResource("5_kgfv4")])

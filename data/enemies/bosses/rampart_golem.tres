@@ -1,0 +1,56 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_action_data.gd" id="1_pmv41"]
+[ext_resource type="Script" path="res://scripts/data/status_effect_data.gd" id="2_fujkt"]
+[ext_resource type="Texture2D" path="res://assets/enemy/golem.png" id="3_ag6xu"]
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="4_g860h"]
+
+[sub_resource type="Resource" id="Resource_bmlo2"]
+script = ExtResource("1_pmv41")
+display_name = "Crushing Fist"
+countdown = 5
+pick_weight = 3.0
+might = 14
+hit = 85
+
+[sub_resource type="Resource" id="Resource_ytx2e"]
+script = ExtResource("1_pmv41")
+display_name = "Tremor"
+targeting = 1
+countdown = 6
+pick_weight = 2.0
+might = 6
+hit = 85
+
+[sub_resource type="Resource" id="Resource_4esqo"]
+script = ExtResource("2_fujkt")
+display_name = "Braced"
+damage_taken_mult = 0.5
+
+[sub_resource type="Resource" id="Resource_cs341"]
+script = ExtResource("1_pmv41")
+display_name = "Brace"
+intent = 1
+targeting = 2
+pick_weight = 2.0
+no_repeat = true
+deals_damage = false
+hit = 0
+effect = SubResource("Resource_4esqo")
+
+[resource]
+script = ExtResource("4_g860h")
+display_name = "Rampart Golem"
+portrait = ExtResource("3_ag6xu")
+color = Color(0.5, 0.45, 0.3, 1)
+stage_scale = 1.5
+band = 0
+role = "Stone hide, slow crushing blows, and a brace that halves damage."
+max_hp = 180
+strength = 20
+dexterity = 6
+speed = 1
+defense = 14
+resistance = 0
+luck = 0
+actions = Array[ExtResource("1_pmv41")]([SubResource("Resource_bmlo2"), SubResource("Resource_ytx2e"), SubResource("Resource_cs341")])

@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="EnemyGroupData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_jrpgd"]
+[ext_resource type="Resource" path="res://data/enemies/flame_eagle.tres" id="2_xmua5"]
+[ext_resource type="Resource" path="res://data/enemies/blackwing.tres" id="3_isy73"]
+[ext_resource type="Script" path="res://scripts/data/enemy_group_data.gd" id="4_2srtf"]
+
+[resource]
+script = ExtResource("4_2srtf")
+display_name = "Firestorm"
+danger = 2
+min_day = 11
+enemies = Array[ExtResource("1_jrpgd")]([ExtResource("2_xmua5"), ExtResource("3_isy73")])

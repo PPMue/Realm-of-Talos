@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="EnemyGroupData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_33hcq"]
+[ext_resource type="Resource" path="res://data/enemies/bosses/eclipse_sovereign.tres" id="2_05j41"]
+[ext_resource type="Script" path="res://scripts/data/enemy_group_data.gd" id="3_u6gey"]
+
+[resource]
+script = ExtResource("3_u6gey")
+display_name = "The Eclipse Sovereign"
+description = "Bends time: your companions recover slowly. At half health it turns faster and harsher."
+danger = 3
+min_day = 30
+enemies = Array[ExtResource("1_33hcq")]([ExtResource("2_05j41")])

@@ -1,0 +1,52 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_action_data.gd" id="1_0ded6"]
+[ext_resource type="Texture2D" path="res://assets/enemy/void-raven.png" id="2_4cc8h"]
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="3_xisdm"]
+
+[sub_resource type="Resource" id="Resource_5gw7e"]
+script = ExtResource("1_0ded6")
+display_name = "Void Caw"
+intent = 2
+targeting = 2
+pick_weight = 2.0
+no_repeat = true
+deals_damage = false
+hit = 0
+hasten_allies = 2
+
+[sub_resource type="Resource" id="Resource_msurx"]
+script = ExtResource("1_0ded6")
+display_name = "Rift Talon"
+countdown = 3
+pick_weight = 3.0
+damage_type = 1
+might = 10
+hit = 85
+
+[sub_resource type="Resource" id="Resource_1yc32"]
+script = ExtResource("1_0ded6")
+display_name = "Void Peck"
+pick_weight = 2.0
+might = 7
+hit = 90
+
+[resource]
+script = ExtResource("3_xisdm")
+display_name = "Void Raven"
+portrait = ExtResource("2_4cc8h")
+color = Color(0.2, 0.22, 0.4, 1)
+stage_scale = 1.15
+band = 3
+role = "Herald: its caw drives the other enemies to act sooner."
+max_hp = 56
+strength = 14
+magic = 12
+crit = 5
+dexterity = 14
+speed = 15
+defense = 4
+resistance = 8
+luck = 5
+traits = Array[String](["Flying"])
+actions = Array[ExtResource("1_0ded6")]([SubResource("Resource_5gw7e"), SubResource("Resource_msurx"), SubResource("Resource_1yc32")])

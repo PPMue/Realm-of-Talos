@@ -1,0 +1,71 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_action_data.gd" id="1_j5blp"]
+[ext_resource type="Script" path="res://scripts/data/status_effect_data.gd" id="2_tcydt"]
+[ext_resource type="Texture2D" path="res://assets/enemy/shadowed-wings.png" id="3_efj4m"]
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="4_k6gq7"]
+
+[sub_resource type="Resource" id="Resource_q08js"]
+script = ExtResource("1_j5blp")
+display_name = "Shadow Rend"
+countdown = 3
+pick_weight = 3.0
+might = 11
+hit = 85
+
+[sub_resource type="Resource" id="Resource_ti4ec"]
+script = ExtResource("2_tcydt")
+display_name = "Benighted"
+stat_mods = {
+"DEX": -4
+}
+duration_ticks = 2
+
+[sub_resource type="Resource" id="Resource_jageq"]
+script = ExtResource("1_j5blp")
+display_name = "Nightfall"
+intent = 3
+targeting = 1
+countdown = 3
+pick_weight = 2.0
+deals_damage = false
+hit = 0
+effect = SubResource("Resource_ti4ec")
+
+[sub_resource type="Resource" id="Resource_5ut8l"]
+script = ExtResource("2_tcydt")
+display_name = "Faded"
+damage_taken_mult = 0.5
+duration_ticks = 2
+
+[sub_resource type="Resource" id="Resource_knp21"]
+script = ExtResource("1_j5blp")
+display_name = "Fade"
+intent = 1
+targeting = 2
+countdown = 1
+no_repeat = true
+deals_damage = false
+hit = 0
+effect = SubResource("Resource_5ut8l")
+
+[resource]
+script = ExtResource("4_k6gq7")
+display_name = "Shadowed Wings"
+portrait = ExtResource("3_efj4m")
+color = Color(0.4, 0.42, 0.5, 1)
+stage_scale = 1.2
+band = 3
+role = "Assassin: aims at the far (left) end of the line first."
+max_hp = 58
+strength = 16
+magic = 4
+crit = 12
+dexterity = 16
+speed = 18
+defense = 4
+resistance = 6
+luck = 8
+traits = Array[String](["Flying"])
+reversed_targeting = true
+actions = Array[ExtResource("1_j5blp")]([SubResource("Resource_q08js"), SubResource("Resource_jageq"), SubResource("Resource_knp21")])

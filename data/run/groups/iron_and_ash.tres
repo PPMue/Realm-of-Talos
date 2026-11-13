@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="EnemyGroupData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_ol3qy"]
+[ext_resource type="Resource" path="res://data/enemies/armored_beast.tres" id="2_7vnpg"]
+[ext_resource type="Resource" path="res://data/enemies/poison_spawn.tres" id="3_w3os0"]
+[ext_resource type="Resource" path="res://data/enemies/flame_eagle.tres" id="4_vr2jx"]
+[ext_resource type="Resource" path="res://data/enemies/blackwing.tres" id="5_se3cu"]
+[ext_resource type="Script" path="res://scripts/data/enemy_group_data.gd" id="6_03ymy"]
+
+[resource]
+script = ExtResource("6_03ymy")
+display_name = "Iron and Ash"
+danger = 3
+min_day = 13
+enemies = Array[ExtResource("1_ol3qy")]([ExtResource("2_7vnpg"), ExtResource("3_w3os0"), ExtResource("4_vr2jx"), ExtResource("5_se3cu")])

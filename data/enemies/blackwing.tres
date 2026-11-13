@@ -1,0 +1,61 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_action_data.gd" id="1_qfhpo"]
+[ext_resource type="Script" path="res://scripts/data/status_effect_data.gd" id="2_vnq48"]
+[ext_resource type="Texture2D" path="res://assets/enemy/blackwing.png" id="3_rou1o"]
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="4_q4d5n"]
+
+[sub_resource type="Resource" id="Resource_f6jay"]
+script = ExtResource("1_qfhpo")
+display_name = "Raking Dive"
+pick_weight = 3.0
+might = 7
+hit = 85
+
+[sub_resource type="Resource" id="Resource_vxsjt"]
+script = ExtResource("1_qfhpo")
+display_name = "Bluefire Plunge"
+countdown = 3
+pick_weight = 2.0
+damage_type = 1
+might = 10
+hit = 85
+
+[sub_resource type="Resource" id="Resource_22ol5"]
+script = ExtResource("2_vnq48")
+display_name = "Aloft"
+stat_mods = {
+"SPD": 5
+}
+duration_ticks = 2
+
+[sub_resource type="Resource" id="Resource_trsdu"]
+script = ExtResource("1_qfhpo")
+display_name = "Wheel Aloft"
+intent = 1
+targeting = 2
+countdown = 1
+no_repeat = true
+deals_damage = false
+hit = 0
+effect = SubResource("Resource_22ol5")
+
+[resource]
+script = ExtResource("4_q4d5n")
+display_name = "Blackwing"
+portrait = ExtResource("3_rou1o")
+color = Color(0.25, 0.3, 0.5, 1)
+stage_scale = 1.1
+band = 2
+role = "Fast diver wreathed in blue fire; strikes often."
+max_hp = 42
+strength = 13
+magic = 9
+crit = 8
+dexterity = 13
+speed = 14
+defense = 2
+resistance = 4
+luck = 6
+traits = Array[String](["Flying"])
+actions = Array[ExtResource("1_qfhpo")]([SubResource("Resource_f6jay"), SubResource("Resource_vxsjt"), SubResource("Resource_trsdu")])

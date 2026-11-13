@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://scripts/data/enemy_action_data.gd" id="1_euppf"]
 [ext_resource type="Script" path="res://scripts/data/status_effect_data.gd" id="2_mt7r4"]
-[ext_resource type="Texture2D" path="res://assets/enemy/cursed-warrior.png" id="3_4pal8"]
+[ext_resource type="Texture2D" path="res://assets/enemy/cursed-knight.png" id="3_4pal8"]
 [ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="4_nr1nn"]
 
 [sub_resource type="Resource" id="Resource_s13n1"]
@@ -16,10 +16,10 @@ hit = 85
 [sub_resource type="Resource" id="Resource_nkrvh"]
 script = ExtResource("1_euppf")
 display_name = "Black Tide"
-damage_type = 1
 targeting = 1
 countdown = 4
 pick_weight = 2.0
+damage_type = 1
 might = 6
 
 [sub_resource type="Resource" id="Resource_j36ms"]
@@ -33,7 +33,6 @@ stat_mods = {
 [sub_resource type="Resource" id="Resource_0pn8i"]
 script = ExtResource("1_euppf")
 display_name = "Curse of Ruin"
-damage_type = 1
 intent = 3
 targeting = 1
 deals_damage = false
@@ -56,19 +55,37 @@ deals_damage = false
 hit = 0
 effect = SubResource("Resource_hixyf")
 
+[sub_resource type="Resource" id="Resource_08b6i"]
+script = ExtResource("2_mt7r4")
+display_name = "Thorned Oath"
+reflect_percent = 80
+
+[sub_resource type="Resource" id="Resource_4gbiv"]
+script = ExtResource("1_euppf")
+display_name = "Oath of Thorns"
+intent = 1
+targeting = 2
+pick_weight = 2.0
+no_repeat = true
+deals_damage = false
+hit = 0
+effect = SubResource("Resource_08b6i")
+
 [resource]
 script = ExtResource("4_nr1nn")
 display_name = "The Oathbreaker"
 portrait = ExtResource("3_4pal8")
 color = Color(0.3, 0.3, 0.55, 1)
-stage_scale = 1.45
-max_hp = 320
-strength = 23
-magic = 20
-crit = 6
-dexterity = 14
-speed = 12
-defense = 12
-resistance = 8
-luck = 6
-actions = Array[ExtResource("1_euppf")]([SubResource("Resource_s13n1"), SubResource("Resource_nkrvh"), SubResource("Resource_0pn8i"), SubResource("Resource_bxx6j")])
+stage_scale = 1.5
+band = 0
+role = "Its shield of broken oaths turns every blow back on the striker."
+max_hp = 250
+strength = 19
+magic = 16
+crit = 5
+dexterity = 12
+speed = 10
+defense = 10
+resistance = 7
+luck = 5
+actions = Array[ExtResource("1_euppf")]([SubResource("Resource_s13n1"), SubResource("Resource_nkrvh"), SubResource("Resource_0pn8i"), SubResource("Resource_bxx6j"), SubResource("Resource_4gbiv")])

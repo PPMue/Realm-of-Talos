@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="EnemyGroupData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_13l83"]
+[ext_resource type="Resource" path="res://data/enemies/stormcrest.tres" id="2_bha7h"]
+[ext_resource type="Resource" path="res://data/enemies/shadowed_wings.tres" id="3_y2j51"]
+[ext_resource type="Resource" path="res://data/enemies/void_raven.tres" id="4_1jy2d"]
+[ext_resource type="Resource" path="res://data/enemies/poisoned_wings.tres" id="5_2mxrc"]
+[ext_resource type="Script" path="res://scripts/data/enemy_group_data.gd" id="6_umk4k"]
+
+[resource]
+script = ExtResource("6_umk4k")
+display_name = "Tempest"
+danger = 3
+min_day = 22
+enemies = Array[ExtResource("1_13l83")]([ExtResource("2_bha7h"), ExtResource("3_y2j51"), ExtResource("4_1jy2d"), ExtResource("5_2mxrc")])

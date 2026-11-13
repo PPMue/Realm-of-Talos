@@ -1,0 +1,70 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_action_data.gd" id="1_onxhh"]
+[ext_resource type="Script" path="res://scripts/data/status_effect_data.gd" id="2_muphx"]
+[ext_resource type="Texture2D" path="res://assets/enemy/forgotten-guardian.png" id="3_rwxcv"]
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="4_gblsa"]
+
+[sub_resource type="Resource" id="Resource_qtie6"]
+script = ExtResource("2_muphx")
+display_name = "Wingward"
+damage_taken_mult = 0.7
+duration_ticks = 2
+
+[sub_resource type="Resource" id="Resource_rog37"]
+script = ExtResource("1_onxhh")
+display_name = "Wingward"
+intent = 2
+targeting = 3
+countdown = 3
+pick_weight = 2.0
+deals_damage = false
+hit = 0
+effect = SubResource("Resource_qtie6")
+
+[sub_resource type="Resource" id="Resource_1128u"]
+script = ExtResource("1_onxhh")
+display_name = "Guardian's Verdict"
+countdown = 3
+pick_weight = 3.0
+might = 12
+hit = 85
+
+[sub_resource type="Resource" id="Resource_6c1v3"]
+script = ExtResource("2_muphx")
+display_name = "Frost Aegis"
+stat_mods = {
+"DEF": 4
+}
+duration_ticks = 2
+reflect_percent = 40
+
+[sub_resource type="Resource" id="Resource_37tpe"]
+script = ExtResource("1_onxhh")
+display_name = "Frost Aegis"
+intent = 1
+targeting = 2
+no_repeat = true
+deals_damage = false
+hit = 0
+effect = SubResource("Resource_6c1v3")
+
+[resource]
+script = ExtResource("4_gblsa")
+display_name = "Forgotten Guardian"
+portrait = ExtResource("3_rwxcv")
+color = Color(0.25, 0.3, 0.5, 1)
+stage_scale = 1.25
+band = 3
+role = "Protector: wards every enemy, and its frost aegis turns blows back."
+max_hp = 90
+strength = 15
+magic = 8
+crit = 3
+dexterity = 10
+speed = 9
+defense = 10
+resistance = 9
+luck = 4
+traits = Array[String](["Flying"])
+actions = Array[ExtResource("1_onxhh")]([SubResource("Resource_rog37"), SubResource("Resource_1128u"), SubResource("Resource_37tpe")])

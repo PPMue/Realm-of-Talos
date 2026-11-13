@@ -1,0 +1,53 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_action_data.gd" id="1_lssrf"]
+[ext_resource type="Texture2D" path="res://assets/enemy/forsaken-seraph.png" id="2_qwqad"]
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="3_51y0n"]
+
+[sub_resource type="Resource" id="Resource_qro1v"]
+script = ExtResource("1_lssrf")
+display_name = "Fallen Light"
+pick_weight = 3.0
+damage_type = 1
+might = 10
+hit = 90
+
+[sub_resource type="Resource" id="Resource_yko4v"]
+script = ExtResource("1_lssrf")
+display_name = "Void Orb"
+countdown = 3
+pick_weight = 2.0
+damage_type = 1
+might = 15
+hit = 85
+
+[sub_resource type="Resource" id="Resource_egu7t"]
+script = ExtResource("1_lssrf")
+display_name = "Judgement"
+targeting = 1
+countdown = 7
+pick_weight = 2.0
+no_repeat = true
+damage_type = 1
+might = 22
+hit = 100
+
+[resource]
+script = ExtResource("3_51y0n")
+display_name = "The Forsaken Seraph"
+portrait = ExtResource("2_qwqad")
+color = Color(0.4, 0.3, 0.55, 1)
+stage_scale = 1.55
+band = 0
+role = "Charges Judgement, a devastating blow on every companion."
+max_hp = 280
+strength = 10
+magic = 23
+crit = 4
+dexterity = 15
+speed = 14
+defense = 9
+resistance = 14
+luck = 8
+traits = Array[String](["Flying"])
+actions = Array[ExtResource("1_lssrf")]([SubResource("Resource_qro1v"), SubResource("Resource_yko4v"), SubResource("Resource_egu7t")])

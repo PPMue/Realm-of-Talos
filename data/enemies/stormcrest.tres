@@ -1,0 +1,61 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_action_data.gd" id="1_nro3u"]
+[ext_resource type="Script" path="res://scripts/data/status_effect_data.gd" id="2_tdhko"]
+[ext_resource type="Texture2D" path="res://assets/enemy/stormcrest.png" id="3_se1sr"]
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="4_achvk"]
+
+[sub_resource type="Resource" id="Resource_oo5js"]
+script = ExtResource("1_nro3u")
+display_name = "Thunderstrike"
+pick_weight = 3.0
+damage_type = 1
+might = 10
+hit = 85
+
+[sub_resource type="Resource" id="Resource_ykat2"]
+script = ExtResource("1_nro3u")
+display_name = "Chain Lightning"
+targeting = 1
+countdown = 4
+pick_weight = 2.0
+damage_type = 1
+might = 6
+hit = 85
+
+[sub_resource type="Resource" id="Resource_bvds0"]
+script = ExtResource("2_tdhko")
+display_name = "Charged"
+stat_mods = {
+"MAG": 5
+}
+
+[sub_resource type="Resource" id="Resource_ybyjj"]
+script = ExtResource("1_nro3u")
+display_name = "Static Charge"
+intent = 2
+targeting = 2
+countdown = 1
+no_repeat = true
+deals_damage = false
+hit = 0
+effect = SubResource("Resource_bvds0")
+
+[resource]
+script = ExtResource("4_achvk")
+display_name = "Stormcrest"
+portrait = ExtResource("3_se1sr")
+color = Color(0.2, 0.35, 0.65, 1)
+stage_scale = 1.1
+band = 3
+role = "Storm caster: fast lightning on one or all."
+max_hp = 52
+strength = 8
+magic = 15
+crit = 4
+dexterity = 15
+speed = 16
+resistance = 10
+luck = 6
+traits = Array[String](["Flying"])
+actions = Array[ExtResource("1_nro3u")]([SubResource("Resource_oo5js"), SubResource("Resource_ykat2"), SubResource("Resource_ybyjj")])

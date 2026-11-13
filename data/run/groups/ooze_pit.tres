@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="EnemyGroupData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_b4qds"]
+[ext_resource type="Resource" path="res://data/enemies/slime_monster.tres" id="2_s4xqf"]
+[ext_resource type="Script" path="res://scripts/data/enemy_group_data.gd" id="3_jid48"]
+
+[resource]
+script = ExtResource("3_jid48")
+display_name = "Ooze Pit"
+enemies = Array[ExtResource("1_b4qds")]([ExtResource("2_s4xqf")])

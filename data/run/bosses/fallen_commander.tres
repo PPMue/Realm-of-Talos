@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="EnemyGroupData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_jxqyk"]
+[ext_resource type="Resource" path="res://data/enemies/bosses/fallen_commander.tres" id="2_p211d"]
+[ext_resource type="Resource" path="res://data/enemies/cursed_warrior.tres" id="3_nj2y7"]
+[ext_resource type="Resource" path="res://data/enemies/flame_eagle.tres" id="4_hr5pi"]
+[ext_resource type="Script" path="res://scripts/data/enemy_group_data.gd" id="5_wdc6u"]
+
+[resource]
+script = ExtResource("5_wdc6u")
+display_name = "The Fallen Commander"
+description = "Rallies two escorts and orders them to strike sooner; alone, it grows fierce. Choose the kill order."
+danger = 3
+min_day = 20
+max_day = 20
+enemies = Array[ExtResource("1_jxqyk")]([ExtResource("2_p211d"), ExtResource("3_nj2y7"), ExtResource("4_hr5pi")])

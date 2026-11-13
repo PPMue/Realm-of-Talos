@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="EnemyGroupData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_uo4ji"]
+[ext_resource type="Resource" path="res://data/enemies/cursed_dweller.tres" id="2_esq86"]
+[ext_resource type="Resource" path="res://data/enemies/faceless_spawn.tres" id="3_xbwl4"]
+[ext_resource type="Resource" path="res://data/enemies/shadowed_wings.tres" id="4_xldp2"]
+[ext_resource type="Script" path="res://scripts/data/enemy_group_data.gd" id="5_65u4l"]
+
+[resource]
+script = ExtResource("5_65u4l")
+display_name = "Last Night"
+danger = 3
+min_day = 21
+enemies = Array[ExtResource("1_uo4ji")]([ExtResource("2_esq86"), ExtResource("3_xbwl4"), ExtResource("4_xldp2")])

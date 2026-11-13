@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="EnemyGroupData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_cd6it"]
+[ext_resource type="Resource" path="res://data/enemies/bosses/forsaken_seraph.tres" id="2_yyf4h"]
+[ext_resource type="Script" path="res://scripts/data/enemy_group_data.gd" id="3_mq7fp"]
+
+[resource]
+script = ExtResource("3_mq7fp")
+display_name = "The Forsaken Seraph"
+description = "Flies, and charges Judgement on every companion. Delay it, outpace it, and trust RES."
+danger = 3
+min_day = 30
+enemies = Array[ExtResource("1_cd6it")]([ExtResource("2_yyf4h")])

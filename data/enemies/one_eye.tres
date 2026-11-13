@@ -1,0 +1,63 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_action_data.gd" id="1_qarvs"]
+[ext_resource type="Script" path="res://scripts/data/status_effect_data.gd" id="2_8a1py"]
+[ext_resource type="Texture2D" path="res://assets/enemy/one-eye.png" id="3_6qiek"]
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="4_xwc72"]
+
+[sub_resource type="Resource" id="Resource_5fl4w"]
+script = ExtResource("1_qarvs")
+display_name = "Baleful Ray"
+countdown = 3
+pick_weight = 3.0
+damage_type = 1
+might = 8
+hit = 90
+
+[sub_resource type="Resource" id="Resource_t3nv2"]
+script = ExtResource("1_qarvs")
+display_name = "Petrifying Gaze"
+intent = 3
+countdown = 3
+pick_weight = 2.0
+no_repeat = true
+deals_damage = false
+hit = 0
+add_recovery = 2
+
+[sub_resource type="Resource" id="Resource_yfl3n"]
+script = ExtResource("2_8a1py")
+display_name = "Entranced"
+stat_mods = {
+"DEX": -3,
+"SPD": -2
+}
+
+[sub_resource type="Resource" id="Resource_sgexa"]
+script = ExtResource("1_qarvs")
+display_name = "Hypnotic Stare"
+intent = 3
+targeting = 1
+countdown = 4
+pick_weight = 2.0
+deals_damage = false
+hit = 0
+effect = SubResource("Resource_yfl3n")
+
+[resource]
+script = ExtResource("4_xwc72")
+display_name = "One-Eye"
+portrait = ExtResource("3_6qiek")
+color = Color(0.55, 0.5, 0.6, 1)
+band = 2
+role = "Debuffer: its stare holds a companion in place (longer recovery)."
+max_hp = 44
+strength = 4
+magic = 11
+crit = 2
+dexterity = 12
+speed = 7
+resistance = 9
+luck = 5
+traits = Array[String](["Flying"])
+actions = Array[ExtResource("1_qarvs")]([SubResource("Resource_5fl4w"), SubResource("Resource_t3nv2"), SubResource("Resource_sgexa")])

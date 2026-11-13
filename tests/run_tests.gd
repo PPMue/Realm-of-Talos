@@ -5,10 +5,12 @@ extends SceneTree
 
 const RunRuleTests := preload("res://tests/run_rule_tests.gd")
 const MagicTests := preload("res://tests/magic_tests.gd")
+const BestiaryTests := preload("res://tests/bestiary_tests.gd")
 
 var _failures: Array[String] = []
 var _run_rules: RefCounted   # kept alive: Callables do not hold a reference to their object
 var _magic: RefCounted
+var _bestiary: RefCounted
 var _checks := 0
 var _current := ""
 
@@ -64,10 +66,14 @@ func _init() -> void:
 	tests.append_array(_run_rules.tests())
 	_magic = MagicTests.new(self)
 	tests.append_array(_magic.tests())
+	_bestiary = BestiaryTests.new(self)
+	tests.append_array(_bestiary.tests())
 	var verbose := OS.get_environment("TEST_VERBOSE") != ""
 	var only := OS.get_environment("TEST_ONLY")
 	if only != "":
-		tests.assign(tests.filter(func(c: Callable) -> bool: return c.get_method().contains(only)))
+		var wanted := only.split(",")
+		tests.assign(tests.filter(func(c: Callable) -> bool:
+			return Array(wanted).any(func(w: String) -> bool: return c.get_method().contains(w))))
 	var skip := OS.get_environment("TEST_SKIP")
 	if skip != "":
 		tests.assign(tests.filter(func(c: Callable) -> bool: return not c.get_method().contains(skip)))

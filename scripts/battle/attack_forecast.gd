@@ -10,3 +10,7 @@ var crit_damage: int = 0   ## damage on a critical hit
 var magic := false
 ## The strike is effective against the target (Mt doubled).
 var effective := false
+## Damage the striker takes back from a reflecting target on a normal hit, and on a critical hit.
+## 0 when the target reflects nothing. Spells never are.
+var reflect: int = 0
+var reflect_crit: int = 0

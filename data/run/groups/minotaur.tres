@@ -9,4 +9,5 @@
 script = ExtResource("4_pllaq")
 display_name = "Minotaur"
 danger = 3
+min_day = 11
 enemies = Array[ExtResource("1_hf58k")]([ExtResource("2_c6l4m"), ExtResource("3_phe7e")])

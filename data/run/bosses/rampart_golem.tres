@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="EnemyGroupData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_fus8t"]
+[ext_resource type="Resource" path="res://data/enemies/bosses/rampart_golem.tres" id="2_tvchu"]
+[ext_resource type="Script" path="res://scripts/data/enemy_group_data.gd" id="3_o366t"]
+
+[resource]
+script = ExtResource("3_o366t")
+display_name = "Rampart Golem"
+description = "Steel barely scratches it: use magic and armour-piercing arts, and Guard its slow, crushing blows."
+danger = 3
+min_day = 10
+max_day = 10
+enemies = Array[ExtResource("1_fus8t")]([ExtResource("2_tvchu")])

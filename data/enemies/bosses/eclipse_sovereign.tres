@@ -1,0 +1,100 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_action_data.gd" id="1_ocs6x"]
+[ext_resource type="Script" path="res://scripts/data/status_effect_data.gd" id="2_2ermg"]
+[ext_resource type="Texture2D" path="res://assets/enemy/the-eclipse-sovereign.png" id="3_aolbb"]
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="4_wbq7g"]
+
+[sub_resource type="Resource" id="Resource_h65ll"]
+script = ExtResource("1_ocs6x")
+display_name = "Umbral Lash"
+countdown = 3
+pick_weight = 3.0
+damage_type = 1
+might = 12
+hit = 90
+
+[sub_resource type="Resource" id="Resource_glhfq"]
+script = ExtResource("1_ocs6x")
+display_name = "Stopped Clock"
+intent = 3
+targeting = 1
+countdown = 4
+pick_weight = 2.0
+no_repeat = true
+deals_damage = false
+hit = 0
+add_recovery = 2
+
+[sub_resource type="Resource" id="Resource_keup3"]
+script = ExtResource("1_ocs6x")
+display_name = "Corona"
+targeting = 1
+countdown = 5
+pick_weight = 2.0
+damage_type = 1
+might = 7
+hit = 85
+
+[sub_resource type="Resource" id="Resource_n50aq"]
+script = ExtResource("1_ocs6x")
+display_name = "Eclipse Lash"
+pick_weight = 3.0
+damage_type = 1
+might = 14
+hit = 90
+
+[sub_resource type="Resource" id="Resource_rwcmi"]
+script = ExtResource("1_ocs6x")
+display_name = "Time Fracture"
+targeting = 1
+countdown = 3
+pick_weight = 2.0
+damage_type = 1
+might = 8
+hit = 85
+add_recovery = 1
+
+[sub_resource type="Resource" id="Resource_m08ha"]
+script = ExtResource("1_ocs6x")
+display_name = "Event Horizon"
+intent = 3
+targeting = 1
+countdown = 3
+no_repeat = true
+deals_damage = false
+hit = 0
+add_recovery = 3
+
+[sub_resource type="Resource" id="Resource_q8nxr"]
+script = ExtResource("2_2ermg")
+display_name = "Totality"
+stat_mods = {
+"MAG": 3,
+"SPD": 4
+}
+duration_ticks = 99
+
+[resource]
+script = ExtResource("4_wbq7g")
+display_name = "The Eclipse Sovereign"
+portrait = ExtResource("3_aolbb")
+color = Color(0.15, 0.2, 0.5, 1)
+stage_scale = 1.55
+band = 0
+role = "Bends time: recovery runs long, and at half health it turns faster and harsher."
+max_hp = 340
+strength = 16
+magic = 22
+crit = 5
+dexterity = 15
+speed = 12
+defense = 11
+resistance = 12
+luck = 8
+actions = Array[ExtResource("1_ocs6x")]([SubResource("Resource_h65ll"), SubResource("Resource_glhfq"), SubResource("Resource_keup3")])
+phase_trigger = 1
+phase_actions = Array[ExtResource("1_ocs6x")]([SubResource("Resource_n50aq"), SubResource("Resource_rwcmi"), SubResource("Resource_m08ha")])
+phase_title = "TOTAL ECLIPSE"
+phase_text = "Time breaks: it strikes faster and harder."
+phase_effect = SubResource("Resource_q8nxr")
