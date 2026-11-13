@@ -999,10 +999,19 @@ func test_playthrough() -> void:
 	var reached := [0, 0, 0]   # boss 1, 2, 3 reached
 	var final_levels := 0
 	var final_count := 0
+	var faced := {}    # boss group -> times faced
+	var beaten := {}   # boss group -> times beaten
 	for s in runs:
 		var run := make_run(1000 + s)
 		var policy := RunPolicy.new(_seeded(5000 + s))
 		policy.play(run)
+		for d: int in run.boss_draw:
+			var g: EnemyGroupData = run.boss_draw[d]
+			if run.day < d:
+				continue
+			faced[g] = faced.get(g, 0) + 1
+			if run.day > d or run.outcome == Run.Outcome.VICTORY:
+				beaten[g] = beaten.get(g, 0) + 1
 		t.check(run.is_over(), "seed %d: the run ends" % s)
 		t.check(run.day >= 1 and run.day <= 30, "seed %d: within 30 days" % s)
 		if run.outcome == Run.Outcome.VICTORY:
@@ -1043,3 +1052,9 @@ func test_playthrough() -> void:
 	print("    average final level of the companions still in the run: %.1f" % (float(final_levels) / maxf(1, final_count)))
 	print("    per run: %.1f battles won, %.1f lost; %.1f companions, %.0f city health, %.0f gold at the end" % [
 		float(total_won) / runs, float(total_lost) / runs, float(roster_sizes) / runs, float(city_left) / runs, float(gold_left) / runs])
+	print("    bosses (faced / beaten / beaten %):")
+	for g in content().bosses:
+		var f: int = faced.get(g, 0)
+		var w: int = beaten.get(g, 0)
+		print("      day %d  %-24s %4d / %4d  %3d%%" % [g.min_day, g.display_name, f, w, roundi(100.0 * w / maxf(1, f))])
+		t.check(f > 0, "%s was faced at least once" % g.display_name)

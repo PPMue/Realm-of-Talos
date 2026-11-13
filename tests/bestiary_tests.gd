@@ -483,7 +483,7 @@ func test_boss_mossback_troll_regenerates() -> void:
 
 func test_boss_rampart_golem_armour() -> void:
 	var golem := boss("rampart_golem")
-	t.check(golem.defense >= 12 and golem.resistance <= 2, "very high DEF, low RES")
+	t.check(golem.defense >= boss("horned_tyrant").defense + 4 and golem.resistance <= 2, "very high DEF, low RES")
 	t.check(golem.speed <= 3, "slow")
 	var shortest := 99
 	for a in golem.actions:

@@ -29,7 +29,7 @@ countdown = 7
 pick_weight = 2.0
 no_repeat = true
 damage_type = 1
-might = 22
+might = 16
 hit = 100
 
 [resource]
@@ -40,7 +40,7 @@ color = Color(0.4, 0.3, 0.55, 1)
 stage_scale = 1.55
 band = 0
 role = "Charges Judgement, a devastating blow on every companion."
-max_hp = 280
+max_hp = 260
 strength = 10
 magic = 23
 crit = 4

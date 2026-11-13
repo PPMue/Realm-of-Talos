@@ -29,7 +29,8 @@ func play(run: Run) -> int:
 
 
 ## Fields up to five, healthiest at the front (rightmost), and hands out the best weapons it can.
-## Healers patch up anyone below half HP first, keeping a few uses for battle.
+## Healers patch up anyone below half HP first, keeping a few uses for battle. Against a boss that aims
+## at the far end of the line (reversed targeting), the healthiest stand on the left instead.
 func prepare_party(run: Run) -> void:
 	for c in run.roster:
 		_equip_best(run, c)
@@ -46,6 +47,24 @@ func prepare_party(run: Run) -> void:
 		if c.hp * 3 < c.max_hp() and healthy >= 2 and run.day_type() != RunCalendar.DayType.BOSS:
 			continue
 		run.field(c)
+	if run.day_type() == RunCalendar.DayType.BOSS and not run.fronts.is_empty() and faces_reversed(run.fronts[0].enemies):
+		mirror_line(run)
+
+
+## True if the enemies' single-target attacks mostly aim reversed (every enemy that has any).
+static func faces_reversed(enemies: Array[EnemyData]) -> bool:
+	for e in enemies:
+		if e.ever_reversed():
+			return true
+	return false
+
+
+## Reverses the order of the fielded line.
+static func mirror_line(run: Run) -> void:
+	var order := run.lineup.duplicate()
+	order.reverse()
+	for i in order.size():
+		run.move_in_line(order[i], i)
 
 
 func hp_fraction(run: Run) -> float:
@@ -130,6 +149,9 @@ func heal_between_battles(run: Run) -> void:
 
 ## Greedy battle play: each ready companion casts a sensible spell if it has one (see cast_spell),
 ## else uses an affordable art if it has one, otherwise attacks, always at the enemy with the least HP.
+## It answers the mechanics in obvious ways: it never strikes an enemy whose reflecting stance is up
+## (it hits another, or guards or focuses instead), and it guards when a heavy blow it is the likely
+## target of lands next tick.
 func play_battle(b: Battle) -> void:
 	var ticks := 0
 	while not b.is_over() and ticks < 1000:
@@ -140,7 +162,21 @@ func play_battle(b: Battle) -> void:
 		var c := b.ready_companions()[0]
 		if cast_spell(b, c):
 			continue
-		var foes := b.living_enemies()
+		if should_guard(b, c):
+			b.guard(c)
+			continue
+		var foes: Array[EnemyUnit] = []
+		for e in b.living_enemies():
+			if e.reflect_percent() <= 0:
+				foes.append(e)
+		if foes.is_empty():
+			# Every enemy left is behind a reflecting stance: wait it out.
+			if c.stamina < c.max_stamina():
+				b.focus(c)
+			else:
+				b.guard(c)
+			continue
+		var reflecting := foes.size() < b.living_enemies().size()
 		var target := foes[0]
 		for e in foes:
 			if e.hp < target.hp:
@@ -148,10 +184,34 @@ func play_battle(b: Battle) -> void:
 		var done := false
 		for art in c.arts():
 			if b.can_use_art(c, art) and rng.randf() < 0.6:
+				if art.hits_all_enemies and reflecting:
+					break
 				done = b.use_art(c, art, target)
 				break
 		if not done:
 			b.attack(c, target)
+
+
+## Guard when an enemy acts next tick with a heavy single blow, this companion is its most likely
+## target (at least half the weight), and the blow would take at least 40% of its HP.
+func should_guard(b: Battle, c: CompanionUnit) -> bool:
+	if b.is_lone_companion(c):
+		return false
+	for e in b.living_enemies():
+		var a := e.pending_action
+		if a == null or e.countdown != 1 or not a.deals_damage or a.targeting != EnemyActionData.Targeting.SINGLE:
+			continue
+		var weights := b.target_weights(e.aims_reversed(a))
+		var total := 0.0
+		for w in weights:
+			total += w
+		var i := b.line().find(c)
+		if i < 0 or total <= 0.0 or weights[i] / total < 0.5:
+			continue
+		var f := CombatMath.forecast(e, a.might, a.hit, 0, c, 0, a.damage_type)
+		if f.damage * 5 >= c.hp * 2:
+			return true
+	return false
 
 
 ## A simple caster. White: heal whoever is injured or below half HP (an every-ally heal when several
@@ -200,7 +260,12 @@ func cast_spell(b: Battle, c: CompanionUnit) -> bool:
 	for sp in ready:
 		if sp.delay_ticks > 0:
 			for e in foes:
-				if e.countdown <= 1 and not e.delayed and e.pending_action != null and e.pending_action.deals_damage:
+				if e.delayed or e.pending_action == null or not e.pending_action.deals_damage:
+					continue
+				# A long charged attack on everyone: delay it as it comes due. Anything else: just before it lands.
+				var charged := e.pending_action.targeting == EnemyActionData.Targeting.ALL_COMPANIONS \
+					and e.pending_action.countdown >= 6
+				if e.countdown <= 1 or (charged and e.countdown <= 2):
 					return b.cast(c, sp, e)
 	var strike: SpellData = null
 	var strike_score := -1.0

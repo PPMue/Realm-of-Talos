@@ -9,8 +9,8 @@
 script = ExtResource("2_mygk1")
 display_name = "Rallied"
 stat_mods = {
-"MAG": 3,
-"STR": 3
+"MAG": 2,
+"STR": 2
 }
 
 [sub_resource type="Resource" id="Resource_3jki6"]
@@ -18,7 +18,7 @@ script = ExtResource("1_aosl1")
 display_name = "Rally the Line"
 intent = 2
 targeting = 3
-countdown = 3
+countdown = 4
 pick_weight = 2.0
 deals_damage = false
 hit = 0
@@ -29,6 +29,7 @@ script = ExtResource("1_aosl1")
 display_name = "Press Forward"
 intent = 2
 targeting = 2
+countdown = 3
 pick_weight = 2.0
 no_repeat = true
 deals_damage = false
@@ -40,14 +41,14 @@ script = ExtResource("1_aosl1")
 display_name = "Commander's Blade"
 countdown = 3
 pick_weight = 3.0
-might = 11
+might = 9
 hit = 85
 
 [sub_resource type="Resource" id="Resource_2oa8h"]
 script = ExtResource("1_aosl1")
 display_name = "Desperate Blade"
 pick_weight = 3.0
-might = 13
+might = 10
 hit = 85
 
 [sub_resource type="Resource" id="Resource_ubkb2"]
@@ -56,7 +57,7 @@ display_name = "Final Charge"
 targeting = 1
 countdown = 3
 pick_weight = 2.0
-might = 7
+might = 6
 hit = 85
 
 [sub_resource type="Resource" id="Resource_xyqoq"]
@@ -64,7 +65,7 @@ script = ExtResource("2_mygk1")
 display_name = "Last Stand"
 stat_mods = {
 "SPD": 3,
-"STR": 4
+"STR": 3
 }
 duration_ticks = 99
 
@@ -76,14 +77,14 @@ color = Color(0.45, 0.4, 0.35, 1)
 stage_scale = 1.4
 band = 0
 role = "Rallies its escorts and orders them to strike sooner; alone, it fights to the death."
-max_hp = 170
-strength = 16
+max_hp = 85
+strength = 14
 magic = 10
 crit = 4
 dexterity = 12
 speed = 10
-defense = 8
-resistance = 8
+defense = 7
+resistance = 7
 luck = 6
 actions = Array[ExtResource("1_aosl1")]([SubResource("Resource_3jki6"), SubResource("Resource_o3jpd"), SubResource("Resource_v25jy")])
 phase_trigger = 2
