@@ -21,6 +21,7 @@ func tests() -> Array[Callable]:
 		test_yield_on_boss_day_ends_run,
 		test_cure_price,
 		test_cure_action,
+		test_leaving_restores_spell_uses,
 		test_no_event_can_lock_the_day,
 	]
 
@@ -301,6 +302,39 @@ func test_cure_action() -> void:
 		run.event_days.append(run.day)
 	run._begin_day()
 	t.eq(run.cure_block_reason(other), Run.EVENT_FIRST, "the gate's matter first")
+
+
+## Both ways out of the infirmary bring every spell's uses back; Rest does nothing for someone inside.
+func test_leaving_restores_spell_uses() -> void:
+	var spell: SpellData = SpellLibrary.load_default().spells[0]
+	# Serving the stay.
+	var run := make_run(320)
+	var c := run.roster[0]
+	c.progress.learn_spell(spell)
+	c.progress.spell_uses[spell] = 0
+	var d := run.day
+	run._to_infirmary(c)
+	run.day = d + 1
+	force_day(run, RunCalendar.DayType.FREE)
+	run.roster[1].hp = 1
+	t.check(run.rest(), "a rest while they are inside")
+	t.eq(c.progress.uses_left(spell), 0, "does nothing for them")
+	while c.injured and run.day < d + 12:
+		next_day(run)
+	t.check(not c.injured, "out after the stay")
+	t.eq(c.progress.uses_left(spell), c.progress.max_uses(spell), "the stay served: every use back")
+	# The cure.
+	var run2 := make_run(321)
+	run2.day = 2
+	force_day(run2, RunCalendar.DayType.FREE)
+	var m := run2.roster[0]
+	m.progress.learn_spell(spell)
+	m.progress.spell_uses[spell] = 1
+	run2._to_infirmary(m)
+	run2.gold = 10000
+	t.eq(m.progress.uses_left(spell), 1, "spent before")
+	t.check(run2.cure(m), "cured")
+	t.eq(m.progress.uses_left(spell), m.progress.max_uses(spell), "cured: every use back")
 
 
 ## Every event in the content always has one choice that costs nothing the player might lack: with

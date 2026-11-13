@@ -514,8 +514,9 @@ func visit_block_reason(a: FreeAction) -> String:
 	return free_action_block_reason(a)
 
 
-## Every companion not in the infirmary recovers to full HP and every spell's uses. Nothing else
-## restores spell uses. It never shortens an infirmary stay.
+## Every companion not in the infirmary recovers to full HP and every spell's uses. Besides Rest, spell
+## uses come back only on leaving the infirmary (see _release) and, a use a night, with the Inn's level
+## 2. Rest does nothing for anyone in the infirmary and never shortens a stay.
 func rest() -> bool:
 	if free_action_block_reason(FreeAction.REST) != "":
 		return false
@@ -552,8 +553,8 @@ func cure_block_reason(c: RunCompanion) -> String:
 	return ""
 
 
-## Pays cure_cost(c) gold: `c` comes out of the infirmary at once, at full HP, onto the bench (and can
-## be fielded the same day). Does not use the day's action; any number a day.
+## Pays cure_cost(c) gold: `c` comes out of the infirmary at once, at full HP with every spell's uses
+## back, onto the bench (and can be fielded the same day). Does not use the day's action; any number a day.
 func cure(c: RunCompanion) -> bool:
 	if cure_block_reason(c) != "":
 		return false
@@ -1982,11 +1983,12 @@ func _to_infirmary(c: RunCompanion) -> void:
 		_infirmary.append(c)
 
 
-## Out of the infirmary: full HP, onto the bench.
+## Out of the infirmary (the stay served, or cured): full HP and every spell's uses back, onto the bench.
 func _release(c: RunCompanion) -> void:
 	c.injured = false
 	c.back_on_day = 0
 	c.hp = c.max_hp()
+	c.progress.restore_spell_uses()
 	_infirmary.erase(c)
 
 
