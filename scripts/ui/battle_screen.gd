@@ -59,11 +59,7 @@ var _banner_tween: Tween
 var _popups := Control.new()
 var _log_panel := PanelContainer.new()
 var _log := RichTextLabel.new()
-var _overlay := ColorRect.new()
-var _result_label: Label
-var _result_lines := VBoxContainer.new()
-var _result_button: Button
-var _result_bg := SlantPanel.new()
+var _overlay := BattleResult.new()
 var _grade_banner := SlantPanel.new()
 var _grade_kicker: Label
 var _grade_title: Label
@@ -317,6 +313,11 @@ func _input(event: InputEvent) -> void:
 		return
 	var mb := event as InputEventMouseButton
 	if mb != null and mb.pressed:
+		if _overlay.visible:
+			# A click anywhere moves the result on; the way back is its own button.
+			if mb.button_index == MOUSE_BUTTON_LEFT:
+				_overlay.advance()
+			return
 		if _busy:
 			_skip = true
 		elif mb.button_index == MOUSE_BUTTON_RIGHT:
@@ -327,7 +328,10 @@ func _input(event: InputEvent) -> void:
 		return
 	if _overlay.visible:
 		if key.keycode in [KEY_ENTER, KEY_SPACE, KEY_KP_ENTER]:
-			close()
+			if _overlay.is_done():
+				close()
+			else:
+				_overlay.advance()
 		return
 	if _busy:
 		_skip = true
@@ -682,111 +686,16 @@ func _play_big_banner() -> void:
 	_grade_tween.tween_callback(func() -> void: _grade_banner.visible = false)
 
 
-## The result screen: won or lost, what it gave or cost the city, who was hurt, grades gained.
+## The result screen: won or lost and what it gave or cost, the company's XP, then every level gained
+## shown stat by stat (see BattleResult).
 func show_report(report: BattleReport) -> void:
-	var won := report.won
-	_result_label.text = "VICTORY" if won else "DEFEAT"
-	_result_label.add_theme_color_override("font_color", UiTheme.GOLD if won else UiTheme.INJURED)
-	for child in _result_lines.get_children():
-		_result_lines.remove_child(child)
-		child.queue_free()
-	if won:
-		var gains: Array[String] = ["+%d GOLD" % report.gold]
-		for m in RunConfig.MATERIAL_ORDER:
-			if int(report.materials.get(m, 0)) > 0:
-				gains.append("+%d %s" % [int(report.materials[m]), String(RunConfig.MATERIAL_NAMES[m]).to_upper()])
-		_add_result_line("REWARD", "   ".join(gains), UiTheme.GOLD)
-	elif report.front.is_boss:
-		_add_result_line("THE CITY", "%s breaks through. The city falls." % report.front.group.display_name, UiTheme.INJURED)
-	else:
-		_add_result_line("THE CITY", "loses %d health." % report.city_damage, UiTheme.INJURED)
-	if report.xp_each > 0:
-		_add_result_line("XP", "+%d each  ·  %s" % [report.xp_each, ", ".join(report.xp_to)], UiTheme.TEXT)
-	if not report.injured.is_empty():
-		_add_result_line("INJURED", "%s  (back at %d HP)" % [", ".join(report.injured), RunConfig.INJURED_RETURN_HP], UiTheme.RECOVERING)
-	if not report.removed.is_empty():
-		_add_result_line("GONE", "%s  (gone for the rest of the run)" % ", ".join(report.removed), UiTheme.INJURED)
-	for c in battle.roster:
-		if c.is_gone() or c.weapon() == null:
-			continue
-		var t := c.weapon().weapon_type
-		# Level-ups this battle, merged: "Lv 6 -> 8: HP +2, STR +1   ·   ".
-		var level_text := "Lv %d" % c.progress.level
-		var first := 0
-		var gains := {}
-		for up in report.level_ups:
-			if up.name == c.display_name:
-				if first == 0:
-					first = up.level
-				for key: String in up.gains:
-					gains[key] = int(gains.get(key, 0)) + int(up.gains[key])
-		if first > 0:
-			level_text = "LEVEL UP  Lv %d -> %d: %s" % [first - 1, c.progress.level, Levels.gains_text(gains)]
-		# Weapon grade, and each magic school for anyone who knows spells (the weapon is left out for a
-		# caster who did not fight with it, to keep the line short).
-		var parts: Array[String] = [level_text]
-		if c.spells().is_empty() or c.proficiency_gained > 0 or c.magic_gained == 0:
-			parts.append(_grade_text(WeaponData.type_name(t), c.progress.grade(t), c.proficiency_gained, c.progress.progress_to_next(t)))
-		for s in c.progress.spell_schools():
-			parts.append(_grade_text(SpellData.school_name(s), c.progress.magic_grade(s), c.magic_gained, c.progress.magic_progress_to_next(s)))
-		var text := "   ·   ".join(parts)
-		var learned: Array[String] = []
-		var rose := first > 0
-		for g in report.grade_ups:
-			if g.actor == c:
-				rose = true
-				if g.get("art") != null:
-					learned.append((g.art as CombatArtData).display_name)
-				if g.get("spell") != null:
-					learned.append((g.spell as SpellData).display_name)
-		if not learned.is_empty():
-			text += "   learned " + ", ".join(learned)
-		_add_result_line(c.display_name.to_upper(), text, UiTheme.READY if first > 0 else (UiTheme.GOLD if rose else UiTheme.TEXT))
-	# The summary panel and the button follow the number of lines.
-	# Many lines (level-ups for a full party) move the whole block up and pack the lines tighter.
-	var count := _result_lines.get_child_count()
-	var step := 36.0 if count <= 9 else 31.0
-	_result_lines.add_theme_constant_override("separation", 6 if count <= 9 else 1)
-	var lift := maxf(0.0, (count - 9) * step)
-	_result_lines.offset_top = -24.0 - lift
-	_result_bg.offset_top = -50.0 - lift
-	var bottom := -24.0 - lift + count * step + 26.0
-	_result_bg.offset_bottom = bottom
-	_result_button.offset_top = bottom + 26.0
-	_result_button.offset_bottom = bottom + 94.0
-	_result_button.text = "Continue" if report.run_over else "Back to the city"
-	_overlay.visible = true
-	_overlay.modulate.a = 0.0
-	create_tween().tween_property(_overlay, "modulate:a", 1.0, 0.35)
-
-
-## "Sword D+   +3   (2 / 8 to C)" for the result screen.
-static func _grade_text(kind: String, grade: int, gained: int, step: Vector2i) -> String:
-	return "%s %s   +%d   (%s)" % [kind, Proficiency.grade_name(grade), gained,
-		"max grade" if step.y == 0 else "%d / %d to %s" % [step.x, step.y, Proficiency.grade_name(grade + 1)]]
+	_overlay.open(report, battle.roster)
 
 
 ## Result screen button: back to whoever started the battle.
 func close() -> void:
 	if battle != null and battle.is_over() and _overlay.visible:
 		closed.emit()
-
-
-func _add_result_line(head: String, text: String, color: Color) -> void:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 18)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var h := UiTheme.label(head, 24, UiTheme.MUTED, true, 6)
-	h.custom_minimum_size = Vector2(190, 0)
-	h.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	row.add_child(h)
-	var body := UiTheme.label(text, 22, color, false, 6)
-	var font_size := 22
-	while font_size > 16 and UiTheme.body_font().get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x > 880.0:
-		font_size -= 1
-	body.add_theme_font_size_override("font_size", font_size)
-	row.add_child(body)
-	_result_lines.add_child(row)
 
 
 # ---------------------------------------------------------------- drawing from state
@@ -1212,54 +1121,11 @@ func _build_ui() -> void:
 	_log_panel.add_child(_log)
 
 	# Result overlay.
-	_overlay.color = Color(UiTheme.INK, 0.8)
 	_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_overlay.visible = false
 	_overlay.z_index = 9
+	_overlay.leave_pressed.connect(close)
 	add_child(_overlay)
-	var ribbon := SlantPanel.new()
-	ribbon.fill = Color(UiTheme.INK, 0.96)
-	ribbon.border = UiTheme.GOLD
-	ribbon.border_width = 5.0
-	ribbon.set_anchors_preset(Control.PRESET_CENTER)
-	ribbon.offset_left = -520.0
-	ribbon.offset_right = 520.0
-	ribbon.offset_top = -270.0
-	ribbon.offset_bottom = -70.0
-	_overlay.add_child(ribbon)
-	_result_label = UiTheme.label("", 150, UiTheme.GOLD, true)
-	_result_label.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_result_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_result_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	ribbon.add_child(_result_label)
-	var lines_bg := _result_bg
-	lines_bg.fill = Color(UiTheme.INK, 0.94)
-	lines_bg.border = UiTheme.EDGE
-	lines_bg.set_anchors_preset(Control.PRESET_CENTER)
-	lines_bg.offset_left = -640.0
-	lines_bg.offset_right = 640.0
-	lines_bg.offset_top = -50.0
-	lines_bg.offset_bottom = 300.0
-	_overlay.add_child(lines_bg)
-	_result_lines.set_anchors_preset(Control.PRESET_CENTER)
-	_result_lines.offset_left = -520.0
-	_result_lines.offset_right = 560.0
-	_result_lines.offset_top = -24.0
-	_result_lines.offset_bottom = 300.0
-	_result_lines.add_theme_constant_override("separation", 6)
-	_result_lines.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_overlay.add_child(_result_lines)
-	_result_button = Button.new()
-	_result_button.text = "Back to the city"
-	_result_button.focus_mode = Control.FOCUS_NONE
-	_result_button.set_anchors_preset(Control.PRESET_CENTER)
-	_result_button.offset_left = -230.0
-	_result_button.offset_right = 230.0
-	_result_button.offset_top = 320.0
-	_result_button.offset_bottom = 388.0
-	_result_button.add_theme_font_size_override("font_size", 34)
-	_result_button.pressed.connect(close)
-	_overlay.add_child(_result_button)
 
 
 func _row_marker(text: String) -> Label:
