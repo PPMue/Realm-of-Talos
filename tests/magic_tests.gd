@@ -926,9 +926,7 @@ func test_magic_content() -> void:
 			t.check(sp.description != "", "%s has a description" % sp.display_name)
 			t.check(sp.targets_allies() == (school == SpellData.School.WHITE), "%s aims at the right side" % sp.display_name)
 			var expected: int = [6, 4, 2][sp.tier - 1]
-			# Mend and Shadow Bolt, the first two mages' starting spells, carry 8 uses (their own tuning).
-			var most := 8 if sp in [aveline.signature_spell, freya.signature_spell] else expected
-			t.check(sp.uses >= expected - 1 and sp.uses <= most, "%s: %d uses for tier %d" % [sp.display_name, sp.uses, sp.tier])
+			t.check(sp.uses >= expected - 1 and sp.uses <= expected, "%s: %d uses for tier %d" % [sp.display_name, sp.uses, sp.tier])
 		t.eq(lib.of_school(school).size(), 12, "%s: twelve spells" % SpellData.school_name(school))
 		t.eq([tiers[1], tiers[2], tiers[3]], [5, 4, 3], "%s: 5 / 4 / 3 by tier" % SpellData.school_name(school))
 	var names := {}
