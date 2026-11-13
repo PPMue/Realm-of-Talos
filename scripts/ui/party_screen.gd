@@ -19,7 +19,7 @@ const PAGE := Rect2(1150, 110, 740, 946)
 const PAGE_PAD := 34.0
 ## Height of a row of the stat table (the number, and under it how readily the stat grows), and how
 ## far that pushes down the rest of the page compared with rows of the numbers alone.
-const STAT_ROW := 41.0
+const STAT_ROW := StatTable.ROW
 const STAT_DROP := 40.0
 
 var run: Run
@@ -389,6 +389,12 @@ func _build() -> void:
 	_line.size = Vector2(LINE_STEP * RunConfig.MAX_FIELDED, MusterFigure.H)
 	_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_line)
+	# Timber posts between the places, in front of the figures: each stands in a bay of their own.
+	var posts := Control.new()
+	posts.set_anchors_preset(Control.PRESET_FULL_RECT)
+	posts.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	posts.draw.connect(_draw_posts.bind(posts))
+	add_child(posts)
 
 	# The bench takes anyone set down on it, not only on someone already sitting there.
 	var bench_area := Control.new()
@@ -531,6 +537,18 @@ func _lit_wall(marks: Control, top: float, bottom: float, strength: float) -> vo
 		PackedColorArray([mid, Color(lit, strength * 0.35), Color(lit, strength * 0.5), hi]))
 
 
+## A post at each edge of each place in the line, from the beam down to the rail.
+func _draw_posts(posts: Control) -> void:
+	var top := LINE_Y - 12.0
+	var bottom := LINE_Y + MusterFigure.PORTRAIT_H
+	for i in RunConfig.MAX_FIELDED + 1:
+		var x := LINE_X + i * LINE_STEP
+		posts.draw_rect(Rect2(x - 9.0, top, 18.0, bottom - top), Color(0, 0, 0, 0.18))
+		posts.draw_rect(Rect2(x - 6.0, top, 12.0, bottom - top), Color("2e2117"))
+		posts.draw_rect(Rect2(x - 6.0, top, 3.0, bottom - top), Color("5a4430"))
+		posts.draw_rect(Rect2(x + 4.0, top, 2.0, bottom - top), Color(0, 0, 0, 0.4))
+
+
 ## A long wooden board across the room at `y`: the figures behind it are cut off at its top edge.
 func _board(marks: Control, y: float, h: float) -> void:
 	var r := Rect2(0, y, WALL_END, h)
@@ -553,45 +571,14 @@ func _draw_page() -> void:
 	UiTheme.draw_rule(_page, Vector2(mid, 464 + STAT_DROP), w, Color(UiTheme.PARCHMENT_INK, 0.5))
 
 
-## The stats, written out as a small table: name in grey, number in ink, and under each a line as
-## long as the stat's growth rate (its chance to rise by 1 on a level-up) with the figure beside it.
-## Strong growths are drawn dark and weak ones faint. Build never grows and has no line.
+## The stats and how readily each grows, as a small table (see StatTable).
 func _draw_stats() -> void:
 	var c := _selected
 	if c == null:
 		return
-	var st := c.progress.stats()
-	var names := {Stat.HP: "Health", Stat.STA: "Stamina", Stat.STR: "Strength", Stat.MAG: "Magic", Stat.DEX: "Dexterity",
-		Stat.SPD: "Speed", Stat.DEF: "Defence", Stat.RES: "Resistance", Stat.CRT: "Critical", Stat.LCK: "Luck", Stat.BLD: "Build"}
-	var keys: Array[String] = [Stat.HP, Stat.STA, Stat.STR, Stat.MAG, Stat.DEX, Stat.SPD, Stat.DEF, Stat.RES, Stat.CRT, Stat.LCK, Stat.BLD]
-	var cols := 4
-	var cw := _stats.size.x / cols
-	var span := cw - 22.0
-	var body := UiTheme.body_font()
-	var display := UiTheme.display_font()
-	var italic := UiTheme.italic_font()
-	for i in keys.size():
-		var key := keys[i]
-		var x := (i % cols) * cw
-		var y := floorf(float(i) / cols) * STAT_ROW
-		var value := "%d / %d" % [c.hp, c.max_hp()] if key == Stat.HP else str(c.data.build if key == Stat.BLD else int(st[key]))
-		UiTheme.draw_text(_stats, body, Vector2(x, y + 2.0), names[key], 16, UiTheme.PARCHMENT_MUTED)
-		UiTheme.draw_text(_stats, display, Vector2(x, y), value, 19, UiTheme.PARCHMENT_INK, 0, span, HORIZONTAL_ALIGNMENT_RIGHT)
-		if key == Stat.BLD:
-			continue
-		var rate := Levels.growth_rate(c.data, key)
-		var strength := 0.9 if rate >= 50 else (0.62 if rate >= 30 else 0.38)
-		var ink := Color(UiTheme.PARCHMENT_INK, strength)
-		var track := Rect2(x, y + 28.0, span - 46.0, 5.0)
-		_stats.draw_rect(track, Color(UiTheme.PARCHMENT_INK, 0.13))
-		_stats.draw_rect(Rect2(track.position, Vector2(track.size.x * rate / 100.0, track.size.y)), ink)
-		UiTheme.draw_text(_stats, body, Vector2(x, y + 20.0), "%d%%" % rate, 15, Color(UiTheme.PARCHMENT_INK, minf(1.0, strength + 0.2)), 0, span,
-			HORIZONTAL_ALIGNMENT_RIGHT)
-	# The last cell of the table is free: say what the lines are.
-	var lx := 3.0 * cw
-	var ly := 2.0 * STAT_ROW + 2.0
-	_stats.draw_multiline_string(italic, Vector2(lx, ly + italic.get_ascent(13)), "Under each stat: its chance to rise with a level.",
-		HORIZONTAL_ALIGNMENT_LEFT, span, 13, 3, Color(UiTheme.PARCHMENT_MUTED, 0.95))
+	var values := c.progress.stats()
+	values[Stat.BLD] = c.data.build
+	StatTable.draw(_stats, Vector2.ZERO, _stats.size.x, 4, values, c.data, "%d / %d" % [c.hp, c.max_hp()])
 
 
 func _unhandled_input(event: InputEvent) -> void:

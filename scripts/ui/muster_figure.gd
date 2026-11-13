@@ -4,7 +4,7 @@ extends Control
 ## against the wall behind the muster rail, every head the same size (`CompanionData.figure_scale`),
 ## and their name and health are written on the rail in front of them. On the bench they are smaller
 ## and dimmer, head and shoulders above the board. An empty place in the line is a chalk outline.
-## Hair, cloaks and weapons run over into the neighbouring places; only this slot takes the mouse.
+## Each figure is kept inside its own place, so nobody's art covers a neighbour.
 ## A figure can be picked up and set down on another place or on the bench; whatever it is set down on
 ## emits `dropped` with the companion that was carried.
 
@@ -24,6 +24,9 @@ const ART := 440.0
 const FACE_Y := 86.0
 const BENCH_ART := 300.0
 const BENCH_FACE_Y := 66.0
+## How far inside its place a figure in the line stops (half a post), and how wide the fade at a cut is.
+const EDGE_INSET := 6.0
+const EDGE_FADE := 22.0
 
 var companion: RunCompanion
 ## Whether figures may be carried right now (not once the day's battle has begun).
@@ -194,7 +197,9 @@ func _draw() -> void:
 		size.x, HORIZONTAL_ALIGNMENT_CENTER)
 
 
-## The cut-out, with the face over the middle of the slot, down to the rail.
+## The cut-out, with the face over the middle of the place, down to the rail. It is kept inside the
+## place: whatever would run over into a neighbour's (a blade, a cloak, long hair) is cut off, fading
+## out over EDGE_FADE so the cut is soft. In the line a timber post stands over each cut.
 func _draw_art(tint: Color, rail: float) -> void:
 	var tex := companion.data.portrait
 	if tex == null:
@@ -206,8 +211,33 @@ func _draw_art(tint: Color, rail: float) -> void:
 	var top_left := face - companion.data.portrait_focus * art
 	# Someone short stands on the floor behind the rail, not in the air above it.
 	top_left.y = maxf(top_left.y, rail - art.y)
-	var shown := clampf((rail - top_left.y) / art.y, 0.0, 1.0)
-	draw_texture_rect_region(tex, Rect2(top_left, Vector2(art.x, art.y * shown)), Rect2(0, 0, ts.x, ts.y * shown), tint)
+	var inset := 0.0 if _bench else EDGE_INSET
+	var left := maxf(top_left.x, inset)
+	var right := minf(top_left.x + art.x, size.x - inset)
+	var top := top_left.y
+	var bottom := minf(top_left.y + art.y, rail)
+	if right <= left or bottom <= top:
+		return
+	var fade := minf(EDGE_FADE, (right - left) * 0.5)
+	var xs: Array[float] = [left, left + fade, right - fade, right]
+	var alpha: Array[float] = [0.0, 1.0, 1.0, 0.0]
+	# Where the art itself ends inside the place there is nothing to fade.
+	if top_left.x >= inset:
+		alpha[0] = 1.0
+	if top_left.x + art.x <= size.x - inset:
+		alpha[3] = 1.0
+	for i in 3:
+		if xs[i + 1] - xs[i] < 0.5:
+			continue
+		var pts := PackedVector2Array()
+		var uvs := PackedVector2Array()
+		var cols := PackedColorArray()
+		for corner: Vector2i in [Vector2i(i, 0), Vector2i(i + 1, 0), Vector2i(i + 1, 1), Vector2i(i, 1)]:
+			var at := Vector2(xs[corner.x], top if corner.y == 0 else bottom)
+			pts.append(at)
+			uvs.append((at - top_left) / art)
+			cols.append(Color(tint, alpha[corner.x]))
+		draw_polygon(pts, cols, uvs, tex)
 
 
 ## Over the figure: what a heal being aimed would do.
