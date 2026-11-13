@@ -148,6 +148,58 @@ const DRILL_SPARRING_DANGER := 2
 const DRILL_SPARRING_SHARE_DIVISOR := 2
 const DRILL_XP_PERCENT: Array[int] = [60, 100, 150]
 
+# --- Scavenging (a free-day action; see Run.scavenge and ScavengeSite) ---
+const SCAVENGE_SITES_PER_DAY := 2
+## Weights of size 1 / 2 / 3 (small, medium, large: also how many go) and of risk low / medium / high,
+## rolled independently for each site.
+const SCAVENGE_SIZE_WEIGHTS: Array[int] = [40, 35, 25]
+const SCAVENGE_RISK_WEIGHTS: Array[int] = [40, 35, 25]
+## A place's target is what a typical companion has in its stat at the level a typical run has reached
+## that day, then shifted by risk. The typical level on day d is 1 + LEVEL_PER_DAY x (d - 1) (the
+## automated runs: about 5 on day 14, 9 on day 28, 12 on day 42). The typical stat is BASE + GROWTH x
+## (level - 1): the fourteen companions' average base stat and average growth rate (BLD never grows).
+## Rounded to the nearest point.
+const SCAVENGE_LEVEL_PER_DAY := 0.27
+const SCAVENGE_STAT_BASE := {
+	"SPD": 8.3, "STR": 6.6, "BLD": 6.1, "DEX": 8.9, "LCK": 5.3, "DEF": 4.2, "RES": 4.6, "MAG": 3.7,
+}
+const SCAVENGE_STAT_GROWTH := {
+	"SPD": 0.46, "STR": 0.36, "BLD": 0.0, "DEX": 0.50, "LCK": 0.39, "DEF": 0.30, "RES": 0.38, "MAG": 0.27,
+}
+## Added to every target, by risk (low, medium, high).
+const SCAVENGE_RISK_TARGET_SHIFT: Array[int] = [-1, 0, 2]
+## A full haul's gold: this share of the day's danger-1 battle reward (REWARD_GOLD_BY_DANGER[0], grown
+## by REWARD_GROWTH_PER_DAY), x the size's and the risk's multipliers. Rounded.
+const SCAVENGE_GOLD_SHARE := 0.4
+const SCAVENGE_GOLD_SIZE_MULT: Array[float] = [1.0, 1.8, 2.6]
+const SCAVENGE_GOLD_RISK_MULT: Array[float] = [1.0, 1.5, 2.2]
+## Pieces of material (each timber or iron ore at random) in a full haul, by size: [min, max].
+const SCAVENGE_MATERIALS_BY_SIZE := [[0, 1], [1, 2], [2, 3]]
+## Percent chance a full haul also finds a weapon, by risk (drawn like an event's random weapon).
+const SCAVENGE_WEAPON_CHANCE: Array[int] = [0, 10, 25]
+## XP to each companion sent on a full haul: this share of one companion's even share of the day's
+## danger-1 battle pool with a full line (pool / MAX_FIELDED). Rounded.
+const SCAVENGE_XP_SHARE := 0.3
+## The chance (percent) of a full haul: base by risk (low, medium, high) + the average slot score,
+## clamped to MIN..MAX. A slot scores MEET + PER_POINT_ABOVE per point above the target (at most
+## SLOT_MAX) when the companion meets it, else -PER_POINT_SHORT per point short (at least SLOT_MIN);
+## an empty slot scores EMPTY.
+const SCAVENGE_BASE_CHANCE: Array[int] = [75, 60, 45]
+const SCAVENGE_MEET := 15
+const SCAVENGE_PER_POINT_ABOVE := 3
+const SCAVENGE_SLOT_MAX := 30
+const SCAVENGE_PER_POINT_SHORT := 6
+const SCAVENGE_SLOT_MIN := -30
+const SCAVENGE_EMPTY := -30
+const SCAVENGE_CHANCE_MIN := 25
+const SCAVENGE_CHANCE_MAX := 95
+## When the roll misses, this percent of the time it is half a haul (half the gold, materials rounded
+## down, half the XP, no weapon), else nothing.
+const SCAVENGE_HALF_CHANCE := 50
+## Share of max HP (rounded up, never below 1 HP left) everyone sent loses: medium risk on nothing;
+## high risk on half a haul, and on nothing for all but the one injured.
+const SCAVENGE_HP_LOSS_FRACTION := 0.25
+
 # --- Starting resources ---
 const STARTING_GOLD := 60
 const STARTING_MATERIALS := {IRON_ORE: 0, TIMBER: 1}

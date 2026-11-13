@@ -10,6 +10,9 @@ var drilled := 0
 ## Companions cured in the infirmary, and days given up because nobody could be fielded.
 var cured := 0
 var yielded := 0
+## Scavenging trips by outcome (ScavengeResult.Outcome: full, half, nothing), and companions injured on them.
+var scavenged: Array[int] = [0, 0, 0]
+var scavenge_injured := 0
 
 
 func _init(p_rng: RandomNumberGenerator) -> void:
@@ -105,10 +108,11 @@ func pick_front(run: Run) -> Front:
 	return best
 
 
-## One action a day (rest, repair or train), so the first that applies: rest before a boss if anything
-## is spent, mend badly damaged walls, rest a hurt company, rest a lightly hurt one, mend the walls,
-## train (see train). Every one after the first that succeeds is refused, so trying them in order is
-## enough. Between them, the errands that cost gold but never the action: cure (see cure_best), fill
+## One action a day (rest, repair, train or scavenge), so the first that applies: rest before a boss
+## if anything is spent, mend badly damaged walls, rest a hurt company, rest a lightly hurt one, mend
+## the walls, then with the action still unused scavenge when short of gold (under two drills' worth),
+## else train (see train), else scavenge (see scavenge). Every one after the first that succeeds is
+## refused, so trying them in order is enough. Between them, the errands that cost gold but never the action: cure (see cure_best), fill
 ## the line at the tavern, buy upgrades; they are done whether or not the action is spent.
 func free_day(run: Run) -> void:
 	if run.is_over():
@@ -129,8 +133,71 @@ func free_day(run: Run) -> void:
 	if hp_fraction(run) < 0.8:
 		run.rest()
 	run.repair()
+	if run.gold < 2 * RunConfig.DRILL_COST:
+		scavenge(run)
 	train(run)
+	scavenge(run)
 	run.end_free_day()
+
+
+## Sends a party to the site with the best expected haul: for each site the party that gives the best
+## chance (see best_scavenge_party), the haul valued (gold, 15 a piece of material, half the XP of
+## everyone sent) at a full haul's chance plus half of a miss's half haul, less the cost of an injury
+## (60 a time) on a high-risk miss. Never high risk the day before a boss, never when nothing is worth it.
+func scavenge(run: Run) -> void:
+	if run.free_action_block_reason(Run.FreeAction.SCAVENGE) != "":
+		return
+	var boss_next := run.day_type(run.day + 1) == RunCalendar.DayType.BOSS
+	var best: ScavengeSite = null
+	var best_party: Array = []
+	var best_value := 0.0
+	for site in run.scavenge_sites():
+		if site.size > run.available().size() or (boss_next and site.risk == ScavengeSite.Risk.HIGH):
+			continue
+		var party := best_scavenge_party(run, site)
+		var p := run.scavenge_chance(site, party) / 100.0
+		var haul := site.gold + 15.0 * site.material_count() + 0.5 * site.xp_each * site.size
+		var value := haul * (p + (1.0 - p) * RunConfig.SCAVENGE_HALF_CHANCE / 100.0 * 0.5)
+		if site.risk == ScavengeSite.Risk.HIGH:
+			value -= (1.0 - p) * (1.0 - RunConfig.SCAVENGE_HALF_CHANCE / 100.0) * 60.0
+		if value > best_value:
+			best_value = value
+			best = site
+			best_party = party
+	if best == null:
+		return
+	var r := run.scavenge(best, best_party)
+	if r != null:
+		scavenged[r.outcome] += 1
+		if r.injured != null:
+			scavenge_injured += 1
+
+
+## The companions available who give `site` its best chance, one per place (every assignment tried).
+func best_scavenge_party(run: Run, site: ScavengeSite) -> Array:
+	var best: Array = []
+	var best_score := -INF
+	for party in _assignments(run.available(), site.size):
+		var score := 0
+		for i in party.size():
+			score += run.scavenge_slot_score(site, i, party[i])
+		if score > best_score:
+			best_score = score
+			best = party
+	return best
+
+
+## Every ordered pick of `n` different companions from `pool`.
+func _assignments(pool: Array[RunCompanion], n: int) -> Array:
+	if n == 0:
+		return [[]]
+	var out: Array = []
+	for c in pool:
+		var rest: Array[RunCompanion] = pool.duplicate()
+		rest.erase(c)
+		for tail: Array in _assignments(rest, n - 1):
+			out.append([c] + tail)
+	return out
 
 
 ## With nothing better to do: a proficiency drill in the type of the weapon held by a fielded

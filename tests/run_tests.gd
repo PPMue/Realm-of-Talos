@@ -10,6 +10,7 @@ const WeaponTests := preload("res://tests/weapon_tests.gd")
 const TrainingTests := preload("res://tests/training_tests.gd")
 const InfirmaryTests := preload("res://tests/infirmary_tests.gd")
 const RareWeaponTests := preload("res://tests/rare_weapon_tests.gd")
+const ScavengeTests := preload("res://tests/scavenge_tests.gd")
 
 var _failures: Array[String] = []
 var _run_rules: RefCounted   # kept alive: Callables do not hold a reference to their object
@@ -19,6 +20,7 @@ var _weapons: RefCounted
 var _training: RefCounted
 var _infirmary: RefCounted
 var _rare: RefCounted
+var _scavenge: RefCounted
 var _checks := 0
 var _current := ""
 
@@ -96,6 +98,8 @@ func _init() -> void:
 	tests.append_array(_infirmary.tests())
 	_rare = RareWeaponTests.new(self)
 	tests.append_array(_rare.tests())
+	_scavenge = ScavengeTests.new(self)
+	tests.append_array(_scavenge.tests())
 	var verbose := OS.get_environment("TEST_VERBOSE") != ""
 	var only := OS.get_environment("TEST_ONLY")
 	if only != "":

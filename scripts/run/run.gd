@@ -16,9 +16,9 @@ extends RefCounted
 ## Commands return false (or "") and change nothing when not allowed; the *_block_reason queries say why.
 
 enum Outcome { ONGOING, VICTORY, DEFEAT }
-enum FreeAction { REST, SHOP, TAVERN, REPAIR, TRAIN, CURE }
+enum FreeAction { REST, SHOP, TAVERN, REPAIR, TRAIN, CURE, SCAVENGE }
 
-const FREE_ACTION_NAMES: Array[String] = ["Rest", "Shop", "Tavern", "Repair", "Train", "Cure"]
+const FREE_ACTION_NAMES: Array[String] = ["Rest", "Shop", "Tavern", "Repair", "Train", "Cure", "Scavenge"]
 
 var rng: RandomNumberGenerator
 var content: RunContent
@@ -60,6 +60,8 @@ var event: EventData
 ## Free days.
 var actions_left: int = 0
 var actions_used: Array[int] = []
+## Free days: the places beyond the walls a party can be sent to today (see scavenge_sites()).
+var _scavenge_sites: Array[ScavengeSite] = []
 ## Who the tavern offers this week. Rolled on the first day of each week; a hire leaves the list.
 var tavern_offers: Array[CompanionData] = []
 ## What the smithy sells this week: RunConfig.SHOP_WEAPONS_PER_WEEK ladder weapons whose tiers climb
@@ -406,6 +408,8 @@ func finish_battle(battle: Battle) -> BattleReport:
 
 const EVENT_FIRST := "First answer the matter at the gate."
 const NO_USEFUL_DRILL := "Nobody can learn anything from this week's drills."
+const NOBODY_FIT := "Nobody is fit to go."
+const FILL_EVERY_PLACE := "Fill every place."
 
 
 ## Why the smithy, the tavern and the infirmary cannot be used now, or "": only on free days, once
@@ -424,7 +428,7 @@ static func is_errand(a: FreeAction) -> bool:
 	return a == FreeAction.SHOP or a == FreeAction.TAVERN or a == FreeAction.CURE
 
 
-## Why `a` cannot be done now, or "". Rest, repair and train share the day's one action; shop,
+## Why `a` cannot be done now, or "". Rest, repair, train and scavenge share the day's one action; shop,
 ## tavern and cure are errands (see errand_block_reason) and never use it.
 func free_action_block_reason(a: FreeAction) -> String:
 	var why := errand_block_reason()
@@ -454,6 +458,9 @@ func free_action_block_reason(a: FreeAction) -> String:
 		FreeAction.CURE:
 			if _infirmary.is_empty():
 				return "Nobody is in the infirmary."
+		FreeAction.SCAVENGE:
+			if available().is_empty():
+				return NOBODY_FIT
 	return ""
 
 
@@ -747,6 +754,245 @@ func _grant_xp(report: BattleReport, pool: int, standing: Array[RunCompanion], p
 			report.level_ups.append({"name": c.display_name(), "level": up.level, "gains": up.gains})
 
 
+# ---------------------------------------------------------------- scavenging
+
+## Today's places beyond the walls (RunConfig.SCAVENGE_SITES_PER_DAY, rolled when the day begins);
+## empty on battle and boss days and once the run is over. At least one can be filled by everyone
+## available when the day began (if anyone was).
+func scavenge_sites() -> Array[ScavengeSite]:
+	if is_over() or day_type() != RunCalendar.DayType.FREE:
+		return []
+	return _scavenge_sites.duplicate()
+
+
+## The target of a place testing `stat` at `risk` on day `d`: the typical companion's stat that day
+## (RunConfig.SCAVENGE_STAT_BASE + GROWTH x (the typical level - 1), the typical level being
+## 1 + SCAVENGE_LEVEL_PER_DAY x (d - 1)), rounded, plus the risk's shift.
+static func scavenge_target(stat: String, risk: int, d: int) -> int:
+	var level := 1.0 + RunConfig.SCAVENGE_LEVEL_PER_DAY * (d - 1)
+	var typical := float(RunConfig.SCAVENGE_STAT_BASE.get(stat, 0.0)) \
+		+ float(RunConfig.SCAVENGE_STAT_GROWTH.get(stat, 0.0)) * (level - 1.0)
+	return roundi(typical) + RunConfig.SCAVENGE_RISK_TARGET_SHIFT[risk]
+
+
+## A full haul's gold for a site of `size` and `risk` on day `d` (see RunConfig.SCAVENGE_GOLD_SHARE).
+static func scavenge_gold(size: int, risk: int, d: int) -> int:
+	var growth := 1.0 + RunConfig.REWARD_GROWTH_PER_DAY * (d - 1)
+	return roundi(RunConfig.REWARD_GOLD_BY_DANGER[0] * growth * RunConfig.SCAVENGE_GOLD_SHARE
+		* RunConfig.SCAVENGE_GOLD_SIZE_MULT[size - 1] * RunConfig.SCAVENGE_GOLD_RISK_MULT[risk])
+
+
+## XP each companion sent gets from a full haul on day `d` (see RunConfig.SCAVENGE_XP_SHARE).
+static func scavenge_xp(d: int) -> int:
+	return roundi(float(xp_pool(1, d)) / RunConfig.MAX_FIELDED * RunConfig.SCAVENGE_XP_SHARE)
+
+
+## How `c` in place `index` of `site` adds to the chance: they meet the target: RunConfig.SCAVENGE_MEET
+## + SCAVENGE_PER_POINT_ABOVE a point above (at most SCAVENGE_SLOT_MAX); short of it:
+## -SCAVENGE_PER_POINT_SHORT a point (at least SCAVENGE_SLOT_MIN). Nobody there: SCAVENGE_EMPTY.
+func scavenge_slot_score(site: ScavengeSite, index: int, c: RunCompanion) -> int:
+	if site == null or index < 0 or index >= site.slots.size() or c == null:
+		return RunConfig.SCAVENGE_EMPTY
+	var slot := site.slots[index]
+	var have := int(c.progress.stats().get(slot.stat, 0))
+	if have >= slot.target:
+		return mini(RunConfig.SCAVENGE_SLOT_MAX, RunConfig.SCAVENGE_MEET + RunConfig.SCAVENGE_PER_POINT_ABOVE * (have - slot.target))
+	return maxi(RunConfig.SCAVENGE_SLOT_MIN, -RunConfig.SCAVENGE_PER_POINT_SHORT * (slot.target - have))
+
+
+## The chance (percent) of a full haul at `site` with `party` (indexed by slot; nulls and missing
+## entries are empty places): RunConfig.SCAVENGE_BASE_CHANCE by risk + the average slot score,
+## rounded, clamped to SCAVENGE_CHANCE_MIN..MAX.
+func scavenge_chance(site: ScavengeSite, party: Array) -> int:
+	if site == null or site.slots.is_empty():
+		return 0
+	var total := 0
+	for i in site.slots.size():
+		total += scavenge_slot_score(site, i, party[i] if i < party.size() else null)
+	var chance: int = RunConfig.SCAVENGE_BASE_CHANCE[site.risk] + roundi(float(total) / site.slots.size())
+	return clampi(chance, RunConfig.SCAVENGE_CHANCE_MIN, RunConfig.SCAVENGE_CHANCE_MAX)
+
+
+## Why `party` (indexed by slot, may hold nulls) cannot be sent to `site` now, or "". The day's one
+## action (FreeAction.SCAVENGE): free days, after the event, not once the action is spent. Every place
+## filled, each by a different companion of the roster who is not in the infirmary.
+func scavenge_block_reason(site: ScavengeSite, party: Array) -> String:
+	var why := free_action_block_reason(FreeAction.SCAVENGE)
+	if why != "":
+		return why
+	if site == null or not _scavenge_sites.has(site):
+		return "That place is not on today's map."
+	if party.size() > site.slots.size():
+		return "Only %d can go." % site.slots.size()
+	var seen: Array[RunCompanion] = []
+	for i in site.slots.size():
+		var c: RunCompanion = party[i] if i < party.size() else null
+		if c == null:
+			continue
+		if not roster.has(c):
+			return "%s is not in the company." % c.display_name()
+		if c.injured:
+			return infirmary_block_reason(c)
+		if seen.has(c):
+			return "%s cannot fill two places." % c.display_name()
+		seen.append(c)
+	if seen.size() < site.slots.size():
+		return FILL_EVERY_PLACE
+	return ""
+
+
+## Sends `party` (indexed by slot) to `site`: spends the day's action and rolls once against
+## scavenge_chance. At or under it, a full haul: the site's gold, materials and XP to each, and with
+## its weapon_chance a weapon (see _draw_found_weapon). Otherwise, RunConfig.SCAVENGE_HALF_CHANCE of
+## the time half a haul (half the gold, materials rounded down, half the XP, no weapon), else nothing.
+## Low risk: nothing else. Medium: on nothing everyone sent loses RunConfig.SCAVENGE_HP_LOSS_FRACTION of
+## max HP (never below 1). High: on half a haul everyone sent loses it; on nothing the one furthest
+## short of their place's target (ties, or nobody short: at random) is injured and goes to the
+## infirmary as after a battle, and the others lose it. XP and level-ups as in battle. Returns what
+## happened, or null if not allowed.
+func scavenge(site: ScavengeSite, party: Array) -> ScavengeResult:
+	if scavenge_block_reason(site, party) != "":
+		return null
+	_spend(FreeAction.SCAVENGE)
+	var r := ScavengeResult.new()
+	r.site = site
+	for i in site.slots.size():
+		r.party.append(party[i])
+	r.chance = scavenge_chance(site, party)
+	r.roll = rng.randi_range(1, 100)
+	if r.roll <= r.chance:
+		r.outcome = ScavengeResult.Outcome.FULL
+	elif rng.randi_range(1, 100) <= RunConfig.SCAVENGE_HALF_CHANCE:
+		r.outcome = ScavengeResult.Outcome.HALF
+	else:
+		r.outcome = ScavengeResult.Outcome.NOTHING
+	var xp := 0
+	match r.outcome:
+		ScavengeResult.Outcome.FULL:
+			r.gold = site.gold
+			r.materials = site.materials.duplicate()
+			xp = site.xp_each
+			if site.weapon_chance > 0 and rng.randi_range(1, 100) <= site.weapon_chance:
+				r.weapon_found = _draw_found_weapon()
+				if r.weapon_found != null:
+					inventory.add(r.weapon_found)
+		ScavengeResult.Outcome.HALF:
+			r.gold = site.gold / 2
+			for m: String in site.materials:
+				if int(site.materials[m]) / 2 > 0:
+					r.materials[m] = int(site.materials[m]) / 2
+			xp = site.xp_each / 2
+	gold += r.gold
+	_add_materials(r.materials)
+	var hurt := (site.risk == ScavengeSite.Risk.MEDIUM and r.outcome == ScavengeResult.Outcome.NOTHING) \
+		or (site.risk == ScavengeSite.Risk.HIGH and r.outcome != ScavengeResult.Outcome.FULL)
+	if site.risk == ScavengeSite.Risk.HIGH and r.outcome == ScavengeResult.Outcome.NOTHING:
+		r.injured = _furthest_short(site, r.party)
+	for i in r.party.size():
+		var c := r.party[i]
+		var m := ScavengeResult.Member.new()
+		m.companion = c
+		m.slot = i
+		m.level_before = c.level()
+		m.stats_before = c.progress.stats()
+		r.members.append(m)
+		if c == r.injured:
+			m.hp_lost = c.hp
+			_to_infirmary(c)
+		elif hurt:
+			var before := c.hp
+			c.hp = maxi(1, c.hp - ceili(c.max_hp() * RunConfig.SCAVENGE_HP_LOSS_FRACTION))
+			m.hp_lost = before - c.hp
+		if xp > 0:
+			_scavenge_xp(m, xp)
+	return r
+
+
+## The one sent who is furthest short of their place's target; ties (and nobody short) at random.
+func _furthest_short(site: ScavengeSite, party: Array[RunCompanion]) -> RunCompanion:
+	var worst := 0
+	var picks: Array[RunCompanion] = []
+	for i in party.size():
+		var short := maxi(0, site.slots[i].target - int(party[i].progress.stats().get(site.slots[i].stat, 0)))
+		if picks.is_empty() or short > worst:
+			worst = short
+			picks = [party[i]]
+		elif short == worst:
+			picks.append(party[i])
+	return picks[rng.randi_range(0, picks.size() - 1)]
+
+
+## XP and level-ups as a won battle grants them, recorded like Sparring (see _drill_sparring).
+func _scavenge_xp(m: ScavengeResult.Member, amount: int) -> void:
+	var c := m.companion
+	m.xp_gained = amount
+	var stats := m.stats_before.duplicate()
+	var from := c.level()
+	for up in Levels.add_xp(c.progress, amount, rng):
+		c.hp += int(up.gains.get(Stat.HP, 0))
+		m.level_ups.append({"name": c.display_name(), "level": up.level, "gains": up.gains, "level_from": from,
+			"before": stats.duplicate()})
+		for key: String in up.gains:
+			stats[key] = int(stats.get(key, 0)) + int(up.gains[key])
+		from = up.level
+
+
+## Rolls today's sites. If nobody available could fill either, the first is rolled again with a size
+## that fits.
+func _roll_scavenge_sites() -> void:
+	_scavenge_sites.clear()
+	var names: Array[String] = ScavengeSite.NAMES.duplicate()
+	for i in RunConfig.SCAVENGE_SITES_PER_DAY:
+		var site_name: String = names.pop_at(rng.randi_range(0, names.size() - 1)) if not names.is_empty() else "The Wilds"
+		_scavenge_sites.append(_roll_site(site_name, 3))
+	var fit := available().size()
+	if fit > 0 and not _scavenge_sites.is_empty() \
+			and _scavenge_sites.all(func(s: ScavengeSite) -> bool: return s.size > fit):
+		_scavenge_sites[0] = _roll_site(_scavenge_sites[0].display_name, fit)
+
+
+## One site called `site_name` of size at most `max_size`: size and risk by
+## RunConfig.SCAVENGE_SIZE_WEIGHTS and SCAVENGE_RISK_WEIGHTS, one place per size point with different
+## stats, and the haul.
+func _roll_site(site_name: String, max_size: int) -> ScavengeSite:
+	var site := ScavengeSite.new()
+	site.display_name = site_name
+	var size_weights: Array = RunConfig.SCAVENGE_SIZE_WEIGHTS.slice(0, clampi(max_size, 1, RunConfig.SCAVENGE_SIZE_WEIGHTS.size()))
+	site.size = _roll_weighted(size_weights) + 1
+	site.risk = _roll_weighted(RunConfig.SCAVENGE_RISK_WEIGHTS) as ScavengeSite.Risk
+	var stats: Array[String] = ScavengeSite.ROLE_STATS.duplicate()
+	for i in site.size:
+		var slot := ScavengeSite.Slot.new()
+		slot.stat = stats.pop_at(rng.randi_range(0, stats.size() - 1))
+		slot.target = scavenge_target(slot.stat, site.risk, day)
+		slot.role = ScavengeSite.ROLES[slot.stat]
+		site.slots.append(slot)
+	site.gold = scavenge_gold(site.size, site.risk, day)
+	var span: Array = RunConfig.SCAVENGE_MATERIALS_BY_SIZE[site.size - 1]
+	for p in rng.randi_range(int(span[0]), int(span[1])):
+		var m: String = RunConfig.MATERIAL_ORDER[rng.randi_range(0, RunConfig.MATERIAL_ORDER.size() - 1)]
+		site.materials[m] = int(site.materials.get(m, 0)) + 1
+	site.weapon_chance = RunConfig.SCAVENGE_WEAPON_CHANCE[site.risk]
+	site.xp_each = scavenge_xp(day)
+	return site
+
+
+## An index into `weights`, drawn by weight (the last with any weight if the draw falls off the end).
+func _roll_weighted(weights: Array) -> int:
+	var total := 0
+	var last := 0
+	for i in weights.size():
+		total += int(weights[i])
+		if int(weights[i]) > 0:
+			last = i
+	var r := rng.randi_range(1, maxi(1, total))
+	for i in weights.size():
+		r -= int(weights[i])
+		if r <= 0 and int(weights[i]) > 0:
+			return i
+	return last
+
+
 ## Level a companion hired today joins at: the roster's average level, rounded down.
 func hire_level() -> int:
 	if roster.is_empty():
@@ -841,6 +1087,7 @@ func _begin_day() -> void:
 	event_weapons.clear()
 	actions_left = 0
 	actions_used.clear()
+	_scavenge_sites.clear()
 	if RunCalendar.is_week_start(day):
 		_restock_week()
 	match day_type():
@@ -853,6 +1100,7 @@ func _begin_day() -> void:
 			if has_event_day():
 				event = _pick_event()
 				_draw_event_weapons()
+			_roll_scavenge_sites()
 
 
 func _end_day() -> void:
@@ -1114,16 +1362,25 @@ func _draw_event_weapons() -> void:
 	for choice in event.choices:
 		if not choice.random_weapon:
 			continue
-		var tier := _roll_tier(shop_tier_weights(day))
-		if rng.randf() < RunConfig.EVENT_WEAPON_TIER_UP_CHANCE:
-			tier = mini(smithy_top_tier(day) + 1, WeaponData.top_tier())
-		var w := _random_weapon(tier, choice.random_weapon_type)
-		if rng.randf() < RunConfig.EVENT_RARE_CHANCE:
-			var rare := _random_rare(rare_max_grade(day), choice.random_weapon_type)
-			if rare != null:
-				w = rare
+		var w := _draw_found_weapon(choice.random_weapon_type)
 		if w != null:
 			event_weapons[choice] = w
+
+
+## A weapon found today (an event's random weapon, a scavenging find), of type `type` or any with -1:
+## a tier drawn like the week's stock, or with RunConfig.EVENT_WEAPON_TIER_UP_CHANCE one above the best
+## the smithy sells; maybe a two-proficiency weapon of that tier and type (see _random_weapon); and with
+## RunConfig.EVENT_RARE_CHANCE a rare weapon of that type whose grade fits the week instead. May be null.
+func _draw_found_weapon(type: int = -1) -> WeaponData:
+	var tier := _roll_tier(shop_tier_weights(day))
+	if rng.randf() < RunConfig.EVENT_WEAPON_TIER_UP_CHANCE:
+		tier = mini(smithy_top_tier(day) + 1, WeaponData.top_tier())
+	var w := _random_weapon(tier, type)
+	if rng.randf() < RunConfig.EVENT_RARE_CHANCE:
+		var rare := _random_rare(rare_max_grade(day), type)
+		if rare != null:
+			w = rare
+	return w
 
 
 ## The weapon a beaten boss drops (see boss_weapon_tier): any type, at random, maybe a two-proficiency

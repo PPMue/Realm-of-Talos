@@ -1336,6 +1336,8 @@ func test_playthrough() -> void:
 	var drilled := 0
 	var cured := 0
 	var yielded := 0
+	var scavenged: Array[int] = [0, 0, 0]
+	var scavenge_injured := 0
 	var walls_after_empty := 0   # runs lost by the walls after a day given up for want of anyone
 	var beaten := {}   # boss group -> times beaten
 	for s in runs:
@@ -1345,6 +1347,9 @@ func test_playthrough() -> void:
 		sparred += policy.sparred
 		drilled += policy.drilled
 		cured += policy.cured
+		for k in 3:
+			scavenged[k] += policy.scavenged[k]
+		scavenge_injured += policy.scavenge_injured
 		yielded += policy.yielded
 		if run.outcome == Run.Outcome.DEFEAT and run.city_health <= 0 and policy.yielded > 0:
 			walls_after_empty += 1
@@ -1408,6 +1413,10 @@ func test_playthrough() -> void:
 	print("    training ground per run: %.1f sparring, %.1f proficiency drills" % [float(sparred) / runs, float(drilled) / runs])
 	print("    infirmary: %.1f cures per run; %d days given up with nobody to field; %d runs lost by the walls after such a day" % [
 		float(cured) / runs, yielded, walls_after_empty])
+	var trips: int = scavenged[0] + scavenged[1] + scavenged[2]
+	print("    scavenging: %.1f trips per run (full %d%%, half %d%%, nothing %d%%); %.2f injured per run" % [
+		float(trips) / runs, roundi(100.0 * scavenged[0] / maxf(1, trips)), roundi(100.0 * scavenged[1] / maxf(1, trips)),
+		roundi(100.0 * scavenged[2] / maxf(1, trips)), float(scavenge_injured) / runs])
 	print("    bosses (faced / beaten / beaten %):")
 	for g in content().bosses:
 		var f: int = faced.get(g, 0)
