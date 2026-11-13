@@ -54,6 +54,13 @@ var paper := false:
 		paper = v
 		queue_redraw()
 
+## Written in light on a veil of shadow laid over the scene (the battle's orders): no board, no
+## paper; a small diamond, the words, and a warm wash under whichever line the pointer is on.
+var veil := false:
+	set(v):
+		veil = v
+		queue_redraw()
+
 var _hover := false
 
 
@@ -87,6 +94,9 @@ func _get_tooltip(_at_position: Vector2) -> String:
 
 
 func _draw() -> void:
+	if veil:
+		_draw_veil()
+		return
 	if paper:
 		_draw_paper()
 		return
@@ -167,3 +177,54 @@ func _draw_paper() -> void:
 	while title_size > 15 and display.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size).x > room:
 		title_size -= 1
 	UiTheme.draw_text(self, display, Vector2(x, (h - display.get_height(title_size)) * 0.5), title, title_size, ink)
+
+
+## A line of the orders over a battle: a diamond (hollow when it cannot be chosen; a spell's school
+## colours it), the words in light, a short cost on the right, and a hairline under it.
+func _draw_veil() -> void:
+	var lit := (active or _hover) and not disabled
+	var display := UiTheme.display_font()
+	var italic := UiTheme.italic_font()
+	if lit:
+		# Lamplight along the line, strongest at the diamond.
+		var a := 0.3 if active else 0.2
+		var clear := Color(UiTheme.GOLD, 0.0)
+		draw_polygon(PackedVector2Array([Vector2(0, 1), Vector2(W * 0.5, 1), Vector2(W * 0.5, h - 1.0), Vector2(0, h - 1.0)]),
+			PackedColorArray([Color(UiTheme.GOLD, a), Color(UiTheme.GOLD, a * 0.35), Color(UiTheme.GOLD, a * 0.35), Color(UiTheme.GOLD, a)]))
+		draw_polygon(PackedVector2Array([Vector2(W * 0.5, 1), Vector2(W, 1), Vector2(W, h - 1.0), Vector2(W * 0.5, h - 1.0)]),
+			PackedColorArray([Color(UiTheme.GOLD, a * 0.35), clear, clear, Color(UiTheme.GOLD, a * 0.35)]))
+		if active:
+			draw_rect(Rect2(0, 1, 3, h - 2.0), UiTheme.GOLD)
+	# The hairline fades out at both ends.
+	var line := Color(UiTheme.GOLD, 0.2)
+	var none := Color(UiTheme.GOLD, 0.0)
+	draw_polygon(PackedVector2Array([Vector2(0, h - 1.0), Vector2(W * 0.3, h - 1.0), Vector2(W * 0.3, h), Vector2(0, h)]),
+		PackedColorArray([none, line, line, none]))
+	draw_polygon(PackedVector2Array([Vector2(W * 0.3, h - 1.0), Vector2(W, h - 1.0), Vector2(W, h), Vector2(W * 0.3, h)]),
+		PackedColorArray([line, none, none, line]))
+
+	var c := Vector2(20.0, h * 0.5)
+	var r := 6.0
+	var gem := PackedVector2Array([c + Vector2(-r, 0), c + Vector2(0, -r), c + Vector2(r, 0), c + Vector2(0, r)])
+	var mark := UiTheme.GOLD if accent.a <= 0.0 else accent
+	if disabled:
+		gem.append(gem[0])
+		draw_polyline(gem, Color(UiTheme.MUTED, 0.5), 1.5, true)
+	else:
+		draw_colored_polygon(PackedVector2Array([c + Vector2(-r - 2.0, 1.5), c + Vector2(0, -r - 0.5), c + Vector2(r + 2.0, 1.5),
+			c + Vector2(0, r + 3.5)]), Color(0, 0, 0, 0.5))
+		draw_colored_polygon(gem, mark.lightened(0.25) if lit else mark.darkened(0.12))
+
+	var ink := Color(UiTheme.MUTED, 0.6) if disabled else (LIT_INK if lit else UiTheme.TEXT)
+	var x := 42.0
+	var right := W - 10.0
+	var room := right - x
+	if detail != "":
+		var dw := italic.get_string_size(detail, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
+		room -= dw + 10.0
+		UiTheme.draw_text(self, italic, Vector2(right - dw, (h - italic.get_height(16)) * 0.5), detail, 16,
+			Color(UiTheme.MUTED, 0.55) if disabled else (UiTheme.GOLD if lit else UiTheme.TEXT.lerp(UiTheme.MUTED, 0.55)), 4)
+	var title_size := 23
+	while title_size > 15 and display.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size).x > room:
+		title_size -= 1
+	UiTheme.draw_text(self, display, Vector2(x, (h - display.get_height(title_size)) * 0.5), title, title_size, ink, 5)

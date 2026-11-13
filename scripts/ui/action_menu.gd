@@ -1,10 +1,11 @@
 class_name ActionMenu
 extends Control
-## The left side of the battle screen: the chosen companion, close up, and the sheet of orders the
-## commander can give them: Attack, up to three equipped combat arts, Magic (for anyone who knows a
-## spell), Guard, Focus. Magic turns the sheet over to the spell list: every known spell with its
-## school, tier and uses left, and Back. What the order under the pointer does is written at the
-## foot of the sheet.
+## The left side of the battle screen: the chosen companion, close up, and beside them the orders
+## the commander can give: Attack, up to three equipped combat arts, Magic (for anyone who knows a
+## spell), Guard, Focus. Magic changes the list to the spells: every known spell with its school,
+## tier and uses left, and Back. What the order under the pointer does is written under the list.
+## The orders are written in light on a veil of shadow with no edge, so the companion and the
+## field show through and nothing bright sits on top of the art.
 ## Display only: it reports which order was pressed and the battle screen decides what happens.
 
 signal action_pressed(id: String)
@@ -26,7 +27,15 @@ const SPELL_PAGE := 5
 
 ## The companion's art runs down the left edge of the screen and fades out to the right.
 const ART_SIZE := Vector2(460, 1020)
-## The order sheet.
+## The orders: a veil of shadow, darkest behind the words and fading to nothing all round.
+const VEIL := Color("120d16")
+const VEIL_ALPHA := 0.74
+## How far the shadow spreads past the block of words, and how much of its width and height (0-0.5)
+## is spent fading in from each side.
+const VEIL_GROW_LEFT := 56.0
+const VEIL_GROW_RIGHT := 64.0
+const VEIL_GROW_Y := 56.0
+const VEIL_FADE := 0.27
 const SHEET_X := 292.0
 const SHEET_Y := 44.0
 const SHEET_PAD := 22.0
@@ -61,6 +70,24 @@ var _info := Control.new()
 var _info_label: Label
 var _default_info := ""
 var _hovered_id := ""
+
+
+static var _veil_tex: ImageTexture
+
+
+## A soft patch of white, opaque in the middle and clear at every edge, to be stretched and tinted.
+static func _veil_texture() -> Texture2D:
+	if _veil_tex == null:
+		var n := 64
+		var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
+		for y in n:
+			for x in n:
+				var u := (x + 0.5) / n
+				var v := (y + 0.5) / n
+				var a := smoothstep(0.0, VEIL_FADE, minf(u, 1.0 - u)) * smoothstep(0.0, VEIL_FADE, minf(v, 1.0 - v))
+				img.set_pixel(x, y, Color(1, 1, 1, a))
+		_veil_tex = ImageTexture.create_from_image(img)
+	return _veil_tex
 
 
 static func art_id(index: int) -> String:
@@ -134,7 +161,7 @@ func _init() -> void:
 	_info.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_info.size = Vector2(INFO_W, INFO_H)
 	add_child(_info)
-	_info_label = UiTheme.label("", 16, UiTheme.PARCHMENT_INK)
+	_info_label = UiTheme.label("", 16, UiTheme.TEXT.lerp(UiTheme.MUTED, 0.3), false, 4)
 	_info_label.add_theme_font_override("font", UiTheme.italic_font())
 	_info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_info_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
@@ -433,7 +460,7 @@ func _spell_button(index: int) -> ActionButton:
 
 func _add_button(id: String) -> ActionButton:
 	var b := ActionButton.new()
-	b.paper = true
+	b.veil = true
 	b.pressed.connect(func() -> void: action_pressed.emit(id))
 	b.hover_changed.connect(func(inside: bool) -> void:
 		if inside:
@@ -499,7 +526,9 @@ func _draw_art() -> void:
 
 func _draw_sheet() -> void:
 	var r := Rect2(Vector2.ZERO, _sheet.size)
-	UiTheme.draw_parchment(_sheet, r, 0.45)
+	# Shadow with no edge or corners: full behind the words, gone before it reaches the enemies.
+	var veil := Rect2(-VEIL_GROW_LEFT, -VEIL_GROW_Y, r.size.x + VEIL_GROW_LEFT + VEIL_GROW_RIGHT, r.size.y + VEIL_GROW_Y * 2.0)
+	_sheet.draw_texture_rect(_veil_texture(), veil, false, Color(VEIL, VEIL_ALPHA))
 	var font := UiTheme.display_font()
-	UiTheme.draw_text(_sheet, font, Vector2(0, 14.0), _sheet_title, 16, UiTheme.PARCHMENT_MUTED, 0, r.size.x, HORIZONTAL_ALIGNMENT_CENTER)
-	UiTheme.draw_rule(_sheet, Vector2(r.size.x * 0.5, 42.0), r.size.x - 70.0, Color(UiTheme.PARCHMENT_INK, 0.5))
+	UiTheme.draw_text(_sheet, font, Vector2(0, 14.0), _sheet_title, 16, Color(UiTheme.GOLD, 0.85), 4, r.size.x, HORIZONTAL_ALIGNMENT_CENTER)
+	UiTheme.draw_rule(_sheet, Vector2(r.size.x * 0.5, 42.0), r.size.x - 70.0, Color(UiTheme.GOLD, 0.45))
