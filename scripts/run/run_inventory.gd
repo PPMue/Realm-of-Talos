@@ -37,11 +37,7 @@ func equip_block_reason(c: RunCompanion, w: OwnedWeapon) -> String:
 		return "%s already holds it." % c.display_name()
 	if w.holder != null:
 		return "%s is holding it." % w.holder.display_name()
-	if not c.progress.can_equip_weapon(w.data):
-		var t := w.data.weapon_type
-		return "Needs %s grade %s; %s is %s." % [WeaponData.type_name(t).to_lower(), Proficiency.grade_name(w.data.required_grade),
-			c.display_name(), Proficiency.grade_name(c.progress.grade(t))]
-	return ""
+	return c.progress.weapon_block_reason(w.data)
 
 
 ## Puts `w` in `c`'s hand; the weapon they held goes back to the armory.

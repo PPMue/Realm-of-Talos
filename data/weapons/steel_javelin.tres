@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="WeaponData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_data.gd" id="1_w"]
+
+[resource]
+script = ExtResource("1_w")
+weapon_type = 2
+tier = 3
+might = 13
+hit = 80
+effective_against = Array[String](["Large"])
+required_grade = 6
+second_type = 3
+second_grade = 4
+family = "Javelin"
+display_name = "Steel Javelin"
+weight = 12

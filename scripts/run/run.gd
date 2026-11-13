@@ -877,8 +877,9 @@ func _make_tavern_offers() -> void:
 
 
 ## The week's stock: each rare item sold by today on a roll of its chance, first; then
-## RunConfig.SHOP_WEAPONS_PER_WEEK different ladder weapons, each of a random type and a tier drawn by
-## the week's weights, priced by tier, in order of tier and type.
+## RunConfig.SHOP_WEAPONS_PER_WEEK different weapons, each a tier drawn by the week's weights and then
+## (see _random_weapon) a two-proficiency weapon of that tier with RunConfig.SHOP_HYBRID_CHANCE, else
+## a ladder weapon of a random type; priced by weapon_price, in order of tier and type.
 func _stock_shop() -> void:
 	for item in content.shop_stock(day):
 		if item.chance >= 1.0 or rng.randf() < item.chance:
@@ -888,15 +889,19 @@ func _stock_shop() -> void:
 	var tries := 0
 	while picked.size() < RunConfig.SHOP_WEAPONS_PER_WEEK and tries < 200:
 		tries += 1
-		var w := _random_ladder_weapon(_roll_tier(weights))
+		var w := _random_weapon(_roll_tier(weights))
 		if w != null and not picked.has(w):
 			picked.append(w)
 	picked.sort_custom(func(a: WeaponData, b: WeaponData) -> bool:
-		return a.tier < b.tier or (a.tier == b.tier and a.weapon_type < b.weapon_type))
+		if a.tier != b.tier:
+			return a.tier < b.tier
+		if a.weapon_type != b.weapon_type:
+			return a.weapon_type < b.weapon_type
+		return not a.has_second_requirement() and b.has_second_requirement())
 	for w in picked:
 		var item := ShopItemData.new()
 		item.weapon = w
-		item.price = RunConfig.WEAPON_PRICE_BY_TIER[w.tier]
+		item.price = weapon_price(w)
 		item.min_day = day
 		shop_week.append(item)
 
@@ -914,6 +919,24 @@ func _roll_tier(weights: Array) -> int:
 	return smithy_top_tier(day)
 
 
+## The smithy's price of `w`: its tier's price; a two-proficiency weapon x RunConfig.HYBRID_PRICE_MULT,
+## rounded to the nearest RunConfig.PRICE_ROUND_TO.
+static func weapon_price(w: WeaponData) -> int:
+	var base: int = RunConfig.WEAPON_PRICE_BY_TIER[w.tier]
+	if not w.has_second_requirement():
+		return base
+	return roundi(base * RunConfig.HYBRID_PRICE_MULT / RunConfig.PRICE_ROUND_TO) * RunConfig.PRICE_ROUND_TO
+
+
+## A random weapon of tier `tier` (main type `type`, or any with -1): with RunConfig.SHOP_HYBRID_CHANCE
+## a two-proficiency weapon when the tier has one of that type, else a ladder weapon. Null if none.
+func _random_weapon(tier: int, type: int = -1) -> WeaponData:
+	var hybrids := content.hybrids_of_tier(tier, type)
+	if rng.randf() < RunConfig.SHOP_HYBRID_CHANCE and not hybrids.is_empty():
+		return hybrids[rng.randi_range(0, hybrids.size() - 1)]
+	return _random_ladder_weapon(tier, type)
+
+
 ## A random ladder weapon of tier `tier` (of type `type`, or any with -1), or null.
 func _random_ladder_weapon(tier: int, type: int = -1) -> WeaponData:
 	var options := content.ladder_tier(tier, type)
@@ -923,7 +946,8 @@ func _random_ladder_weapon(tier: int, type: int = -1) -> WeaponData:
 
 
 ## Draws the random weapon of every choice of today's event that grants one: a tier drawn like the
-## week's stock, or with RunConfig.EVENT_WEAPON_TIER_UP_CHANCE one above the best the smithy sells.
+## week's stock, or with RunConfig.EVENT_WEAPON_TIER_UP_CHANCE one above the best the smithy sells;
+## maybe a two-proficiency weapon of that tier and type (see _random_weapon).
 func _draw_event_weapons() -> void:
 	event_weapons.clear()
 	if event == null:
@@ -934,17 +958,18 @@ func _draw_event_weapons() -> void:
 		var tier := _roll_tier(shop_tier_weights(day))
 		if rng.randf() < RunConfig.EVENT_WEAPON_TIER_UP_CHANCE:
 			tier = mini(smithy_top_tier(day) + 1, WeaponData.top_tier())
-		var w := _random_ladder_weapon(tier, choice.random_weapon_type)
+		var w := _random_weapon(tier, choice.random_weapon_type)
 		if w != null:
 			event_weapons[choice] = w
 
 
-## The weapon a beaten boss drops (see boss_weapon_tier): any type, at random. Null for the last boss.
+## The weapon a beaten boss drops (see boss_weapon_tier): any type, at random, maybe a two-proficiency
+## one (see _random_weapon). Null for the last boss.
 func _boss_weapon() -> WeaponData:
 	var tier := boss_weapon_tier(day)
 	if tier < 0:
 		return null
-	return _random_ladder_weapon(tier)
+	return _random_weapon(tier)
 
 
 func _pick_event() -> EventData:

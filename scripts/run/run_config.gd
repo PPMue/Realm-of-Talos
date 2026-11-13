@@ -93,6 +93,12 @@ const SHOP_TIER_WEIGHTS := [
 ]
 ## Price of a ladder weapon, by tier.
 const WEAPON_PRICE_BY_TIER: Array[int] = [20, 50, 110, 200, 320, 480]
+## Each of the smithy's weekly slots, an event's random weapon and a boss's drop is, with this chance, a
+## two-proficiency weapon of the tier rolled (when that tier has any: bronze to silver).
+const SHOP_HYBRID_CHANCE := 0.2
+## A two-proficiency weapon costs its tier's price x this, rounded to the nearest PRICE_ROUND_TO.
+const HYBRID_PRICE_MULT := 1.25
+const PRICE_ROUND_TO := 5
 ## An event that grants a weapon draws its tier like the week's stock, but with this chance it is one
 ## tier above the best the smithy is selling.
 const EVENT_WEAPON_TIER_UP_CHANCE := 0.25

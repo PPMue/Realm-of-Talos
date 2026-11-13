@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="WeaponData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_data.gd" id="1_w"]
+
+[resource]
+script = ExtResource("1_w")
+weapon_type = 4
+tier = 1
+might = 4
+hit = 95
+required_grade = 2
+second_type = 0
+second_grade = 0
+family = "Twinblades"
+display_name = "Bronze Twinblades"
+weight = 4

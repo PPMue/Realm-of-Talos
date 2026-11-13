@@ -698,7 +698,7 @@ func test_weekly_refresh() -> void:
 		# Day 8: a new week, a new roll.
 		t.eq(run.day, 8, "seed %d: week 2" % s)
 		# A new stock is rolled: none of last week's ladder items is left over.
-		var ladder := run.shop_stock().filter(func(i: ShopItemData) -> bool: return not i.weapon.is_magic())
+		var ladder := run.shop_stock().filter(func(i: ShopItemData) -> bool: return not i.weapon.is_magic() or i.weapon.has_second_requirement())
 		t.eq(ladder.size(), RunConfig.SHOP_WEAPONS_PER_WEEK, "seed %d: a new week's ladder weapons" % s)
 		for item: ShopItemData in ladder:
 			t.check(not stock.has(item) and item != bought and item.min_day == 8, "seed %d: rolled for week 2" % s)
@@ -758,7 +758,7 @@ func test_shop_and_equip_requirement() -> void:
 	t.eq(c.progress.grade(kind), Proficiency.Grade.D, "starts at D")
 	var old := run.inventory.held_by(c)
 	t.check(not run.equip_weapon(c, owned), "C weapon refused at D")
-	t.check(run.equip_block_reason(c, owned).contains("grade C"), "says which grade: %s" % run.equip_block_reason(c, owned))
+	t.check(run.equip_block_reason(c, owned).contains("%s C" % WeaponData.type_name(kind).to_lower()), "says which grade: %s" % run.equip_block_reason(c, owned))
 	c.progress.points[kind] = Proficiency.points_for(Proficiency.Grade.C)
 	t.check(run.equip_weapon(c, owned), "allowed at C")
 	t.eq(c.weapon(), steel.weapon, "now holds it")

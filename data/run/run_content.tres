@@ -123,6 +123,30 @@
 [ext_resource type="Resource" path="res://data/weapons/platinum_spear.tres" id="wl_platinum_spear"]
 [ext_resource type="Resource" path="res://data/weapons/platinum_bow.tres" id="wl_platinum_bow"]
 [ext_resource type="Resource" path="res://data/weapons/platinum_dagger.tres" id="wl_platinum_dagger"]
+[ext_resource type="Resource" path="res://data/weapons/bronze_halberd.tres" id="hw_bronze_halberd"]
+[ext_resource type="Resource" path="res://data/weapons/bronze_glaive.tres" id="hw_bronze_glaive"]
+[ext_resource type="Resource" path="res://data/weapons/bronze_greatsword.tres" id="hw_bronze_greatsword"]
+[ext_resource type="Resource" path="res://data/weapons/bronze_twinblades.tres" id="hw_bronze_twinblades"]
+[ext_resource type="Resource" path="res://data/weapons/bronze_javelin.tres" id="hw_bronze_javelin"]
+[ext_resource type="Resource" path="res://data/weapons/bronze_runeblade.tres" id="hw_bronze_runeblade"]
+[ext_resource type="Resource" path="res://data/weapons/iron_halberd.tres" id="hw_iron_halberd"]
+[ext_resource type="Resource" path="res://data/weapons/iron_glaive.tres" id="hw_iron_glaive"]
+[ext_resource type="Resource" path="res://data/weapons/iron_greatsword.tres" id="hw_iron_greatsword"]
+[ext_resource type="Resource" path="res://data/weapons/iron_twinblades.tres" id="hw_iron_twinblades"]
+[ext_resource type="Resource" path="res://data/weapons/iron_javelin.tres" id="hw_iron_javelin"]
+[ext_resource type="Resource" path="res://data/weapons/iron_runeblade.tres" id="hw_iron_runeblade"]
+[ext_resource type="Resource" path="res://data/weapons/steel_halberd.tres" id="hw_steel_halberd"]
+[ext_resource type="Resource" path="res://data/weapons/steel_glaive.tres" id="hw_steel_glaive"]
+[ext_resource type="Resource" path="res://data/weapons/steel_greatsword.tres" id="hw_steel_greatsword"]
+[ext_resource type="Resource" path="res://data/weapons/steel_twinblades.tres" id="hw_steel_twinblades"]
+[ext_resource type="Resource" path="res://data/weapons/steel_javelin.tres" id="hw_steel_javelin"]
+[ext_resource type="Resource" path="res://data/weapons/steel_runeblade.tres" id="hw_steel_runeblade"]
+[ext_resource type="Resource" path="res://data/weapons/silver_halberd.tres" id="hw_silver_halberd"]
+[ext_resource type="Resource" path="res://data/weapons/silver_glaive.tres" id="hw_silver_glaive"]
+[ext_resource type="Resource" path="res://data/weapons/silver_greatsword.tres" id="hw_silver_greatsword"]
+[ext_resource type="Resource" path="res://data/weapons/silver_twinblades.tres" id="hw_silver_twinblades"]
+[ext_resource type="Resource" path="res://data/weapons/silver_javelin.tres" id="hw_silver_javelin"]
+[ext_resource type="Resource" path="res://data/weapons/silver_runeblade.tres" id="hw_silver_runeblade"]
 
 [resource]
 script = ExtResource("36_u1xmb")
@@ -133,3 +157,4 @@ bosses = Array[ExtResource("1_ny5wk")]([ExtResource("2_b5hu8"), ExtResource("3_4
 events = Array[ExtResource("11_rbcmf")]([ExtResource("12_3fc8b"), ExtResource("13_m7gph"), ExtResource("14_3o55s"), ExtResource("15_4wwuc"), ExtResource("16_vx2ae"), ExtResource("17_ei87n"), ExtResource("18_d00s4"), ExtResource("ev0")])
 shop = Array[ExtResource("37_vraid")]([ExtResource("mw0"), ExtResource("mw1"), ExtResource("mw2"), ExtResource("mw3")])
 weapons = Array[ExtResource("wd_script")]([ExtResource("wl_wooden_sword"), ExtResource("wl_wooden_axe"), ExtResource("wl_wooden_spear"), ExtResource("wl_wooden_bow"), ExtResource("wl_wooden_dagger"), ExtResource("wl_bronze_sword"), ExtResource("wl_bronze_axe"), ExtResource("wl_bronze_spear"), ExtResource("wl_bronze_bow"), ExtResource("wl_bronze_dagger"), ExtResource("wl_iron_sword"), ExtResource("wl_iron_axe"), ExtResource("wl_iron_spear"), ExtResource("wl_iron_bow"), ExtResource("wl_iron_dagger"), ExtResource("wl_steel_sword"), ExtResource("wl_steel_axe"), ExtResource("wl_steel_spear"), ExtResource("wl_steel_bow"), ExtResource("wl_steel_dagger"), ExtResource("wl_silver_sword"), ExtResource("wl_silver_axe"), ExtResource("wl_silver_spear"), ExtResource("wl_silver_bow"), ExtResource("wl_silver_dagger"), ExtResource("wl_platinum_sword"), ExtResource("wl_platinum_axe"), ExtResource("wl_platinum_spear"), ExtResource("wl_platinum_bow"), ExtResource("wl_platinum_dagger")])
+hybrid_weapons = Array[ExtResource("wd_script")]([ExtResource("hw_bronze_halberd"), ExtResource("hw_bronze_glaive"), ExtResource("hw_bronze_greatsword"), ExtResource("hw_bronze_twinblades"), ExtResource("hw_bronze_javelin"), ExtResource("hw_bronze_runeblade"), ExtResource("hw_iron_halberd"), ExtResource("hw_iron_glaive"), ExtResource("hw_iron_greatsword"), ExtResource("hw_iron_twinblades"), ExtResource("hw_iron_javelin"), ExtResource("hw_iron_runeblade"), ExtResource("hw_steel_halberd"), ExtResource("hw_steel_glaive"), ExtResource("hw_steel_greatsword"), ExtResource("hw_steel_twinblades"), ExtResource("hw_steel_javelin"), ExtResource("hw_steel_runeblade"), ExtResource("hw_silver_halberd"), ExtResource("hw_silver_glaive"), ExtResource("hw_silver_greatsword"), ExtResource("hw_silver_twinblades"), ExtResource("hw_silver_javelin"), ExtResource("hw_silver_runeblade")])

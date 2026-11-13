@@ -20,6 +20,10 @@ const DEFAULT_PATH := "res://data/run/run_content.tres"
 ## The weapon ladder: one of every type in every tier (WeaponData.Tier), 30 in all. The smithy's
 ## weekly stock, events that grant a weapon and the bosses' drops are drawn from it.
 @export var weapons: Array[WeaponData] = []
+## The two-proficiency weapons (WeaponData.has_second_requirement): six families at bronze, iron, steel
+## and silver, 24 in all. The smithy, events and bosses may draw one in place of a ladder weapon
+## (RunConfig.SHOP_HYBRID_CHANCE).
+@export var hybrid_weapons: Array[WeaponData] = []
 
 
 static func load_default() -> RunContent:
@@ -56,6 +60,15 @@ func ladder_tier(tier: int, type: int = -1) -> Array[WeaponData]:
 	var out: Array[WeaponData] = []
 	for w in weapons:
 		if w.tier == tier and not w.is_magic() and (type < 0 or w.weapon_type == type):
+			out.append(w)
+	return out
+
+
+## The two-proficiency weapons of tier `tier`, optionally of one main type only (-1: every type).
+func hybrids_of_tier(tier: int, type: int = -1) -> Array[WeaponData]:
+	var out: Array[WeaponData] = []
+	for w in hybrid_weapons:
+		if w.tier == tier and (type < 0 or w.weapon_type == type):
 			out.append(w)
 	return out
 

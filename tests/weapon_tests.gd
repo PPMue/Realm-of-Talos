@@ -20,6 +20,17 @@ const MIGHT_TABLE := [
 ## Health before this change, to check every companion kept their standing.
 const OLD_HP := {"Elena": 30, "Asterion": 29, "Ingrid": 27, "Aina": 26, "Shiro": 25, "Sylas": 24,
 	"Raizen": 23, "Kaito": 22, "Erik": 22, "Aveline": 22, "Yuzu": 21, "Freya": 20, "Koharu": 19, "Elio": 17}
+## Two-proficiency families: name, main type, second (["t", WeaponType] or ["s", SpellData.School]).
+const FAMILIES := [
+	["Halberd", 1, ["t", 2]],
+	["Glaive", 2, ["t", 0]],
+	["Greatsword", 0, ["t", 1]],
+	["Twinblades", 4, ["t", 0]],
+	["Javelin", 2, ["t", 3]],
+	["Runeblade", 0, ["s", 0]],
+]
+## Prices of a two-proficiency weapon at bronze, iron, steel, silver: tier price x 1.25, rounded to 5.
+const HYBRID_PRICES := [65, 140, 250, 400]
 const LARGE_ENEMIES := ["orc", "minotaur", "ancient_treant", "armored_beast", "cursed_dweller"]
 const LARGE_BOSSES := ["mossback_troll", "rampart_golem", "horned_tyrant"]
 
@@ -47,6 +58,12 @@ func tests() -> Array[Callable]:
 		test_event_weapon_fits_the_week,
 		test_boss_drops_a_weapon,
 		test_damage_by_weapon_type_table,
+		test_hybrid_families,
+		test_hybrid_holding,
+		test_hybrid_counts_as_main_type,
+		test_runeblade_uses_mag,
+		test_smithy_stocks_hybrids,
+		test_hybrid_reach,
 	]
 
 
@@ -438,11 +455,11 @@ func test_weekly_stock_tiers() -> void:
 			var weights: Array = Run.shop_tier_weights(run.day)
 			for item in run.shop_stock():
 				var w := item.weapon
-				if w.is_magic():
+				if w.is_magic() and not w.has_second_requirement():
 					t.check(week >= 1, "rare weapons from week 2")
 					continue
 				t.check(float(weights[w.tier]) > 0.0, "week %d sells %s only if its weights allow" % [week + 1, w.display_name])
-				t.eq(item.price, RunConfig.WEAPON_PRICE_BY_TIER[w.tier], "%s priced by tier" % w.display_name)
+				t.eq(item.price, Run.weapon_price(w), "%s priced by tier" % w.display_name)
 				counts[week][w.tier] += 1
 	var lines: Array[String] = []
 	for week in 6:
@@ -478,20 +495,20 @@ func test_weekly_stock_tiers() -> void:
 func test_stock_is_five_different_weapons() -> void:
 	for s in 30:
 		var run := make_run(700 + s)
-		var ladder := run.shop_stock().filter(func(i: ShopItemData) -> bool: return not i.weapon.is_magic())
+		var ladder := run.shop_stock().filter(func(i: ShopItemData) -> bool: return not i.weapon.is_magic() or i.weapon.has_second_requirement())
 		t.eq(ladder.size(), RunConfig.SHOP_WEAPONS_PER_WEEK, "seed %d: a handful of weapons" % s)
 		var seen := {}
 		var last_key := -1
 		for item: ShopItemData in ladder:
 			t.check(not seen.has(item.weapon), "seed %d: no two the same" % s)
 			seen[item.weapon] = true
-			var key: int = item.weapon.tier * 10 + item.weapon.weapon_type
+			var key: int = item.weapon.tier * 100 + item.weapon.weapon_type * 10 + (1 if item.weapon.has_second_requirement() else 0)
 			t.check(key > last_key, "seed %d: in order of tier and type" % s)
 			last_key = key
 		# Rare weapons, when in stock, come first.
 		var rare_done := false
 		for item in run.shop_stock():
-			if not item.weapon.is_magic():
+			if not (item.weapon.is_magic() and not item.weapon.has_second_requirement()):
 				rare_done = true
 			else:
 				t.check(not rare_done, "seed %d: rare items first" % s)
@@ -519,7 +536,7 @@ func test_event_weapon_fits_the_week() -> void:
 		run._draw_event_weapons()
 		var ch := any_choice if s % 2 == 0 else bow_choice
 		var w := run.choice_weapon(ch)
-		t.check(w != null and not w.is_magic(), "seed %d: a ladder weapon is drawn" % s)
+		t.check(w != null and (not w.is_magic() or w.has_second_requirement()), "seed %d: a ladder or two-proficiency weapon is drawn" % s)
 		if w == null:
 			continue
 		if ch == bow_choice:
@@ -574,7 +591,7 @@ func test_boss_drops_a_weapon() -> void:
 			if w == null:
 				continue
 			t.eq(w.tier, Run.boss_weapon_tier(boss_day), "day %d: the tier above the smithy" % boss_day)
-			t.check(not w.is_magic(), "a ladder weapon")
+			t.check(not w.is_magic() or w.has_second_requirement(), "a ladder or two-proficiency weapon")
 			t.eq(run.inventory.weapons.size(), before + 1, "into the armory")
 			t.check(run.inventory.weapons[-1].data == w and run.inventory.weapons[-1].holder == null, "unheld in the armory")
 			kinds[w.weapon_type] = true
@@ -676,3 +693,177 @@ func test_damage_by_weapon_type_table() -> void:
 			var v: float = mean_by_type[kind]
 			t.check(v >= mean * 0.6 and v <= mean * 1.5, "level %d: %s is neither useless nor dominant (%.1f against a mean of %.1f)" % [
 				level, WeaponData.type_name(kind), v, mean])
+
+
+# ---------------------------------------------------------------- two-proficiency weapons
+
+func hybrid(tier: int, family: String) -> WeaponData:
+	return load("res://data/weapons/%s_%s.tres" % [TIERS[tier], family.to_lower()])
+
+
+## Every family at bronze, iron, steel and silver, by the formula.
+func test_hybrid_families() -> void:
+	var rc := content()
+	t.eq(rc.hybrid_weapons.size(), 24, "six families at four tiers")
+	for ti in range(WeaponData.Tier.BRONZE, WeaponData.Tier.SILVER + 1):
+		for f: Array in FAMILIES:
+			var fam: String = f[0]
+			var main: int = f[1]
+			var second: Array = f[2]
+			var w := hybrid(ti, fam)
+			var name := "%s %s" % [TIERS[ti], fam]
+			t.check(w != null and rc.hybrid_weapons.has(w), "%s exists and is in the run content" % name)
+			if w == null:
+				continue
+			var plain := rc.ladder_weapon(ti, main)
+			t.eq(w.display_name, "%s %s" % [TIERS[ti].capitalize(), fam], "%s: name" % name)
+			t.eq(w.family, fam, "%s: family" % name)
+			t.eq(w.tier, ti, "%s: tier" % name)
+			t.eq(w.weapon_type, main, "%s: main type" % name)
+			t.eq(w.might, WeaponData.ladder_might(ti + BattleConfig.HYBRID_MIGHT_TIERS_UP, main), "%s: Mt of the main type one tier up" % name)
+			t.eq(w.might, rc.ladder_weapon(ti + 1, main).might, "%s: as the next tier's %s" % [name, TYPES[main]])
+			t.eq(w.weight, plain.weight + BattleConfig.HYBRID_WEIGHT_BONUS, "%s: weight +2" % name)
+			t.eq(w.hit, plain.hit, "%s: Hit as the tier's %s" % [name, TYPES[main]])
+			t.eq(w.required_grade, WeaponData.ladder_grade(ti), "%s: the tier's grade in the main type" % name)
+			t.eq(w.second_grade, WeaponData.ladder_grade(ti) - BattleConfig.HYBRID_SECOND_GRADE_STEPS_BELOW, "%s: one grade lower in the second" % name)
+			t.check(w.has_second_requirement(), "%s: two proficiencies" % name)
+			if second[0] == "t":
+				t.eq(w.second_type, second[1], "%s: second type" % name)
+				t.eq(w.second_school, -1, "%s: no school" % name)
+			else:
+				t.eq(w.second_school, second[1], "%s: second school" % name)
+				t.eq(w.second_type, -1, "%s: no second weapon type" % name)
+			t.eq(w.is_magic(), fam == "Runeblade", "%s: only the Runeblade is magic" % name)
+			t.eq(w.effective_against.has(EnemyTraits.LARGE), main == WeaponData.WeaponType.SPEAR, "%s: Large per the main type" % name)
+			t.eq(w.effective_against.has(EnemyTraits.FLYING), false, "%s: not against Flying" % name)
+			t.eq(Run.weapon_price(w), HYBRID_PRICES[ti - 1], "%s: price" % name)
+			t.eq(Run.weapon_price(w), roundi(RunConfig.WEAPON_PRICE_BY_TIER[ti] * 1.25 / 5.0) * 5, "%s: price by the rule" % name)
+	t.eq(hybrid(WeaponData.Tier.IRON, "Halberd").requirement_text(), "axe C · spear D", "requirement text")
+	t.eq(hybrid(WeaponData.Tier.BRONZE, "Runeblade").requirement_text(), "sword D · black magic E", "a school in the text")
+	var iron_spear := rc.ladder_weapon(WeaponData.Tier.IRON, WeaponData.WeaponType.SPEAR)
+	t.eq(iron_spear.requirement_text(), "spear C", "an ordinary weapon")
+	t.check(not iron_spear.has_second_requirement(), "ordinary: no second")
+	for ti: int in [WeaponData.Tier.WOODEN, WeaponData.Tier.PLATINUM]:
+		t.check(rc.hybrids_of_tier(ti).is_empty(), "no two-proficiency weapon at %s" % TIERS[ti])
+	t.eq(rc.ladder_tier(WeaponData.Tier.IRON).size(), 5, "the ladder is unchanged")
+
+
+func test_hybrid_holding() -> void:
+	var run := make_run(81)
+	run.roster.clear()
+	run.lineup.clear()
+	var elena := run._join(load("res://data/companions/elena.tres"))   # axe D, nothing else
+	var bronze := hybrid(WeaponData.Tier.BRONZE, "Halberd")
+	var iron := hybrid(WeaponData.Tier.IRON, "Halberd")
+	t.eq(elena.progress.weapon_block_reason(bronze), "", "axe D + spear E: a bronze halberd")
+	t.check(elena.progress.can_equip_weapon(bronze), "can hold it")
+	t.eq(elena.progress.weapon_block_reason(iron), "Needs axe C; Elena is D.", "the main grade first")
+	elena.progress.points[WeaponData.WeaponType.AXE] = Proficiency.points_for(Proficiency.Grade.C)
+	t.eq(elena.progress.weapon_block_reason(iron), "Needs spear D; Elena is E.", "main but not second: blocked, naming it")
+	t.check(not elena.progress.can_equip_weapon(iron), "cannot hold it")
+	var owned := run.inventory.add(iron)
+	t.eq(run.equip_block_reason(elena, owned), "Needs spear D; Elena is E.", "the armory uses the same check")
+	t.check(not run.equip_weapon(elena, owned), "refused")
+	elena.progress.points[WeaponData.WeaponType.SPEAR] = Proficiency.points_for(Proficiency.Grade.D)
+	t.eq(elena.progress.weapon_block_reason(iron), "", "both: allowed")
+	t.check(run.equip_weapon(elena, owned), "equipped")
+	t.eq(elena.weapon(), iron, "holds the halberd")
+	# A school as the second requirement.
+	var aina := run._join(load("res://data/companions/aina.tres"))   # sword D
+	t.eq(aina.progress.weapon_block_reason(hybrid(WeaponData.Tier.BRONZE, "Runeblade")), "", "sword D + black E")
+	aina.progress.points[WeaponData.WeaponType.SWORD] = Proficiency.points_for(Proficiency.Grade.C)
+	t.eq(aina.progress.weapon_block_reason(hybrid(WeaponData.Tier.IRON, "Runeblade")), "Needs black magic D; Aina is E.", "needs black magic")
+	aina.progress.magic_points[SpellData.School.BLACK] = Proficiency.points_for(Proficiency.Grade.D)
+	t.check(aina.progress.can_equip_weapon(hybrid(WeaponData.Tier.IRON, "Runeblade")), "then allowed")
+
+
+## Using a two-proficiency weapon raises only the main type; arts of the second type do not work with it.
+func test_hybrid_counts_as_main_type() -> void:
+	var halberd := hybrid(WeaponData.Tier.IRON, "Halberd")
+	var d := fighter(halberd, 10)
+	var b: Battle = t.make_battle(cs1(d), one(target(0)))
+	var c := b.roster[0]
+	var spear := c.progress.points_in(WeaponData.WeaponType.SPEAR)
+	var axe := c.progress.points_in(WeaponData.WeaponType.AXE)
+	t.check(b.attack(c, b.enemies[0]), "attack")
+	t.check(c.progress.points_in(WeaponData.WeaponType.AXE) > axe, "axe points rise")
+	t.eq(c.progress.points_in(WeaponData.WeaponType.SPEAR), spear, "spear points never do")
+	t.eq(CombatMath.attack_power(c, halberd), 10 + floori(d.build / 2.0), "attack power of an axe")
+	var spear_art: CombatArtData = t.make_art("Thrust", 1, 1, 1, 0, WeaponData.WeaponType.SPEAR)
+	t.give_art(c, spear_art)
+	t.check(b.art_block_reason(c, spear_art) != "", "spear arts do not work with a halberd")
+	# Effectiveness per the main type: a glaive against Large, a halberd not.
+	var g: Battle = t.make_battle(cs1(fighter(hybrid(WeaponData.Tier.IRON, "Glaive"), 10)), one(target(0, 0, [EnemyTraits.LARGE])))
+	t.check(g.is_effective(g.roster[0], g.enemies[0]), "a glaive is effective against Large")
+	var h: Battle = t.make_battle(cs1(fighter(halberd, 10)), one(target(0, 0, [EnemyTraits.LARGE])))
+	t.check(not h.is_effective(h.roster[0], h.enemies[0]), "a halberd is not")
+
+
+func test_runeblade_uses_mag() -> void:
+	var rune := hybrid(WeaponData.Tier.STEEL, "Runeblade")
+	t.eq(CombatMath.attack_power_from(rune, 3, 14, 0, 0, 0), 14, "MAG in place of STR")
+	var b: Battle = t.make_battle(cs1(fighter(rune, 3, 14)), one(target(30, 4)))
+	var f := b.forecast(b.roster[0], b.enemies[0])
+	t.check(f.magic, "a magic strike")
+	t.eq(f.damage, 14 + rune.might - 4, "MAG + Mt - RES")
+
+
+## The smithy stocks them, at bronze to silver only, in about a fifth of the slots that could hold one.
+func test_smithy_stocks_hybrids() -> void:
+	var slots := 0
+	var hybrids := 0
+	var by_tier := [0, 0, 0, 0, 0, 0]
+	for s in 60:
+		var run := make_run(8100 + s)
+		for week in 6:
+			run.day = week * RunConfig.WEEK_DAYS + 1
+			run.shop_week.clear()
+			run._stock_shop()
+			for item in run.shop_stock():
+				if run.content.shop.has(item):
+					continue
+				var w := item.weapon
+				if w.tier >= WeaponData.Tier.BRONZE and w.tier <= WeaponData.Tier.SILVER:
+					slots += 1
+				if w.has_second_requirement():
+					hybrids += 1
+					by_tier[w.tier] += 1
+					t.check(w.tier >= WeaponData.Tier.BRONZE and w.tier <= WeaponData.Tier.SILVER, "%s: bronze to silver only" % w.display_name)
+					t.eq(item.price, Run.weapon_price(w), "%s: priced x1.25" % w.display_name)
+	var share := float(hybrids) / maxi(1, slots)
+	print("  two-proficiency weapons in the smithy: %d of %d bronze-silver slots (%.0f%%), by tier %s" % [hybrids, slots, 100.0 * share, str(by_tier)])
+	t.check(share > 0.13 and share < 0.27, "about a fifth of the slots (%.2f)" % share)
+	t.eq(by_tier[0] + by_tier[5], 0, "never wooden or platinum")
+	t.check(by_tier[1] > 0 and by_tier[4] > 0, "from bronze to silver")
+	# Events can give one too.
+	var seen := false
+	for s in 200:
+		var run := make_run(8300 + s)
+		run.day = 9
+		run.event = load("res://data/run/events/armory.tres")
+		run._draw_event_weapons()
+		for ch in run.event.choices:
+			var w := run.choice_weapon(ch)
+			if w != null and w.has_second_requirement():
+				seen = true
+	t.check(seen, "an event can give a two-proficiency weapon")
+
+
+## Prints, for each companion, which families they can hold at bronze at the start of a run, and which
+## they could reach at every tier by training (a grade above E in both: training never opens a new one).
+func test_hybrid_reach() -> void:
+	print("  two-proficiency families by companion (bronze at the start / any tier by training):")
+	for d in content().companions:
+		var p := CompanionProgress.create(d)
+		var now: Array[String] = []
+		var later: Array[String] = []
+		for f: Array in FAMILIES:
+			var fam: String = f[0]
+			if p.can_equip_weapon(hybrid(WeaponData.Tier.BRONZE, fam)):
+				now.append(fam)
+			var sec: Array = f[2]
+			var sec_grade: int = p.grade(sec[1]) if sec[0] == "t" else p.magic_grade(sec[1])
+			if p.grade(f[1]) > Proficiency.Grade.E and sec_grade > Proficiency.Grade.E:
+				later.append(fam)
+		print("    %-9s start: %-36s by training: %s" % [d.display_name, ", ".join(now), ", ".join(later)])
+	t.check(true, "printed")

@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="WeaponData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_data.gd" id="1_w"]
+
+[resource]
+script = ExtResource("1_w")
+weapon_type = 0
+tier = 3
+might = 12
+hit = 85
+required_grade = 6
+second_type = 1
+second_grade = 4
+family = "Greatsword"
+display_name = "Steel Greatsword"
+weight = 10

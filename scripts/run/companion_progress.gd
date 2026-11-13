@@ -106,8 +106,27 @@ func progress_to_next(t: WeaponData.WeaponType) -> Vector2i:
 	return Vector2i(points_in(t) - floor_points, Proficiency.points_for(g + 1) - floor_points)
 
 
+## The one check of whether this companion may hold `weapon`: the grade in its type, and for a
+## two-proficiency weapon also the grade in its second type or school. "" if allowed, else the first
+## grade missing: "Needs axe D; Elena is E."
+func weapon_block_reason(weapon: WeaponData) -> String:
+	if weapon == null:
+		return ""
+	var who := data.display_name if data != null else "this companion"
+	var have := grade(weapon.weapon_type)
+	if not Proficiency.meets_requirement(have, weapon):
+		return "Needs %s %s; %s is %s." % [WeaponData.type_name(weapon.weapon_type).to_lower(),
+			Proficiency.grade_name(weapon.required_grade), who, Proficiency.grade_name(have)]
+	if weapon.has_second_requirement():
+		have = grade(weapon.second_type) if weapon.second_type >= 0 else magic_grade(weapon.second_school)
+		if have < weapon.second_grade:
+			return "Needs %s %s; %s is %s." % [weapon.second_name(), Proficiency.grade_name(weapon.second_grade),
+				who, Proficiency.grade_name(have)]
+	return ""
+
+
 func can_equip_weapon(weapon: WeaponData) -> bool:
-	return weapon == null or Proficiency.meets_requirement(grade(weapon.weapon_type), weapon)
+	return weapon_block_reason(weapon) == ""
 
 
 # ---------------------------------------------------------------- arts
