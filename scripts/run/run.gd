@@ -464,8 +464,9 @@ func hire(data: CompanionData) -> RunCompanion:
 # ---------------------------------------------------------------- the training ground
 
 ## Why `c` cannot take `drill` today, or "". A drill uses the day's free action (FreeAction.TRAIN)
-## and RunConfig.DRILL_COST gold. A proficiency drill needs a grade above E in its type or school
-## (training never opens a new one) and below S; Sparring needs a level below the top. Anyone in the
+## and RunConfig.DRILL_COST gold. A weapon drill needs a grade below S in its type (from E, it opens
+## a new weapon type); a magic drill needs a grade above E in its school (training never opens a
+## school) and below S; Sparring needs a level below the top. Anyone in the
 ## roster can train, fielded or not.
 func drill_block_reason(drill: Drill, c: RunCompanion) -> String:
 	var why := free_action_block_reason(FreeAction.TRAIN)
@@ -519,8 +520,9 @@ static func xp_pool(danger: int, d: int) -> int:
 func _drill_unfit_reason(drill: Drill, c: RunCompanion) -> String:
 	if drill.is_proficiency():
 		var g := drill.grade_of(c.progress)
-		if g <= Proficiency.Grade.E:
-			return "%s has no grade in %s to train." % [c.display_name(), drill.subject_name()]
+		# A weapon drill can open a new type from E; a school must already be above E.
+		if drill.kind == Drill.Kind.MAGIC and g <= Proficiency.Grade.E:
+			return "%s has no grade in %s to train; drills never open a school." % [c.display_name(), drill.subject_name()]
 		if g >= Proficiency.max_grade():
 			return "%s is already at %s in %s." % [c.display_name(), Proficiency.grade_name(g), drill.subject_name()]
 	elif c.level() >= RunConfig.MAX_LEVEL:
@@ -840,8 +842,8 @@ func _restock_week() -> void:
 
 
 ## The week's drills: Sparring, then RunConfig.DRILLS_PROFICIENCY_PER_WEEK different weapon types or
-## magic schools drawn at random from those someone in the roster could train (a grade above E and
-## below S), fewer if fewer exist. Listed weapon types first, then schools, each in enum order.
+## magic schools drawn at random from those someone in the roster could train (any weapon type someone
+## is below S in; a school someone is above E and below S in), fewer if fewer exist. Listed weapon types first, then schools, each in enum order.
 func _post_drills() -> void:
 	drills.clear()
 	drills.append(Drill.sparring())

@@ -123,33 +123,43 @@ func test_drills_posted_weekly() -> void:
 	t.check(sets.size() > 3, "the drills vary between runs (%d different sets)" % sets.size())
 
 
-## Only types someone has a grade in (above E, below S); fewer when fewer exist.
+## Any weapon type someone is below S in (a drill can open one from E); a school only if someone is
+## above E and below S in it; fewer when fewer exist.
 func test_drills_only_useful_types() -> void:
 	var run := make_run(62)
-	# Elena has a grade only in axes.
+	# Elena has a grade only in axes, but every weapon type can be drilled; no school can.
+	var weapon_types := {}
+	for s in 40:
+		var r := make_run(6200 + s)
+		set_roster(r, ["elena"])
+		t.eq(r.drills.size(), 3, "seed %d: Sparring and two weapon drills" % s)
+		for d in r.drills.slice(1):
+			t.eq(d.kind, Drill.Kind.WEAPON, "seed %d: no school for Elena" % s)
+			weapon_types[d.weapon_type] = true
+	t.eq(weapon_types.size(), 5, "all five weapon types turn up")
+	# A weapon type at S for everyone is not posted.
 	set_roster(run, ["elena"])
-	t.eq(run.drills.size(), 2, "one useful type: Sparring and that drill")
-	t.eq(run.drills[1].kind, Drill.Kind.WEAPON, "a weapon drill")
-	t.eq(run.drills[1].weapon_type, WeaponData.WeaponType.AXE, "the axe drill")
-	t.eq(run.drills[1].display_name, "Axe drill", "named")
-	# At S there is nothing left to train.
-	run.roster[0].progress.points[WeaponData.WeaponType.AXE] = Proficiency.points_for(Proficiency.Grade.S)
+	for wt: int in WeaponData.WeaponType.values():
+		if wt != WeaponData.WeaponType.BOW:
+			run.roster[0].progress.points[wt] = Proficiency.points_for(Proficiency.Grade.S)
+	run._post_drills()
+	t.eq(run.drills.size(), 2, "only the bow is left to train")
+	t.eq(run.drills[1].weapon_type, WeaponData.WeaponType.BOW, "the bow drill")
+	t.eq(run.drills[1].display_name, "Bow drill", "named")
+	run.roster[0].progress.points[WeaponData.WeaponType.BOW] = Proficiency.points_for(Proficiency.Grade.S)
 	run._post_drills()
 	t.eq(run.drills.size(), 1, "only Sparring when every grade is done")
 	# A mage: schools are drills too. Elio has a grade only in white magic.
-	set_roster(run, ["elio"])
-	t.eq(run.drills.size(), 2, "Elio: Sparring and one school")
-	t.eq(run.drills[1].kind, Drill.Kind.MAGIC, "a magic drill")
-	t.eq(run.drills[1].school, SpellData.School.WHITE, "white magic")
-	t.eq(run.drills[1].display_name, "White Magic drill", "named")
-	# Several companions: only the types somebody has.
-	for s in 20:
-		var r := make_run(6300 + s)
-		set_roster(r, ["elena", "erik", "kaito"])
-		t.eq(r.drills.size(), 3, "seed %d: three drills" % s)
+	var white := 0
+	for s in 40:
+		var r := make_run(6250 + s)
+		set_roster(r, ["elio"])
 		for d in r.drills.slice(1):
-			t.check(d.kind == Drill.Kind.WEAPON and [WeaponData.WeaponType.AXE, WeaponData.WeaponType.BOW,
-				WeaponData.WeaponType.SWORD].has(d.weapon_type), "seed %d: %s is one of theirs" % [s, d.display_name])
+			if d.kind == Drill.Kind.MAGIC:
+				t.eq(d.school, SpellData.School.WHITE, "seed %d: only white magic" % s)
+				t.eq(d.display_name, "White Magic drill", "named")
+				white += 1
+	t.check(white > 5, "Elio's school is posted in some weeks (%d of 40)" % white)
 
 
 # ---------------------------------------------------------------- who and when
@@ -187,8 +197,8 @@ func test_drill_block_reasons() -> void:
 	t.eq(run.drill_block_reason(sparring, elena), "", "exactly enough")
 	# Who can take which.
 	t.eq(run.drill_block_reason(axe, elena), "", "Elena trains axes")
-	t.check(run.drill_block_reason(axe, elio).contains("no grade in axe"), "Elio has no axe grade: %s" % run.drill_block_reason(axe, elio))
-	t.check(run.drill_block_reason(white, elena).contains("no grade in white magic"), "training never opens a new type")
+	t.eq(run.drill_block_reason(axe, elio), "", "Elio has no axe grade, but a weapon drill opens the type")
+	t.check(run.drill_block_reason(white, elena).contains("no grade in white magic"), "training never opens a school: %s" % run.drill_block_reason(white, elena))
 	t.eq(run.drill_block_reason(white, elio), "", "Elio trains white magic")
 	elena.progress.points[WeaponData.WeaponType.AXE] = Proficiency.points_for(Proficiency.Grade.S)
 	t.check(run.drill_block_reason(axe, elena).contains("already at S"), "not at the highest grade")
@@ -201,6 +211,8 @@ func test_drill_block_reasons() -> void:
 	# Nobody could learn anything: the action itself says so.
 	elio.progress.level = RunConfig.MAX_LEVEL
 	elio.progress.magic_points[SpellData.School.WHITE] = Proficiency.points_for(Proficiency.Grade.S)
+	t.eq(run.free_action_block_reason(Run.FreeAction.TRAIN), "", "Elio can still open axes")
+	elio.progress.points[WeaponData.WeaponType.AXE] = Proficiency.points_for(Proficiency.Grade.S)
 	t.eq(run.free_action_block_reason(Run.FreeAction.TRAIN), Run.NO_USEFUL_DRILL, "nothing left to learn")
 	elio.progress.level = 1
 	# After another action, no drill; after a drill, nothing else.
@@ -343,6 +355,16 @@ func test_drill_grade_up() -> void:
 	t.eq(r3.grade_ups[0].school, SpellData.School.WHITE, "white")
 	t.check(r3.grade_ups[0].spell != null and elio.progress.knows_spell(r3.grade_ups[0].spell), "a spell is learned")
 	t.eq(elio.progress.known_spells.size(), spells_before + 1, "one more spell")
+	# A weapon drill opens a new type from E: reaching E+ teaches an art of it.
+	fresh_action(run)
+	t.eq(elio.progress.grade(WeaponData.WeaponType.AXE), Proficiency.Grade.E, "Elio starts at E in axes")
+	elio.progress.points[WeaponData.WeaponType.AXE] = Proficiency.points_for(Proficiency.Grade.E_PLUS) - 1
+	var r4 := run.train(axe, elio)
+	t.check(r4 != null, "an axe drill from E")
+	t.eq(r4.grade_before, Proficiency.Grade.E, "from E")
+	t.check(r4.grade_after >= Proficiency.Grade.E_PLUS, "to E+ or beyond")
+	t.eq(r4.grade_ups.size(), r4.grade_after - r4.grade_before, "one entry per grade reached")
+	t.check(r4.grade_ups[0].grade == Proficiency.Grade.E_PLUS and r4.grade_ups[0].art != null and elio.progress.knows(r4.grade_ups[0].art), "E+ teaches an axe art")
 
 
 func test_sparring_level_up() -> void:

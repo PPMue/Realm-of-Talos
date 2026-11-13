@@ -132,12 +132,29 @@ func train(run: Run) -> void:
 	var best_drill: Drill = null
 	var best_c: RunCompanion = null
 	var best_grade := 99
+	# A drill in the second type of a two-proficiency weapon the company owns or the smithy stocks,
+	# when a fielded companion is short only of that grade and the weapon would raise their Attack.
+	# This is the only time it opens a new type (a drill from E).
 	for d in run.drills:
+		if d.kind != Drill.Kind.WEAPON:
+			continue
+		for c in run.lineup:
+			if run.drill_block_reason(d, c) == "" and _hybrid_wants(run, c, d.weapon_type):
+				best_drill = d
+				best_c = c
+				break
+		if best_drill != null:
+			break
+	for d in run.drills:
+		if best_drill != null:
+			break
 		if d.kind != Drill.Kind.WEAPON:
 			continue
 		for c in run.lineup:
 			if c.weapon() == null or c.weapon().weapon_type != d.weapon_type or run.drill_block_reason(d, c) != "":
 				continue
+			if d.grade_of(c.progress) <= Proficiency.Grade.E:
+				continue   # never opens a type except for a two-proficiency weapon (above)
 			if d.grade_of(c.progress) < best_grade:
 				best_grade = d.grade_of(c.progress)
 				best_drill = d
@@ -152,6 +169,24 @@ func train(run: Run) -> void:
 			drilled += 1
 		else:
 			sparred += 1
+
+
+## True if a two-proficiency weapon of `c`'s type, owned and unheld or in the smithy's stock, needs a
+## second grade in `type` that `c` lacks, `c` meets its main grade, and it would raise `c`'s Attack.
+func _hybrid_wants(run: Run, c: RunCompanion, type: int) -> bool:
+	var options: Array[WeaponData] = []
+	for w in run.inventory.unheld():
+		options.append(w.data)
+	for item in run.shop_stock():
+		options.append(item.weapon)
+	for w in options:
+		if w.second_type != type or w.weapon_type != c.weapon().weapon_type:
+			continue
+		if c.progress.grade(w.weapon_type) < w.required_grade or c.progress.grade(type) >= w.second_grade:
+			continue
+		if _power(c, w) > _power(c, c.weapon()):
+			return true
+	return false
 
 
 func pick_choice(run: Run) -> EventChoiceData:

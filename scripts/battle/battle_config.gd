@@ -61,10 +61,12 @@ const WEAPON_TYPE_MIGHT_OFFSET := [
 const WEAPON_TIER_GRADE: Array[int] = [0, 2, 4, 6, 8, 10]
 # Two-proficiency weapons (bronze to silver): Mt of their main type's ladder weapon this many tiers up,
 # weight this much above it at the same tier, Hit as it; the second type needs a grade this many steps
-# lower than the tier's (2 steps = one letter: bronze D + E, iron C + D, steel B + C, silver A + B).
+# lower than the tier's (2 steps = one letter), but never below HYBRID_SECOND_GRADE_MIN: everyone has E
+# in everything, so E would be no requirement. Bronze D + E+, iron C + D, steel B + C, silver A + B.
 const HYBRID_MIGHT_TIERS_UP := 1
 const HYBRID_WEIGHT_BONUS := 2
 const HYBRID_SECOND_GRADE_STEPS_BELOW := 2
+const HYBRID_SECOND_GRADE_MIN := 1   # Proficiency.Grade.E_PLUS
 
 # --- Weapon proficiency ---
 # Grades in order: E, E+, D, D+, C, C+, B, B+, A, A+, S (see Proficiency.Grade).

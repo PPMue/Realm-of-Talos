@@ -725,7 +725,8 @@ func test_hybrid_families() -> void:
 			t.eq(w.weight, plain.weight + BattleConfig.HYBRID_WEIGHT_BONUS, "%s: weight +2" % name)
 			t.eq(w.hit, plain.hit, "%s: Hit as the tier's %s" % [name, TYPES[main]])
 			t.eq(w.required_grade, WeaponData.ladder_grade(ti), "%s: the tier's grade in the main type" % name)
-			t.eq(w.second_grade, WeaponData.ladder_grade(ti) - BattleConfig.HYBRID_SECOND_GRADE_STEPS_BELOW, "%s: one grade lower in the second" % name)
+			t.eq(w.second_grade, maxi(BattleConfig.HYBRID_SECOND_GRADE_MIN, WeaponData.ladder_grade(ti) - BattleConfig.HYBRID_SECOND_GRADE_STEPS_BELOW), "%s: one grade lower in the second, at least E+" % name)
+			t.check(w.second_grade > Proficiency.Grade.E, "%s: the second is a real requirement" % name)
 			t.check(w.has_second_requirement(), "%s: two proficiencies" % name)
 			if second[0] == "t":
 				t.eq(w.second_type, second[1], "%s: second type" % name)
@@ -739,7 +740,7 @@ func test_hybrid_families() -> void:
 			t.eq(Run.weapon_price(w), HYBRID_PRICES[ti - 1], "%s: price" % name)
 			t.eq(Run.weapon_price(w), roundi(RunConfig.WEAPON_PRICE_BY_TIER[ti] * 1.25 / 5.0) * 5, "%s: price by the rule" % name)
 	t.eq(hybrid(WeaponData.Tier.IRON, "Halberd").requirement_text(), "axe C · spear D", "requirement text")
-	t.eq(hybrid(WeaponData.Tier.BRONZE, "Runeblade").requirement_text(), "sword D · black magic E", "a school in the text")
+	t.eq(hybrid(WeaponData.Tier.BRONZE, "Runeblade").requirement_text(), "sword D · black magic E+", "a school in the text")
 	var iron_spear := rc.ladder_weapon(WeaponData.Tier.IRON, WeaponData.WeaponType.SPEAR)
 	t.eq(iron_spear.requirement_text(), "spear C", "an ordinary weapon")
 	t.check(not iron_spear.has_second_requirement(), "ordinary: no second")
@@ -755,14 +756,16 @@ func test_hybrid_holding() -> void:
 	var elena := run._join(load("res://data/companions/elena.tres"))   # axe D, nothing else
 	var bronze := hybrid(WeaponData.Tier.BRONZE, "Halberd")
 	var iron := hybrid(WeaponData.Tier.IRON, "Halberd")
-	t.eq(elena.progress.weapon_block_reason(bronze), "", "axe D + spear E: a bronze halberd")
+	t.eq(elena.progress.weapon_block_reason(bronze), "Needs spear E+; Elena is E.", "E in the second is not enough, even at bronze")
+	elena.progress.points[WeaponData.WeaponType.SPEAR] = Proficiency.points_for(Proficiency.Grade.E_PLUS)
+	t.eq(elena.progress.weapon_block_reason(bronze), "", "axe D + spear E+: a bronze halberd")
 	t.check(elena.progress.can_equip_weapon(bronze), "can hold it")
 	t.eq(elena.progress.weapon_block_reason(iron), "Needs axe C; Elena is D.", "the main grade first")
 	elena.progress.points[WeaponData.WeaponType.AXE] = Proficiency.points_for(Proficiency.Grade.C)
-	t.eq(elena.progress.weapon_block_reason(iron), "Needs spear D; Elena is E.", "main but not second: blocked, naming it")
+	t.eq(elena.progress.weapon_block_reason(iron), "Needs spear D; Elena is E+.", "main but not second: blocked, naming it")
 	t.check(not elena.progress.can_equip_weapon(iron), "cannot hold it")
 	var owned := run.inventory.add(iron)
-	t.eq(run.equip_block_reason(elena, owned), "Needs spear D; Elena is E.", "the armory uses the same check")
+	t.eq(run.equip_block_reason(elena, owned), "Needs spear D; Elena is E+.", "the armory uses the same check")
 	t.check(not run.equip_weapon(elena, owned), "refused")
 	elena.progress.points[WeaponData.WeaponType.SPEAR] = Proficiency.points_for(Proficiency.Grade.D)
 	t.eq(elena.progress.weapon_block_reason(iron), "", "both: allowed")
@@ -770,7 +773,7 @@ func test_hybrid_holding() -> void:
 	t.eq(elena.weapon(), iron, "holds the halberd")
 	# A school as the second requirement.
 	var aina := run._join(load("res://data/companions/aina.tres"))   # sword D
-	t.eq(aina.progress.weapon_block_reason(hybrid(WeaponData.Tier.BRONZE, "Runeblade")), "", "sword D + black E")
+	t.eq(aina.progress.weapon_block_reason(hybrid(WeaponData.Tier.BRONZE, "Runeblade")), "Needs black magic E+; Aina is E.", "a bronze runeblade needs black E+")
 	aina.progress.points[WeaponData.WeaponType.SWORD] = Proficiency.points_for(Proficiency.Grade.C)
 	t.eq(aina.progress.weapon_block_reason(hybrid(WeaponData.Tier.IRON, "Runeblade")), "Needs black magic D; Aina is E.", "needs black magic")
 	aina.progress.magic_points[SpellData.School.BLACK] = Proficiency.points_for(Proficiency.Grade.D)
@@ -850,7 +853,8 @@ func test_smithy_stocks_hybrids() -> void:
 
 
 ## Prints, for each companion, which families they can hold at bronze at the start of a run, and which
-## they could reach at every tier by training (a grade above E in both: training never opens a new one).
+## they could reach at every tier by training (a weapon drill opens any weapon type; a school must
+## already be above E).
 func test_hybrid_reach() -> void:
 	print("  two-proficiency families by companion (bronze at the start / any tier by training):")
 	for d in content().companions:
@@ -862,8 +866,7 @@ func test_hybrid_reach() -> void:
 			if p.can_equip_weapon(hybrid(WeaponData.Tier.BRONZE, fam)):
 				now.append(fam)
 			var sec: Array = f[2]
-			var sec_grade: int = p.grade(sec[1]) if sec[0] == "t" else p.magic_grade(sec[1])
-			if p.grade(f[1]) > Proficiency.Grade.E and sec_grade > Proficiency.Grade.E:
+			if sec[0] == "t" or p.magic_grade(sec[1]) > Proficiency.Grade.E:
 				later.append(fam)
 		print("    %-9s start: %-36s by training: %s" % [d.display_name, ", ".join(now), ", ".join(later)])
 	t.check(true, "printed")
