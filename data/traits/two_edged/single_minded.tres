@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_ehapu"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_fjvww"]
+
+[sub_resource type="Resource" id="Resource_kg46m"]
+script = ExtResource("1_ehapu")
+kind = 1
+amount = 15
+struck = 1
+
+[sub_resource type="Resource" id="Resource_bst6k"]
+script = ExtResource("1_ehapu")
+kind = 1
+amount = -5
+struck = 2
+
+[resource]
+script = ExtResource("2_fjvww")
+id = "single_minded"
+display_name = "Single-Minded"
+family = 3
+rarity = 1
+gives = Array[String](["+15 Hit against the enemy they struck last"])
+takes = Array[String](["-5 Hit against any other"])
+modifiers = Array[ExtResource("1_ehapu")]([SubResource("Resource_kg46m"), SubResource("Resource_bst6k")])

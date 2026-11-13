@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_c15je"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_82p3s"]
+
+[sub_resource type="Resource" id="Resource_s40j8"]
+script = ExtResource("1_c15je")
+kind = 1
+amount = 15
+target_trait = "Flying"
+
+[resource]
+script = ExtResource("2_82p3s")
+id = "fowler"
+display_name = "Fowler"
+family = 5
+rarity = 1
+gives = Array[String](["+15 Hit against Flying enemies"])
+modifiers = Array[ExtResource("1_c15je")]([SubResource("Resource_s40j8")])

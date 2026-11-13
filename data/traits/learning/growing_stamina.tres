@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_lq27h"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_3t5vd"]
+
+[sub_resource type="Resource" id="Resource_xg7w6"]
+script = ExtResource("1_lq27h")
+kind = 14
+amount = 15
+stat = "STA"
+
+[resource]
+script = ExtResource("2_3t5vd")
+id = "growing_stamina"
+display_name = "Growing: Stamina"
+family = 7
+line = "Growing"
+gives = Array[String](["+15 to Stamina growth"])
+modifiers = Array[ExtResource("1_lq27h")]([SubResource("Resource_xg7w6")])

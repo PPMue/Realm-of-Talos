@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_h1wa4"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_ystev"]
+
+[sub_resource type="Resource" id="Resource_5a4db"]
+script = ExtResource("1_h1wa4")
+kind = 2
+amount = 8
+weapon_type = 4
+
+[resource]
+script = ExtResource("2_ystev")
+id = "dagger_keen"
+display_name = "Dagger: Keen"
+family = 0
+line = "Keen"
+weapon_type = 4
+gives = Array[String](["+8 Crit with daggers"])
+modifiers = Array[ExtResource("1_h1wa4")]([SubResource("Resource_5a4db")])

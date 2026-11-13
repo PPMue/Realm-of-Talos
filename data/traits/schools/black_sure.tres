@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_3wd6h"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_wt1hc"]
+
+[sub_resource type="Resource" id="Resource_2ajqy"]
+script = ExtResource("1_3wd6h")
+kind = 1
+amount = 10
+school = 0
+
+[resource]
+script = ExtResource("2_wt1hc")
+id = "black_sure"
+display_name = "Black: Sure"
+family = 1
+line = "Sure"
+school = 0
+gives = Array[String](["+10 Hit with black spells"])
+modifiers = Array[ExtResource("1_3wd6h")]([SubResource("Resource_2ajqy")])

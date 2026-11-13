@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_3c7sk"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_jgpe6"]
+
+[sub_resource type="Resource" id="Resource_xwyhs"]
+script = ExtResource("1_3c7sk")
+kind = 2
+amount = 20
+self_health = 1
+
+[sub_resource type="Resource" id="Resource_ery5w"]
+script = ExtResource("1_3c7sk")
+kind = 17
+amount = -50
+
+[resource]
+script = ExtResource("2_jgpe6")
+id = "daredevil"
+display_name = "Daredevil"
+family = 3
+rarity = 1
+gives = Array[String](["+20 Crit below half Health"])
+takes = Array[String](["Heals only half as much at day's end"])
+modifiers = Array[ExtResource("1_3c7sk")]([SubResource("Resource_xwyhs"), SubResource("Resource_ery5w")])

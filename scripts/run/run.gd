@@ -24,6 +24,12 @@ var rng: RandomNumberGenerator
 var content: RunContent
 var art_pool: Array[CombatArtData] = []
 var spell_pool: Array[SpellData] = []
+## Every trait that can be handed out (TraitLibrary). See _roll_traits.
+var trait_pool: Array[TraitData] = []
+## Traits on someone in the company or on this week's tavern offers: no trait twice in a run.
+var _traits_taken: Array[TraitData] = []
+## This week's tavern offers' traits: CompanionData -> Array[TraitData] (see offer_traits).
+var _offer_traits: Dictionary = {}
 
 ## 1-based. After the run ends it stays on the last day played.
 var day: int = 1
@@ -90,6 +96,7 @@ static func create(p_rng: RandomNumberGenerator, p_content: RunContent = null, p
 	r.content = p_content if p_content != null else RunContent.load_default()
 	r.art_pool = p_art_pool
 	r.spell_pool = p_spell_pool
+	r.trait_pool = TraitLibrary.load_default().traits.duplicate()
 	r.gold = RunConfig.STARTING_GOLD
 	for m in RunConfig.MATERIAL_ORDER:
 		r.materials[m] = int(RunConfig.STARTING_MATERIALS.get(m, 0))
@@ -106,7 +113,9 @@ static func create(p_rng: RandomNumberGenerator, p_content: RunContent = null, p
 				options = pool.duplicate()
 		var pick: CompanionData = options[r.rng.randi_range(0, options.size() - 1)]
 		pool.erase(pick)
-		r._join(pick)
+		var c := r._join(pick)
+		c.traits = r._roll_traits(c.progress)
+		c.hp = c.max_hp()
 	r._draw_bosses()
 	r._begin_day()
 	return r
@@ -606,6 +615,8 @@ func hire(data: CompanionData) -> RunCompanion:
 	tavern_offers.erase(data)
 	var level := hire_level()
 	var c := _join(data)
+	c.traits = offer_traits(data)
+	_offer_traits.erase(data)
 	while c.level() < level:
 		Levels.level_up(c.progress, rng)
 	c.hp = c.max_hp()
@@ -706,7 +717,7 @@ func _drill_proficiency(r: DrillResult) -> void:
 	var p := r.companion.progress
 	var drill := r.drill
 	r.grade_before = drill.grade_of(p)
-	r.points_gained = drill.add_points(p, RunConfig.DRILL_POINTS[r.quality])
+	r.points_gained = drill.add_points(p, drill_points(drill, r.companion, r.quality))
 	r.grade_after = drill.grade_of(p)
 	# Every grade reached teaches as in battle (Battle._gain_proficiency, Battle._gain_magic).
 	for g in range(r.grade_before + 1, r.grade_after + 1):
@@ -727,7 +738,7 @@ func _drill_sparring(r: DrillResult) -> void:
 	var c := r.companion
 	r.level_before = c.level()
 	r.stats_before = c.progress.stats()
-	r.xp_gained = drill_xp(r.quality)
+	r.xp_gained = Levels.with_traits(c.progress, drill_xp(r.quality))
 	var stats := r.stats_before.duplicate()
 	var from := c.level()
 	for up in Levels.add_xp(c.progress, r.xp_gained, rng):
@@ -748,8 +759,9 @@ func _grant_xp(report: BattleReport, pool: int, standing: Array[RunCompanion], p
 	var shares := Levels.split_xp(pool, points)
 	for i in standing.size():
 		var c := standing[i]
-		report.xp_gained[c.display_name()] = shares[i]
-		for up in Levels.add_xp(c.progress, shares[i], rng):
+		var xp := Levels.with_traits(c.progress, shares[i])
+		report.xp_gained[c.display_name()] = xp
+		for up in Levels.add_xp(c.progress, xp, rng):
 			c.hp += int(up.gains.get(Stat.HP, 0))
 			report.level_ups.append({"name": c.display_name(), "level": up.level, "gains": up.gains})
 
@@ -925,6 +937,7 @@ func _furthest_short(site: ScavengeSite, party: Array[RunCompanion]) -> RunCompa
 ## XP and level-ups as a won battle grants them, recorded like Sparring (see _drill_sparring).
 func _scavenge_xp(m: ScavengeResult.Member, amount: int) -> void:
 	var c := m.companion
+	amount = Levels.with_traits(c.progress, amount)
 	m.xp_gained = amount
 	var stats := m.stats_before.duplicate()
 	var from := c.level()
@@ -991,6 +1004,105 @@ func _roll_weighted(weights: Array) -> int:
 		if r <= 0 and int(weights[i]) > 0:
 			return i
 	return last
+
+
+# ---------------------------------------------------------------- traits
+
+## The traits of `data` standing in the tavern this week (rolled with the week's offers; shown before
+## hiring). Empty if they are not offered.
+func offer_traits(data: CompanionData) -> Array[TraitData]:
+	var out: Array[TraitData] = []
+	out.assign(_offer_traits.get(data, []))
+	return out
+
+
+## Days `c` stays in the Infirmary when injured: RunConfig.INFIRMARY_DAYS plus what their traits add.
+func infirmary_days(c: RunCompanion) -> int:
+	return maxi(1, RunConfig.INFIRMARY_DAYS + TraitRules.total(c.traits, TraitModifier.Kind.INFIRMARY_DAYS))
+
+
+## HP `c` heals at the end of the day: RunConfig.DAILY_HEAL_FRACTION of max HP, changed by their traits
+## (TraitModifier.Kind.DAY_HEAL_PERCENT), rounded up.
+func day_heal(c: RunCompanion) -> int:
+	var percent := TraitRules.total(c.traits, TraitModifier.Kind.DAY_HEAL_PERCENT)
+	return maxi(0, ceili(c.max_hp() * RunConfig.DAILY_HEAL_FRACTION * (100 + percent) / 100.0))
+
+
+## Points a proficiency drill of `quality` gives `c`: RunConfig.DRILL_POINTS, changed by their traits
+## for that weapon type or school (TraitModifier.Kind.PROFICIENCY_PERCENT), rounded.
+func drill_points(drill: Drill, c: RunCompanion, quality: int) -> int:
+	var base: int = RunConfig.DRILL_POINTS[quality]
+	if drill == null or c == null or not drill.is_proficiency():
+		return base
+	var percent := TraitRules.total(c.traits, TraitModifier.Kind.PROFICIENCY_PERCENT,
+		drill.weapon_type if drill.kind == Drill.Kind.WEAPON else -1, drill.school if drill.kind == Drill.Kind.MAGIC else -1)
+	return roundi(base * (100 + percent) / 100.0)
+
+
+## XP Sparring of `quality` gives `c` today: drill_xp, changed by their traits (Levels.with_traits).
+func drill_xp_for(c: RunCompanion, quality: int) -> int:
+	return Levels.with_traits(c.progress, drill_xp(quality)) if c != null else drill_xp(quality)
+
+
+## 1 to 3 traits for a companion joining (or offered at the tavern) whose progress is `p`, by
+## RunConfig.TRAIT_COUNT_WEIGHTS; each drawn by rarity (RunConfig.TRAIT_RARITY_WEIGHTS) from those
+## nobody in the run has, never two of the same line of a family, never two two-edged ones. A trait
+## tied to a weapon type or school is, RunConfig.TRAIT_FIT_PERCENT of the time, one they can already
+## use (see _trait_fits): drawn one they cannot, it is swapped for one of the same line they can (or any
+## tied one they can). The traits are taken from the pool.
+func _roll_traits(p: CompanionProgress) -> Array[TraitData]:
+	var out: Array[TraitData] = []
+	var n := _roll_weighted(RunConfig.TRAIT_COUNT_WEIGHTS) + 1
+	for i in n:
+		var t := _draw_trait(p, out)
+		if t == null:
+			break
+		out.append(t)
+		_traits_taken.append(t)
+	return out
+
+
+func _draw_trait(p: CompanionProgress, have: Array[TraitData]) -> TraitData:
+	var pool: Array[TraitData] = []
+	var lines := {}
+	var two_edged := false
+	for t in have:
+		lines[t.line_key()] = true
+		two_edged = two_edged or t.is_two_edged()
+	for t in trait_pool:
+		if _traits_taken.has(t) or have.has(t) or lines.has(t.line_key()) or (two_edged and t.is_two_edged()):
+			continue
+		pool.append(t)
+	if pool.is_empty():
+		return null
+	var pick := _pick_by_rarity(pool)
+	if pick.is_tied() and rng.randi_range(1, 100) <= RunConfig.TRAIT_FIT_PERCENT and not _trait_fits(pick, p):
+		var same_line := pool.filter(func(t: TraitData) -> bool:
+			return t.is_tied() and t.line_key() == pick.line_key() and _trait_fits(t, p))
+		var any_fit := pool.filter(func(t: TraitData) -> bool: return t.is_tied() and _trait_fits(t, p))
+		var options: Array = same_line if not same_line.is_empty() else any_fit
+		if not options.is_empty():
+			var typed: Array[TraitData] = []
+			typed.assign(options)
+			pick = _pick_by_rarity(typed)
+	return pick
+
+
+func _pick_by_rarity(pool: Array[TraitData]) -> TraitData:
+	var weights: Array = []
+	for t in pool:
+		weights.append(RunConfig.TRAIT_RARITY_WEIGHTS[t.rarity])
+	return pool[_roll_weighted(weights)]
+
+
+## True if `p` can already use what `t` is tied to: a grade above E in its weapon type or school.
+## Untied traits always fit.
+static func _trait_fits(t: TraitData, p: CompanionProgress) -> bool:
+	if t.weapon_type >= 0:
+		return p.grade(t.weapon_type) > Proficiency.Grade.E
+	if t.school >= 0:
+		return p.magic_grade(t.school) > Proficiency.Grade.E
+	return true
 
 
 ## Level a companion hired today joins at: the roster's average level, rounded down.
@@ -1105,7 +1217,7 @@ func _begin_day() -> void:
 
 func _end_day() -> void:
 	for c in available():
-		c.heal(ceili(c.max_hp() * RunConfig.DAILY_HEAL_FRACTION))
+		c.heal(day_heal(c))
 	if not is_over():
 		if city_health <= 0:
 			city_health = 0
@@ -1231,6 +1343,11 @@ static func scaled_enemy(e: EnemyData, on_day: int) -> EnemyData:
 
 ## The weekly refresh: the tavern's offers and the smithy's stock for the week that begins today.
 func _restock_week() -> void:
+	# Unhired offers' traits go back into the pool.
+	for d: CompanionData in _offer_traits:
+		for t: TraitData in _offer_traits[d]:
+			_traits_taken.erase(t)
+	_offer_traits.clear()
 	tavern_offers.clear()
 	shop_week.clear()
 	_make_tavern_offers()
@@ -1272,7 +1389,9 @@ func _make_tavern_offers() -> void:
 			pool.append(d)
 	var count := mini(rng.randi_range(RunConfig.TAVERN_OFFERS_MIN, RunConfig.TAVERN_OFFERS_MAX), pool.size())
 	for i in count:
-		tavern_offers.append(pool.pop_at(rng.randi_range(0, pool.size() - 1)))
+		var d: CompanionData = pool.pop_at(rng.randi_range(0, pool.size() - 1))
+		tavern_offers.append(d)
+		_offer_traits[d] = _roll_traits(CompanionProgress.create(d))
 
 
 ## The week's stock: with RunConfig.SHOP_RARE_CHANCE one rare weapon whose grade fits the week
@@ -1446,7 +1565,7 @@ func _join(data: CompanionData) -> RunCompanion:
 func _to_infirmary(c: RunCompanion) -> void:
 	c.injured = true
 	c.hp = 0
-	c.back_on_day = day + RunConfig.INFIRMARY_DAYS + 1
+	c.back_on_day = day + infirmary_days(c) + 1
 	lineup.erase(c)
 	if not _infirmary.has(c):
 		_infirmary.append(c)

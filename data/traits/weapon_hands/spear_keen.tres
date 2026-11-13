@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_n0gy7"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_qp64m"]
+
+[sub_resource type="Resource" id="Resource_ydfy7"]
+script = ExtResource("1_n0gy7")
+kind = 2
+amount = 8
+weapon_type = 2
+
+[resource]
+script = ExtResource("2_qp64m")
+id = "spear_keen"
+display_name = "Spear: Keen"
+family = 0
+line = "Keen"
+weapon_type = 2
+gives = Array[String](["+8 Crit with spears"])
+modifiers = Array[ExtResource("1_n0gy7")]([SubResource("Resource_ydfy7")])

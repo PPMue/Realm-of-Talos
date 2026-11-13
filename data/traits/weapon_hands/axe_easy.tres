@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_4x50i"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_l6v2n"]
+
+[sub_resource type="Resource" id="Resource_8subd"]
+script = ExtResource("1_4x50i")
+kind = 7
+amount = -1
+weapon_type = 1
+
+[resource]
+script = ExtResource("2_l6v2n")
+id = "axe_easy"
+display_name = "Axe: Easy"
+family = 0
+line = "Easy"
+weapon_type = 1
+gives = Array[String](["Axe arts cost 1 less stamina"])
+modifiers = Array[ExtResource("1_4x50i")]([SubResource("Resource_8subd")])

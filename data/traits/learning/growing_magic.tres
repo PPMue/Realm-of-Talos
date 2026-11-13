@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_8yimy"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_m0wmq"]
+
+[sub_resource type="Resource" id="Resource_vex2r"]
+script = ExtResource("1_8yimy")
+kind = 14
+amount = 15
+stat = "MAG"
+
+[resource]
+script = ExtResource("2_m0wmq")
+id = "growing_magic"
+display_name = "Growing: Magic"
+family = 7
+line = "Growing"
+gives = Array[String](["+15 to Magic growth"])
+modifiers = Array[ExtResource("1_8yimy")]([SubResource("Resource_vex2r")])

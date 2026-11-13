@@ -74,6 +74,7 @@ func _init(companion_data: Array[CompanionData], enemy_data: Array[EnemyData], p
 	spell_pool = p_spell_pool
 	for i in companion_data.size():
 		roster.append(CompanionUnit.new(companion_data[i], party[i] if i < party.size() else null))
+	_link_traits()
 	for d in enemy_data:
 		var e := EnemyUnit.new(d)
 		enemies.append(e)
@@ -164,9 +165,21 @@ func art_block_reason(c: CompanionUnit, art: CombatArtData) -> String:
 	if w == null or w.weapon_type != art.weapon_type:
 		var kind := art.type_name().to_lower()
 		return "%s is a %s art: it needs a %s in hand." % [art.display_name, kind, kind]
-	if c.stamina < art.stamina_cost:
-		return "Not enough stamina: %s needs %d, %s has %d." % [art.display_name, art.stamina_cost, c.display_name, c.stamina]
+	var cost := art_cost(c, art)
+	if c.stamina < cost:
+		return "Not enough stamina: %s needs %d, %s has %d." % [art.display_name, cost, c.display_name, c.stamina]
 	return ""
+
+
+## Stamina `art` costs `c`: its own cost plus what traits add (TraitModifier.Kind.ART_STAMINA), never
+## below 0.
+func art_cost(c: CompanionUnit, art: CombatArtData) -> int:
+	if art == null:
+		return 0
+	var q := c.trait_query(TraitModifier.Kind.ART_STAMINA)
+	q.action = TraitModifier.Action.ART
+	q.weapon_type = art.weapon_type
+	return maxi(0, art.stamina_cost + TraitRules.sum(q))
 
 
 ## Stamina one Focus restores (flat, BattleConfig.FOCUS_RESTORE), never past the companion's max.
@@ -180,19 +193,25 @@ func focus_amount(c: CompanionUnit) -> int:
 ## Mt (the weapon's for this wielder, + the art's bonus) - DEF; a magic weapon uses MAG against RES.
 ## The weapon's crit bonus adds to the art's; of the weapon's and the art's DEF ignored, the larger
 ## counts. Effective (weapon or art against one of the target's traits): half as much again, once.
+## Traits add their Hit, Crit and damage (see trait_strike).
 func forecast(c: CompanionUnit, target: EnemyUnit, art: CombatArtData = null) -> AttackForecast:
 	var w := c.weapon()
 	var effective := is_effective(c, target, art)
 	var power := CombatMath.attack_power(c, w)
 	var might := c.weapon_might()
+	var bonus := trait_strike(c, target, TraitModifier.Action.ATTACK if art == null else TraitModifier.Action.ART)
 	var f: AttackForecast
 	if art == null:
-		f = CombatMath.forecast(c, might, w.hit, w.crit_bonus, target, w.ignore_def_percent, w.damage_type, effective, power)
+		f = CombatMath.forecast(c, might, w.hit + int(bonus.hit), w.crit_bonus + int(bonus.crit), target, w.ignore_def_percent,
+			w.damage_type, effective, power, int(bonus.damage), int(bonus.damage_percent))
 		f.strikes = maxi(1, w.attack_strikes)
 	else:
-		f = CombatMath.forecast(c, might + art.might_bonus, w.hit + art.hit_bonus, art.crit_bonus + w.crit_bonus, target,
-			maxi(art.ignore_def_percent, w.ignore_def_percent), w.damage_type, effective, power)
+		f = CombatMath.forecast(c, might + art.might_bonus, w.hit + art.hit_bonus + int(bonus.hit),
+			art.crit_bonus + w.crit_bonus + int(bonus.crit), target, maxi(art.ignore_def_percent, w.ignore_def_percent),
+			w.damage_type, effective, power, int(bonus.damage), int(bonus.damage_percent))
 		f.strikes = maxi(1, art.strikes)
+	if bonus.sure:
+		f.hit = 100
 	f.reflect = reflect_amount(c, target, f.damage)
 	f.reflect_crit = reflect_amount(c, target, f.crit_damage)
 	return f
@@ -219,22 +238,65 @@ func is_effective(c: CompanionUnit, target: EnemyUnit, art: CombatArtData = null
 
 ## Forecast of one black spell striking an enemy: MAG + Mt - RES (half as much again if effective),
 ## the spell's Hit.
+## Traits add their Hit, Crit and damage (see trait_strike).
 func spell_forecast(c: CompanionUnit, spell: SpellData, target: EnemyUnit) -> AttackForecast:
 	var effective := CombatMath.is_effective(spell.effective_against, target.traits())
-	return CombatMath.forecast(c, spell.might, spell.hit, spell.crit_bonus, target, spell.ignore_res_percent,
-		CombatMath.DamageType.MAGIC, effective)
+	var bonus := trait_strike(c, target, TraitModifier.Action.SPELL, spell.school)
+	var f := CombatMath.forecast(c, spell.might, spell.hit + int(bonus.hit), spell.crit_bonus + int(bonus.crit), target,
+		spell.ignore_res_percent, CombatMath.DamageType.MAGIC, effective, -1, int(bonus.damage), int(bonus.damage_percent))
+	if bonus.sure:
+		f.hit = 100
+	return f
 
 
-## HP a white spell restores to each target: caster MAG + the spell's power (0 if it does not heal).
+## What `c`'s traits add to one strike on `target` (`action`: TraitModifier.Action; `school` for a
+## spell): {"hit", "crit" (percentage points), "damage" (to each blow), "damage_percent", "sure"
+## (cannot miss)}. Includes what the companion in front of them gives the one behind (File Leader).
+func trait_strike(c: CompanionUnit, target: EnemyUnit, action: int, school: int = -1) -> Dictionary:
+	var q := c.trait_query(TraitModifier.Kind.HIT)
+	q.target = target
+	q.action = action
+	q.weapon_type = c.weapon().weapon_type if action != TraitModifier.Action.SPELL and c.weapon() != null else -1
+	q.school = school
+	var out := {"hit": TraitRules.sum(q)}
+	q.kind = TraitModifier.Kind.CRIT
+	out.crit = TraitRules.sum(q)
+	q.kind = TraitModifier.Kind.DAMAGE
+	out.damage = TraitRules.sum(q)
+	q.kind = TraitModifier.Kind.DAMAGE_PERCENT
+	out.damage_percent = TraitRules.sum(q)
+	q.kind = TraitModifier.Kind.SURE_HIT
+	out.sure = TraitRules.any(q)
+	return out
+
+
+## HP a white spell restores to each target: caster MAG + the spell's power + what the caster's traits
+## add to their heals (TraitModifier.Kind.HEAL_GIVEN); 0 if it does not heal. heal_amount_on: for one
+## target.
 func heal_amount(c: CompanionUnit, spell: SpellData) -> int:
-	return maxi(0, c.stat(Stat.MAG) + spell.heal_power) if spell.heals else 0
+	if not spell.heals:
+		return 0
+	var q := c.trait_query(TraitModifier.Kind.HEAL_GIVEN)
+	q.action = TraitModifier.Action.SPELL
+	q.school = spell.school
+	return maxi(0, c.stat(Stat.MAG) + spell.heal_power + TraitRules.sum(q))
+
+
+## HP `spell` cast by `c` restores to `target`: heal_amount and what the target's traits change
+## (TraitModifier.Kind.HEAL_RECEIVED), never below 0.
+func heal_amount_on(c: CompanionUnit, spell: SpellData, target: CompanionUnit) -> int:
+	if not spell.heals:
+		return 0
+	var q := target.trait_query(TraitModifier.Kind.HEAL_RECEIVED)
+	q.school = spell.school
+	return maxi(0, heal_amount(c, spell) + TraitRules.sum(q))
 
 
 ## HP `target` would have after `spell` heals it (capped at max HP); its HP now if injured or no heal.
 func hp_after_heal(c: CompanionUnit, spell: SpellData, target: CompanionUnit) -> int:
 	if target.is_injured() or not spell.heals:
 		return target.hp
-	return mini(target.max_hp(), target.hp + heal_amount(c, spell))
+	return mini(target.max_hp(), target.hp + heal_amount_on(c, spell, target))
 
 
 func can_cast(c: CompanionUnit, spell: SpellData) -> bool:
@@ -314,6 +376,7 @@ func attack(c: CompanionUnit, target: EnemyUnit) -> bool:
 			break
 		if _companion_strike(c, target, null):
 			landed = true
+	c.last_struck_id = target.get_instance_id()
 	_add_points(c, BattleConfig.POINTS_ATTACK_HIT if landed else BattleConfig.POINTS_ATTACK_MISS)
 	_gain_proficiency(c, BattleConfig.PROFICIENCY_POINTS_ATTACK)
 	_end_player_action(c, BattleConfig.RECOVERY_ATTACK)
@@ -332,9 +395,10 @@ func use_art(c: CompanionUnit, art: CombatArtData, target: EnemyUnit = null) -> 
 	if targets.is_empty():
 		return false
 	_begin_tick()
-	c.stamina -= art.stamina_cost
+	var cost := art_cost(c, art)
+	c.stamina -= cost
 	var aim := "every enemy" if art.hits_all_enemies else target.display_name
-	_log("%s uses %s on %s (-%d STA)." % [c.display_name, art.display_name, aim, art.stamina_cost])
+	_log("%s uses %s on %s (-%d STA)." % [c.display_name, art.display_name, aim, cost])
 	_emit({"type": "strike", "actor": c, "target": null if art.hits_all_enemies else target, "name": art.display_name, "art": art})
 	for t in targets:
 		var landed := false
@@ -345,6 +409,7 @@ func use_art(c: CompanionUnit, art: CombatArtData, target: EnemyUnit = null) -> 
 				landed = true
 		if landed and art.target_effect != null and t.is_alive():
 			_apply_effect(t, art.target_effect, false, c)
+		c.last_struck_id = t.get_instance_id()
 	if art.self_effect != null:
 		_apply_effect(c, art.self_effect, true, c)
 	_add_points(c, BattleConfig.POINTS_ART)
@@ -372,12 +437,13 @@ func cast(c: CompanionUnit, spell: SpellData, target: Combatant = null) -> bool:
 		_:
 			aim = "themself" if targets[0] == c else targets[0].display_name
 	_log("%s casts %s on %s (%d/%d uses left)." % [c.display_name, spell.display_name, aim,
-		c.progress.uses_left(spell), spell.uses])
+		c.progress.uses_left(spell), c.progress.max_uses(spell)])
 	_emit({"type": "cast", "actor": c, "spell": spell, "name": spell.display_name,
 		"target": null if spell.targets_all() else targets[0]})
 	for t in targets:
 		if spell.deals_damage():
 			_spell_strike(c, spell, t as EnemyUnit)
+			c.last_struck_id = t.get_instance_id()
 		else:
 			_white_magic(c, spell, t as CompanionUnit)
 	_add_points(c, BattleConfig.POINTS_SPELL)
@@ -393,7 +459,7 @@ func guard(c: CompanionUnit) -> bool:
 	c.add_effect(StatusEffect.guard())
 	_log("%s guards." % c.display_name)
 	_emit({"type": "guard", "actor": c})
-	_end_player_action(c, BattleConfig.RECOVERY_GUARD)
+	_end_player_action(c, BattleConfig.RECOVERY_GUARD, true)
 	return true
 
 
@@ -405,7 +471,7 @@ func focus(c: CompanionUnit) -> bool:
 	c.stamina = mini(c.max_stamina(), c.stamina + focus_amount(c))
 	_log("%s focuses (+%d STA, %d/%d)." % [c.display_name, c.stamina - before, c.stamina, c.max_stamina()])
 	_emit({"type": "focus", "actor": c, "amount": c.stamina - before})
-	_end_player_action(c, BattleConfig.RECOVERY_FOCUS)
+	_end_player_action(c, BattleConfig.RECOVERY_FOCUS, true)
 	return true
 
 
@@ -478,7 +544,7 @@ func perform_enemy_action(e: EnemyUnit, action: EnemyActionData) -> void:
 			for target in active_companions():
 				if not e.is_alive():
 					break   # struck down by a reflecting stance partway through
-				_enemy_strike(e, action, target)
+				_enemy_strike(e, action, target, true)
 	if action.hasten_allies > 0 and e.is_alive():
 		_hasten_others(e, action.hasten_allies)
 
@@ -546,9 +612,34 @@ func _begin_tick() -> void:
 	_log("== Turn %d ==" % tick)
 
 
-func _end_player_action(c: CompanionUnit, recovery: int) -> void:
+## `steady`: the action was Guard or Focus (for traits that wait for one).
+func _end_player_action(c: CompanionUnit, recovery: int, steady: bool = false) -> void:
 	c.recovery = recovery
+	if roster.find(c) == roster.size() - 1:
+		c.front_actions += 1
+	c.actions_taken += 1
+	c.after_guard_or_focus = steady
+	c.struck_since.clear()
 	_advance(c)
+
+
+## Gives every companion its battle for trait conditions, and notes who can have a stat changed by a
+## trait during the battle (a place in the line, say), so the others skip the lookup.
+func _link_traits() -> void:
+	var others := false
+	for c in roster:
+		c._battle = weakref(self)
+		for t in c.traits():
+			for m in t.modifiers:
+				if m.kind == TraitModifier.Kind.STAT and m.who != TraitModifier.Who.SELF:
+					others = true
+	for c in roster:
+		var own := false
+		for t in c.traits():
+			for m in t.modifiers:
+				if m.kind == TraitModifier.Kind.STAT and m.who == TraitModifier.Who.SELF and m.is_battle_only():
+					own = true
+		c._battle_stats = own or others
 
 
 func _advance(acted: CompanionUnit) -> void:
@@ -729,7 +820,7 @@ func _white_magic(c: CompanionUnit, spell: SpellData, target: CompanionUnit) -> 
 	if target.is_injured():
 		return
 	if spell.heals:
-		heal(target, heal_amount(c, spell))
+		heal(target, heal_amount_on(c, spell, target))
 	if spell.cleanse:
 		var removed: Array[String] = []
 		for e in target.effects.duplicate():
@@ -743,6 +834,13 @@ func _white_magic(c: CompanionUnit, spell: SpellData, target: CompanionUnit) -> 
 		_emit({"type": "cleanse", "target": target, "removed": removed})
 	if spell.effect != null:
 		_apply_effect(target, spell.effect, true, c)
+		var q := c.trait_query(TraitModifier.Kind.BLESSING_TURNS)
+		q.action = TraitModifier.Action.SPELL
+		q.school = spell.school
+		var longer := TraitRules.sum(q)
+		var fx := target.get_effect(spell.effect.display_name)
+		if longer != 0 and fx != null and target.is_active():
+			fx.ticks_left = maxi(1, fx.ticks_left + longer)
 
 
 ## Proficiency for acting with the weapon held, up to the per-battle cap.
@@ -752,15 +850,20 @@ func _gain_proficiency(c: CompanionUnit, amount: int) -> void:
 	if w == null or amount <= 0:
 		return
 	var t := w.weapon_type
-	var room := maxi(0, BattleConfig.PROFICIENCY_CAP_PER_BATTLE - c.proficiency_gained)
+	var percent := TraitRules.total(c.traits(), TraitModifier.Kind.PROFICIENCY_PERCENT, t)
+	var cap := proficiency_cap(c, t)
+	var scaled := amount * (100 + percent) / 100.0 + c.point_carry
+	var whole := floori(scaled)
+	c.point_carry = scaled - whole
+	var room := maxi(0, cap - c.proficiency_gained)
 	var before := c.progress.grade(t)
-	var gained := c.progress.add_points(t, mini(amount, room))
+	var gained := c.progress.add_points(t, mini(whole, room))
 	c.proficiency_gained += gained
 	if gained <= 0:
 		return
 	var kind := WeaponData.type_name(t).to_lower()
 	_emit({"type": "proficiency", "actor": c, "weapon_type": t, "gained": gained})
-	if c.proficiency_gained >= BattleConfig.PROFICIENCY_CAP_PER_BATTLE:
+	if c.proficiency_gained >= cap:
 		_log("  %s has gained all the %s proficiency this battle can give." % [c.display_name, kind])
 	for g in range(before + 1, c.progress.grade(t) + 1):
 		_log("  %s's %s grade rises to %s!" % [c.display_name, kind, Proficiency.grade_name(g)])
@@ -772,21 +875,37 @@ func _gain_proficiency(c: CompanionUnit, amount: int) -> void:
 ## Magic points for casting, up to the per-battle magic cap (separate from the weapon cap).
 ## Every school grade reached teaches a random spell of that school (if any is left to learn).
 func _gain_magic(c: CompanionUnit, s: SpellData.School) -> void:
-	var room := maxi(0, BattleConfig.MAGIC_CAP_PER_BATTLE - c.magic_gained)
+	var percent := TraitRules.total(c.traits(), TraitModifier.Kind.PROFICIENCY_PERCENT, -1, s)
+	var cap := magic_cap(c, s)
+	var room := maxi(0, cap - c.magic_gained)
 	var before := c.progress.magic_grade(s)
-	var gained := c.progress.add_magic_points(s, mini(BattleConfig.MAGIC_POINTS_PER_CAST, room))
+	var per_cast := BattleConfig.MAGIC_POINTS_PER_CAST * (100 + percent) / 100
+	var gained := c.progress.add_magic_points(s, mini(per_cast, room))
 	c.magic_gained += gained
 	if gained <= 0:
 		return
 	var school := SpellData.school_name(s)
 	_emit({"type": "proficiency", "actor": c, "magic": true, "school": s, "gained": gained})
-	if c.magic_gained >= BattleConfig.MAGIC_CAP_PER_BATTLE:
+	if c.magic_gained >= cap:
 		_log("  %s has gained all the magic proficiency this battle can give." % c.display_name)
 	for g in range(before + 1, c.progress.magic_grade(s) + 1):
 		_log("  %s's %s grade rises to %s!" % [c.display_name, school, Proficiency.grade_name(g)])
 		var ev := {"type": "grade_up", "actor": c, "magic": true, "school": s, "grade": g, "spell": null}
 		grade_ups.append(ev)
 		_emit(ev)
+
+
+## The most weapon points `c` can gain in one battle in type `t`: BattleConfig.PROFICIENCY_CAP_PER_BATTLE,
+## raised by the same share as traits raise the points (TraitModifier.Kind.PROFICIENCY_PERCENT).
+func proficiency_cap(c: CompanionUnit, t: int) -> int:
+	var percent := TraitRules.total(c.traits(), TraitModifier.Kind.PROFICIENCY_PERCENT, t)
+	return BattleConfig.PROFICIENCY_CAP_PER_BATTLE * (100 + percent) / 100
+
+
+## The same for magic points in school `s` (BattleConfig.MAGIC_CAP_PER_BATTLE).
+func magic_cap(c: CompanionUnit, s: int) -> int:
+	var percent := TraitRules.total(c.traits(), TraitModifier.Kind.PROFICIENCY_PERCENT, -1, s)
+	return BattleConfig.MAGIC_CAP_PER_BATTLE * (100 + percent) / 100
 
 
 ## Once the battle is over: every grade reached this battle (won or lost, injured or not) teaches its
@@ -826,11 +945,28 @@ func learn_after_battle() -> void:
 				"art": art, "equipped": equipped})
 
 
-func _enemy_strike(e: EnemyUnit, action: EnemyActionData, target: CompanionUnit) -> void:
+## Forecast of `e`'s `action` striking companion `target` (`whole_line`: the blow strikes everyone):
+## the usual formulas, with the target's Avoid taken off the Hit and what traits change in the damage
+## they take (TraitModifier.Kind.AVOID, DAMAGE_TAKEN, DAMAGE_TAKEN_PERCENT; Guard's share: see
+## CompanionUnit.damage_taken_mult).
+func enemy_forecast(e: EnemyUnit, action: EnemyActionData, target: CompanionUnit, whole_line: bool = false) -> AttackForecast:
+	var q := target.trait_query(TraitModifier.Kind.AVOID)
+	q.target = e
+	q.whole_line = whole_line
+	var avoid := TraitRules.sum(q)
+	q.kind = TraitModifier.Kind.DAMAGE_TAKEN_PERCENT
+	var taken_mult := TraitRules.percent_product(q)
+	q.kind = TraitModifier.Kind.DAMAGE_TAKEN
+	var taken_flat := TraitRules.sum(q)
+	return CombatMath.forecast(e, action.might, action.hit - avoid, 0, target, 0, action.damage_type, false, -1, 0, 0,
+		taken_mult, taken_flat)
+
+
+func _enemy_strike(e: EnemyUnit, action: EnemyActionData, target: CompanionUnit, whole_line: bool = false) -> void:
 	if target.is_injured():
 		return   # out of the battle: never struck
 	if action.deals_damage:
-		var f := CombatMath.forecast(e, action.might, action.hit, 0, target, 0, action.damage_type)
+		var f := enemy_forecast(e, action, target, whole_line)
 		if not _roll(f.hit):
 			_log("  %s dodges. (%d%% to hit)" % [target.display_name, f.hit])
 			_emit({"type": "miss", "target": target})
@@ -842,6 +978,9 @@ func _enemy_strike(e: EnemyUnit, action: EnemyActionData, target: CompanionUnit)
 		var back := reflect_amount(e, target, dmg) if action.damage_type == CombatMath.DamageType.PHYSICAL else 0
 		var stance := _reflect_name(target)
 		var guarding := target.has_effect("Guard")
+		target.last_hit_by_id = e.get_instance_id()
+		if not target.struck_since.has(target.last_hit_by_id):
+			target.struck_since.append(target.last_hit_by_id)
 		_damage_companion(target, dmg, crit)
 		_add_points(target, BattleConfig.POINTS_BLOW_TAKEN_GUARDING if guarding else BattleConfig.POINTS_BLOW_TAKEN)
 		if back > 0 and e.is_alive():

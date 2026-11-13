@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_lmave"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_ryvum"]
+
+[sub_resource type="Resource" id="Resource_pui0x"]
+script = ExtResource("1_lmave")
+kind = 7
+amount = -1
+weapon_type = 3
+
+[resource]
+script = ExtResource("2_ryvum")
+id = "bow_easy"
+display_name = "Bow: Easy"
+family = 0
+line = "Easy"
+weapon_type = 3
+gives = Array[String](["Bow arts cost 1 less stamina"])
+modifiers = Array[ExtResource("1_lmave")]([SubResource("Resource_pui0x")])

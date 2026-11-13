@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_r0fil"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_7u7aq"]
+
+[sub_resource type="Resource" id="Resource_euvr3"]
+script = ExtResource("1_r0fil")
+amount = 3
+stat = "RES"
+
+[sub_resource type="Resource" id="Resource_4cgyn"]
+script = ExtResource("1_r0fil")
+kind = 11
+amount = -3
+
+[resource]
+script = ExtResource("2_7u7aq")
+id = "faithless"
+display_name = "Faithless"
+family = 3
+rarity = 1
+gives = Array[String](["+3 Resistance"])
+takes = Array[String](["White magic heals them 3 less"])
+modifiers = Array[ExtResource("1_r0fil")]([SubResource("Resource_euvr3"), SubResource("Resource_4cgyn")])

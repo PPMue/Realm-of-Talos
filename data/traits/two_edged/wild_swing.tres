@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_rdtyh"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_txosm"]
+
+[sub_resource type="Resource" id="Resource_t1xrb"]
+script = ExtResource("1_rdtyh")
+kind = 2
+amount = 15
+
+[sub_resource type="Resource" id="Resource_igst1"]
+script = ExtResource("1_rdtyh")
+kind = 1
+amount = -10
+
+[resource]
+script = ExtResource("2_txosm")
+id = "wild_swing"
+display_name = "Wild Swing"
+family = 3
+rarity = 1
+gives = Array[String](["+15 Crit"])
+takes = Array[String](["-10 Hit"])
+modifiers = Array[ExtResource("1_rdtyh")]([SubResource("Resource_t1xrb"), SubResource("Resource_igst1")])

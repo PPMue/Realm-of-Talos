@@ -64,26 +64,48 @@ static func total_xp_for(level: int) -> int:
 	return total
 
 
-## Growth rate (0-100) of one stat. BLD never grows.
+## Growth rate (0-100) of one stat, the companion's own. BLD never grows. See growth_rate_of for one
+## with traits.
 static func growth_rate(data: CompanionData, key: String) -> int:
 	if key == Stat.BLD or not GROWTH_STATS.has(key):
 		return 0
 	return clampi(int(data.growths.get(key, 0)), 0, 100)
 
 
-## One roll per stat, without the minimum. Stat key -> 1 for every stat that rose.
-static func roll_raw(data: CompanionData, rng: RandomNumberGenerator) -> Dictionary:
+## Growth rate (0-100) of one stat for `p`'s next level-up (or the one reaching `level`): their own plus
+## what their traits add (TraitModifier.Kind.GROWTH). BLD never grows.
+static func growth_rate_of(p: CompanionProgress, key: String, level: int = -1) -> int:
+	if key == Stat.BLD or not GROWTH_STATS.has(key):
+		return 0
+	var reaching := level if level > 0 else p.level + 1
+	var bonus := TraitRules.total(p.traits, TraitModifier.Kind.GROWTH, -1, -1, 0, reaching, key)
+	return clampi(int(p.data.growths.get(key, 0)) + bonus, 0, 100)
+
+
+## Every growing stat's rate: the companion's own, or with `p` given, for p's next level-up.
+static func rates(data: CompanionData, p: CompanionProgress = null) -> Dictionary:
+	var out := {}
+	for key in GROWTH_STATS:
+		out[key] = growth_rate_of(p, key) if p != null else growth_rate(data, key)
+	return out
+
+
+## One roll per stat, without the minimum. Stat key -> 1 for every stat that rose. With `p`, its
+## traits count (see growth_rate_of).
+static func roll_raw(data: CompanionData, rng: RandomNumberGenerator, p: CompanionProgress = null) -> Dictionary:
 	var gains := {}
+	var r := rates(data, p)
 	for key in GROWTH_STATS:
 		# Always draw, so the stream does not depend on the rates.
-		if rng.randi_range(1, 100) <= growth_rate(data, key):
+		if rng.randi_range(1, 100) <= int(r[key]):
 			gains[key] = 1
 	return gains
 
 
-## The gains of one level-up, with the minimum applied.
-static func roll_gains(data: CompanionData, rng: RandomNumberGenerator) -> Dictionary:
-	var gains := roll_raw(data, rng)
+## The gains of one level-up, with the minimum applied. With `p`, its traits count.
+static func roll_gains(data: CompanionData, rng: RandomNumberGenerator, p: CompanionProgress = null) -> Dictionary:
+	var gains := roll_raw(data, rng, p)
+	var rate := rates(data, p)
 	var wanted := mini(RunConfig.MIN_STAT_GAINS, GROWTH_STATS.size())
 	while gains.size() < wanted:
 		var left: Array[String] = []
@@ -92,7 +114,7 @@ static func roll_gains(data: CompanionData, rng: RandomNumberGenerator) -> Dicti
 		for key in GROWTH_STATS:
 			if not gains.has(key):
 				left.append(key)
-				weights.append(float(growth_rate(data, key)))
+				weights.append(float(rate[key]))
 				total += weights[-1]
 		if total <= 0.0:
 			for i in weights.size():
@@ -111,11 +133,17 @@ static func roll_gains(data: CompanionData, rng: RandomNumberGenerator) -> Dicti
 
 ## Raises the level by one and applies the rolled gains. Returns the gains.
 static func level_up(p: CompanionProgress, rng: RandomNumberGenerator) -> Dictionary:
+	var gains := roll_gains(p.data, rng, p)   # rolled for the level being reached (p.level + 1)
 	p.level += 1
-	var gains := roll_gains(p.data, rng)
 	for key: String in gains:
 		p.stat_gains[key] = int(p.stat_gains.get(key, 0)) + int(gains[key])
 	return gains
+
+
+## XP `p` gets from `amount`: changed by their traits (TraitModifier.Kind.XP_PERCENT), rounded down.
+static func with_traits(p: CompanionProgress, amount: int) -> int:
+	var percent := TraitRules.total(p.traits, TraitModifier.Kind.XP_PERCENT)
+	return maxi(0, amount * (100 + percent) / 100) if percent != 0 else amount
 
 
 ## Adds XP and levels up as often as it reaches. Returns one {"level", "gains"} per level reached.

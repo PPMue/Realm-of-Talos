@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_7cniv"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_7yesc"]
+
+[sub_resource type="Resource" id="Resource_01qb8"]
+script = ExtResource("1_7cniv")
+kind = 7
+amount = -1
+
+[sub_resource type="Resource" id="Resource_w5jey"]
+script = ExtResource("1_7cniv")
+kind = 4
+amount = -1
+action = 2
+
+[resource]
+script = ExtResource("2_7yesc")
+id = "thrifty"
+display_name = "Thrifty"
+family = 3
+rarity = 1
+gives = Array[String](["Arts cost 1 less stamina"])
+takes = Array[String](["-1 damage with arts"])
+modifiers = Array[ExtResource("1_7cniv")]([SubResource("Resource_01qb8"), SubResource("Resource_w5jey")])

@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_v0kc8"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_hogrf"]
+
+[sub_resource type="Resource" id="Resource_5kete"]
+script = ExtResource("1_v0kc8")
+kind = 2
+amount = 8
+weapon_type = 3
+
+[resource]
+script = ExtResource("2_hogrf")
+id = "bow_keen"
+display_name = "Bow: Keen"
+family = 0
+line = "Keen"
+weapon_type = 3
+gives = Array[String](["+8 Crit with bows"])
+modifiers = Array[ExtResource("1_v0kc8")]([SubResource("Resource_5kete")])

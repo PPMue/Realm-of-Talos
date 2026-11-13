@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_dc20n"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_otae5"]
+
+[sub_resource type="Resource" id="Resource_mf0xg"]
+script = ExtResource("1_dc20n")
+amount = 4
+stat = "HP"
+
+[resource]
+script = ExtResource("2_otae5")
+id = "hale"
+display_name = "Hale"
+gives = Array[String](["+4 Health"])
+modifiers = Array[ExtResource("1_dc20n")]([SubResource("Resource_mf0xg")])

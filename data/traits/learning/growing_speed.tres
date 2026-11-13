@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_wmyrr"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_81tsw"]
+
+[sub_resource type="Resource" id="Resource_jqgvx"]
+script = ExtResource("1_wmyrr")
+kind = 14
+amount = 15
+stat = "SPD"
+
+[resource]
+script = ExtResource("2_81tsw")
+id = "growing_speed"
+display_name = "Growing: Speed"
+family = 7
+line = "Growing"
+gives = Array[String](["+15 to Speed growth"])
+modifiers = Array[ExtResource("1_wmyrr")]([SubResource("Resource_jqgvx")])

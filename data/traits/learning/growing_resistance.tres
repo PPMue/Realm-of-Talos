@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_yd7ww"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_03mnp"]
+
+[sub_resource type="Resource" id="Resource_nllc2"]
+script = ExtResource("1_yd7ww")
+kind = 14
+amount = 15
+stat = "RES"
+
+[resource]
+script = ExtResource("2_03mnp")
+id = "growing_resistance"
+display_name = "Growing: Resistance"
+family = 7
+line = "Growing"
+gives = Array[String](["+15 to Resistance growth"])
+modifiers = Array[ExtResource("1_yd7ww")]([SubResource("Resource_nllc2")])

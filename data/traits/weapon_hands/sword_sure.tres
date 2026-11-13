@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_mn55c"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_p52xs"]
+
+[sub_resource type="Resource" id="Resource_o0eg2"]
+script = ExtResource("1_mn55c")
+kind = 1
+amount = 10
+weapon_type = 0
+
+[resource]
+script = ExtResource("2_p52xs")
+id = "sword_sure"
+display_name = "Sword: Sure"
+family = 0
+line = "Sure"
+weapon_type = 0
+gives = Array[String](["+10 Hit with swords"])
+modifiers = Array[ExtResource("1_mn55c")]([SubResource("Resource_o0eg2")])

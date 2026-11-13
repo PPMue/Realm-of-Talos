@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_qwouu"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_wrh8v"]
+
+[sub_resource type="Resource" id="Resource_6inao"]
+script = ExtResource("1_qwouu")
+kind = 4
+amount = 3
+action = 1
+
+[sub_resource type="Resource" id="Resource_sy6sx"]
+script = ExtResource("1_qwouu")
+kind = 7
+amount = 1
+
+[resource]
+script = ExtResource("2_wrh8v")
+id = "hothead"
+display_name = "Hothead"
+family = 3
+rarity = 1
+gives = Array[String](["+3 damage with a plain Attack"])
+takes = Array[String](["Arts cost 1 more stamina"])
+modifiers = Array[ExtResource("1_qwouu")]([SubResource("Resource_6inao"), SubResource("Resource_sy6sx")])

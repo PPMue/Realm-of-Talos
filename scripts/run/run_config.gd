@@ -148,6 +148,14 @@ const DRILL_SPARRING_DANGER := 2
 const DRILL_SPARRING_SHARE_DIVISOR := 2
 const DRILL_XP_PERCENT: Array[int] = [60, 100, 150]
 
+# --- Traits (see Run._roll_traits, TraitData, design/traits.md) ---
+## Weights of a companion having 1, 2 or 3 traits.
+const TRAIT_COUNT_WEIGHTS: Array[int] = [75, 22, 3]
+## Weights of a common, uncommon and rare trait.
+const TRAIT_RARITY_WEIGHTS: Array[int] = [10, 5, 1]
+## Percent of the time a trait tied to a weapon type or school goes to someone who can already use it.
+const TRAIT_FIT_PERCENT := 80
+
 # --- Scavenging (a free-day action; see Run.scavenge and ScavengeSite) ---
 const SCAVENGE_SITES_PER_DAY := 2
 ## Weights of size 1 / 2 / 3 (small, medium, large: also how many go) and of risk low / medium / high,

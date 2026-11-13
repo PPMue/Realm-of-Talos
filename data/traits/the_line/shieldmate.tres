@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_o3goo"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_n62r6"]
+
+[sub_resource type="Resource" id="Resource_gbs62"]
+script = ExtResource("1_o3goo")
+kind = 19
+amount = -15
+who = 2
+
+[resource]
+script = ExtResource("2_n62r6")
+id = "shieldmate"
+display_name = "Shieldmate"
+family = 4
+rarity = 1
+gives = Array[String](["The companion behind them takes 15% less damage"])
+modifiers = Array[ExtResource("1_o3goo")]([SubResource("Resource_gbs62")])

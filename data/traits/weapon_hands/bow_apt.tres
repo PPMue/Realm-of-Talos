@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_bibw0"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_kxppg"]
+
+[sub_resource type="Resource" id="Resource_bvnse"]
+script = ExtResource("1_bibw0")
+kind = 8
+amount = 50
+weapon_type = 3
+
+[resource]
+script = ExtResource("2_kxppg")
+id = "bow_apt"
+display_name = "Bow: Apt"
+family = 0
+line = "Apt"
+weapon_type = 3
+gives = Array[String](["+50% proficiency points with bows"])
+modifiers = Array[ExtResource("1_bibw0")]([SubResource("Resource_bvnse")])

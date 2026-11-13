@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_gwhbr"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_3mqpf"]
+
+[sub_resource type="Resource" id="Resource_2vmvs"]
+script = ExtResource("1_gwhbr")
+kind = 2
+amount = 8
+weapon_type = 0
+
+[resource]
+script = ExtResource("2_3mqpf")
+id = "sword_keen"
+display_name = "Sword: Keen"
+family = 0
+line = "Keen"
+weapon_type = 0
+gives = Array[String](["+8 Crit with swords"])
+modifiers = Array[ExtResource("1_gwhbr")]([SubResource("Resource_2vmvs")])

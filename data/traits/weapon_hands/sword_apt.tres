@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_cxio2"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_qwphd"]
+
+[sub_resource type="Resource" id="Resource_6lei0"]
+script = ExtResource("1_cxio2")
+kind = 8
+amount = 50
+weapon_type = 0
+
+[resource]
+script = ExtResource("2_qwphd")
+id = "sword_apt"
+display_name = "Sword: Apt"
+family = 0
+line = "Apt"
+weapon_type = 0
+gives = Array[String](["+50% proficiency points with swords"])
+modifiers = Array[ExtResource("1_cxio2")]([SubResource("Resource_6lei0")])

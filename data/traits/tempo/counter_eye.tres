@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_ro7lt"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_5bhp1"]
+
+[sub_resource type="Resource" id="Resource_tnux8"]
+script = ExtResource("1_ro7lt")
+kind = 1
+amount = 15
+struck = 4
+
+[resource]
+script = ExtResource("2_5bhp1")
+id = "counter_eye"
+display_name = "Counter-Eye"
+family = 5
+rarity = 1
+gives = Array[String](["+15 Hit against an enemy that has struck them since their last action"])
+modifiers = Array[ExtResource("1_ro7lt")]([SubResource("Resource_tnux8")])

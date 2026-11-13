@@ -1143,6 +1143,8 @@ func test_xp_split_among_fielded() -> void:
 		run._make_tavern_offers()
 		run.hire(run.tavern_offers[0])
 	t.eq(run.lineup.size(), RunConfig.MAX_FIELDED, "four fielded")
+	for c in run.roster:
+		c.traits = []   # the split itself; traits that change XP are tested in trait_tests.gd
 	var benched: RunCompanion = run.roster.filter(func(c: RunCompanion) -> bool: return not run.lineup.has(c))[0]
 	var gone := run.lineup[0]
 	var injured := run.lineup[1]
@@ -1184,6 +1186,8 @@ func test_xp_split_among_fielded() -> void:
 		"higher danger, more XP")
 	# Nobody scored: an even split of the whole pool.
 	var run2 := make_run(46)
+	for c in run2.roster:
+		c.traits = []
 	var f2 := run2.fronts[0]
 	var r2 := fight(run2, true, f2)
 	t.eq(r2.xp_gained.values(), Array(Levels.split_xp(f2.xp_pool, [0, 0] as Array[int])), "nobody scored: even")

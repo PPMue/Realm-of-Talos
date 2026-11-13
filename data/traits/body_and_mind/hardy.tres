@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_3vcx2"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_mx10p"]
+
+[sub_resource type="Resource" id="Resource_w67gb"]
+script = ExtResource("1_3vcx2")
+amount = 2
+stat = "DEF"
+
+[resource]
+script = ExtResource("2_mx10p")
+id = "hardy"
+display_name = "Hardy"
+gives = Array[String](["+2 Defence"])
+modifiers = Array[ExtResource("1_3vcx2")]([SubResource("Resource_w67gb")])

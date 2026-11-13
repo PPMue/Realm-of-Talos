@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_8gxqu"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_t0g10"]
+
+[sub_resource type="Resource" id="Resource_sowhg"]
+script = ExtResource("1_8gxqu")
+amount = 2
+stat = "STR"
+
+[resource]
+script = ExtResource("2_t0g10")
+id = "strong"
+display_name = "Strong"
+gives = Array[String](["+2 Strength"])
+modifiers = Array[ExtResource("1_8gxqu")]([SubResource("Resource_sowhg")])

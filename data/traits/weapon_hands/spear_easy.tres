@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_n6t0c"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_j6x0x"]
+
+[sub_resource type="Resource" id="Resource_voo16"]
+script = ExtResource("1_n6t0c")
+kind = 7
+amount = -1
+weapon_type = 2
+
+[resource]
+script = ExtResource("2_j6x0x")
+id = "spear_easy"
+display_name = "Spear: Easy"
+family = 0
+line = "Easy"
+weapon_type = 2
+gives = Array[String](["Spear arts cost 1 less stamina"])
+modifiers = Array[ExtResource("1_n6t0c")]([SubResource("Resource_voo16")])

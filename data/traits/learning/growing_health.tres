@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_qynn6"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_jad3p"]
+
+[sub_resource type="Resource" id="Resource_ofxju"]
+script = ExtResource("1_qynn6")
+kind = 14
+amount = 15
+stat = "HP"
+
+[resource]
+script = ExtResource("2_jad3p")
+id = "growing_health"
+display_name = "Growing: Health"
+family = 7
+line = "Growing"
+gives = Array[String](["+15 to Health growth"])
+modifiers = Array[ExtResource("1_qynn6")]([SubResource("Resource_ofxju")])

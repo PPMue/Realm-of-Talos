@@ -94,9 +94,13 @@ static func defense_after_ignore(defense: int, ignore_percent: int) -> int:
 ## `ignore_percent` is the share of DEF (physical) or RES (magic) ignored. `effective` adds half the
 ## damage left after DEF or RES. `power` is the attacker's part (a companion's attack_power); -1 uses
 ## the attacker's STR (physical) or MAG (magic), as enemies and spells do.
+## `bonus_damage` is added to each blow after DEF or RES (and effectiveness), never below MIN_DAMAGE,
+## then `damage_percent` changes it; `extra_taken_mult` multiplies the target's damage-taken multiplier
+## and `taken_flat` is added at the very end (never below MIN_DAMAGE): traits' numbers (see Battle).
 static func forecast(attacker: Combatant, might: int, hit: int, crit_bonus: int, target: Combatant,
 		ignore_percent: int = 0, damage_type: DamageType = DamageType.PHYSICAL, effective: bool = false,
-		power: int = -1) -> AttackForecast:
+		power: int = -1, bonus_damage: int = 0, damage_percent: int = 0, extra_taken_mult: float = 1.0,
+		taken_flat: int = 0) -> AttackForecast:
 	var f := AttackForecast.new()
 	f.magic = damage_type == DamageType.MAGIC
 	f.effective = effective
@@ -110,7 +114,11 @@ static func forecast(attacker: Combatant, might: int, hit: int, crit_bonus: int,
 		var strength := power if power >= 0 else attacker.stat(Stat.STR)
 		base = physical_damage(strength, might, defense_after_ignore(target.stat(Stat.DEF), ignore_percent))
 	base = effective_damage(base, effective)
-	var mult := target.damage_taken_mult()
-	f.damage = final_damage(base, false, mult)
-	f.crit_damage = final_damage(base, true, mult)
+	if bonus_damage != 0:
+		base = maxi(BattleConfig.MIN_DAMAGE, base + bonus_damage)
+	if damage_percent != 0:
+		base = maxi(BattleConfig.MIN_DAMAGE, floori(base * (100 + damage_percent) / 100.0))
+	var mult := target.damage_taken_mult() * extra_taken_mult
+	f.damage = maxi(BattleConfig.MIN_DAMAGE, final_damage(base, false, mult) + taken_flat)
+	f.crit_damage = maxi(BattleConfig.MIN_DAMAGE, final_damage(base, true, mult) + taken_flat)
 	return f

@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_lpg5e"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_mltaj"]
+
+[sub_resource type="Resource" id="Resource_dmmtf"]
+script = ExtResource("1_lpg5e")
+kind = 4
+amount = 2
+school = 0
+
+[resource]
+script = ExtResource("2_mltaj")
+id = "black_heavy"
+display_name = "Black: Heavy"
+family = 1
+line = "Heavy"
+school = 0
+gives = Array[String](["+2 damage with black spells"])
+modifiers = Array[ExtResource("1_lpg5e")]([SubResource("Resource_dmmtf")])

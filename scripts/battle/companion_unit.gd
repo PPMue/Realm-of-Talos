@@ -16,6 +16,24 @@ var stamina: int = 0
 var recovery: int = 0
 var state: State = State.ACTIVE
 
+# --- What traits need to know (see TraitRules), kept by Battle ---
+## Actions this companion has finished this battle, and how many of them from the front place.
+var actions_taken: int = 0
+var front_actions: int = 0
+## Their last action was Guard or Focus.
+var after_guard_or_focus: bool = false
+## Instance ids of enemies: the one they struck last, the one who last landed a blow on them, and
+## those who have landed one since their last action. 0 / empty for none.
+var last_struck_id: int = 0
+var last_hit_by_id: int = 0
+var struck_since: Array[int] = []
+## Fractions of a proficiency point carried between actions (traits that raise points by a share).
+var point_carry: float = 0.0
+## The battle, for traits that depend on it (weak, so the two do not keep each other alive).
+var _battle: WeakRef
+## True if some trait in the line can change this companion's stats during the battle.
+var _battle_stats: bool = false
+
 
 func _init(p_data: CompanionData, p_progress: CompanionProgress = null) -> void:
 	data = p_data
@@ -24,6 +42,25 @@ func _init(p_data: CompanionData, p_progress: CompanionProgress = null) -> void:
 	base_stats = progress.stats()
 	hp = max_hp()
 	stamina = max_stamina()
+
+
+## What this companion is (CompanionProgress.traits).
+func traits() -> Array[TraitData]:
+	return progress.traits
+
+
+## The battle this companion is in, or null.
+func battle() -> Battle:
+	return _battle.get_ref() as Battle if _battle != null else null
+
+
+## A trait query for this companion in its battle (see TraitRules).
+func trait_query(kind: int) -> TraitRules.Query:
+	var q := TraitRules.query(kind)
+	q.unit = self
+	q.battle = battle()
+	q.traits = traits()
+	return q
 
 
 func max_stamina() -> int:
@@ -67,18 +104,39 @@ func weight_penalty() -> int:
 	return CombatMath.weight_penalty(total_weight(), stat(Stat.BLD))
 
 
-## A stat as it stands in battle: with the held weapon's bonuses (WeaponData.held_stats) on top.
+## A stat as it stands in battle: with the held weapon's bonuses (WeaponData.held_stats) and what
+## traits add during the battle (a place in the line, say; the plain trait bonuses are already in the
+## base stats) on top.
 func stat(key: String) -> int:
+	var value := super(key)
 	var w := weapon()
-	if w == null or not w.held_stats.has(key):
-		return super(key)
-	return maxi(0, super(key) + int(w.held_stats[key]))
+	if w != null and w.held_stats.has(key):
+		value = maxi(0, value + int(w.held_stats[key]))
+	if _battle_stats:
+		var q := trait_query(TraitModifier.Kind.STAT)
+		q.stat = key
+		q.battle_only = true
+		value = maxi(0, value + TraitRules.sum(q))
+	return value
 
 
-## Effects' aim multipliers times the held weapon's (WeaponData.target_weight_mult).
+## Effects' aim multipliers times the held weapon's (WeaponData.target_weight_mult) times traits'
+## (TraitModifier.Kind.AIM).
 func target_weight_mult() -> float:
 	var w := weapon()
-	return super() * (w.target_weight_mult if w != null else 1.0)
+	return super() * (w.target_weight_mult if w != null else 1.0) * TraitRules.product(trait_query(TraitModifier.Kind.AIM))
+
+
+## Effects' damage-taken multipliers; a trait that changes Guard (TraitModifier.Kind.GUARD_PERCENT)
+## replaces Guard's share.
+func damage_taken_mult() -> float:
+	var mult := super()
+	var guard_percent := TraitRules.sum(trait_query(TraitModifier.Kind.GUARD_PERCENT))
+	if guard_percent > 0 and has_effect("Guard"):
+		var guard := get_effect("Guard")
+		if guard.damage_taken_mult > 0.0:
+			mult = mult / guard.damage_taken_mult * (100 - clampi(guard_percent, 0, 100)) / 100.0
+	return mult
 
 
 ## Mt of the weapon held for this companion (WeaponData.might_for).

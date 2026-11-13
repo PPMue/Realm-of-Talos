@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_ru81t"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_vr2bq"]
+
+[sub_resource type="Resource" id="Resource_2a0rq"]
+script = ExtResource("1_ru81t")
+kind = 4
+amount = 3
+target_next_magic = true
+
+[resource]
+script = ExtResource("2_vr2bq")
+id = "spell_breaker"
+display_name = "Spell-Breaker"
+family = 5
+rarity = 1
+gives = Array[String](["+3 damage to an enemy whose next action is magic"])
+modifiers = Array[ExtResource("1_ru81t")]([SubResource("Resource_2a0rq")])

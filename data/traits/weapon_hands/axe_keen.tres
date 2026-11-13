@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_wtbj4"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_eyiks"]
+
+[sub_resource type="Resource" id="Resource_0nw5p"]
+script = ExtResource("1_wtbj4")
+kind = 2
+amount = 8
+weapon_type = 1
+
+[resource]
+script = ExtResource("2_eyiks")
+id = "axe_keen"
+display_name = "Axe: Keen"
+family = 0
+line = "Keen"
+weapon_type = 1
+gives = Array[String](["+8 Crit with axes"])
+modifiers = Array[ExtResource("1_wtbj4")]([SubResource("Resource_0nw5p")])

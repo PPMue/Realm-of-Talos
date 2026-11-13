@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_tjmrr"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_0i7n5"]
+
+[sub_resource type="Resource" id="Resource_3x5uw"]
+script = ExtResource("1_tjmrr")
+kind = 14
+amount = 15
+stat = "LCK"
+
+[resource]
+script = ExtResource("2_0i7n5")
+id = "growing_luck"
+display_name = "Growing: Luck"
+family = 7
+line = "Growing"
+gives = Array[String](["+15 to Luck growth"])
+modifiers = Array[ExtResource("1_tjmrr")]([SubResource("Resource_3x5uw")])

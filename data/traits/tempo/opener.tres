@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_iij6u"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_vbqbv"]
+
+[sub_resource type="Resource" id="Resource_wvuao"]
+script = ExtResource("1_iij6u")
+kind = 4
+amount = 3
+target_health = 2
+
+[resource]
+script = ExtResource("2_vbqbv")
+id = "opener"
+display_name = "Opener"
+family = 5
+rarity = 1
+gives = Array[String](["+3 damage to enemies at full Health"])
+modifiers = Array[ExtResource("1_iij6u")]([SubResource("Resource_wvuao")])

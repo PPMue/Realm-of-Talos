@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_ecu3b"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_qw0jy"]
+
+[sub_resource type="Resource" id="Resource_d4lj2"]
+script = ExtResource("1_ecu3b")
+kind = 8
+amount = 50
+weapon_type = 1
+
+[resource]
+script = ExtResource("2_qw0jy")
+id = "axe_apt"
+display_name = "Axe: Apt"
+family = 0
+line = "Apt"
+weapon_type = 1
+gives = Array[String](["+50% proficiency points with axes"])
+modifiers = Array[ExtResource("1_ecu3b")]([SubResource("Resource_d4lj2")])

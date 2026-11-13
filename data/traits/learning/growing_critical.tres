@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_xkoff"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_ohkke"]
+
+[sub_resource type="Resource" id="Resource_4cprl"]
+script = ExtResource("1_xkoff")
+kind = 14
+amount = 15
+stat = "CRT"
+
+[resource]
+script = ExtResource("2_ohkke")
+id = "growing_critical"
+display_name = "Growing: Critical"
+family = 7
+line = "Growing"
+gives = Array[String](["+15 to Critical growth"])
+modifiers = Array[ExtResource("1_xkoff")]([SubResource("Resource_4cprl")])

@@ -24,6 +24,8 @@ var magic_points: Dictionary = {}
 var known_spells: Array[SpellData] = []
 ## SpellData -> uses left. Lasts between battles and days; Run.rest() refills it.
 var spell_uses: Dictionary = {}
+## What this companion is (TraitData), rolled when they join a run and never changed. See TraitRules.
+var traits: Array[TraitData] = []
 
 
 ## Fresh progress at the start of a run: starting grades, signature art known and equipped.
@@ -62,17 +64,28 @@ func copy() -> CompanionProgress:
 	p.magic_points = magic_points.duplicate()
 	p.known_spells = known_spells.duplicate()
 	p.spell_uses = spell_uses.duplicate()
+	p.traits = traits.duplicate()
 	return p
 
 
 # ---------------------------------------------------------------- stats
 
-## Base stats plus level-up gains.
+## Base stats plus level-up gains plus what traits add without conditions (trait_stat_bonus), never
+## below 0 (Health never below 1). Bonuses that depend on the battle (a place in the line, say) are
+## added in battle by CompanionUnit.stat.
 func stats() -> Dictionary:
 	var s := data.base_stats()
 	for key: String in stat_gains:
 		s[key] = int(s.get(key, 0)) + int(stat_gains[key])
+	if not traits.is_empty():
+		for key: String in s:
+			s[key] = maxi(1 if key == Stat.HP else 0, int(s[key]) + trait_stat_bonus(key))
 	return s
+
+
+## What traits add to stat `key` without conditions (can be negative). Included in stats().
+func trait_stat_bonus(key: String) -> int:
+	return TraitRules.plain_stat(traits, key)
 
 
 func stat_gain(key: String) -> int:
@@ -168,6 +181,14 @@ func swap(old: CombatArtData, new: CombatArtData) -> bool:
 	return true
 
 
+## Stamina `art` costs this companion: its own cost plus what their traits add
+## (TraitModifier.Kind.ART_STAMINA), never below 0. In battle Battle.art_cost says the same.
+func art_cost(art: CombatArtData) -> int:
+	if art == null:
+		return 0
+	return maxi(0, art.stamina_cost + TraitRules.total(traits, TraitModifier.Kind.ART_STAMINA, art.weapon_type))
+
+
 func unequip(art: CombatArtData) -> bool:
 	if not is_equipped(art):
 		return false
@@ -221,8 +242,15 @@ func learn_spell(spell: SpellData) -> bool:
 	if spell == null or knows_spell(spell):
 		return false
 	known_spells.append(spell)
-	spell_uses[spell] = spell.uses
+	spell_uses[spell] = max_uses(spell)
 	return true
+
+
+## Uses of `spell` when full: its own, plus what traits add (TraitModifier.Kind.SPELL_USES).
+func max_uses(spell: SpellData) -> int:
+	if spell == null:
+		return 0
+	return maxi(0, spell.uses + TraitRules.total(traits, TraitModifier.Kind.SPELL_USES, -1, spell.school, spell.tier))
 
 
 func uses_left(spell: SpellData) -> int:
@@ -240,11 +268,11 @@ func spend_use(spell: SpellData) -> bool:
 ## Every known spell back to full uses (the Rest action).
 func restore_spell_uses() -> void:
 	for sp in known_spells:
-		spell_uses[sp] = sp.uses
+		spell_uses[sp] = max_uses(sp)
 
 
 func has_spent_uses() -> bool:
 	for sp in known_spells:
-		if uses_left(sp) < sp.uses:
+		if uses_left(sp) < max_uses(sp):
 			return true
 	return false

@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_sy5lw"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_qyeyk"]
+
+[sub_resource type="Resource" id="Resource_g7u0v"]
+script = ExtResource("1_sy5lw")
+kind = 15
+amount = 15
+
+[sub_resource type="Resource" id="Resource_jip3x"]
+script = ExtResource("1_sy5lw")
+kind = 16
+amount = 1
+
+[resource]
+script = ExtResource("2_qyeyk")
+id = "thin_blooded"
+display_name = "Thin-Blooded"
+family = 3
+rarity = 1
+gives = Array[String](["+15% XP"])
+takes = Array[String](["Infirmary stays are 1 day longer"])
+modifiers = Array[ExtResource("1_sy5lw")]([SubResource("Resource_g7u0v"), SubResource("Resource_jip3x")])

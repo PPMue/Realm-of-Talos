@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_xc268"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_8rk60"]
+
+[sub_resource type="Resource" id="Resource_vwenv"]
+script = ExtResource("1_xc268")
+kind = 7
+amount = -1
+weapon_type = 4
+
+[resource]
+script = ExtResource("2_8rk60")
+id = "dagger_easy"
+display_name = "Dagger: Easy"
+family = 0
+line = "Easy"
+weapon_type = 4
+gives = Array[String](["Dagger arts cost 1 less stamina"])
+modifiers = Array[ExtResource("1_xc268")]([SubResource("Resource_vwenv")])

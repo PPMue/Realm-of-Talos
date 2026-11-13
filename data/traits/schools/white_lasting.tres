@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_718b8"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_ls4qo"]
+
+[sub_resource type="Resource" id="Resource_tkbq5"]
+script = ExtResource("1_718b8")
+kind = 12
+amount = 1
+school = 1
+
+[resource]
+script = ExtResource("2_ls4qo")
+id = "white_lasting"
+display_name = "White: Lasting"
+family = 1
+line = "Lasting"
+school = 1
+gives = Array[String](["Blessings last 1 turn longer"])
+modifiers = Array[ExtResource("1_718b8")]([SubResource("Resource_tkbq5")])

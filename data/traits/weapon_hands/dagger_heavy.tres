@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_8fgiu"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_kdsku"]
+
+[sub_resource type="Resource" id="Resource_8uabr"]
+script = ExtResource("1_8fgiu")
+kind = 4
+amount = 2
+weapon_type = 4
+
+[resource]
+script = ExtResource("2_kdsku")
+id = "dagger_heavy"
+display_name = "Dagger: Heavy"
+family = 0
+line = "Heavy"
+weapon_type = 4
+gives = Array[String](["+2 damage with daggers"])
+modifiers = Array[ExtResource("1_8fgiu")]([SubResource("Resource_8uabr")])

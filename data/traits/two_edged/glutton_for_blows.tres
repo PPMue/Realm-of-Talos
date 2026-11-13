@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_wrwxv"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_85pgi"]
+
+[sub_resource type="Resource" id="Resource_5rqqt"]
+script = ExtResource("1_wrwxv")
+amount = 4
+stat = "HP"
+
+[sub_resource type="Resource" id="Resource_tqw6x"]
+script = ExtResource("1_wrwxv")
+amount = 1
+stat = "DEF"
+
+[sub_resource type="Resource" id="Resource_nh085"]
+script = ExtResource("1_wrwxv")
+amount = -2
+stat = "SPD"
+
+[sub_resource type="Resource" id="Resource_eb7i4"]
+script = ExtResource("1_wrwxv")
+kind = 13
+mult = 1.3
+
+[resource]
+script = ExtResource("2_85pgi")
+id = "glutton_for_blows"
+display_name = "Glutton for Blows"
+family = 3
+rarity = 1
+gives = Array[String](["+4 Health, +1 Defence"])
+takes = Array[String](["-2 Speed, drawn more (x1.3)"])
+modifiers = Array[ExtResource("1_wrwxv")]([SubResource("Resource_5rqqt"), SubResource("Resource_tqw6x"), SubResource("Resource_nh085"), SubResource("Resource_eb7i4")])

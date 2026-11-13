@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_7f7ce"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_m5mip"]
+
+[sub_resource type="Resource" id="Resource_okwmo"]
+script = ExtResource("1_7f7ce")
+kind = 7
+amount = -1
+weapon_type = 0
+
+[resource]
+script = ExtResource("2_m5mip")
+id = "sword_easy"
+display_name = "Sword: Easy"
+family = 0
+line = "Easy"
+weapon_type = 0
+gives = Array[String](["Sword arts cost 1 less stamina"])
+modifiers = Array[ExtResource("1_7f7ce")]([SubResource("Resource_okwmo")])

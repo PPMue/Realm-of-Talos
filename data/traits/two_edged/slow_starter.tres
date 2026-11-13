@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_00eyb"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_pek17"]
+
+[sub_resource type="Resource" id="Resource_81axn"]
+script = ExtResource("1_00eyb")
+kind = 1
+amount = 10
+action_from = 4
+
+[sub_resource type="Resource" id="Resource_ywchm"]
+script = ExtResource("1_00eyb")
+kind = 1
+amount = -10
+action_to = 1
+
+[resource]
+script = ExtResource("2_pek17")
+id = "slow_starter"
+display_name = "Slow Starter"
+family = 3
+rarity = 1
+gives = Array[String](["+10 Hit from their fourth action on"])
+takes = Array[String](["-10 Hit on their first"])
+modifiers = Array[ExtResource("1_00eyb")]([SubResource("Resource_81axn"), SubResource("Resource_ywchm")])

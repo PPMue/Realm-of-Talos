@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_026rp"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_fenox"]
+
+[sub_resource type="Resource" id="Resource_uu11p"]
+script = ExtResource("1_026rp")
+kind = 1
+amount = 15
+after_guard_or_focus = true
+
+[sub_resource type="Resource" id="Resource_jdjpw"]
+script = ExtResource("1_026rp")
+kind = 4
+amount = 2
+after_guard_or_focus = true
+
+[resource]
+script = ExtResource("2_fenox")
+id = "patient"
+display_name = "Patient"
+family = 5
+rarity = 1
+gives = Array[String](["After Guard or Focus, their next strike: +15 Hit, +2 damage"])
+modifiers = Array[ExtResource("1_026rp")]([SubResource("Resource_uu11p"), SubResource("Resource_jdjpw")])

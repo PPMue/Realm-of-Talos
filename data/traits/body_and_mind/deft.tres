@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_uqvcr"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_insn4"]
+
+[sub_resource type="Resource" id="Resource_uvr6l"]
+script = ExtResource("1_uqvcr")
+amount = 2
+stat = "DEX"
+
+[resource]
+script = ExtResource("2_insn4")
+id = "deft"
+display_name = "Deft"
+gives = Array[String](["+2 Dexterity"])
+modifiers = Array[ExtResource("1_uqvcr")]([SubResource("Resource_uvr6l")])

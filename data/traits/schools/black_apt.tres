@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_kfs3h"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_0vl88"]
+
+[sub_resource type="Resource" id="Resource_yrn0n"]
+script = ExtResource("1_kfs3h")
+kind = 8
+amount = 50
+school = 0
+
+[resource]
+script = ExtResource("2_0vl88")
+id = "black_apt"
+display_name = "Black: Apt"
+family = 1
+line = "Apt"
+school = 0
+gives = Array[String](["+50% black magic points"])
+modifiers = Array[ExtResource("1_kfs3h")]([SubResource("Resource_yrn0n")])

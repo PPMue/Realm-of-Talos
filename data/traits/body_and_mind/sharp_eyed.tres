@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_fh7ty"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_h15xk"]
+
+[sub_resource type="Resource" id="Resource_wlecj"]
+script = ExtResource("1_fh7ty")
+amount = 3
+stat = "CRT"
+
+[resource]
+script = ExtResource("2_h15xk")
+id = "sharp_eyed"
+display_name = "Sharp-Eyed"
+gives = Array[String](["+3 Critical"])
+modifiers = Array[ExtResource("1_fh7ty")]([SubResource("Resource_wlecj")])

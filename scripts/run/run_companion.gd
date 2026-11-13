@@ -11,6 +11,12 @@ var hp: int = 0
 var injured: bool = false
 ## The day they come out by themselves (at its start, at full HP, onto the bench); 0 when not injured.
 var back_on_day: int = 0
+## What this companion is (TraitData): kept in their progress, so a battle sees the same list.
+var traits: Array[TraitData]:
+	get:
+		return progress.traits
+	set(value):
+		progress.traits = value
 
 
 static func create(p_data: CompanionData) -> RunCompanion:
@@ -36,8 +42,9 @@ func display_name() -> String:
 	return data.display_name
 
 
+## Max HP: base, level-ups and traits (see CompanionProgress.stats).
 func max_hp() -> int:
-	return data.max_hp + progress.stat_gain(Stat.HP)
+	return int(progress.stats()[Stat.HP])
 
 
 func level() -> int:

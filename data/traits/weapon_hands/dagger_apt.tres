@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_52wjp"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_wb7ay"]
+
+[sub_resource type="Resource" id="Resource_v5wkp"]
+script = ExtResource("1_52wjp")
+kind = 8
+amount = 50
+weapon_type = 4
+
+[resource]
+script = ExtResource("2_wb7ay")
+id = "dagger_apt"
+display_name = "Dagger: Apt"
+family = 0
+line = "Apt"
+weapon_type = 4
+gives = Array[String](["+50% proficiency points with daggers"])
+modifiers = Array[ExtResource("1_52wjp")]([SubResource("Resource_v5wkp")])

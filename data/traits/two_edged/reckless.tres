@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_gmro4"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_bqfg2"]
+
+[sub_resource type="Resource" id="Resource_s6fsl"]
+script = ExtResource("1_gmro4")
+kind = 1
+amount = 10
+
+[sub_resource type="Resource" id="Resource_llxgc"]
+script = ExtResource("1_gmro4")
+kind = 3
+amount = -10
+
+[resource]
+script = ExtResource("2_bqfg2")
+id = "reckless"
+display_name = "Reckless"
+family = 3
+rarity = 1
+gives = Array[String](["+10 Hit"])
+takes = Array[String](["Avoid -10"])
+modifiers = Array[ExtResource("1_gmro4")]([SubResource("Resource_s6fsl"), SubResource("Resource_llxgc")])

@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_v0pjs"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_5enur"]
+
+[sub_resource type="Resource" id="Resource_uboju"]
+script = ExtResource("1_v0pjs")
+kind = 14
+amount = -5
+level_to = 8
+
+[sub_resource type="Resource" id="Resource_w25n2"]
+script = ExtResource("1_v0pjs")
+kind = 14
+amount = 10
+level_from = 9
+
+[resource]
+script = ExtResource("2_5enur")
+id = "late_bloomer"
+display_name = "Late Bloomer"
+family = 7
+rarity = 1
+gives = Array[String](["Every growth -5 until level 8, +10 after"])
+modifiers = Array[ExtResource("1_v0pjs")]([SubResource("Resource_uboju"), SubResource("Resource_w25n2")])

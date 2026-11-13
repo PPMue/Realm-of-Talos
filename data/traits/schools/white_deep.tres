@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_cif51"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_c753p"]
+
+[sub_resource type="Resource" id="Resource_1u1tu"]
+script = ExtResource("1_cif51")
+kind = 9
+amount = 1
+school = 1
+spell_tier = 1
+
+[resource]
+script = ExtResource("2_c753p")
+id = "white_deep"
+display_name = "White: Deep"
+family = 1
+line = "Deep"
+school = 1
+gives = Array[String](["+1 use of every tier I white spell"])
+modifiers = Array[ExtResource("1_cif51")]([SubResource("Resource_1u1tu")])

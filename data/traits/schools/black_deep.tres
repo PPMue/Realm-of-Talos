@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_yer3n"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_86njd"]
+
+[sub_resource type="Resource" id="Resource_rv7nu"]
+script = ExtResource("1_yer3n")
+kind = 9
+amount = 1
+school = 0
+spell_tier = 1
+
+[resource]
+script = ExtResource("2_86njd")
+id = "black_deep"
+display_name = "Black: Deep"
+family = 1
+line = "Deep"
+school = 0
+gives = Array[String](["+1 use of every tier I black spell"])
+modifiers = Array[ExtResource("1_yer3n")]([SubResource("Resource_rv7nu")])
