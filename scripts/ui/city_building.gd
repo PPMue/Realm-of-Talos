@@ -6,11 +6,12 @@ extends Control
 
 signal pressed
 
-enum Kind { TAVERN, SMITHY, INN, MASON, BARRACKS, WATCHTOWER, GATE }
+enum Kind { TAVERN, SMITHY, INN, MASON, BARRACKS, WATCHTOWER, GATE, YARD }
 
 const NAMES := {
 	Kind.TAVERN: "The Tavern", Kind.SMITHY: "The Smithy", Kind.INN: "The Inn", Kind.MASON: "Mason's Yard",
 	Kind.BARRACKS: "The Barracks", Kind.WATCHTOWER: "The Watchtower", Kind.GATE: "The Gate",
+	Kind.YARD: "The Drill Yard",
 }
 ## Where each building stands in the 1920x1080 scene.
 const RECTS := {
@@ -21,6 +22,7 @@ const RECTS := {
 	Kind.MASON: Rect2(1490, 388, 320, 200),
 	Kind.TAVERN: Rect2(70, 548, 400, 350),
 	Kind.SMITHY: Rect2(1440, 580, 410, 320),
+	Kind.YARD: Rect2(505, 752, 290, 168),
 }
 
 var kind: Kind = Kind.TAVERN
@@ -149,6 +151,8 @@ func _draw() -> void:
 			_watchtower()
 		Kind.GATE:
 			_gate()
+		Kind.YARD:
+			_yard()
 	if interactive:
 		_board()
 
@@ -439,3 +443,80 @@ func _gate() -> void:
 	# Torch brackets.
 	for x: float in [92.0, 188.0]:
 		draw_line(Vector2(x, 186), Vector2(x, 204), iron, 3.0)
+
+
+## The drill yard: a ring of sand in the square, fenced, with straw men, a butt for the archers and a
+## rack of wooden weapons.
+func _yard() -> void:
+	var a := ambient
+	var wood := _t(CityArt.WOOD)
+	var dark := _t(CityArt.TIMBER)
+	var straw := _t(Color("c8b078"))
+	var c := Vector2(145, 118)
+	var r := Vector2(140, 46)
+	# The sand, trodden darker in the middle.
+	var ring := PackedVector2Array()
+	var inner := PackedVector2Array()
+	for k in 40:
+		var d := Vector2.from_angle(TAU * k / 40.0)
+		ring.append(c + d * r)
+		inner.append(c + Vector2(0, 4) + d * r * 0.62)
+	draw_colored_polygon(ring, _t(Color("b9a172")))
+	draw_colored_polygon(inner, _t(Color("a48c60")))
+	# The far side of the fence.
+	_yard_fence(c, r, PI, TAU, wood, dark)
+	# The city's colours on a pole at the back.
+	CityArt.banner(self, Vector2(236, 8), 78, 32, 40, CityArt.BANNER, a, sin(time * 1.6 + 0.6))
+	# The rack: wooden swords and a spear.
+	draw_line(Vector2(22, 112), Vector2(22, 80), dark, 4.0)
+	draw_line(Vector2(66, 108), Vector2(66, 76), dark, 4.0)
+	draw_line(Vector2(18, 86), Vector2(70, 82), dark, 4.0)
+	for x: float in [30.0, 40.0, 50.0]:
+		draw_line(Vector2(x, 110), Vector2(x + 3, 64), _t(CityArt.WOOD.lightened(0.25)), 3.0)
+		draw_line(Vector2(x - 3, 96), Vector2(x + 7, 95), _t(CityArt.WOOD.lightened(0.25)), 2.5)
+	draw_line(Vector2(58, 110), Vector2(62, 44), _t(CityArt.WOOD.lightened(0.2)), 2.5)
+	draw_colored_polygon(PackedVector2Array([Vector2(59, 46), Vector2(63, 32), Vector2(66, 46)]), _t(Color("c8ccd4")))
+	# Two straw men; the nearer one still rocks from the last blow.
+	_straw_man(Vector2(112, 124), 1.0, 0.0, wood, straw)
+	_straw_man(Vector2(160, 134), 1.15, sin(time * 2.2) * 0.05 if open else 0.0, wood, straw)
+	# The butt on its three legs.
+	var b := Vector2(224, 96)
+	draw_line(b, Vector2(206, 134), dark, 3.0)
+	draw_line(b, Vector2(242, 134), dark, 3.0)
+	draw_line(b, Vector2(226, 128), dark, 3.0)
+	draw_circle(b, 21.0, straw)
+	draw_circle(b, 15.0, _t(Color("e8e0cc")))
+	draw_circle(b, 9.5, _t(Color("a8322c")))
+	draw_circle(b, 4.0, _t(Color("e2c477")))
+	draw_line(b + Vector2(3, -2), b + Vector2(22, -12), _t(Color("3a3028")), 1.5)
+	# The near side of the fence, open at the front.
+	_yard_fence(c, r, 0.0, PI * 0.36, wood, dark)
+	_yard_fence(c, r, PI * 0.64, PI, wood, dark)
+
+
+## Posts and two rails along the ring from angle `from` to `to`.
+func _yard_fence(c: Vector2, r: Vector2, from: float, to: float, wood: Color, dark: Color) -> void:
+	var n := maxi(2, int(round((to - from) / (PI / 7.0))) + 1)
+	var last := Vector2.ZERO
+	for i in n:
+		var at := c + Vector2.from_angle(lerpf(from, to, float(i) / (n - 1))) * r
+		if i > 0:
+			draw_line(last + Vector2(0, -16), at + Vector2(0, -16), wood, 3.0)
+			draw_line(last + Vector2(0, -7), at + Vector2(0, -7), wood, 3.0)
+		last = at
+	for i in n:
+		var at := c + Vector2.from_angle(lerpf(from, to, float(i) / (n - 1))) * r
+		draw_line(at, at + Vector2(0, -22), dark, 4.0)
+
+
+## A straw man on a post at `foot`, leaning by `lean` radians.
+func _straw_man(foot: Vector2, k: float, lean: float, wood: Color, straw: Color) -> void:
+	var up := Vector2.UP.rotated(lean)
+	var side := up.orthogonal()
+	draw_line(foot, foot + up * 46.0 * k, wood, 4.0 * k)
+	var chest := foot + up * 34.0 * k
+	draw_line(chest - side * 17.0 * k, chest + side * 17.0 * k, wood, 3.5 * k)
+	draw_colored_polygon(PackedVector2Array([chest - side * 9.0 * k + up * 8.0 * k, chest + side * 9.0 * k + up * 8.0 * k,
+		chest + side * 7.0 * k - up * 16.0 * k, chest - side * 7.0 * k - up * 16.0 * k]), straw)
+	draw_line(chest - side * 8.0 * k - up * 2.0 * k, chest + side * 8.0 * k - up * 2.0 * k, straw.darkened(0.3), 1.5)
+	draw_circle(foot + up * 51.0 * k, 7.5 * k, straw)

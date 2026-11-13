@@ -43,6 +43,7 @@ var _letter := LetterPanel.new()
 var _war_table := WarTable.new()
 var _party_screen := PartyScreen.new()
 var _store_screen := StoreScreen.new()
+var _training_screen := TrainingScreen.new()
 var _battle_screen := BattleScreen.new()
 var _end_screen := RunEndScreen.new()
 
@@ -66,7 +67,7 @@ func new_run(seed_value: int = 0, opening: bool = true) -> void:
 	else:
 		rng.randomize()
 	run = Run.create(rng, RunContent.load_default(), _art_pool, _spell_pool)
-	for screen: Control in [_end_screen, _battle_screen, _party_screen, _store_screen, _war_table, _letter]:
+	for screen: Control in [_end_screen, _battle_screen, _party_screen, _store_screen, _training_screen, _war_table, _letter]:
 		screen.visible = false
 	_begin_day(_day_title(), _day_text())
 	if opening:
@@ -117,6 +118,18 @@ func open_tavern() -> void:
 
 
 ## Opens the table where the day's fight is chosen (battle and boss days).
+## The drill yard opens on any free day once the gate's matter is answered, even with nothing left to
+## do there today: the notices can always be read.
+func open_training() -> void:
+	if _yard_block_reason() == "":
+		_training_screen.open(run)
+
+
+func _yard_block_reason() -> String:
+	var why := run.free_action_block_reason(Run.FreeAction.TRAIN)
+	return "" if why == Run.NO_USEFUL_DRILL or why.begins_with("Needs ") else why
+
+
 func open_war_table() -> void:
 	var t := run.day_type()
 	if not run.is_over() and (t == RunCalendar.DayType.BATTLE or t == RunCalendar.DayType.BOSS):
@@ -188,6 +201,12 @@ func visit(kind: CityBuilding.Kind) -> void:
 				open_shop()
 			else:
 				_say("The Smithy", _in_world(why))
+		CityBuilding.Kind.YARD:
+			var why := _yard_block_reason()
+			if why == "":
+				open_training()
+			else:
+				_say("The Drill Yard", _in_world(why))
 		CityBuilding.Kind.INN:
 			var why := run.free_action_block_reason(A.REST)
 			if why != "":
@@ -519,6 +538,13 @@ func _refresh_buildings() -> void:
 				var why := run.visit_block_reason(A.SHOP)
 				b.open = why == ""
 				b.status = "Weapons for sale" if why == "" else _short(why)
+			CityBuilding.Kind.YARD:
+				var why := run.free_action_block_reason(A.TRAIN)
+				b.open = why == ""
+				var posted: Array[String] = []
+				for d in run.drills:
+					posted.append(d.display_name.trim_suffix(" drill"))
+				b.status = ("%s  ·  %d gold" % [", ".join(posted), RunConfig.DRILL_COST]) if why == "" else _short(why)
 			CityBuilding.Kind.INN:
 				var why := run.free_action_block_reason(A.REST)
 				b.open = why == ""
@@ -600,7 +626,7 @@ func _hide_news() -> void:
 # ---------------------------------------------------------------- input
 
 func _overlay_open() -> bool:
-	return _battle_screen.visible or _party_screen.visible or _store_screen.visible or _end_screen.visible \
+	return _battle_screen.visible or _party_screen.visible or _store_screen.visible or _training_screen.visible or _end_screen.visible \
 		or _letter.visible or _war_table.visible
 
 
@@ -689,13 +715,14 @@ func _build() -> void:
 	_news.add_child(_news_text)
 
 	# Screens that open over the city.
-	for screen: Control in [_war_table, _party_screen, _store_screen, _letter, _battle_screen, _end_screen]:
+	for screen: Control in [_war_table, _party_screen, _store_screen, _training_screen, _letter, _battle_screen, _end_screen]:
 		screen.visible = false
 		screen.z_index = 10
 		add_child(screen)
 	_war_table.chosen.connect(defend)
 	_party_screen.closed.connect(refresh)
 	_store_screen.closed.connect(refresh)
+	_training_screen.closed.connect(refresh)
 	_battle_screen.finished.connect(_on_battle_finished)
 	_battle_screen.closed.connect(_on_battle_closed)
 	_end_screen.closed.connect(func() -> void: left_run.emit())

@@ -3,7 +3,7 @@ extends Control
 ## The inside of a building, behind its screen: a plank wall, a fire to one side (the tavern's hearth
 ## or the smithy's forge), a hanging lantern, and shadow in the corners. Drawn in code.
 
-enum Kind { TAVERN, SMITHY, BARRACKS }
+enum Kind { TAVERN, SMITHY, BARRACKS, YARD }
 
 var kind := Kind.TAVERN:
 	set(v):
@@ -40,6 +40,10 @@ func _draw() -> void:
 	elif kind == Kind.BARRACKS:
 		wall = Color("1f1c1a")
 		glow = Color(1.0, 0.7, 0.4)
+	elif kind == Kind.YARD:
+		# The yard's palisade, with a brazier for the fire.
+		wall = Color("2b2118")
+		glow = Color(1.0, 0.72, 0.42)
 	draw_rect(Rect2(0, 0, w, h), wall)
 	UiTheme.draw_grain(self, Rect2(0, 0, w, h), 0.14)
 	# Upright boards, and a beam across the top.
@@ -53,8 +57,8 @@ func _draw() -> void:
 		i += 1
 	draw_rect(Rect2(0, 118, w, 22), wall.darkened(0.35))
 	draw_line(Vector2(0, 140), Vector2(w, 140), Color(0, 0, 0, 0.5), 2.0)
-	# Stone floor.
-	draw_rect(Rect2(0, h - 70.0, w, 70.0), Color("15120f"))
+	# Stone floor; in the yard, trodden sand.
+	draw_rect(Rect2(0, h - 70.0, w, 70.0), Color("4a3d2a") if kind == Kind.YARD else Color("15120f"))
 	draw_line(Vector2(0, h - 70.0), Vector2(w, h - 70.0), Color(0, 0, 0, 0.6), 3.0)
 
 	# The fire, low on the left, and the light it throws.
@@ -62,11 +66,20 @@ func _draw() -> void:
 	var flick := 0.88 + 0.08 * sin(_time * 8.0) + 0.04 * sin(_time * 19.0)
 	for k in 10:
 		draw_circle(fire + Vector2(0, -30), 90.0 + 110.0 * k, Color(glow, 0.05 * flick))
-	draw_rect(Rect2(fire.x - 70.0, fire.y - 96.0, 140.0, 122.0), Color("0d0b0a"))
-	draw_rect(Rect2(fire.x - 86.0, fire.y - 112.0, 172.0, 18.0), Color("3a332e"))
-	draw_rect(Rect2(fire.x - 86.0, fire.y - 112.0, 18.0, 140.0), Color("3a332e"))
-	draw_rect(Rect2(fire.x + 68.0, fire.y - 112.0, 18.0, 140.0), Color("2e2824"))
-	draw_rect(Rect2(fire.x - 46.0, fire.y + 6.0, 92.0, 10.0), Color("2a1a10"))
+	if kind == Kind.YARD:
+		# A brazier on three legs.
+		var iron := Color("1c1815")
+		for dx: float in [-40.0, 0.0, 40.0]:
+			draw_line(fire + Vector2(dx * 0.6, 12.0), fire + Vector2(dx, 26.0 + 44.0), iron, 6.0)
+		draw_colored_polygon(PackedVector2Array([fire + Vector2(-58, 4), fire + Vector2(58, 4), fire + Vector2(40, 30),
+			fire + Vector2(-40, 30)]), iron)
+		draw_rect(Rect2(fire.x - 62.0, fire.y, 124.0, 8.0), Color("3a332e"))
+	else:
+		draw_rect(Rect2(fire.x - 70.0, fire.y - 96.0, 140.0, 122.0), Color("0d0b0a"))
+		draw_rect(Rect2(fire.x - 86.0, fire.y - 112.0, 172.0, 18.0), Color("3a332e"))
+		draw_rect(Rect2(fire.x - 86.0, fire.y - 112.0, 18.0, 140.0), Color("3a332e"))
+		draw_rect(Rect2(fire.x + 68.0, fire.y - 112.0, 18.0, 140.0), Color("2e2824"))
+		draw_rect(Rect2(fire.x - 46.0, fire.y + 6.0, 92.0, 10.0), Color("2a1a10"))
 	for dx: float in [-24.0, 0.0, 22.0]:
 		CityArt.flame(self, fire + Vector2(dx, 8.0), 26.0 if dx == 0.0 else 18.0, _time + dx)
 	if kind == Kind.SMITHY:

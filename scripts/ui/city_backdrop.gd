@@ -1,7 +1,7 @@
 class_name CityBackdrop
 extends Control
 ## The last city, drawn in code: sky, mountains, the wall with its gate and watchtower, rows of houses,
-## the square with its fountain, and the seven buildings the player can visit. The time of day is one
+## the square with its fountain, and the eight buildings the player can visit. The time of day is one
 ## setting (`set_phase`) that recolours everything; clouds drift, chimneys smoke and torches flicker.
 ## The hub makes the buildings clickable; other screens use the same scene as a still backdrop.
 
@@ -113,7 +113,7 @@ func _init() -> void:
 	add_child(_clouds)
 	# Back to front: the wall's buildings, the far side of the square, then the near side.
 	for kind: CityBuilding.Kind in [CityBuilding.Kind.WATCHTOWER, CityBuilding.Kind.GATE, CityBuilding.Kind.BARRACKS,
-			CityBuilding.Kind.INN, CityBuilding.Kind.MASON, CityBuilding.Kind.TAVERN, CityBuilding.Kind.SMITHY]:
+			CityBuilding.Kind.INN, CityBuilding.Kind.MASON, CityBuilding.Kind.YARD, CityBuilding.Kind.TAVERN, CityBuilding.Kind.SMITHY]:
 		var b := CityBuilding.new(kind)
 		b.pressed.connect(func() -> void: building_pressed.emit(kind))
 		buildings[kind] = b
@@ -174,7 +174,7 @@ func _process(delta: float) -> void:
 	_ambience.queue_redraw()
 	for b: CityBuilding in buildings.values():
 		b.time = _time
-		if b.is_lively() or b.kind == CityBuilding.Kind.BARRACKS or b.kind == CityBuilding.Kind.MASON:
+		if b.is_lively() or b.kind == CityBuilding.Kind.BARRACKS or b.kind == CityBuilding.Kind.MASON or b.kind == CityBuilding.Kind.YARD:
 			b.queue_redraw()
 
 
