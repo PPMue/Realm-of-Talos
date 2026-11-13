@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="EnemyGroupData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_aigm3"]
+[ext_resource type="Resource" path="res://data/enemies/goblin_wizard.tres" id="2_q5uhd"]
+[ext_resource type="Script" path="res://scripts/data/enemy_group_data.gd" id="3_pywdw"]
+
+[resource]
+script = ExtResource("3_pywdw")
+display_name = "Hedge Wizard"
+enemies = Array[ExtResource("1_aigm3")]([ExtResource("2_q5uhd")])

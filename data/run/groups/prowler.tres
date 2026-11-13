@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="EnemyGroupData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_hja6y"]
+[ext_resource type="Resource" path="res://data/enemies/stalker.tres" id="2_exphv"]
+[ext_resource type="Script" path="res://scripts/data/enemy_group_data.gd" id="3_bwbfc"]
+
+[resource]
+script = ExtResource("3_bwbfc")
+display_name = "Prowler"
+min_day = 3
+enemies = Array[ExtResource("1_hja6y")]([ExtResource("2_exphv")])

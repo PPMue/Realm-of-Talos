@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="EnemyGroupData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_rydme"]
+[ext_resource type="Resource" path="res://data/enemies/minotaur.tres" id="2_682d4"]
+[ext_resource type="Script" path="res://scripts/data/enemy_group_data.gd" id="3_6rpgv"]
+
+[resource]
+script = ExtResource("3_6rpgv")
+display_name = "Twin Horns"
+danger = 3
+min_day = 22
+enemies = Array[ExtResource("1_rydme")]([ExtResource("2_682d4"), ExtResource("2_682d4")])

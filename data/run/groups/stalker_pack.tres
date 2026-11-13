@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="EnemyGroupData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_f6frf"]
+[ext_resource type="Resource" path="res://data/enemies/stalker.tres" id="2_7dr0l"]
+[ext_resource type="Script" path="res://scripts/data/enemy_group_data.gd" id="3_xng8p"]
+
+[resource]
+script = ExtResource("3_xng8p")
+display_name = "Stalker Pack"
+danger = 2
+min_day = 4
+enemies = Array[ExtResource("1_f6frf")]([ExtResource("2_7dr0l"), ExtResource("2_7dr0l")])

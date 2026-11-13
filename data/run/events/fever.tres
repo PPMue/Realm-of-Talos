@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="EventData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/event_choice_data.gd" id="1_2etgq"]
+[ext_resource type="Script" path="res://scripts/data/event_data.gd" id="2_ynmnf"]
+
+[sub_resource type="Resource" id="Resource_84cfg"]
+script = ExtResource("1_2etgq")
+label = "Pay the healers"
+result_text = "The fever breaks before it spreads."
+gold = -45
+
+[sub_resource type="Resource" id="Resource_i46al"]
+script = ExtResource("1_2etgq")
+label = "Let it run its course"
+result_text = "Everyone is weaker for a day or two."
+companion_hp = -7
+hp_target = 0
+
+[sub_resource type="Resource" id="Resource_1ldfc"]
+script = ExtResource("1_2etgq")
+label = "Trade iron for herbs"
+result_text = "An apothecary takes iron ore for a cure, and adds a tonic."
+materials = {
+"iron_ore": -1
+}
+companion_hp = 5
+hp_target = 0
+
+[resource]
+script = ExtResource("2_ynmnf")
+title = "Fever in the Barracks"
+text = "A fever is going round the barracks. The healers can stop it, for a price."
+choices = Array[ExtResource("1_2etgq")]([SubResource("Resource_84cfg"), SubResource("Resource_i46al"), SubResource("Resource_1ldfc")])

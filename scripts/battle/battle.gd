@@ -30,6 +30,8 @@ var events: Array[Dictionary] = []
 var art_pool: Array[CombatArtData] = []
 ## Every grade reached this battle, in order: {"actor", "weapon_type", "grade", "art", "equipped"}.
 var grade_ups: Array[Dictionary] = []
+## Every companion injured at some point this battle, in order (a record only; rules do not read it).
+var injured_ever: Array[CompanionUnit] = []
 
 
 ## `party` holds each companion's progress, in the same order as `companion_data`; it is read and
@@ -407,6 +409,8 @@ func _damage_companion(c: CompanionUnit, dmg: int, crit: bool) -> void:
 		_emit({"type": "gone", "target": c})
 	elif c.hp <= 0:
 		c.state = CompanionUnit.State.INJURED
+		if not injured_ever.has(c):
+			injured_ever.append(c)
 		_log("  %s is injured!" % c.display_name)
 		_emit({"type": "injured", "target": c})
 

@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="EventData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/event_choice_data.gd" id="1_ga8x6"]
+[ext_resource type="Script" path="res://scripts/data/event_data.gd" id="2_1qjdq"]
+
+[sub_resource type="Resource" id="Resource_6ejyq"]
+script = ExtResource("1_ga8x6")
+label = "Take them in"
+result_text = "They are fed from the city's purse. In return they work the walls."
+gold = -40
+city_health = 12
+
+[sub_resource type="Resource" id="Resource_aun44"]
+script = ExtResource("1_ga8x6")
+label = "Ask them to pay their way"
+result_text = "Those with coin pay to enter. Those without are turned back, and the city grumbles."
+gold = 35
+city_health = -6
+
+[sub_resource type="Resource" id="Resource_bg53d"]
+script = ExtResource("1_ga8x6")
+label = "Put them to work hauling timber"
+result_text = "They earn their place carrying wood from the southern copse."
+materials = {
+"timber": 2
+}
+city_health = -3
+
+[resource]
+script = ExtResource("2_1qjdq")
+title = "Refugees at the Gate"
+text = "A column of refugees from the outer villages waits at the North Gate. They are hungry, and some of them can work."
+choices = Array[ExtResource("1_ga8x6")]([SubResource("Resource_6ejyq"), SubResource("Resource_aun44"), SubResource("Resource_bg53d")])

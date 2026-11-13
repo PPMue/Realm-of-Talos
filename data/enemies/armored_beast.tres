@@ -1,0 +1,51 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_action_data.gd" id="1_2wjsx"]
+[ext_resource type="Script" path="res://scripts/data/status_effect_data.gd" id="2_de5ni"]
+[ext_resource type="Texture2D" path="res://assets/enemy/armored-beast.png" id="3_31c6e"]
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="4_hrr7b"]
+
+[sub_resource type="Resource" id="Resource_glgpj"]
+script = ExtResource("2_de5ni")
+display_name = "Shelled"
+damage_taken_mult = 0.5
+
+[sub_resource type="Resource" id="Resource_glxaj"]
+script = ExtResource("1_2wjsx")
+display_name = "Shell Up"
+intent = 1
+targeting = 2
+pick_weight = 2.0
+deals_damage = false
+hit = 0
+effect = SubResource("Resource_glgpj")
+
+[sub_resource type="Resource" id="Resource_05a18"]
+script = ExtResource("1_2wjsx")
+display_name = "Gore"
+countdown = 3
+pick_weight = 3.0
+might = 9
+
+[sub_resource type="Resource" id="Resource_3qnew"]
+script = ExtResource("1_2wjsx")
+display_name = "Tail Sweep"
+targeting = 1
+countdown = 4
+pick_weight = 2.0
+might = 5
+hit = 75
+
+[resource]
+script = ExtResource("4_hrr7b")
+display_name = "Armored Beast"
+portrait = ExtResource("3_31c6e")
+color = Color(0.25, 0.35, 0.5, 1)
+stage_scale = 1.1
+max_hp = 80
+strength = 13
+crit = 1
+speed = 3
+defense = 11
+resistance = 2
+actions = Array[ExtResource("1_2wjsx")]([SubResource("Resource_glxaj"), SubResource("Resource_05a18"), SubResource("Resource_3qnew")])

@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="WeaponData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_data.gd" id="1_8wua1"]
+
+[resource]
+script = ExtResource("1_8wua1")
+weapon_type = 1
+might = 15
+hit = 75
+required_grade = 6
+display_name = "Silver Axe"
+weight = 12

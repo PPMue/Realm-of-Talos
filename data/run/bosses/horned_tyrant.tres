@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="EnemyGroupData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_ulca0"]
+[ext_resource type="Resource" path="res://data/enemies/bosses/horned_tyrant.tres" id="2_g0582"]
+[ext_resource type="Script" path="res://scripts/data/enemy_group_data.gd" id="3_eu5kn"]
+
+[resource]
+script = ExtResource("3_eu5kn")
+display_name = "The Horned Tyrant"
+danger = 3
+min_day = 10
+max_day = 10
+enemies = Array[ExtResource("1_ulca0")]([ExtResource("2_g0582")])

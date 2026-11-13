@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="FrontSiteData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/front_site_data.gd" id="1_mgdld"]
+
+[resource]
+script = ExtResource("1_mgdld")
+display_name = "River Ford"
+description = "Shallow water where raiders cross at dawn."

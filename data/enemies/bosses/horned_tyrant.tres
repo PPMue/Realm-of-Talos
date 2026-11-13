@@ -1,0 +1,63 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_action_data.gd" id="1_3uc3q"]
+[ext_resource type="Script" path="res://scripts/data/status_effect_data.gd" id="2_la717"]
+[ext_resource type="Texture2D" path="res://assets/enemy/minotaur.png" id="3_t7cxe"]
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="4_7ffoc"]
+
+[sub_resource type="Resource" id="Resource_st853"]
+script = ExtResource("1_3uc3q")
+display_name = "Gore Charge"
+countdown = 4
+pick_weight = 3.0
+might = 10
+
+[sub_resource type="Resource" id="Resource_7e2fo"]
+script = ExtResource("2_la717")
+display_name = "Staggered"
+stat_mods = {
+"SPD": -3
+}
+duration_ticks = 2
+
+[sub_resource type="Resource" id="Resource_q3qel"]
+script = ExtResource("1_3uc3q")
+display_name = "Earthshaker"
+targeting = 1
+countdown = 5
+pick_weight = 2.0
+might = 4
+hit = 85
+effect = SubResource("Resource_7e2fo")
+
+[sub_resource type="Resource" id="Resource_1bo41"]
+script = ExtResource("2_la717")
+display_name = "Enraged"
+stat_mods = {
+"STR": 3
+}
+
+[sub_resource type="Resource" id="Resource_rcpr0"]
+script = ExtResource("1_3uc3q")
+display_name = "War Bellow"
+intent = 2
+targeting = 2
+deals_damage = false
+hit = 0
+effect = SubResource("Resource_1bo41")
+
+[resource]
+script = ExtResource("4_7ffoc")
+display_name = "The Horned Tyrant"
+portrait = ExtResource("3_t7cxe")
+color = Color(0.5, 0.25, 0.2, 1)
+stage_scale = 1.45
+max_hp = 150
+strength = 14
+crit = 3
+dexterity = 8
+speed = 6
+defense = 6
+resistance = 2
+luck = 3
+actions = Array[ExtResource("1_3uc3q")]([SubResource("Resource_st853"), SubResource("Resource_q3qel"), SubResource("Resource_rcpr0")])

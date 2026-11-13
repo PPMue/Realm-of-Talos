@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="EnemyGroupData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_mu10y"]
+[ext_resource type="Resource" path="res://data/enemies/goblin_wizard.tres" id="2_wx8v7"]
+[ext_resource type="Resource" path="res://data/enemies/cursed_warrior.tres" id="3_n10c7"]
+[ext_resource type="Script" path="res://scripts/data/enemy_group_data.gd" id="4_pjdf6"]
+
+[resource]
+script = ExtResource("4_pjdf6")
+display_name = "Cursed Patrol"
+danger = 2
+min_day = 11
+enemies = Array[ExtResource("1_mu10y")]([ExtResource("2_wx8v7"), ExtResource("3_n10c7")])

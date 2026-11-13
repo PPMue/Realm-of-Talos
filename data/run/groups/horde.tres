@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="EnemyGroupData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_m30hd"]
+[ext_resource type="Resource" path="res://data/enemies/goblin_thief.tres" id="2_j1j0g"]
+[ext_resource type="Resource" path="res://data/enemies/orc.tres" id="3_tlwly"]
+[ext_resource type="Resource" path="res://data/enemies/goblin_wizard.tres" id="4_8dawu"]
+[ext_resource type="Resource" path="res://data/enemies/stalker.tres" id="5_6sk14"]
+[ext_resource type="Script" path="res://scripts/data/enemy_group_data.gd" id="6_w32qn"]
+
+[resource]
+script = ExtResource("6_w32qn")
+display_name = "Goblin Horde"
+danger = 3
+min_day = 18
+enemies = Array[ExtResource("1_m30hd")]([ExtResource("2_j1j0g"), ExtResource("3_tlwly"), ExtResource("4_8dawu"), ExtResource("5_6sk14")])

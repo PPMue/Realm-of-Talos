@@ -29,7 +29,7 @@ func max_stamina() -> int:
 
 
 func weapon() -> WeaponData:
-	return data.weapon
+	return progress.weapon
 
 
 ## Equipped combat arts, in action order.
@@ -39,13 +39,14 @@ func arts() -> Array[CombatArtData]:
 
 ## Grade in the type of the weapon held, or -1 without a weapon.
 func weapon_grade() -> int:
-	return progress.grade(data.weapon.weapon_type) if data.weapon != null else -1
+	return progress.grade(weapon().weapon_type) if weapon() != null else -1
 
 
 func total_weight() -> int:
 	var total := 0
-	for item in data.equipment():
-		total += item.weight
+	for item: EquipmentData in [weapon(), data.armor, data.accessory]:
+		if item != null:
+			total += item.weight
 	return total
 
 

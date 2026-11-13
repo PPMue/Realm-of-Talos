@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="FrontSiteData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/front_site_data.gd" id="1_gmtgn"]
+
+[resource]
+script = ExtResource("1_gmtgn")
+display_name = "Graveyard Hill"
+description = "The city's dead are buried here. Not all of them stay buried."

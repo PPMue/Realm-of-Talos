@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="WeaponData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_data.gd" id="1_vstea"]
+
+[resource]
+script = ExtResource("1_vstea")
+might = 9
+hit = 85
+required_grade = 4
+display_name = "Steel Sword"
+weight = 8

@@ -1,9 +1,12 @@
 extends SceneTree
-## Headless tests for the battle rules.
+## Headless tests for the battle rules, plus the run rules in run_rule_tests.gd.
 ## Run:  godot --headless --path . -s res://tests/run_tests.gd
 ## Exit code 0 = all passed, 1 = failures.
 
+const RunRuleTests := preload("res://tests/run_rule_tests.gd")
+
 var _failures: Array[String] = []
+var _run_rules: RefCounted   # kept alive: Callables do not hold a reference to their object
 var _checks := 0
 var _current := ""
 
@@ -55,8 +58,16 @@ func _init() -> void:
 		test_prototype_data_simulation,
 		test_prototype_progression,
 	]
+	_run_rules = RunRuleTests.new(self)
+	tests.append_array(_run_rules.tests())
+	var verbose := OS.get_environment("TEST_VERBOSE") != ""
+	var only := OS.get_environment("TEST_ONLY")
+	if only != "":
+		tests.assign(tests.filter(func(c: Callable) -> bool: return c.get_method().contains(only)))
 	for t in tests:
 		_current = t.get_method()
+		if verbose:
+			print("- " + _current)
 		t.call()
 	print("")
 	if _failures.is_empty():

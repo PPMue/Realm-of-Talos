@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="EnemyGroupData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_70yo0"]
+[ext_resource type="Resource" path="res://data/enemies/goblin_thief.tres" id="2_dy2rh"]
+[ext_resource type="Resource" path="res://data/enemies/armored_beast.tres" id="3_j223o"]
+[ext_resource type="Resource" path="res://data/enemies/goblin_wizard.tres" id="4_2fe6r"]
+[ext_resource type="Script" path="res://scripts/data/enemy_group_data.gd" id="5_8bxn0"]
+
+[resource]
+script = ExtResource("5_8bxn0")
+display_name = "Beast Riders"
+danger = 3
+min_day = 8
+enemies = Array[ExtResource("1_70yo0")]([ExtResource("2_dy2rh"), ExtResource("3_j223o"), ExtResource("4_2fe6r")])

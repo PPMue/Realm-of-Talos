@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="ShopItemData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/shop_item_data.gd" id="1_1sawq"]
+[ext_resource type="Resource" path="res://data/weapons/iron_sword.tres" id="2_mkj0k"]
+
+[resource]
+script = ExtResource("1_1sawq")
+weapon = ExtResource("2_mkj0k")

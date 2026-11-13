@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="FrontSiteData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/front_site_data.gd" id="1_mgnr6"]
+
+[resource]
+script = ExtResource("1_mgnr6")
+display_name = "Old Mill Road"
+description = "Burnt-out mills along the road the farmers used to take."

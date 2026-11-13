@@ -1,8 +1,8 @@
 class_name CompanionProgress
 extends RefCounted
-## What a companion carries from battle to battle: weapon proficiency and combat arts.
-## The seed of the run state. Plain data plus its rules, no nodes or UI.
-## Battle reads and updates it; HP, stamina and injuries are per battle and do not live here.
+## What a companion carries from battle to battle: weapon proficiency, combat arts and the weapon in hand.
+## Plain data plus its rules, no nodes or UI. Battle reads and updates it; HP between battles lives in
+## RunCompanion, and stamina and injuries are per battle.
 
 var data: CompanionData
 ## WeaponData.WeaponType -> proficiency points in that type.
@@ -10,12 +10,15 @@ var points: Dictionary = {}
 var known_arts: Array[CombatArtData] = []
 ## Arts usable in battle, in the order they appear as actions. At most BattleConfig.MAX_EQUIPPED_ARTS.
 var equipped_arts: Array[CombatArtData] = []
+## The weapon in hand; starts as CompanionData.weapon. In a run, RunInventory changes it.
+var weapon: WeaponData
 
 
 ## Fresh progress at the start of a run: starting grades, signature art known and equipped.
 static func create(p_data: CompanionData) -> CompanionProgress:
 	var p := CompanionProgress.new()
 	p.data = p_data
+	p.weapon = p_data.weapon
 	for t: int in WeaponData.WeaponType.values():
 		p.points[t] = Proficiency.points_for(p_data.starting_grade(t))
 	if p_data.signature_art != null:
@@ -36,6 +39,7 @@ func copy() -> CompanionProgress:
 	p.points = points.duplicate()
 	p.known_arts = known_arts.duplicate()
 	p.equipped_arts = equipped_arts.duplicate()
+	p.weapon = weapon
 	return p
 
 

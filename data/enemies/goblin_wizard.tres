@@ -1,0 +1,57 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_action_data.gd" id="1_af1ub"]
+[ext_resource type="Script" path="res://scripts/data/status_effect_data.gd" id="2_sjc23"]
+[ext_resource type="Texture2D" path="res://assets/enemy/goblin-wizard.png" id="3_6ic7l"]
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="4_nc0st"]
+
+[sub_resource type="Resource" id="Resource_nft0s"]
+script = ExtResource("1_af1ub")
+display_name = "Firebolt"
+countdown = 3
+pick_weight = 3.0
+might = 8
+hit = 95
+
+[sub_resource type="Resource" id="Resource_2o7ts"]
+script = ExtResource("1_af1ub")
+display_name = "Arcane Burst"
+targeting = 1
+countdown = 5
+pick_weight = 2.0
+might = 5
+hit = 85
+
+[sub_resource type="Resource" id="Resource_5rfwp"]
+script = ExtResource("2_sjc23")
+display_name = "Hexed"
+stat_mods = {
+"DEF": -3
+}
+
+[sub_resource type="Resource" id="Resource_l7uf8"]
+script = ExtResource("1_af1ub")
+display_name = "Hex"
+intent = 3
+targeting = 1
+pick_weight = 2.0
+deals_damage = false
+hit = 0
+effect = SubResource("Resource_5rfwp")
+
+[resource]
+script = ExtResource("4_nc0st")
+display_name = "Goblin Wizard"
+portrait = ExtResource("3_6ic7l")
+color = Color(0.3, 0.42, 0.25, 1)
+stage_scale = 0.9
+max_hp = 32
+strength = 11
+magic = 8
+crit = 2
+dexterity = 8
+speed = 7
+defense = 1
+resistance = 6
+luck = 3
+actions = Array[ExtResource("1_af1ub")]([SubResource("Resource_nft0s"), SubResource("Resource_2o7ts"), SubResource("Resource_l7uf8")])

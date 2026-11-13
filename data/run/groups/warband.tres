@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="EnemyGroupData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_gvf40"]
+[ext_resource type="Resource" path="res://data/enemies/goblin_thief.tres" id="2_n7a10"]
+[ext_resource type="Resource" path="res://data/enemies/orc.tres" id="3_lhrxe"]
+[ext_resource type="Script" path="res://scripts/data/enemy_group_data.gd" id="4_n46iw"]
+
+[resource]
+script = ExtResource("4_n46iw")
+display_name = "Orc Warband"
+danger = 3
+enemies = Array[ExtResource("1_gvf40")]([ExtResource("2_n7a10"), ExtResource("3_lhrxe"), ExtResource("3_lhrxe")])

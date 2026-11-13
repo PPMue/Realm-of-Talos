@@ -1,0 +1,55 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_action_data.gd" id="1_ox6u3"]
+[ext_resource type="Script" path="res://scripts/data/status_effect_data.gd" id="2_4nt6a"]
+[ext_resource type="Texture2D" path="res://assets/enemy/cursed-warrior.png" id="3_w6ut4"]
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="4_c8yij"]
+
+[sub_resource type="Resource" id="Resource_h0b0e"]
+script = ExtResource("1_ox6u3")
+display_name = "Grave Cleave"
+countdown = 3
+pick_weight = 3.0
+might = 8
+hit = 85
+
+[sub_resource type="Resource" id="Resource_mhh5i"]
+script = ExtResource("1_ox6u3")
+display_name = "Death Sweep"
+targeting = 1
+countdown = 4
+pick_weight = 2.0
+might = 4
+
+[sub_resource type="Resource" id="Resource_1reke"]
+script = ExtResource("2_4nt6a")
+display_name = "Dread"
+stat_mods = {
+"STR": -3
+}
+
+[sub_resource type="Resource" id="Resource_bbgj5"]
+script = ExtResource("1_ox6u3")
+display_name = "Dread"
+intent = 3
+targeting = 1
+deals_damage = false
+hit = 0
+effect = SubResource("Resource_1reke")
+
+[resource]
+script = ExtResource("4_c8yij")
+display_name = "Cursed Warrior"
+portrait = ExtResource("3_w6ut4")
+color = Color(0.25, 0.3, 0.45, 1)
+stage_scale = 1.05
+max_hp = 64
+strength = 14
+magic = 2
+crit = 4
+dexterity = 8
+speed = 6
+defense = 7
+resistance = 4
+luck = 0
+actions = Array[ExtResource("1_ox6u3")]([SubResource("Resource_h0b0e"), SubResource("Resource_mhh5i"), SubResource("Resource_bbgj5")])

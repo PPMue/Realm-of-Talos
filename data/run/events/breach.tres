@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="EventData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/event_choice_data.gd" id="1_sq8k0"]
+[ext_resource type="Script" path="res://scripts/data/event_data.gd" id="2_6kcyf"]
+
+[sub_resource type="Resource" id="Resource_h2g5r"]
+script = ExtResource("1_sq8k0")
+label = "Shore it up with timber"
+result_text = "The gap is closed by noon."
+materials = {
+"timber": -2
+}
+
+[sub_resource type="Resource" id="Resource_tqkyr"]
+script = ExtResource("1_sq8k0")
+label = "Hire masons"
+result_text = "The masons do it properly, and charge for it."
+gold = -55
+city_health = 5
+
+[sub_resource type="Resource" id="Resource_cx2b3"]
+script = ExtResource("1_sq8k0")
+label = "Leave it"
+result_text = "The gap stays open. Raiders slip through before nightfall."
+city_health = -12
+
+[resource]
+script = ExtResource("2_6kcyf")
+title = "A Breach in the Wall"
+text = "Part of the Eastern Wall collapsed in the night. Raiders will find the gap soon."
+choices = Array[ExtResource("1_sq8k0")]([SubResource("Resource_h2g5r"), SubResource("Resource_tqkyr"), SubResource("Resource_cx2b3")])

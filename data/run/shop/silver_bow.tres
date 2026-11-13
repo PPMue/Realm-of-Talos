@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="ShopItemData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/shop_item_data.gd" id="1_smql6"]
+[ext_resource type="Resource" path="res://data/weapons/silver_bow.tres" id="2_hno1w"]
+
+[resource]
+script = ExtResource("1_smql6")
+weapon = ExtResource("2_hno1w")
+price = 300
+min_day = 11
