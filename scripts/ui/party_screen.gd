@@ -17,6 +17,10 @@ const WALL_END := 1150.0
 const BENCH_Y := 664.0
 const PAGE := Rect2(1150, 110, 740, 946)
 const PAGE_PAD := 34.0
+## Height of a row of the stat table (the number, and under it how readily the stat grows), and how
+## far that pushes down the rest of the page compared with rows of the numbers alone.
+const STAT_ROW := 41.0
+const STAT_DROP := 40.0
 
 var run: Run
 var _selected: RunCompanion
@@ -237,12 +241,6 @@ func _refresh_page() -> void:
 		Proficiency.grade_name(c.progress.grade(t)), "\nToo heavy: -%d DEX, -%d SPD" % [heavy, heavy] if heavy > 0 else ""]
 	for s in c.progress.spell_schools():
 		_holds.text += "  ·  %s grade %s" % [SpellData.school_name(s).to_lower(), Proficiency.grade_name(c.progress.magic_grade(s))]
-	var gains: Array[String] = []
-	for key in Levels.GROWTH_STATS:
-		gains.append("%s %d%%%s" % [key, Levels.growth_rate(c.data, key),
-			" (+%d)" % c.progress.stat_gain(key) if c.progress.stat_gain(key) > 0 else ""])
-	_stats.tooltip_text = "Growth: the chance each of these rises when %s gains a level (gained so far in brackets).\n%s" % [
-		c.display_name(), ", ".join(gains)]
 	_level.text = "Level %d" % c.level()
 	var need := Levels.xp_to_next(c.level())
 	_xp.visible = true
@@ -445,26 +443,26 @@ func _build() -> void:
 	_place.size = Vector2(inner, 26)
 	_page.add_child(_place)
 	_stats.position = Vector2(PAGE_PAD, 160)
-	_stats.size = Vector2(inner, 82)
-	_stats.mouse_filter = Control.MOUSE_FILTER_STOP
+	_stats.size = Vector2(inner, STAT_ROW * 3.0)
+	_stats.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_stats.draw.connect(_draw_stats)
 	_page.add_child(_stats)
 	_holds = UiTheme.label("", 18, UiTheme.PARCHMENT_INK)
-	_holds.position = Vector2(PAGE_PAD, 250)
+	_holds.position = Vector2(PAGE_PAD, 250 + STAT_DROP)
 	_holds.size = Vector2(inner, 50)
 	_page.add_child(_holds)
-	_buttons.position = Vector2(PAGE_PAD, 318)
+	_buttons.position = Vector2(PAGE_PAD, 318 + STAT_DROP)
 	_buttons.size = Vector2(inner, 92)
 	_buttons.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_page.add_child(_buttons)
 	_weapons_head = UiTheme.label("", 16, UiTheme.PARCHMENT_MUTED, true)
-	_weapons_head.position = Vector2(PAGE_PAD, 432)
+	_weapons_head.position = Vector2(PAGE_PAD, 432 + STAT_DROP)
 	_weapons_head.size = Vector2(inner, 22)
 	_weapons_head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_page.add_child(_weapons_head)
 	var scroll := ScrollContainer.new()
-	scroll.position = Vector2(PAGE_PAD, 474)
-	scroll.size = Vector2(inner, PAGE.size.y - 474.0 - 30.0)
+	scroll.position = Vector2(PAGE_PAD, 474 + STAT_DROP)
+	scroll.size = Vector2(inner, PAGE.size.y - 474.0 - STAT_DROP - 30.0)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_page.add_child(scroll)
 	_weapons.add_theme_constant_override("separation", 0)
@@ -551,31 +549,49 @@ func _draw_page() -> void:
 	var mid := _page.size.x * 0.5
 	var w := _page.size.x - PAGE_PAD * 2.0
 	_page.draw_line(Vector2(PAGE_PAD, 110), Vector2(PAGE_PAD + w, 110), ink, 1.0)
-	_page.draw_line(Vector2(PAGE_PAD, 308), Vector2(PAGE_PAD + w, 308), ink, 1.0)
-	UiTheme.draw_rule(_page, Vector2(mid, 464), w, Color(UiTheme.PARCHMENT_INK, 0.5))
+	_page.draw_line(Vector2(PAGE_PAD, 308 + STAT_DROP), Vector2(PAGE_PAD + w, 308 + STAT_DROP), ink, 1.0)
+	UiTheme.draw_rule(_page, Vector2(mid, 464 + STAT_DROP), w, Color(UiTheme.PARCHMENT_INK, 0.5))
 
 
-## The stats, written out as a small table: name in grey, number in ink.
+## The stats, written out as a small table: name in grey, number in ink, and under each a line as
+## long as the stat's growth rate (its chance to rise by 1 on a level-up) with the figure beside it.
+## Strong growths are drawn dark and weak ones faint. Build never grows and has no line.
 func _draw_stats() -> void:
 	var c := _selected
 	if c == null:
 		return
 	var st := c.progress.stats()
-	var cells: Array = [["Health", "%d / %d" % [c.hp, c.max_hp()]]]
-	var names := {Stat.STA: "Stamina", Stat.STR: "Strength", Stat.MAG: "Magic", Stat.DEX: "Dexterity", Stat.SPD: "Speed",
-		Stat.DEF: "Defence", Stat.RES: "Resistance", Stat.CRT: "Critical", Stat.LCK: "Luck"}
-	for key: String in [Stat.STA, Stat.STR, Stat.MAG, Stat.DEX, Stat.SPD, Stat.DEF, Stat.RES, Stat.CRT, Stat.LCK]:
-		cells.append([names[key], str(int(st[key]))])
-	cells.append(["Build", str(c.data.build)])
+	var names := {Stat.HP: "Health", Stat.STA: "Stamina", Stat.STR: "Strength", Stat.MAG: "Magic", Stat.DEX: "Dexterity",
+		Stat.SPD: "Speed", Stat.DEF: "Defence", Stat.RES: "Resistance", Stat.CRT: "Critical", Stat.LCK: "Luck", Stat.BLD: "Build"}
+	var keys: Array[String] = [Stat.HP, Stat.STA, Stat.STR, Stat.MAG, Stat.DEX, Stat.SPD, Stat.DEF, Stat.RES, Stat.CRT, Stat.LCK, Stat.BLD]
 	var cols := 4
 	var cw := _stats.size.x / cols
+	var span := cw - 22.0
 	var body := UiTheme.body_font()
 	var display := UiTheme.display_font()
-	for i in cells.size():
+	var italic := UiTheme.italic_font()
+	for i in keys.size():
+		var key := keys[i]
 		var x := (i % cols) * cw
-		var y := floorf(float(i) / cols) * 27.0
-		UiTheme.draw_text(_stats, body, Vector2(x, y + 2.0), cells[i][0], 16, UiTheme.PARCHMENT_MUTED)
-		UiTheme.draw_text(_stats, display, Vector2(x, y), cells[i][1], 19, UiTheme.PARCHMENT_INK, 0, cw - 22.0, HORIZONTAL_ALIGNMENT_RIGHT)
+		var y := floorf(float(i) / cols) * STAT_ROW
+		var value := "%d / %d" % [c.hp, c.max_hp()] if key == Stat.HP else str(c.data.build if key == Stat.BLD else int(st[key]))
+		UiTheme.draw_text(_stats, body, Vector2(x, y + 2.0), names[key], 16, UiTheme.PARCHMENT_MUTED)
+		UiTheme.draw_text(_stats, display, Vector2(x, y), value, 19, UiTheme.PARCHMENT_INK, 0, span, HORIZONTAL_ALIGNMENT_RIGHT)
+		if key == Stat.BLD:
+			continue
+		var rate := Levels.growth_rate(c.data, key)
+		var strength := 0.9 if rate >= 50 else (0.62 if rate >= 30 else 0.38)
+		var ink := Color(UiTheme.PARCHMENT_INK, strength)
+		var track := Rect2(x, y + 28.0, span - 46.0, 5.0)
+		_stats.draw_rect(track, Color(UiTheme.PARCHMENT_INK, 0.13))
+		_stats.draw_rect(Rect2(track.position, Vector2(track.size.x * rate / 100.0, track.size.y)), ink)
+		UiTheme.draw_text(_stats, body, Vector2(x, y + 20.0), "%d%%" % rate, 15, Color(UiTheme.PARCHMENT_INK, minf(1.0, strength + 0.2)), 0, span,
+			HORIZONTAL_ALIGNMENT_RIGHT)
+	# The last cell of the table is free: say what the lines are.
+	var lx := 3.0 * cw
+	var ly := 2.0 * STAT_ROW + 2.0
+	_stats.draw_multiline_string(italic, Vector2(lx, ly + italic.get_ascent(13)), "Under each stat: its chance to rise with a level.",
+		HORIZONTAL_ALIGNMENT_LEFT, span, 13, 3, Color(UiTheme.PARCHMENT_MUTED, 0.95))
 
 
 func _unhandled_input(event: InputEvent) -> void:
