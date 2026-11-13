@@ -308,7 +308,7 @@ func _refresh_sheet() -> void:
 		var step := p.progress_to_next(type)
 		var g := p.grade(type)
 		var held := type == t
-		cells.append({"title": WeaponData.type_name(type), "grade": g, "step": step, "ink": UiTheme.PARCHMENT_INK, "held": held,
+		cells.append({"title": WeaponData.type_name(type), "weapon": type, "grade": g, "step": step, "ink": UiTheme.PARCHMENT_INK, "held": held,
 			"strong": held or p.points_in(type) > 0,
 			"tip": "%s %s: %d points.%s\nFighting with a weapon raises its grade; every grade reached teaches a combat art." % [
 				WeaponData.type_name(type), Proficiency.grade_name(g), p.points_in(type),
@@ -318,7 +318,7 @@ func _refresh_sheet() -> void:
 		var step := p.magic_progress_to_next(s)
 		var g := p.magic_grade(s)
 		var casts := schools.has(s)
-		cells.append({"title": SpellData.school_name(s), "grade": g, "step": step, "ink": UiTheme.school_color(s).darkened(0.55), "held": false,
+		cells.append({"title": SpellData.school_name(s), "school": s, "grade": g, "step": step, "ink": UiTheme.school_color(s).darkened(0.55), "held": false,
 			"strong": casts or p.magic_points_in(s) > 0,
 			"tip": "%s %s: %d points. Every cast gives %d; a grade reached teaches a new spell.%s" % [SpellData.school_name(s),
 				Proficiency.grade_name(g), p.magic_points_in(s), BattleConfig.MAGIC_POINTS_PER_CAST,
@@ -361,12 +361,13 @@ func _weapon_row(c: RunCompanion, item: OwnedWeapon) -> RowButton:
 	row.marked = d.is_rare()
 	row.notes = notes
 	# Might as it would be in this companion's hand (a rare blade's may follow their grade).
-	row.sub = "%s%s  ·  Mt %d  ·  Hit %d  ·  weight %d" % ["rare " if d.is_rare() else "", WeaponData.type_name(d.weapon_type).to_lower(),
-		d.might_for(c.progress), d.hit, d.weight]
+	row.type_icon = d.weapon_type
+	row.sub = "%sMt %d  ·  Hit %d  ·  weight %d" % ["rare  ·  " if d.is_rare() else "", d.might_for(c.progress), d.hit, d.weight]
+	# What it needs, as signs; what this companion lacks is in red.
+	row.needs = StoreScreen.weapon_needs(d, c.progress)
 	var why := run.equip_block_reason(c, item)
 	if item.holder == c:
 		row.active = true
-		row.sub += "  ·  needs %s" % d.requirement_text().replace(" · ", " and ")
 		row.mouse_default_cursor_shape = Control.CURSOR_ARROW
 	elif item.holder != null:
 		row.disabled = true
@@ -374,7 +375,7 @@ func _weapon_row(c: RunCompanion, item: OwnedWeapon) -> RowButton:
 		row.tooltip_text = why
 	elif why != "":
 		row.disabled = true
-		row.detail = "needs %s" % d.requirement_text().replace(" · ", " and ") if not c.progress.can_equip_weapon(d) else why.trim_suffix(".")
+		row.detail = "cannot hold it" if not c.progress.can_equip_weapon(d) else why.trim_suffix(".")
 		row.tooltip_text = why
 	else:
 		row.detail = "Attack %d" % c.attack(d)
@@ -468,11 +469,11 @@ func _grade_cell(cell: Dictionary, w: float) -> Control:
 	line.draw.connect(func() -> void:
 		var display := UiTheme.display_font()
 		var a := 1.0 if cell.strong else 0.5
-		var x := 0.0
 		if cell.held:
 			line.draw_rect(Rect2(-6, -2, w + 12.0, GRADE_ROW - 4.0), Color(UiTheme.WAX, 0.1))
-			line.draw_circle(Vector2(5, 14.0), 4.5, UiTheme.WAX)
-			x = 16.0
+		# The sign first (the one in hand in red), then the name: this is where the signs are learned.
+		var x := UiIcons.proficiency(line, Vector2(0, 2.0), int(cell.get("weapon", -1)), int(cell.get("school", -1)), "", 20,
+			UiTheme.WAX if cell.held else Color(ink, a), ink) + 8.0
 		UiTheme.draw_text(line, display, Vector2(x, 3.0), cell.title, 19, Color(ink, a))
 		UiTheme.draw_text(line, display, Vector2(0, -2.0), Proficiency.grade_name(cell.grade), 26, Color(ink, a), 0, w, HORIZONTAL_ALIGNMENT_RIGHT)
 		var track := Rect2(0.0, 31.0, w, 4.0)
@@ -490,7 +491,6 @@ func _section(text: String, w: float) -> Label:
 	return l
 
 
-## One of the three orders, stacked at the foot of the first column.
 ## One of the three orders at the foot of the first column: words written on the sheet that can be
 ## clicked, a third of the column each.
 func _order(slot: int, title: String, tip: String, action: Callable, disabled: bool) -> void:

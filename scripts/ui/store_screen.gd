@@ -243,6 +243,7 @@ func _paper_for(data: CompanionData, x: float) -> Control:
 	paper.position = Vector2(x - PAPER.x * 0.5, PAPER_Y)
 	paper.size = PAPER
 	paper.mouse_filter = Control.MOUSE_FILTER_STOP
+	paper.tooltip_text = _skills_text(data)
 	var inner := PAPER.x - PAPER_PAD * 2.0
 	var level := run.hire_level()
 	# Their numbers with their traits counted, as they will be once hired.
@@ -265,8 +266,10 @@ func _paper_for(data: CompanionData, x: float) -> Control:
 		UiTheme.draw_text(paper, display, Vector2(PAPER_PAD, 16.0), data.display_name, 40, ink)
 		UiTheme.draw_text(paper, italic, Vector2(PAPER_PAD, 34.0), "joins at level %d" % level, 17, muted, 0, inner, HORIZONTAL_ALIGNMENT_RIGHT)
 		paper.draw_line(Vector2(PAPER_PAD, 74.0), Vector2(PAPER_PAD + inner, 74.0), Color(ink, 0.45), 1.0)
-		UiTheme.draw_text(paper, body, Vector2(PAPER_PAD, 82.0), _skills_text(data), 17, ink)
-		UiTheme.draw_text(paper, italic, Vector2(PAPER_PAD, 106.0), _brings_text(data), 15, muted)
+		var sx := PAPER_PAD
+		for skill: Array in _skills(data):
+			sx += UiIcons.proficiency(paper, Vector2(sx, 78.0), skill[1], skill[2], skill[3], 20, Color(ink, 0.85), ink) + 22.0
+		UiTheme.draw_text(paper, italic, Vector2(PAPER_PAD, 110.0), _brings_text(data), 15, muted)
 		var half := (inner - 30.0) * 0.5
 		var top := PAPER_STATS_Y + StatTable.HEAD_H
 		StatTable.head(paper, Vector2(PAPER_PAD, PAPER_STATS_Y), half, "STATS")
@@ -289,21 +292,27 @@ func _paper_for(data: CompanionData, x: float) -> Control:
 	return paper
 
 
-## "Axe D, Spear E+" or "White magic D+, Dagger E": every skill above the lowest grade, best first.
-static func _skills_text(data: CompanionData) -> String:
+## Every skill above the lowest grade, best first, magic before weapons:
+## [[sort key, weapon type or -1, school or -1, grade name], ...].
+static func _skills(data: CompanionData) -> Array:
 	var parts: Array = []
 	for s: int in SpellData.School.values():
 		var g := data.starting_magic_grade(s)
 		if g > 0 or (data.signature_spell != null and data.signature_spell.school == s):
-			parts.append([g + 100, "%s %s" % [SpellData.school_name(s), Proficiency.grade_name(g)]])
+			parts.append([g + 100, -1, s, Proficiency.grade_name(g)])
 	for t: int in WeaponData.WeaponType.values():
 		var g := data.starting_grade(t)
 		if g > 0 or (data.weapon != null and data.weapon.weapon_type == t):
-			parts.append([g, "%s %s" % [WeaponData.type_name(t), Proficiency.grade_name(g)]])
+			parts.append([g, t, -1, Proficiency.grade_name(g)])
 	parts.sort_custom(func(a: Array, b: Array) -> bool: return a[0] > b[0])
+	return parts
+
+
+## The same in words, for a tooltip: "White magic D+, Dagger E".
+static func _skills_text(data: CompanionData) -> String:
 	var words: Array[String] = []
-	for p in parts:
-		words.append(p[1])
+	for skill: Array in _skills(data):
+		words.append("%s %s" % [WeaponData.type_name(skill[1]) if skill[1] >= 0 else SpellData.school_name(skill[2]), skill[3]])
 	return ",  ".join(words)
 
 
@@ -342,11 +351,13 @@ func _shop_row(item: ShopItemData) -> RowButton:
 	row.title = w.display_name
 	row.marked = w.is_rare()
 	row.notes = notes
-	var kind := WeaponData.type_name(w.weapon_type).to_lower()
+	# What kind it is and what it needs are signs: the kind before the name, the grades after the small print.
+	row.type_icon = w.weapon_type
+	row.needs = weapon_needs(w)
 	# A blade whose Might is the wielder's grade has no one number on the rack.
 	var might := "Mt by grade" if w.might_by_grade else "Mt %d" % w.might
-	row.sub = "%s%s  ·  %s  ·  Hit %d  ·  weight %d  ·  needs %s" % ["rare " if w.is_rare() else "", kind, might, w.hit, w.weight,
-		w.requirement_text().replace(" · ", " and ")]
+	row.sub = "%s%s  ·  Hit %d  ·  weight %d" % ["rare  ·  " if w.is_rare() else "", might, w.hit, w.weight]
+	row.tooltip_text = "%s. Needs %s." % [WeaponData.type_name(w.weapon_type), w.requirement_text().replace(" · ", " and ")]
 	if not w.effective_against.is_empty():
 		row.sub += "  ·  effective against %s" % ", ".join(w.effective_against).to_lower()
 	var why := run.buy_block_reason(item)
@@ -361,6 +372,23 @@ func _shop_row(item: ShopItemData) -> RowButton:
 			_pointed = null
 			_refresh_crew())
 	return row
+
+
+## What holding `w` needs, as RowButton.needs wants it: the sign and grade of its weapon type and,
+## for a two-proficiency weapon, of the second. With `p` given, what they lack is marked short.
+static func weapon_needs(w: WeaponData, p: CompanionProgress = null) -> Array:
+	var out: Array = [{"weapon": w.weapon_type, "grade": Proficiency.grade_name(w.required_grade),
+		"short": p != null and p.grade(w.weapon_type) < w.required_grade}]
+	if w.has_second_requirement():
+		var second := {"grade": Proficiency.grade_name(w.second_grade)}
+		if w.second_type >= 0:
+			second["weapon"] = w.second_type
+			second["short"] = p != null and p.grade(w.second_type) < w.second_grade
+		else:
+			second["school"] = w.second_school
+			second["short"] = p != null and p.magic_grade(w.second_school) < w.second_grade
+		out.append(second)
+	return out
 
 
 ## What a weapon does that others of its kind do not, one short line each (WeaponData.trait_lines,
@@ -402,8 +430,7 @@ func _crew_row(c: RunCompanion, h: float) -> Control:
 	var line := ""
 	var ink := UiTheme.TEXT.lerp(UiTheme.MUTED, 0.45)
 	if shown == null:
-		line = "%s  ·  Attack %d  ·  %s %s" % [held.display_name, c.attack(), WeaponData.type_name(held.weapon_type).to_lower(),
-			Proficiency.grade_name(c.progress.grade(held.weapon_type))]
+		line = "%s  ·  Attack %d  ·  " % [held.display_name, c.attack()]
 	elif able:
 		var heavy := shown.weight - c.data.build
 		line = "%s  ·  Attack %d → %d%s" % ["hand it over" if offered else "can hold it", c.attack(), c.attack(shown),
@@ -453,7 +480,11 @@ func _crew_row(c: RunCompanion, h: float) -> Control:
 		var x := center.x + r + 18.0
 		UiTheme.draw_text(row, display, Vector2(x, h * 0.5 - 27.0), c.display_name(), 25,
 			Color(UiTheme.MUTED, 0.8) if dim else (ActionButton.LIT_INK if over[0] else UiTheme.TEXT), 4)
-		UiTheme.draw_text(row, body, Vector2(x, h * 0.5 + 5.0), line, 17, ActionButton.LIT_INK if over[0] else ink, 4))
+		UiTheme.draw_text(row, body, Vector2(x, h * 0.5 + 5.0), line, 17, ActionButton.LIT_INK if over[0] else ink, 4)
+		if shown == null:
+			# Their grade with what they hold: its sign and the letter.
+			UiIcons.proficiency(row, Vector2(x + body.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, 17).x, h * 0.5 + 3.0), held.weapon_type, -1,
+				Proficiency.grade_name(c.progress.grade(held.weapon_type)), 18, ink, UiTheme.TEXT, 4))
 	return row
 
 

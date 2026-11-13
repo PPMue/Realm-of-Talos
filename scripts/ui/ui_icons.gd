@@ -108,3 +108,99 @@ static func portrait(ci: CanvasItem, c: Vector2, r: float, tex: Texture2D, focus
 	# The art is a cut-out: give the face something to stand against.
 	ci.draw_polygon(pts, ground)
 	ci.draw_colored_polygon(pts, modulate, uvs, tex)
+
+
+## The sign of a weapon type (WeaponData.WeaponType), bold enough to be told apart small: a long
+## sword up to the right, a short broad dagger leaning the other way, a spear with a leaf head, an axe with a wide
+## blade, a drawn bow with its arrow.
+static func weapon(ci: CanvasItem, c: Vector2, size: float, type: int, color: Color) -> void:
+	var h := size * 0.5
+	var w := maxf(1.8, size * 0.1)
+	var up := Vector2(0.62, -0.78)
+	var side := up.orthogonal()
+	match type:
+		WeaponData.WeaponType.SWORD:
+			var guard := c - up * h * 0.32
+			ci.draw_line(guard, c + up * h * 0.78, color, w * 1.25, true)
+			ci.draw_colored_polygon(PackedVector2Array([c + up * h * 1.02, c + up * h * 0.74 - side * w * 0.62, c + up * h * 0.74 + side * w * 0.62]), color)
+			ci.draw_line(guard - side * h * 0.44, guard + side * h * 0.44, color, w * 1.15, true)
+			ci.draw_line(guard, c - up * h * 0.82, color, w * 0.9, true)
+			ci.draw_circle(c - up * h * 0.88, w * 0.85, color)
+		WeaponData.WeaponType.DAGGER:
+			# Short and broad, and leaning the other way from the sword: told apart by its stance.
+			var lean := Vector2(-0.62, -0.78)
+			var across := lean.orthogonal()
+			var hilt := c - lean * h * 0.3
+			ci.draw_colored_polygon(PackedVector2Array([hilt - across * h * 0.3, hilt + across * h * 0.3, c + lean * h * 0.98]), color)
+			ci.draw_line(hilt - across * h * 0.46, hilt + across * h * 0.46, color, w * 1.05, true)
+			ci.draw_line(hilt, c - lean * h * 0.82, color, w * 1.05, true)
+			ci.draw_circle(c - lean * h * 0.88, w * 0.85, color)
+		WeaponData.WeaponType.SPEAR:
+			ci.draw_line(c - up * h * 0.98, c + up * h * 0.4, color, w, true)
+			ci.draw_colored_polygon(PackedVector2Array([c + up * h * 1.04, c + up * h * 0.5 - side * h * 0.3, c + up * h * 0.26,
+				c + up * h * 0.5 + side * h * 0.3]), color)
+		WeaponData.WeaponType.AXE:
+			ci.draw_line(c - up * h * 0.92, c + up * h * 0.78, color, w * 1.1, true)
+			var head := c + up * h * 0.42
+			ci.draw_colored_polygon(PackedVector2Array([head + up * h * 0.3, head + side * h * 0.72 + up * h * 0.5,
+				head + side * h * 0.92, head + side * h * 0.72 - up * h * 0.5, head - up * h * 0.3]), color)
+		_:
+			# A bow: the stave, the string and an arrow on it.
+			var hub := c + Vector2(-h * 0.34, 0)
+			ci.draw_arc(hub, h * 0.92, -PI * 0.37, PI * 0.37, 20, color, w * 1.3, true)
+			var top := hub + Vector2.from_angle(-PI * 0.37) * h * 0.92
+			var foot := hub + Vector2.from_angle(PI * 0.37) * h * 0.92
+			ci.draw_line(top, foot, color, w * 0.6, true)
+			ci.draw_line(Vector2(top.x - h * 0.2, c.y), Vector2(c.x + h * 0.7, c.y), color, w * 0.85, true)
+			ci.draw_colored_polygon(PackedVector2Array([Vector2(c.x + h * 0.98, c.y), Vector2(c.x + h * 0.56, c.y - h * 0.24),
+				Vector2(c.x + h * 0.56, c.y + h * 0.24)]), color)
+
+
+## The sign of a school of magic (SpellData.School): a sun for white, a waning moon for black.
+static func school(ci: CanvasItem, c: Vector2, size: float, of: int, color: Color) -> void:
+	if of == SpellData.School.WHITE:
+		sun(ci, c, size, color)
+		return
+	var h := size * 0.5
+	var pts := PackedVector2Array()
+	for k in 21:
+		pts.append(c + Vector2.from_angle(-PI * 0.5 + PI * k / 20.0) * h * 0.9)
+	for k in 21:
+		pts.append(c + Vector2(-h * 0.42, 0) + Vector2.from_angle(PI * 0.5 - PI * k / 20.0) * Vector2(h * 0.62, h * 0.9))
+	ci.draw_colored_polygon(pts, color)
+
+
+## A weapon type's sign (or, with `weapon_type` below 0, a school's) as a seal: a disc of `disc`, the
+## sign cut out of it in a colour that stands against it. `size` is the disc's width.
+static func seal(ci: CanvasItem, c: Vector2, size: float, weapon_type: int, of_school: int, disc: Color) -> void:
+	var inner := Color(UiTheme.INK, disc.a) if disc.get_luminance() > 0.45 else Color(UiTheme.PARCHMENT.lightened(0.15), disc.a)
+	ci.draw_circle(c, size * 0.5, disc)
+	if weapon_type >= 0:
+		weapon(ci, c, size * 0.74, weapon_type, inner)
+	else:
+		school(ci, c, size * 0.7, of_school, inner)
+
+
+## A proficiency at a glance: the seal of the weapon type (or, with `weapon_type` below 0, of the
+## school) and the grade's letter after it. `at` is the top left of a line `font_size` tall; returns
+## the width used. `grade` may be "" for the seal alone.
+static func proficiency(ci: CanvasItem, at: Vector2, weapon_type: int, of_school: int, grade: String, font_size: int, sign_ink: Color,
+		grade_ink: Color, outline: int = 0) -> float:
+	var font := UiTheme.display_font()
+	var side := font_size * 1.4
+	var c := at + Vector2(side * 0.5, font.get_height(font_size) * 0.5 + 1.0)
+	if outline > 0:
+		ci.draw_circle(c + Vector2(0, 1.5), side * 0.5 + 1.5, Color(0, 0, 0, 0.55))
+	seal(ci, c, side, weapon_type, of_school, sign_ink)
+	if grade == "":
+		return side
+	UiTheme.draw_text(ci, font, at + Vector2(side + 5.0, 0), grade, font_size, grade_ink, outline)
+	return side + 5.0 + font.get_string_size(grade, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+
+
+## Width proficiency() would use.
+static func proficiency_width(grade: String, font_size: int) -> float:
+	var side := font_size * 1.4
+	if grade == "":
+		return side
+	return side + 5.0 + UiTheme.display_font().get_string_size(grade, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x

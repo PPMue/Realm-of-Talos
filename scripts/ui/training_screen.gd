@@ -428,8 +428,12 @@ func _notice(d: Drill, index: int) -> Control:
 			head = "%s  ·  level %d" % [_who.display_name(), st.x]
 		else:
 			st = _grade_standing(_points(d, _who))
-			head = "%s  ·  %s %s" % [_who.display_name(), d.subject_name(), Proficiency.grade_name(st.x)]
+			head = "%s  ·  " % _who.display_name()
 		UiTheme.draw_text(paper, display, Vector2(x, 88.0), head, 23, ink)
+		if not sparring:
+			# Their grade in what the drill trains: its seal and the letter.
+			UiIcons.proficiency(paper, Vector2(x + display.get_string_size(head, HORIZONTAL_ALIGNMENT_LEFT, -1, 23).x, 88.0),
+				d.weapon_type if d.kind == Drill.Kind.WEAPON else -1, d.school, Proficiency.grade_name(st.x), 22, Color(ink, 0.85), ink)
 		var track := Rect2(x, 132.0, right - x, 9.0)
 		paper.draw_rect(track, Color(ink, 0.14))
 		if st.z > 0:
@@ -498,11 +502,15 @@ func _make_row(c: RunCompanion, h: float) -> Control:
 		var ink := UiTheme.MUTED if dim else (ActionButton.LIT_INK if chosen or state.hover else UiTheme.TEXT)
 		UiTheme.draw_text(row, display, Vector2(x, h * 0.5 - 26.0), c.display_name(), 24, ink, 4)
 		var small := "level %d" % c.progress.level
-		if _drill != null and _drill.kind != Drill.Kind.SPARRING:
-			small = "%s %s  ·  level %d" % [_drill.subject_name(), Proficiency.grade_name(_drill.grade_of(c.progress)), c.progress.level]
 		if not run.is_fielded(c):
 			small += "  ·  bench"
-		UiTheme.draw_text(row, body, Vector2(x, h * 0.5 + 4.0), small, 17, Color(UiTheme.MUTED, 0.9) if dim else UiTheme.TEXT.lerp(UiTheme.MUTED, 0.25), 4))
+		var small_ink := Color(UiTheme.MUTED, 0.9) if dim else UiTheme.TEXT.lerp(UiTheme.MUTED, 0.25)
+		var sx := x
+		if _drill != null and _drill.kind != Drill.Kind.SPARRING:
+			# Where they stand in what the chosen drill trains: its sign and their grade.
+			sx += UiIcons.proficiency(row, Vector2(x, h * 0.5 + 2.0), _drill.weapon_type if _drill.kind == Drill.Kind.WEAPON else -1,
+				_drill.school, Proficiency.grade_name(_drill.grade_of(c.progress)), 18, small_ink, ink, 4) + 12.0
+		UiTheme.draw_text(row, body, Vector2(sx, h * 0.5 + 4.0), small, 17, small_ink, 4))
 	return row
 
 
@@ -510,52 +518,13 @@ func _make_row(c: RunCompanion, h: float) -> Control:
 
 ## A small picture of what a drill trains: crossed blades for sparring, the weapon, or a school's sign.
 static func draw_drill_icon(ci: CanvasItem, c: Vector2, size: float, d: Drill, color: Color) -> void:
-	var h := size * 0.5
-	var w := maxf(2.5, size * 0.07)
 	match d.kind:
 		Drill.Kind.SPARRING:
 			UiIcons.swords(ci, c, size, color)
 		Drill.Kind.MAGIC:
-			if d.school == SpellData.School.WHITE:
-				UiIcons.sun(ci, c, size, color)
-			else:
-				# A waning moon.
-				var pts := PackedVector2Array()
-				for k in 21:
-					pts.append(c + Vector2.from_angle(-PI * 0.5 + PI * k / 20.0) * h * 0.9)
-				for k in 21:
-					pts.append(c + Vector2(-h * 0.42, 0) + Vector2.from_angle(PI * 0.5 - PI * k / 20.0) * Vector2(h * 0.62, h * 0.9))
-				ci.draw_colored_polygon(pts, color)
+			UiIcons.school(ci, c, size, d.school, color)
 		_:
-			var up := Vector2(0.62, -0.78)
-			var side := up.orthogonal()
-			match d.weapon_type:
-				WeaponData.WeaponType.SWORD:
-					ci.draw_line(c - up * h * 0.9, c + up * h * 0.95, color, w * 1.3, true)
-					ci.draw_line(c - up * h * 0.45 - side * h * 0.34, c - up * h * 0.45 + side * h * 0.34, color, w * 1.3, true)
-					ci.draw_circle(c - up * h * 0.95, w * 1.1, color)
-				WeaponData.WeaponType.DAGGER:
-					ci.draw_line(c - up * h * 0.55, c + up * h * 0.6, color, w * 1.5, true)
-					ci.draw_line(c - up * h * 0.2 - side * h * 0.28, c - up * h * 0.2 + side * h * 0.28, color, w * 1.3, true)
-					ci.draw_circle(c - up * h * 0.6, w * 1.1, color)
-				WeaponData.WeaponType.SPEAR:
-					ci.draw_line(c - up * h, c + up * h * 0.6, color, w, true)
-					ci.draw_colored_polygon(PackedVector2Array([c + up * h * 1.05, c + up * h * 0.5 - side * h * 0.2,
-						c + up * h * 0.5 + side * h * 0.2]), color)
-				WeaponData.WeaponType.AXE:
-					ci.draw_line(c - up * h * 0.95, c + up * h * 0.85, color, w * 1.2, true)
-					var head := c + up * h * 0.5
-					ci.draw_colored_polygon(PackedVector2Array([head + up * h * 0.12, head + side * h * 0.62 + up * h * 0.42,
-						head + side * h * 0.72 - up * h * 0.1, head + side * h * 0.5 - up * h * 0.5, head - up * h * 0.2]), color)
-				_:
-					# A bow: the stave, the string and an arrow on it.
-					ci.draw_arc(c + Vector2(-h * 0.3, 0), h * 0.9, -PI * 0.36, PI * 0.36, 20, color, w * 1.2, true)
-					var top := c + Vector2(-h * 0.3, 0) + Vector2.from_angle(-PI * 0.36) * h * 0.9
-					var foot := c + Vector2(-h * 0.3, 0) + Vector2.from_angle(PI * 0.36) * h * 0.9
-					ci.draw_line(top, foot, color, w * 0.6, true)
-					ci.draw_line(Vector2(top.x - h * 0.3, c.y), Vector2(c.x + h * 0.85, c.y), color, w * 0.8, true)
-					ci.draw_colored_polygon(PackedVector2Array([Vector2(c.x + h * 1.0, c.y), Vector2(c.x + h * 0.66, c.y - h * 0.16),
-						Vector2(c.x + h * 0.66, c.y + h * 0.16)]), color)
+			UiIcons.weapon(ci, c, size, d.weapon_type, color)
 
 
 ## Behind everything: daylight on the palisade and the chosen companion standing in it.

@@ -59,6 +59,19 @@ var paper := false:
 		paper = v
 		queue_redraw()
 
+## Paper rows only. The sign of a weapon type drawn before the title (-1: none).
+var type_icon := -1:
+	set(v):
+		type_icon = v
+		queue_redraw()
+## Paper rows only. Proficiencies set after the small print as a sign and a grade each, after the
+## word "needs": [{"weapon": type} or {"school": school}, "grade": "D", "short": bool], `short` when
+## whoever the row is read for does not have it (drawn in red).
+var needs: Array = []:
+	set(v):
+		needs = v
+		queue_redraw()
+
 const NOTE_STEP := 19.0
 
 var _hover := false
@@ -196,6 +209,11 @@ func _draw_paper() -> void:
 		UiIcons.diamond(self, Vector2(x + 6.0, (h * 0.5 - 10.0) if notes.is_empty() else 21.0), 6.0, Color(UiTheme.WAX, 0.6 if disabled else 1.0))
 		x += 20.0
 		room -= 20.0
+	if type_icon >= 0:
+		UiIcons.seal(self, Vector2(x + 15.0, (h * 0.5 - 9.0) if notes.is_empty() and sub != "" else (21.0 if not notes.is_empty() else h * 0.5)),
+			30.0, type_icon, -1, Color(UiTheme.PARCHMENT_INK, 0.4 if disabled else 0.82))
+		x += 40.0
+		room -= 40.0
 	var title_size := 21
 	while title_size > 15 and display.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size).x > room:
 		title_size -= 1
@@ -204,11 +222,29 @@ func _draw_paper() -> void:
 		UiTheme.draw_text(self, display, Vector2(x, 7.0), title, title_size, ink, 0, room)
 		var wide := right - x
 		UiTheme.draw_text(self, body, Vector2(x + 1.0, 35.0), sub, 14, small, 0, wide)
+		_draw_needs(Vector2(x + 1.0 + minf(wide, body.get_string_size(sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x), 35.0), small)
 		var note_ink := Color(UiTheme.WAX.darkened(0.25), 0.7 if disabled else 1.0)
 		for i in notes.size():
 			UiTheme.draw_text(self, italic, Vector2(x + 1.0, 55.0 + i * NOTE_STEP), notes[i], 15, note_ink, 0, wide)
 	elif sub != "":
 		UiTheme.draw_text(self, display, Vector2(x, h * 0.5 - display.get_height(title_size) + 3.0), title, title_size, ink, 0, room)
 		UiTheme.draw_text(self, body, Vector2(x + 1.0, h * 0.5 + 3.0), sub, 14, small, 0, room)
+		_draw_needs(Vector2(x + 1.0 + minf(room, body.get_string_size(sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x), h * 0.5 + 3.0), small)
 	else:
 		UiTheme.draw_text(self, display, Vector2(x, (h - display.get_height(title_size)) * 0.5), title, title_size, ink, 0, room)
+
+
+## The proficiencies the row asks for, after the small print: "needs", then a sign and a grade each.
+func _draw_needs(at: Vector2, small: Color) -> void:
+	if needs.is_empty():
+		return
+	var body := UiTheme.body_font()
+	var x := at.x
+	var word := "  ·  needs " if sub != "" else "needs "
+	UiTheme.draw_text(self, body, Vector2(x, at.y), word, 14, small)
+	x += body.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
+	for n: Dictionary in needs:
+		var short := bool(n.get("short", false))
+		var ink := UiTheme.WAX if short else Color(UiTheme.PARCHMENT_INK, 0.5 if disabled else 0.85)
+		x += UiIcons.proficiency(self, Vector2(x, at.y - 4.0), int(n.get("weapon", -1)), int(n.get("school", -1)), String(n.get("grade", "")), 16,
+			ink, ink) + 12.0
