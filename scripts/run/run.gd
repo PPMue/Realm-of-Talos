@@ -142,6 +142,7 @@ static func create(p_rng: RandomNumberGenerator, p_content: RunContent = null, p
 		var c := r._join(pick)
 		c.traits = r._roll_traits(c.progress)
 		c.hp = c.max_hp()
+	r._stock_wooden_armory()
 	r._draw_bosses()
 	r._begin_day()
 	return r
@@ -1792,6 +1793,18 @@ func _make_tavern_offers() -> void:
 		var d: CompanionData = pool.pop_at(rng.randi_range(0, pool.size() - 1))
 		tavern_offers.append(d)
 		_offer_traits[d] = _roll_traits(CompanionProgress.create(d))
+
+
+## When the run begins: one wooden weapon (the ladder's tier 0) of every weapon type the starters'
+## own weapons do not already cover goes into the armory, unheld. Hires later add nothing.
+func _stock_wooden_armory() -> void:
+	for wt: int in WeaponData.WeaponType.values():
+		if inventory.weapons.any(func(w: OwnedWeapon) -> bool:
+				return w.data.weapon_type == wt and w.data.tier == WeaponData.Tier.WOODEN):
+			continue
+		var wooden := content.ladder_weapon(WeaponData.Tier.WOODEN, wt)
+		if wooden != null:
+			inventory.add(wooden)
 
 
 ## `n` more tavern offers this week (the Tavern's level 1, bought mid-week), if anyone is left.

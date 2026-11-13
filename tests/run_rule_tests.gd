@@ -258,12 +258,34 @@ func test_run_start() -> void:
 		t.eq(run.city_health, 100, "city at 100")
 		t.eq(run.day, 1, "day 1")
 		t.eq(run.day_type(), RunCalendar.DayType.BATTLE, "day 1 battle")
-		t.eq(run.inventory.weapons.size(), 2, "each brings a weapon")
 		for c in run.roster:
 			t.eq(c.hp, c.max_hp(), "full HP")
 			t.eq(run.inventory.held_by(c).data, c.data.weapon, "holds their own weapon")
 			seen[c.display_name()] = true
+		# The armory: one wooden weapon of every type, the starters' own counted.
+		var by_type := {}
+		for w in run.inventory.weapons:
+			t.eq(w.data.tier, WeaponData.Tier.WOODEN, "seed %d: only wooden weapons at the start" % s)
+			by_type[w.data.weapon_type] = int(by_type.get(w.data.weapon_type, 0)) + 1
+		for wt: int in WeaponData.WeaponType.values():
+			var starters := run.roster.filter(func(c: RunCompanion) -> bool: return c.data.weapon.weapon_type == wt).size()
+			t.eq(by_type.get(wt, 0), maxi(1, starters), "seed %d: %s: the starters' own, or one added" % [s, WeaponData.type_name(wt)])
+		var shared := run.roster[0].data.weapon.weapon_type == run.roster[1].data.weapon.weapon_type
+		t.eq(run.inventory.weapons.size(), 6 if shared else 5, "seed %d: %d weapons" % [s, 6 if shared else 5])
+		t.eq(run.inventory.unheld().size(), run.inventory.weapons.size() - 2, "the added ones are unheld")
 	t.eq(seen.size(), content().companions.size(), "every companion can start a run")
+	# A hire later brings only their own weapon.
+	var run := make_run(3)
+	run.day = 2
+	run.calendar[1] = RunCalendar.DayType.FREE
+	run.event_days.erase(2)
+	run._begin_day()
+	run.gold = 1000
+	if run.tavern_offers.is_empty():
+		run._make_tavern_offers()
+	var count := run.inventory.weapons.size()
+	t.check(run.hire(run.tavern_offers[0]) != null, "hired")
+	t.eq(run.inventory.weapons.size(), count + 1, "a hire adds only their own weapon")
 
 
 # ---------------------------------------------------------------- fronts and enemies
