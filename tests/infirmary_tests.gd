@@ -70,27 +70,30 @@ func companion(n: String) -> CompanionData:
 
 # ---------------------------------------------------------------- the stay
 
-## Injured on day D: away D+1 .. D+7, out at the start of D+8 at full HP, on the bench.
+## Injured on day D: away D+1 .. D+N (N = RunConfig.INFIRMARY_DAYS, 4), out at the start of D+N+1 at
+## full HP, on the bench.
 func test_infirmary_timing() -> void:
+	t.eq(RunConfig.INFIRMARY_DAYS, 4, "a stay is 4 days")
+	var n := RunConfig.INFIRMARY_DAYS
 	var run := make_run(301)
 	var c := run.roster[0]
 	var d := run.day
 	run._to_infirmary(c)
 	t.check(c.injured, "injured")
-	t.eq(c.back_on_day, d + 8, "out on day D + 8")
-	t.eq(c.days_left(d), 8, "8 counted from the day of the injury")
+	t.eq(c.back_on_day, d + n + 1, "out on day D + N + 1")
+	t.eq(c.days_left(d), n + 1, "N + 1 counted from the day of the injury")
 	t.eq(run.infirmary(), [c] as Array[RunCompanion], "in the infirmary")
 	t.check(not run.lineup.has(c), "out of the line")
 	next_day(run)
 	t.eq(run.day, d + 1, "the day after")
-	t.eq(c.days_left(run.day), 7, "7 days still to serve the day after")
-	while run.day < d + 7:
+	t.eq(c.days_left(run.day), n, "N days still to serve the day after")
+	while run.day < d + n:
 		next_day(run)
 		t.check(c.injured, "day %d: still in" % run.day)
 	t.eq(c.days_left(run.day), 1, "1 on the last day")
 	t.check(run.released_today.is_empty(), "nobody out yet")
 	next_day(run)
-	t.eq(run.day, d + 8, "day D + 8")
+	t.eq(run.day, d + n + 1, "day D + N + 1")
 	t.check(not c.injured, "out")
 	t.eq(c.hp, c.max_hp(), "at full HP")
 	t.check(run.reserve().has(c) and not run.lineup.has(c), "on the bench, not in the line")
@@ -115,7 +118,7 @@ func test_rest_and_daily_heal_skip_infirmary() -> void:
 	t.check(run.rest(), "rest")
 	t.eq(well.hp, well.max_hp(), "the others rest")
 	t.eq(hurt.hp, 0, "Rest skips the infirmary")
-	t.check(hurt.injured and hurt.back_on_day == run.day + 8, "and never shortens the stay")
+	t.check(hurt.injured and hurt.back_on_day == run.day + RunConfig.INFIRMARY_DAYS + 1, "and never shortens the stay")
 	well.hp = 1
 	run.end_free_day()
 	t.eq(hurt.hp, 0, "the daily heal skips them")
@@ -229,14 +232,14 @@ func test_cure_price() -> void:
 	var run := make_run(309)
 	var c := run.roster[0]
 	run._to_infirmary(c)
-	run.day += 1   # the day after the injury: 7 to serve
-	t.eq(c.days_left(run.day), 7, "7 days left")
-	for case: Array in [[1, 42], [5, 98], [10, 168], [15, 238]]:
+	run.day += 1   # the day after the injury: 4 to serve
+	t.eq(c.days_left(run.day), 4, "4 days left")
+	for case: Array in [[1, 24], [5, 56], [10, 96], [15, 136]]:
 		c.progress.level = case[0]
-		t.eq(run.cure_cost(c), case[1], "level %d with 7 days left: %d gold" % case)
+		t.eq(run.cure_cost(c), case[1], "level %d with 4 days left: %d gold" % case)
 	c.progress.level = 10
 	var last := run.cure_cost(c)
-	for i in 5:
+	for i in RunConfig.INFIRMARY_DAYS - 2:
 		run.day += 1
 		t.check(run.cure_cost(c) < last, "day %d: the price falls" % run.day)
 		last = run.cure_cost(c)

@@ -514,7 +514,7 @@ func test_injured_go_to_infirmary() -> void:
 			b._damage_companion(b.roster[0], 999, false))
 		t.check(r.injured.has(first.display_name()), "reported injured (won: %s)" % win)
 		t.check(first.injured and run.infirmary().has(first), "in the infirmary (won: %s)" % win)
-		t.eq(first.back_on_day, injured_on + RunConfig.INFIRMARY_DAYS + 1, "back on day D + 8")
+		t.eq(first.back_on_day, injured_on + RunConfig.INFIRMARY_DAYS + 1, "back on day D + INFIRMARY_DAYS + 1")
 		t.check(not run.lineup.has(first) and not run.reserve().has(first), "neither fielded nor on the bench")
 		t.check(run.roster.has(first), "still in the roster")
 		t.eq(run.inventory.held_by(first), weapon, "the weapon stays in their hand")

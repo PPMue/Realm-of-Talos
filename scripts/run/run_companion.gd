@@ -21,8 +21,8 @@ static func create(p_data: CompanionData) -> RunCompanion:
 	return c
 
 
-## Days still to serve on `today` (the days until they come out by themselves): 7 on the day after
-## the injury, 1 on the last day; 0 when not injured.
+## Days still to serve on `today` (the days until they come out by themselves): RunConfig.INFIRMARY_DAYS
+## on the day after the injury, 1 on the last day; 0 when not injured.
 func days_left(today: int) -> int:
 	return maxi(0, back_on_day - today) if injured else 0
 

@@ -201,20 +201,22 @@ func _hybrid_wants(run: Run, c: RunCompanion, drill: Drill) -> bool:
 
 
 ## Cures one companion from the infirmary when the line is short, the gold is there and they are one
-## of the company's best: among the four highest levels, with 3 or more days left (any days left when
-## a boss is due within two days). The highest level first.
+## of the company's best (among the four highest levels) who would otherwise miss a battle or boss day
+## before coming out by themselves. The highest level first.
 func cure_best(run: Run) -> void:
 	if run.free_action_block_reason(Run.FreeAction.CURE) != "" or run.available().size() >= RunConfig.MAX_FIELDED:
 		return
 	var by_level := run.roster.duplicate()
 	by_level.sort_custom(func(a: RunCompanion, b: RunCompanion) -> bool: return a.level() > b.level())
 	var best := by_level.slice(0, RunConfig.MAX_FIELDED)
-	var boss_soon := run.day_type(run.day + 1) == RunCalendar.DayType.BOSS or run.day_type(run.day + 2) == RunCalendar.DayType.BOSS
 	var pick: RunCompanion = null
 	for c in run.infirmary():
 		if not best.has(c) or run.cure_block_reason(c) != "":
 			continue
-		if c.days_left(run.day) < 3 and not boss_soon:
+		var misses := false
+		for d in range(run.day + 1, c.back_on_day):
+			misses = misses or run.day_type(d) == RunCalendar.DayType.BATTLE or run.day_type(d) == RunCalendar.DayType.BOSS
+		if not misses:
 			continue
 		if pick == null or c.level() > pick.level():
 			pick = c
