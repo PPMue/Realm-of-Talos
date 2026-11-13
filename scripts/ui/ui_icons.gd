@@ -145,15 +145,15 @@ static func weapon(ci: CanvasItem, c: Vector2, size: float, type: int, color: Co
 			ci.draw_colored_polygon(PackedVector2Array([head + up * h * 0.3, head + side * h * 0.72 + up * h * 0.5,
 				head + side * h * 0.92, head + side * h * 0.72 - up * h * 0.5, head - up * h * 0.3]), color)
 		_:
-			# A bow: the stave, the string and an arrow on it.
-			var hub := c + Vector2(-h * 0.34, 0)
+			# A bow: the stave, the string and an arrow on it, the whole of it centred on `c`.
+			var hub := c + Vector2(-h * 0.74, 0)
 			ci.draw_arc(hub, h * 0.92, -PI * 0.37, PI * 0.37, 20, color, w * 1.3, true)
 			var top := hub + Vector2.from_angle(-PI * 0.37) * h * 0.92
 			var foot := hub + Vector2.from_angle(PI * 0.37) * h * 0.92
 			ci.draw_line(top, foot, color, w * 0.6, true)
-			ci.draw_line(Vector2(top.x - h * 0.2, c.y), Vector2(c.x + h * 0.7, c.y), color, w * 0.85, true)
-			ci.draw_colored_polygon(PackedVector2Array([Vector2(c.x + h * 0.98, c.y), Vector2(c.x + h * 0.56, c.y - h * 0.24),
-				Vector2(c.x + h * 0.56, c.y + h * 0.24)]), color)
+			ci.draw_line(Vector2(c.x - h * 0.58, c.y), Vector2(c.x + h * 0.3, c.y), color, w * 0.85, true)
+			ci.draw_colored_polygon(PackedVector2Array([Vector2(c.x + h * 0.6, c.y), Vector2(c.x + h * 0.18, c.y - h * 0.24),
+				Vector2(c.x + h * 0.18, c.y + h * 0.24)]), color)
 
 
 ## The sign of a school of magic (SpellData.School): a sun for white, a waning moon for black.
@@ -162,11 +162,13 @@ static func school(ci: CanvasItem, c: Vector2, size: float, of: int, color: Colo
 		sun(ci, c, size, color)
 		return
 	var h := size * 0.5
+	# The crescent lies to the right of its own circle's centre, so that centre sits left of `c`.
+	var o := c + Vector2(-h * 0.42, 0)
 	var pts := PackedVector2Array()
 	for k in 21:
-		pts.append(c + Vector2.from_angle(-PI * 0.5 + PI * k / 20.0) * h * 0.9)
+		pts.append(o + Vector2.from_angle(-PI * 0.5 + PI * k / 20.0) * h * 0.9)
 	for k in 21:
-		pts.append(c + Vector2(-h * 0.42, 0) + Vector2.from_angle(PI * 0.5 - PI * k / 20.0) * Vector2(h * 0.62, h * 0.9))
+		pts.append(o + Vector2(-h * 0.42, 0) + Vector2.from_angle(PI * 0.5 - PI * k / 20.0) * Vector2(h * 0.62, h * 0.9))
 	ci.draw_colored_polygon(pts, color)
 
 
