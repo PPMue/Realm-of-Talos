@@ -140,7 +140,7 @@ func place(c: RunCompanion, index: int) -> void:
 	refresh()
 
 
-## The rule behind place(), shared with the war table: `c` goes to place `index` of the line (0 = the
+## The rule behind place(): `c` goes to place `index` of the line (0 = the
 ## rear) or to the bench (-1). From the bench onto a full line they change places with whoever stood
 ## there. Returns whether anything changed.
 static func set_down(r: Run, c: RunCompanion, index: int) -> bool:

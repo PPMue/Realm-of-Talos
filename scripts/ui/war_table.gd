@@ -1,27 +1,27 @@
 class_name WarTable
 extends Control
 ## The table in the gatehouse where the day's fight is chosen: the scouts' reports laid out side by
-## side (one per front, or the single report of a boss), under candlelight, and under them the
-## company as it will march: the line from the rear to the front, each place with the share of the
-## enemy's blows it draws, then whoever waits in reserve and whoever lies in the infirmary. Someone
-## can be carried to another place or to the reserve, or clicked and then set down with a second
-## click (Left and Right move whoever is picked up), so the line can be set against what the reports
-## show without leaving the table. Choosing a report marches the party out.
+## side (one per front, or the single report of a boss), under candlelight and drawn large, since
+## the enemy is what this table is for. Along the foot, small, stands the line as it will march, from
+## the rear to the front, each place with the share of the enemy's blows it draws. Its order can be
+## changed here: carry someone onto another's place, or click them and then the place (Left and Right
+## move whoever is picked up). Who is in the line at all is the barracks' business. Choosing a report
+## marches the party out.
 
 signal chosen(front: Front)
 signal closed
 
-const CARDS_TOP := 150.0
-## The company, under the reports.
-const LINE_X := 176.0
+const CARDS_TOP := 142.0
+## The reports are drawn larger than a FrontCard is made: by this much when they fit, less when
+## three lie side by side.
+const CARD_SCALE := 1.25
+const CARDS_ROOM := 1860.0
+const CARD_GAP := 34.0
+## The line, along the foot of the table.
 const LINE_GAP := 16.0
-const LINE_LABEL_Y := 688.0
-const LINE_Y := 716.0
-const LINE_ROW := 92.0
-const RESERVE_LABEL_Y := 828.0
-const RESERVE_Y := 856.0
-const RESERVE_STEP := 84.0
-const TABLE_END := 1064.0
+const LINE_LABEL_Y := 862.0
+const LINE_Y := 890.0
+const LINE_ROW := 84.0
 
 var run: Run
 var _title: Label
@@ -50,37 +50,25 @@ func _init() -> void:
 	_words.size = Vector2(1600, 34)
 	_words.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_words)
-	_row.add_theme_constant_override("separation", 34)
+	_row.add_theme_constant_override("separation", int(CARD_GAP))
 	_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	_row.position = Vector2(0, CARDS_TOP)
 	_row.size = Vector2(1920, FrontCard.H)
 	_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_row)
 
-	# The company: chalk marks first, then the reserve's ground (it takes anyone set down on it), then
-	# the markers themselves.
+	# The line: chalk marks, then the markers themselves.
 	_marks.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_marks.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_marks.draw.connect(_draw_marks)
 	add_child(_marks)
-	var reserve_ground := Control.new()
-	reserve_ground.position = Vector2(LINE_X - 8.0, RESERVE_LABEL_Y - 4.0)
-	reserve_ground.size = Vector2(_line_width() + 16.0, TABLE_END - RESERVE_LABEL_Y + 8.0)
-	reserve_ground.mouse_filter = Control.MOUSE_FILTER_PASS
-	reserve_ground.set_drag_forwarding(Callable(), _can_reserve, func(_at: Vector2, data: Variant) -> void:
-		place((data as Dictionary)["companion"], -1))
-	reserve_ground.gui_input.connect(func(event: InputEvent) -> void:
-		var mb := event as InputEventMouseButton
-		if mb != null and not mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT and _picked != null and run.is_fielded(_picked):
-			place(_picked, -1))
-	add_child(reserve_ground)
 	_company.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_company.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_company)
 
 	var back := Button.new()
 	back.text = "Return to the city"
-	back.tooltip_text = "Step away from the table. Weapons and arts are changed at the barracks.\nKey: Esc"
+	back.tooltip_text = "Step away from the table. Who marches, their weapons and their arts are changed at the barracks.\nKey: Esc"
 	back.focus_mode = Control.FOCUS_NONE
 	back.add_theme_font_size_override("font_size", 26)
 	back.position = Vector2(1590, 28)
@@ -122,48 +110,43 @@ func _build_cards() -> void:
 	for child in _row.get_children():
 		_row.remove_child(child)
 		child.queue_free()
+	var wide := 0.0
 	for i in _fronts.size():
 		var f := _fronts[i]
 		var card := FrontCard.new()
 		card.setup(f, str(i + 1), run.battle_block_reason(f))
 		card.chosen.connect(_choose.bind(f))
 		_row.add_child(card)
+		wide += card.custom_minimum_size.x + (CARD_GAP if i > 0 else 0.0)
+	# As large as the table allows.
+	var k := minf(CARD_SCALE, CARDS_ROOM / maxf(1.0, wide))
+	_row.scale = Vector2(k, k)
+	_row.size = Vector2(1920.0 / k, FrontCard.H)
 
 
 # ---------------------------------------------------------------- the company
 
-## Sets `c` down at place `index` of the line (0 = the rear), or in reserve when `index` is -1 (the
-## barracks' rule: PartyScreen.set_down).
+## Moves `c` to place `index` of the line (0 = the rear).
 func place(c: RunCompanion, index: int) -> void:
-	if c == null or run == null or not run.can_change_party():
+	if c == null or run == null or not run.can_change_party() or not run.is_fielded(c):
 		return
-	PartyScreen.set_down(run, c, index)
+	run.move_in_line(c, index)
 	_picked = null
 	_changed()
 
 
-## A click on one of the company: the first picks them up, the second sets whoever was picked up down
-## where the click fell (two in the line change order; one in the line and one in reserve change places).
+## A click on one of the line: the first picks them up, the second sets whoever was picked up down in
+## the place of whoever was clicked.
 func click(c: RunCompanion) -> void:
-	if run == null or not run.can_change_party() or c == null or c.injured:
+	if run == null or not run.can_change_party() or c == null or not run.is_fielded(c):
 		return
 	if _picked == null:
 		_picked = c
 	elif _picked == c:
 		_picked = null
-	elif run.is_fielded(c):
+	else:
 		place(_picked, run.lineup.find(c))
 		return
-	elif run.is_fielded(_picked):
-		# Someone in reserve takes the place of whoever was picked up.
-		var at := run.lineup.find(_picked)
-		run.bench(_picked)
-		run.field(c, at)
-		_picked = null
-		_changed()
-		return
-	else:
-		_picked = c
 	refresh_company()
 
 
@@ -172,12 +155,10 @@ func _changed() -> void:
 	refresh_company()
 
 
-static func _line_width() -> float:
-	return MusterRow.W * RunConfig.MAX_FIELDED + LINE_GAP * (RunConfig.MAX_FIELDED - 1)
-
-
-static func _place_x(i: int) -> float:
-	return LINE_X + i * (MusterRow.W + LINE_GAP)
+## Where place `i` of a line of `n` stands: the line is centred along the foot of the table.
+static func _place_x(i: int, n: int) -> float:
+	var wide := MusterRow.W * n + LINE_GAP * maxi(0, n - 1)
+	return (1920.0 - wide) * 0.5 + i * (MusterRow.W + LINE_GAP)
 
 
 ## The share (percent) of the enemy's single blows each place in the line draws: each place forward
@@ -206,35 +187,12 @@ func refresh_company() -> void:
 	_marks.queue_redraw()
 	if run == null:
 		return
-	var carry := run.can_change_party()
-	for i in RunConfig.MAX_FIELDED:
-		var c: RunCompanion = run.lineup[i] if i < run.lineup.size() else null
-		var row := _marker(c, MusterRow.Kind.LINE, LINE_ROW, carry)
-		row.position = Vector2(_place_x(i), LINE_Y)
+	var n := run.lineup.size()
+	var carry := run.can_change_party() and n > 1
+	for i in n:
+		var row := _marker(run.lineup[i], MusterRow.Kind.LINE, LINE_ROW, carry)
+		row.position = Vector2(_place_x(i, n), LINE_Y)
 		row.dropped.connect(place.bind(i))
-		if c == null:
-			# An empty place takes whoever was picked up.
-			row.gui_input.connect(func(event: InputEvent) -> void:
-				var mb := event as InputEventMouseButton
-				if mb != null and not mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT and _picked != null:
-					place(_picked, i))
-		_company.add_child(row)
-	# The reserve, then the infirmary, four to a row.
-	var waiting: Array = []
-	for c in run.reserve():
-		waiting.append([c, MusterRow.Kind.BENCH, ""])
-	for c in run.infirmary():
-		var left := c.days_left(run.day)
-		waiting.append([c, MusterRow.Kind.INFIRMARY, "up tomorrow" if left <= 1 else "%d days" % left])
-	var rows := ceili(waiting.size() / float(RunConfig.MAX_FIELDED))
-	var step := minf(RESERVE_STEP, (TABLE_END - RESERVE_Y) / maxi(1, rows))
-	for k in waiting.size():
-		var entry: Array = waiting[k]
-		var row := _marker(entry[0], entry[1], step - 8.0, carry)
-		row.note = entry[2]
-		row.position = Vector2(_place_x(k % RunConfig.MAX_FIELDED), RESERVE_Y + (k / RunConfig.MAX_FIELDED) * step)
-		if entry[1] == MusterRow.Kind.BENCH:
-			row.dropped.connect(place.bind(-1))
 		_company.add_child(row)
 
 
@@ -244,67 +202,50 @@ func _marker(c: RunCompanion, kind: MusterRow.Kind, h: float, carry: bool) -> Mu
 	row.setup(c, kind, h)
 	if c != null:
 		row.set_selected(c == _picked)
-		if kind != MusterRow.Kind.INFIRMARY:
-			row.pressed.connect(click.bind(c))
+		row.pressed.connect(click.bind(c))
+		row.tooltip_text += "\n\nCarry them onto another's place to change the order of the line, or click them and then the place."
 	return row
 
 
-func _can_reserve(_at: Vector2, data: Variant) -> bool:
-	return run != null and run.can_change_party() and data is Dictionary \
-		and (data as Dictionary).get("companion") is RunCompanion and run.is_fielded((data as Dictionary)["companion"])
-
-
-## Chalk beside the company's markers: which end of the line is which, the blows each place draws,
-## and the reserve.
+## Chalk beside the line's markers: which end is which, and the blows each place draws.
 func _draw_marks() -> void:
 	if run == null:
 		return
 	var display := UiTheme.display_font()
 	var italic := UiTheme.italic_font()
-	var chalk := Color(UiTheme.TEXT, 0.62)
+	var chalk := Color(UiTheme.TEXT, 0.5)
 	var n := run.lineup.size()
+	if n == 0:
+		UiTheme.draw_text(_marks, italic, Vector2(0, LINE_Y + 24.0), "Nobody is in the line. Set it at the barracks.", 20, Color(UiTheme.INJURED, 0.9), 4,
+			1920.0, HORIZONTAL_ALIGNMENT_CENTER)
+		return
 	var shares := blow_shares()
-	for i in RunConfig.MAX_FIELDED:
-		var x := _place_x(i)
+	for i in n:
+		var x := _place_x(i, n)
 		var word := ""
 		if i == 0 and n > 1:
 			word = "THE REAR"
 		elif i == n - 1:
 			word = "THE FRONT"
 		if word != "":
-			UiTheme.draw_text(_marks, display, Vector2(x + 4.0, LINE_LABEL_Y), word, 17, UiTheme.GOLD if i == n - 1 else UiTheme.MUTED, 5)
-		if i < n:
-			var figure := "%d%%" % shares[i]
-			var tail := " of the blows"
-			var tw := italic.get_string_size(tail, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
-			var fw := display.get_string_size(figure, HORIZONTAL_ALIGNMENT_LEFT, -1, 21).x
-			var right := x + MusterRow.W - 4.0
-			UiTheme.draw_text(_marks, italic, Vector2(right - tw, LINE_LABEL_Y + 3.0), tail, 16, chalk, 4)
-			UiTheme.draw_text(_marks, display, Vector2(right - tw - fw, LINE_LABEL_Y - 2.0), figure, 21,
-				UiTheme.TEXT.lerp(UiTheme.DANGER, clampf((shares[i] - 25.0) / 40.0, 0.0, 1.0)), 5)
+			UiTheme.draw_text(_marks, display, Vector2(x + 4.0, LINE_LABEL_Y), word, 15, UiTheme.MUTED, 5)
+		var figure := "%d%%" % shares[i]
+		var tail := " of the blows"
+		var tw := italic.get_string_size(tail, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x
+		var fw := display.get_string_size(figure, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
+		var right := x + MusterRow.W - 4.0
+		UiTheme.draw_text(_marks, italic, Vector2(right - tw, LINE_LABEL_Y + 1.0), tail, 15, chalk, 4)
+		UiTheme.draw_text(_marks, display, Vector2(right - tw - fw, LINE_LABEL_Y - 2.0), figure, 18,
+			UiTheme.TEXT.lerp(UiTheme.DANGER, clampf((shares[i] - 25.0) / 40.0, 0.0, 1.0)), 5)
 	# Toward the enemy.
-	var end_x := LINE_X + _line_width() + 18.0
+	var end_x := _place_x(n - 1, n) + MusterRow.W + 18.0
 	var mid_y := LINE_Y + LINE_ROW * 0.5
-	_marks.draw_line(Vector2(end_x, mid_y), Vector2(end_x + 46.0, mid_y), Color(UiTheme.GOLD_DEEP, 0.9), 3.0, true)
-	_marks.draw_colored_polygon(PackedVector2Array([Vector2(end_x + 62.0, mid_y), Vector2(end_x + 42.0, mid_y - 11.0),
-		Vector2(end_x + 42.0, mid_y + 11.0)]), Color(UiTheme.GOLD_DEEP, 0.9))
-	UiTheme.draw_text(_marks, italic, Vector2(end_x - 6.0, mid_y + 16.0), "the enemy", 16, chalk, 4)
-
-	var reserve := run.reserve()
-	var beds := run.infirmary()
-	var head := "IN RESERVE"
-	if reserve.is_empty() and not beds.is_empty():
-		head = "IN THE INFIRMARY"
-	elif not beds.is_empty():
-		head = "IN RESERVE, AND IN THE INFIRMARY"
-	UiTheme.draw_text(_marks, display, Vector2(LINE_X + 4.0, RESERVE_LABEL_Y), head, 17, UiTheme.MUTED, 5)
-	var aside := "Carry someone to another place or down here. Or click them, then click where they should stand."
+	_marks.draw_line(Vector2(end_x, mid_y), Vector2(end_x + 40.0, mid_y), Color(UiTheme.GOLD_DEEP, 0.8), 2.5, true)
+	_marks.draw_colored_polygon(PackedVector2Array([Vector2(end_x + 54.0, mid_y), Vector2(end_x + 36.0, mid_y - 9.0),
+		Vector2(end_x + 36.0, mid_y + 9.0)]), Color(UiTheme.GOLD_DEEP, 0.8))
 	if _picked != null:
-		aside = "%s is picked up: click where they should stand." % _picked.display_name()
-	UiTheme.draw_text(_marks, italic, Vector2(LINE_X, RESERVE_LABEL_Y + 2.0), aside, 16, UiTheme.GOLD if _picked != null else chalk, 4, _line_width(),
-		HORIZONTAL_ALIGNMENT_RIGHT)
-	if reserve.is_empty() and beds.is_empty():
-		UiTheme.draw_text(_marks, italic, Vector2(LINE_X + 4.0, RESERVE_Y + 14.0), "Nobody waits behind the line.", 18, Color(chalk, 0.45), 4)
+		UiTheme.draw_text(_marks, italic, Vector2(0, LINE_Y + LINE_ROW + 10.0), "%s is picked up: click whose place they should take." % _picked.display_name(),
+			17, UiTheme.GOLD, 4, 1920.0, HORIZONTAL_ALIGNMENT_CENTER)
 
 
 func _notification(what: int) -> void:
@@ -343,7 +284,7 @@ func _draw() -> void:
 			pts.append(Vector2(w * t, h * (0.28 + 0.26 * k) + 46.0 * sin(t * 6.0 + k * 2.1) + 18.0 * sin(t * 17.0 + k)))
 		draw_polyline(pts, Color(UiTheme.GOLD_DEEP, 0.12), 1.5, true)
 	# Candles.
-	for c: Vector2 in [Vector2(96, 330), Vector2(w - 96.0, 520.0)]:
+	for c: Vector2 in [Vector2(70, 900), Vector2(w - 70.0, 900.0)]:
 		var flick := 0.9 + 0.1 * sin(_time * 9.0 + c.x)
 		for i in 6:
 			draw_circle(c + Vector2(0, -40), 70.0 + 80.0 * i, Color(1.0, 0.72, 0.36, 0.03 * flick))
@@ -358,7 +299,7 @@ func _draw() -> void:
 	var dark := Color(0, 0, 0, 0.55)
 	draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(w, 0), Vector2(w, 200), Vector2(0, 200)]), PackedColorArray([dark, dark, clear, clear]))
 	# The foot of the table, where the company's markers stand, lies in shadow.
-	draw_polygon(PackedVector2Array([Vector2(0, LINE_LABEL_Y - 60.0), Vector2(w, LINE_LABEL_Y - 60.0), Vector2(w, h), Vector2(0, h)]),
+	draw_polygon(PackedVector2Array([Vector2(0, LINE_LABEL_Y - 40.0), Vector2(w, LINE_LABEL_Y - 40.0), Vector2(w, h), Vector2(0, h)]),
 		PackedColorArray([clear, clear, dark, dark]))
 	UiTheme.draw_rule(self, Vector2(w * 0.5, 92.0), 520.0, Color(UiTheme.GOLD_DEEP, 0.9))
 
