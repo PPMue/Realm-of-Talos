@@ -12,7 +12,7 @@ A trait is something a companion is, not something they learn: it is rolled when
 - A companion never gets two traits from the same line of a family (not both Sword: Sure and Axe: Sure) and never two two-edged traits.
 - There are no purely bad traits. Two-edged ones give more than a plain trait and take something away.
 
-Words used below: **Hit**, **Crit** and **damage** are the companion's own. **Avoid +10** means enemies have 10 less Hit against them. **Drawn more / less** changes how often enemies aim at them. Places in the line are counted as in the barracks: rear to front.
+Words used below: **Hit** and **Crit** are percentage points on the chance to hit or to strike critically, not points of a stat (for scale: 1 Dexterity is 5 Hit, 1 Critical is 2 Crit); **damage** is added to each blow. All three are the companion's own. **Avoid +10** means enemies have 10 less Hit against them. **Drawn more / less** changes how often enemies aim at them. Places in the line are counted as in the barracks: rear to front.
 
 ## 1. Weapon hands (25, common)
 
@@ -22,7 +22,7 @@ One line of five for each weapon. The name is the weapon and the word.
 |---|---|
 | **Sure** | +10 Hit with it |
 | **Heavy** | +2 damage with it |
-| **Keen** | +10 Crit with it |
+| **Keen** | +8 Crit with it |
 | **Easy** | Arts of it cost 1 less stamina |
 | **Apt** | +50% proficiency points with it |
 
