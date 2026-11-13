@@ -23,6 +23,8 @@ const REFLECT_TINT := Color(1.25, 0.82, 1.08)
 const COMPACT_BELOW := 262.0
 
 var unit: EnemyUnit
+## Name, stats, traits and what is on it now, as text (see refresh).
+var details := ""
 
 var _side := BASE_SIDE
 var _home := Vector2.ZERO
@@ -174,8 +176,10 @@ func layout(slot: Vector2, side: float, back: bool) -> void:
 
 
 ## Redraws everything from the unit's real state.
-func refresh(targetable: bool, hot: bool, tooltip: String) -> void:
-	tooltip_text = tooltip
+## `sheet` is everything known about the enemy; it is kept in `details` for the battle screen to
+## show on a right-click, not as a tooltip.
+func refresh(targetable: bool, hot: bool, sheet: String) -> void:
+	details = sheet
 	_hp.set_values(maxi(unit.hp, 0), unit.max_hp())
 	if not unit.is_alive():
 		if not _defeated:

@@ -19,6 +19,7 @@ enum Mode { IDLE, TARGET_ATTACK, TARGET_ART, TARGET_SPELL, TARGET_ALLY }
 ## The part of the screen the enemies stand in (margins from each edge, at 1920x1080).
 const STAGE_LEFT := 670.0
 const STAGE_RIGHT := 24.0
+const INSPECT_W := 600.0
 const STAGE_TOP := 70.0
 const PARTY_HEIGHT := 276.0
 ## With this many enemies or more, every second one stands a step back and the art may overlap.
@@ -60,6 +61,11 @@ var _popups := Control.new()
 var _log_panel := PanelContainer.new()
 var _log := RichTextLabel.new()
 var _overlay := BattleResult.new()
+## The sheet of what is known about one enemy, shown by a right-click on it.
+var _inspect := SlantPanel.new()
+var _inspect_title: Label
+var _inspect_body: Label
+var _inspected: EnemyUnit
 var _grade_banner := SlantPanel.new()
 var _grade_kicker: Label
 var _grade_title: Label
@@ -116,6 +122,8 @@ func start(p_battle: Battle, title: String) -> void:
 	_spell_menu = false
 	_spell_page = 0
 	_mode = Mode.IDLE
+	_inspected = null
+	_inspect.visible = false
 	_overlay.visible = false
 	_banner.visible = false
 	_grade_banner.visible = false
@@ -234,6 +242,52 @@ func strike_enemy(e: EnemyUnit) -> void:
 
 
 ## Right-click or Esc: stop choosing a target; with no target pending, leave the spell list.
+## Shows the sheet of what is known about `e` (name, stats, traits, what is on it now) at `at`, or
+## beside the enemy when no place is given. null puts the sheet away.
+func inspect_enemy(e: EnemyUnit, at: Vector2 = Vector2(-1, -1)) -> void:
+	if e != null and not _enemy_views.has(e):
+		e = null
+	_inspected = e
+	_inspect.visible = e != null
+	if e == null:
+		return
+	_fill_inspect()
+	if at.x < 0.0:
+		var view: EnemyView = _enemy_views[e]
+		at = view.get_global_rect().get_center() - global_position - Vector2(_inspect.size.x * 0.5, 120.0)
+	else:
+		at += Vector2(18, 18)
+	_inspect.position = Vector2(clampf(at.x, 16.0, maxf(16.0, size.x - _inspect.size.x - 16.0)),
+		clampf(at.y, 16.0, maxf(16.0, size.y - _inspect.size.y - 16.0)))
+
+
+func _fill_inspect() -> void:
+	var text := _enemy_tooltip(_inspected)
+	var cut := text.find("\n")
+	_inspect_title.text = _inspected.display_name
+	var body := text.substr(cut + 1) if cut >= 0 else ""
+	_inspect_body.text = body
+	var inner := INSPECT_W - 48.0
+	var h := UiTheme.body_font().get_multiline_string_size(body, HORIZONTAL_ALIGNMENT_LEFT, inner, 19).y
+	_inspect_body.size = Vector2(inner, h)
+	_inspect.size = Vector2(INSPECT_W, 64.0 + h + 22.0)
+
+
+## The living enemy under a point of the screen (global), the nearest one where their art overlaps.
+func _enemy_at(point: Vector2) -> EnemyUnit:
+	var best: EnemyUnit = null
+	var best_d := INF
+	for e: EnemyUnit in _enemy_views:
+		var view: EnemyView = _enemy_views[e]
+		var r := view.get_global_rect()
+		if e.is_alive() and r.has_point(point):
+			var d := absf(r.get_center().x - point.x)
+			if d < best_d:
+				best_d = d
+				best = e
+	return best
+
+
 func cancel_targeting() -> void:
 	if _busy:
 		return
@@ -307,7 +361,9 @@ func _on_enemy_hover(inside: bool, e: EnemyUnit) -> void:
 		point_at_enemy(null)
 
 
-## _input rather than _unhandled_input: right-click must cancel even over an enemy or a panel.
+## _input rather than _unhandled_input: right-click must work even over an enemy or a panel.
+## A right-click on an enemy shows what is known about it; anywhere else it puts that sheet away,
+## or backs out of choosing a target. Any other click puts the sheet away too.
 func _input(event: InputEvent) -> void:
 	if not is_visible_in_tree() or battle == null:
 		return
@@ -320,8 +376,17 @@ func _input(event: InputEvent) -> void:
 			return
 		if _busy:
 			_skip = true
+			inspect_enemy(null)
 		elif mb.button_index == MOUSE_BUTTON_RIGHT:
-			cancel_targeting()
+			var under := _enemy_at(mb.position)
+			if under != null and under != _inspected:
+				inspect_enemy(under, mb.position - global_position)
+			elif _inspected != null:
+				inspect_enemy(null)
+			else:
+				cancel_targeting()
+		else:
+			inspect_enemy(null)
 		return
 	var key := event as InputEventKey
 	if key == null or not key.pressed or key.echo:
@@ -344,7 +409,10 @@ func _input(event: InputEvent) -> void:
 		return
 	match key.keycode:
 		KEY_ESCAPE:
-			cancel_targeting()
+			if _inspected != null:
+				inspect_enemy(null)
+			else:
+				cancel_targeting()
 		KEY_L:
 			_toggle_log()
 		KEY_SPACE, KEY_ENTER:
@@ -373,6 +441,7 @@ static func _number_key(code: Key) -> int:
 
 ## A command went through: show what it did, step by step, then hand control back.
 func _commit(actor: CompanionUnit) -> void:
+	inspect_enemy(null)
 	_clear_targeting()
 	_spell_menu = false
 	_busy = true
@@ -512,11 +581,11 @@ func _show_event(ev: Dictionary) -> float:
 				UiTheme.GOLD if helpful else UiTheme.INTENT_COLORS[EnemyActionData.Intent.DEBUFF], 40)
 			if ev.target is EnemyUnit:
 				var view: EnemyView = _enemy_views[ev.target]
-				view.refresh(false, false, view.tooltip_text)
+				view.refresh(false, false, view.details)
 			return 0.32
 		"intent":
 			var view: EnemyView = _enemy_views[ev.enemy]
-			view.refresh(false, false, view.tooltip_text)
+			view.refresh(false, false, view.details)
 			return 0.0
 		"dot":
 			var text := "-%d %s" % [ev.amount, String(ev.name).to_upper()]
@@ -626,7 +695,7 @@ func _show_phase(ev: Dictionary) -> void:
 	_grade_detail.text = String(ev.get("text", "")).to_upper()
 	_grade_banner.border = color
 	var view: EnemyView = _enemy_views[e]
-	view.refresh(false, false, view.tooltip_text)
+	view.refresh(false, false, view.details)
 	view.play_lunge()
 	_popup(view.popup_anchor(), String(ev.title).to_upper(), color, 50)
 	_play_big_banner()
@@ -839,6 +908,12 @@ func _refresh_enemies() -> void:
 		var view: EnemyView = _enemy_views[e]
 		var hot := targeting and (e == _hot_enemy or (_targets_all() and e.is_alive()))
 		view.refresh(targeting, hot, _enemy_tooltip(e))
+		if e == _inspected:
+			# The sheet follows what happens to the enemy, and goes when the enemy does.
+			if e.is_alive():
+				_fill_inspect()
+			else:
+				inspect_enemy(null)
 		if hot and _selected != null and _mode == Mode.TARGET_SPELL:
 			var note := ""
 			if _spell.delay_ticks > 0:
@@ -1119,6 +1194,21 @@ func _build_ui() -> void:
 	_log.scroll_following = true
 	_log.add_theme_font_size_override("normal_font_size", 17)
 	_log_panel.add_child(_log)
+
+	# What is known about an enemy: shown by a right-click on it, put away by the next click.
+	_inspect.fill = Color(UiTheme.INK, 0.95)
+	_inspect.border = UiTheme.GOLD_DEEP
+	_inspect.studs = false
+	_inspect.visible = false
+	_inspect.z_index = 7
+	add_child(_inspect)
+	_inspect_title = UiTheme.label("", 30, UiTheme.GOLD, true)
+	_inspect_title.position = Vector2(24, 14)
+	_inspect.add_child(_inspect_title)
+	_inspect_body = UiTheme.label("", 19, UiTheme.TEXT)
+	_inspect_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_inspect_body.position = Vector2(24, 62)
+	_inspect.add_child(_inspect_body)
 
 	# Result overlay.
 	_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
