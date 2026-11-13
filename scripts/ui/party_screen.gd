@@ -385,7 +385,7 @@ func _build() -> void:
 	add_child(_name)
 	_info = UiTheme.label("", 19, UiTheme.TEXT, false, 4)
 	_info.position = Vector2(176, DETAIL_TOP + 86.0)
-	_info.size = Vector2(560, 84)
+	_info.size = Vector2(560, 112)
 	_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_info.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(_info)
@@ -397,7 +397,7 @@ func _build() -> void:
 	_xp.position = Vector2(470, DETAIL_TOP + 60.0)
 	_xp.size = Vector2(230, 22)
 	add_child(_xp)
-	_buttons.position = Vector2(130, DETAIL_TOP + 184.0)
+	_buttons.position = Vector2(124, DETAIL_TOP + 208.0)
 	_buttons.add_theme_constant_override("separation", 2)
 	add_child(_buttons)
 

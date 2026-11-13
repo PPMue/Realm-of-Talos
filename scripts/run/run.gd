@@ -616,10 +616,15 @@ func _make_tavern_offers() -> void:
 		tavern_offers.append(pool.pop_at(rng.randi_range(0, pool.size() - 1)))
 
 
+## Today's stock: every common item, plus each rare one on a roll of its chance. Rare items come first.
 func _stock_shop() -> void:
+	var rare: Array[ShopItemData] = []
 	for item in content.shop_stock(day):
-		if item.chance >= 1.0 or rng.randf() < item.chance:
+		if item.chance >= 1.0:
 			shop_today.append(item)
+		elif rng.randf() < item.chance:
+			rare.append(item)
+	shop_today = rare + shop_today
 
 
 func _pick_event() -> EventData:

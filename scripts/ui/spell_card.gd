@@ -4,7 +4,7 @@ extends Control
 ## Display only: every known spell can be cast, so there is nothing to equip.
 
 const W := ArtCard.W
-const H := 104.0
+const H := 124.0
 const TAG_W := 196.0
 
 var spell: SpellData
@@ -36,16 +36,16 @@ func _draw() -> void:
 		CombatArtData.tier_numeral(spell.tier), 36, UiTheme.INK, 0, badge.size.x, HORIZONTAL_ALIGNMENT_CENTER)
 
 	var x := badge.end.x + 22.0
-	UiTheme.draw_text(self, display, Vector2(x, 12.0), spell.display_name.to_upper(), 34, UiTheme.TEXT, 6)
+	UiTheme.draw_text(self, display, Vector2(x, 22.0), spell.display_name.to_upper(), 34, UiTheme.TEXT, 6)
 	var meta := "%s  ·  TIER %d  ·  NO STAMINA  ·  RECOVERY %d" % [spell.school_text().to_upper(), spell.tier, spell.recovery]
-	UiTheme.draw_text(self, body, Vector2(x, 60.0), meta, 15, color)
+	UiTheme.draw_text(self, body, Vector2(x, 72.0), meta, 15, color)
 
 	var text_x := 520.0
 	var text_w := W - TAG_W - 60.0 - text_x
-	draw_multiline_string(body, Vector2(text_x, 14.0 + body.get_ascent(17)), spell.description, HORIZONTAL_ALIGNMENT_LEFT,
-		text_w, 17, 1, UiTheme.TEXT)
-	draw_multiline_string(body, Vector2(text_x, 44.0 + body.get_ascent(16)), spell.effect_summary(), HORIZONTAL_ALIGNMENT_LEFT,
-		text_w, 16, 2, color)
+	draw_multiline_string(body, Vector2(text_x, 10.0 + body.get_ascent(16)), spell.description, HORIZONTAL_ALIGNMENT_LEFT,
+		text_w, 16, 2, UiTheme.TEXT)
+	draw_multiline_string(body, Vector2(text_x, 62.0 + body.get_ascent(15)), spell.effect_summary(), HORIZONTAL_ALIGNMENT_LEFT,
+		text_w, 15, 3, color)
 
 	# Uses left on the right.
 	var tag := Rect2(W - TAG_W - s * 0.5 - 20.0, 22.0, TAG_W, H - 44.0)

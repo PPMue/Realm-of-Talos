@@ -76,8 +76,11 @@ func setup(c: RunCompanion, slot: int, clickable: bool = false) -> void:
 	var w := c.weapon()
 	var t := w.weapon_type
 	_weapon.text = "%s  ·  %s %s" % [w.display_name, WeaponData.type_name(t).to_upper(), Proficiency.grade_name(c.progress.grade(t))]
-	for s in c.progress.spell_schools():
-		_weapon.text += "  ·  %s %s" % ["BLACK" if s == SpellData.School.BLACK else "WHITE", Proficiency.grade_name(c.progress.magic_grade(s))]
+	# Mages: the weapon type is dropped to make room for the school grade.
+	if not c.progress.spell_schools().is_empty():
+		_weapon.text = "%s %s" % [w.display_name, Proficiency.grade_name(c.progress.grade(t))]
+		for s in c.progress.spell_schools():
+			_weapon.text += "  ·  %s %s" % ["BLACK" if s == SpellData.School.BLACK else "WHITE", Proficiency.grade_name(c.progress.magic_grade(s))]
 	_hp.fill_color = UiTheme.HP if c.hp * 3 >= c.max_hp() else UiTheme.INJURED
 	_hp.set_values(c.hp, c.max_hp(), false)
 	if slot > 0:

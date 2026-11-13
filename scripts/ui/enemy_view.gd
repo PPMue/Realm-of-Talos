@@ -97,7 +97,7 @@ func setup(p_unit: EnemyUnit) -> void:
 	_forecast_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_forecast_label.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_forecast.add_child(_forecast_label)
-	_forecast_kicker = UiTheme.label("", 20, UiTheme.EFFECTIVE, true, 6)
+	_forecast_kicker = UiTheme.label("", 23, UiTheme.EFFECTIVE, true, 7)
 	_forecast_kicker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_forecast_kicker.visible = false
 	_overlay.add_child(_forecast_kicker)

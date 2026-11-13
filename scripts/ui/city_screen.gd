@@ -254,7 +254,7 @@ func _free_day() -> void:
 	if spent > 0:
 		rest_status += "  ·  %d low on spells" % spent
 	var specs := [
-		[A.REST, "REST", "Every companion recovers to full health and every spell's uses. Nothing else restores spell uses.",
+		[A.REST, "REST", "Full health and full spell uses for everyone. Only Rest restores spell uses.",
 			rest_status, "REST", rest, run.free_action_block_reason(A.REST)],
 		[A.SHOP, "SHOP", "Buy weapons with gold. Any number of purchases in one visit is one action.",
 			"Spent on the first purchase", "VISIT SHOP", open_shop, run.visit_block_reason(A.SHOP)],

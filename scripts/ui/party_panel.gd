@@ -93,8 +93,9 @@ func _init() -> void:
 	_body.add_child(_footer)
 
 	# What a spell aimed at this companion would do, over the portrait.
-	_preview.size = Vector2(W - 96.0, 40)
-	_preview.position = Vector2(_edge_x(88.0) + 22.0, 48.0)
+	# It takes the place of the status tag and the effects line at the top of the panel.
+	_preview.size = Vector2(W - 70.0, 38)
+	_preview.position = Vector2(_edge_x(PAD + 46.0) + 12.0, PAD + 8.0)
 	_preview.fill = Color(UiTheme.INK, 0.92)
 	_preview.border = UiTheme.HEAL
 	_preview.border_width = 2.0
@@ -170,6 +171,8 @@ func set_spell_target(targetable: bool, hot: bool, preview: String = "", heal_to
 	_targetable = targetable
 	_target_hot = hot
 	_preview.visible = hot and preview != ""
+	_tag.modulate.a = 0.0 if _preview.visible else 1.0
+	_effects.visible = not _preview.visible
 	_preview_label.text = preview
 	var font_size := 20
 	while font_size > 13 and UiTheme.display_font().get_string_size(preview, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x > _preview.size.x - 30.0:
