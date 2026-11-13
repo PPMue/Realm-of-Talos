@@ -18,6 +18,44 @@ static func xp_to_next(level: int) -> int:
 	return RunConfig.XP_PER_LEVEL_BASE + RunConfig.XP_PER_LEVEL_STEP * (level - 1)
 
 
+## Shares of a won battle's XP `pool`, one per companion, given their contribution points (`points`).
+## RunConfig.XP_EVEN_SHARE_PERCENT of the pool is split evenly, the rest in proportion to points; if
+## nobody earned a point, the whole pool is split evenly. Each share is rounded down and the XP left
+## over goes 1 at a time to the highest scorers (line order on a tie), so the shares always add up to
+## the pool exactly.
+static func split_xp(pool: int, points: Array[int]) -> Array[int]:
+	var n := points.size()
+	var shares: Array[int] = []
+	if n == 0:
+		return shares
+	var total := 0
+	for p in points:
+		total += maxi(0, p)
+	var even := RunConfig.XP_EVEN_SHARE_PERCENT if total > 0 else 100
+	# Exact share i = pool x (even x total + (100 - even) x n x points[i]) / (100 x n x total).
+	var denom := 100 * n * maxi(1, total)
+	var given := 0
+	for p in points:
+		var num := pool * (even * maxi(1, total) + (100 - even) * n * maxi(0, p))
+		if total == 0:
+			num = pool * 100   # every share pool / n
+		var share := num / denom
+		shares.append(share)
+		given += share
+	var order: Array[int] = []
+	for i in n:
+		order.append(i)
+	order.sort_custom(func(a: int, b: int) -> bool:
+		return points[a] > points[b] or (points[a] == points[b] and a < b))
+	var left := pool - given
+	var k := 0
+	while left > 0:
+		shares[order[k % n]] += 1
+		left -= 1
+		k += 1
+	return shares
+
+
 ## Total XP from level 1 to reach `level`.
 static func total_xp_for(level: int) -> int:
 	var total := 0

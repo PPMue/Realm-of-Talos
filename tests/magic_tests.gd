@@ -37,8 +37,11 @@ func tests() -> Array[Callable]:
 		test_no_effectiveness_without_trait,
 		test_first_two_never_both_mages,
 		test_mages_in_run,
-		test_party_screen_heal,
-		test_run_heal_rules,
+		test_healing_only_in_battle,
+		test_thornward_reflects_like_a_stance,
+		test_blight_kills_and_credits_the_caster,
+		test_sanctuary_heals_and_cleanses_everyone,
+		test_entomb_delays_once,
 		test_rare_shop_stock,
 		test_magic_content,
 	]
@@ -752,55 +755,129 @@ func test_mages_in_run() -> void:
 	t.eq(unit.progress.magic_grade(SpellData.School.BLACK), Proficiency.Grade.D, "at grade D")
 
 
-func test_party_screen_heal() -> void:
+## Healing spells are cast only in battle. Between battles the daily heal and Rest are how the company
+## recovers, and a healer's uses are not touched.
+func test_healing_only_in_battle() -> void:
 	var run := make_run(11)
+	for m in ["cast_heal", "heal_block_reason", "heal_targets", "heal_amount"]:
+		t.check(not run.has_method(m), "Run has no %s: no spell is cast between battles" % m)
 	var aveline := run._join(companion("aveline"))
+	var mend := aveline.data.signature_spell
 	var hurt := run.roster[0]
+	run.calendar[run.day - 1] = RunCalendar.DayType.FREE
+	run.event_days.erase(run.day)
 	hurt.hp = 3
-	var mend := aveline.data.signature_spell
-	var screen := PartyScreen.new()
-	(t as SceneTree).root.add_child(screen)
-	screen.open(run, aveline)
-	screen.begin_cast(mend)
-	screen.select(hurt)
-	var amount := run.heal_amount(aveline, mend)
-	t.eq(amount, int(aveline.progress.stats()[Stat.MAG]) + mend.heal_power, "MAG + power")
-	t.eq(hurt.hp, mini(hurt.max_hp(), 3 + amount), "healed from the party screen")
-	t.eq(aveline.progress.uses_left(mend), mend.uses - 1, "spends a use")
-	screen.queue_free()
+	t.check(run.end_free_day(), "a free day ends")
+	t.eq(hurt.hp, mini(hurt.max_hp(), 3 + ceili(hurt.max_hp() * RunConfig.DAILY_HEAL_FRACTION)), "only the daily heal")
+	t.eq(aveline.progress.uses_left(mend), mend.uses, "the healer's uses are untouched")
 
 
-func test_run_heal_rules() -> void:
-	var run := make_run(12)
-	var aveline := run._join(companion("aveline"))
-	var mend := aveline.data.signature_spell
-	var other := run.roster[0]
-	t.check(run.heal_block_reason(aveline, mend, other).contains("full health"), "nobody hurt: %s" % run.heal_block_reason(aveline, mend, other))
-	other.hp = 1
-	t.eq(run.heal_block_reason(aveline, mend, other), "", "allowed")
-	var healed := run.cast_heal(aveline, mend, other)
-	t.eq(other.hp, 1 + healed, "healed")
-	t.eq(healed, run.heal_amount(aveline, mend), "by MAG + power")
-	var ward: SpellData = load("res://data/spells/white/ward.tres")
-	aveline.progress.learn_spell(ward)
-	t.check(run.heal_block_reason(aveline, ward, other).contains("Only healing"), "only healing spells between battles")
-	while aveline.progress.uses_left(mend) > 0:
-		aveline.progress.spend_use(mend)
-	other.hp = 1
-	t.check(run.cast_heal(aveline, mend, other) < 0, "no uses left: refused")
-	t.check(run.heal_block_reason(aveline, mend, other).contains("No uses"), "says why")
-	var light: SpellData = load("res://data/spells/white/mending_light.tres")
-	aveline.progress.learn_spell(light)
-	for c in run.roster:
-		c.hp = 1
-	run.cast_heal(aveline, light)
-	for c in run.roster:
-		t.eq(c.hp, 1 + run.heal_amount(aveline, light), "%s healed by the every-ally spell" % c.display_name())
-	# Not once the day's battle has begun.
-	aveline.progress.restore_spell_uses()
-	other.hp = 1
-	run.start_battle(run.fronts[0])
-	t.eq(run.heal_block_reason(aveline, mend, other), "Not now.", "locked after committing")
+# ---------------------------------------------------------------- the spells added for twelve per school
+
+func load_spell(path: String) -> SpellData:
+	return load("res://data/spells/%s.tres" % path) as SpellData
+
+
+## Thornward on an ally works like an art's reflecting stance: an enemy's physical blow that lands on
+## them hurts the enemy for 40% of it, the enemy can die of it, and the kill is the bearer's.
+func test_thornward_reflects_like_a_stance() -> void:
+	var thorn := load_spell("white/thornward")
+	t.eq([thorn.school, thorn.tier, thorn.targeting, thorn.uses, thorn.recovery],
+		[SpellData.School.WHITE, 2, SpellData.Targeting.ONE_ALLY, 4, 2], "Thornward: white, tier 2, one ally, 4 uses, recovery 2")
+	t.eq([thorn.effect.display_name, thorn.effect.reflect_percent, int(thorn.effect.stat_mods.get(Stat.DEF, 0)), thorn.effect.duration_ticks],
+		["Thornward", 40, 2, 3], "reflects 40%, DEF +2, 3 turns")
+	# The brute hits everyone, left to right, for STR 10 + Mt 20 every turn.
+	var a: CompanionData = t.make_companion("A", 100)
+	var mage := caster("Mage", 10, [thorn], 100)
+	var cs: Array[CompanionData] = [a, mage]
+	var b := battle_with(cs, one(t.brute(1000, EnemyActionData.Targeting.ALL_COMPANIONS)), [thorn])
+	var bearer := b.roster[0]
+	var e := b.enemies[0]
+	t.check(b.cast(b.roster[1], thorn, bearer), "Thornward cast on A")
+	t.eq(bearer.stat(Stat.DEF), 2, "DEF +2")
+	t.eq(bearer.hp, 100 - 28, "the blow lands, less 2 for the DEF")
+	t.eq(e.hp, 1000 - 11, "40% of 28 comes back")
+	t.eq(t.count_events(b, "riposte"), 1, "a riposte event for playback")
+	t.check(t.log_has(b, "A's Thornward strikes back at Brute!"), "the log names the ward")
+	# Magic is never reflected.
+	var hexer: EnemyData = t.brute(1000, EnemyActionData.Targeting.ALL_COMPANIONS)
+	hexer.actions[0].damage_type = CombatMath.DamageType.MAGIC
+	var b2 := battle_with(cs, one(hexer), [thorn])
+	b2.cast(b2.roster[1], thorn, b2.roster[0])
+	t.eq(b2.enemies[0].hp, 1000, "a magic blow is not reflected")
+	# The reflection can kill, and the kill belongs to whoever carries the ward.
+	var b3 := battle_with(cs, one(t.brute(11, EnemyActionData.Targeting.ALL_COMPANIONS)), [thorn])
+	b3.cast(b3.roster[1], thorn, b3.roster[0])
+	t.check(not b3.enemies[0].is_alive(), "struck down by its own blow")
+	t.eq(b3.outcome, Battle.Outcome.VICTORY, "and the battle is won")
+	t.eq(b3.kills_of(b3.roster[0]), 1, "the kill is the bearer's")
+	t.eq(b3.points_of(b3.roster[0]), BattleConfig.POINTS_BLOW_TAKEN + BattleConfig.POINTS_KILL, "bearer: the blow taken and the kill")
+	t.eq(b3.points_of(b3.roster[1]), BattleConfig.POINTS_SPELL, "caster: the spell only (never reached)")
+
+
+## Blight: a black spell whose damage over time can kill; the kill is the caster's even when it happens
+## on someone else's turn.
+func test_blight_kills_and_credits_the_caster() -> void:
+	var blight := load_spell("black/blight")
+	t.eq([blight.school, blight.tier, blight.targeting, blight.uses, blight.recovery, blight.might, blight.hit],
+		[SpellData.School.BLACK, 2, SpellData.Targeting.ONE_ENEMY, 4, 2, 3, 90], "Blight: black, tier 2, one enemy, 4 uses, recovery 2, Mt 3, Hit 90")
+	t.eq([blight.effect.display_name, blight.effect.damage_per_tick, blight.effect.duration_ticks], ["Blighted", 4, 4], "Blighted: 4 a turn for 4 turns")
+	var a: CompanionData = t.make_companion("A", 100)
+	var mage := caster("Mage", 10, [blight], 100)
+	var cs: Array[CompanionData] = [a, mage]
+	# MAG 10 + Mt 3 = 13 on the cast, then 4 at the end of the turn: 17. One more turn of it kills.
+	var b := battle_with(cs, one(enemy_with(0, 18)), [blight])
+	var e := b.enemies[0]
+	t.check(b.cast(b.roster[1], blight, e), "Blight cast")
+	t.eq(e.hp, 18 - 13 - 4, "13 from the spell, 4 from the blight")
+	t.check(t.log_has(b, "Dummy loses 4 HP to Blighted"), "the log names the blight")
+	t.check(b.guard(b.roster[0]), "A guards")
+	t.check(not e.is_alive(), "the blight kills")
+	t.eq(b.outcome, Battle.Outcome.VICTORY, "and the battle is won")
+	t.eq(b.kills_of(b.roster[1]), 1, "the kill is the caster's")
+	t.eq(b.kills_of(b.roster[0]), 0, "not the one who acted when it fell")
+	t.eq(b.points_of(b.roster[1]), BattleConfig.POINTS_SPELL + BattleConfig.POINTS_KILL, "caster: the spell and the kill")
+	t.eq(b.points_of(b.roster[0]), 0, "Guard alone earns nothing")
+
+
+## Sanctuary heals and cleanses every ally in the line at once; buffs stay.
+func test_sanctuary_heals_and_cleanses_everyone() -> void:
+	var sanctuary := load_spell("white/sanctuary")
+	t.eq([sanctuary.school, sanctuary.tier, sanctuary.targeting, sanctuary.uses, sanctuary.recovery, sanctuary.heals, sanctuary.heal_power, sanctuary.cleanse],
+		[SpellData.School.WHITE, 3, SpellData.Targeting.ALL_ALLIES, 2, 3, true, 3, true], "Sanctuary: white, tier 3, every ally, 2 uses, recovery 3, heals MAG + 3, cleanses")
+	var cs: Array[CompanionData] = [t.make_companion("A", 50), t.make_companion("B", 50), caster("Mage", 9, [sanctuary], 50)]
+	var b := battle_with(cs, one(enemy_with(0)), [sanctuary])
+	for c in b.roster:
+		c.hp = 10
+		c.add_effect(StatusEffect.from_data(t.make_effect("Hexed", {"DEF": -3})))
+		var poison: StatusEffectData = t.make_effect("Poison", {})
+		poison.damage_per_tick = 3
+		c.add_effect(StatusEffect.from_data(poison))
+		c.add_effect(StatusEffect.from_data(t.make_effect("Blessed", {"STR": 3})))
+	t.check(b.cast(b.roster[2], sanctuary), "no target needed")
+	for c in b.roster:
+		t.eq(c.hp, 10 + 9 + 3, "%s healed by MAG 9 + 3, and no poison afterwards" % c.display_name)
+		t.check(not c.has_effect("Hexed") and not c.has_effect("Poison"), "%s cleansed" % c.display_name)
+		t.check(c.has_effect("Blessed"), "%s keeps the buff" % c.display_name)
+	t.eq(t.count_events(b, "cleanse"), 3, "one cleanse per ally")
+
+
+## Entomb: tier 3, Mt 8, and a delay of 3 turns, once per pending action like every delay.
+func test_entomb_delays_once() -> void:
+	var entomb := load_spell("black/entomb")
+	t.eq([entomb.school, entomb.tier, entomb.targeting, entomb.uses, entomb.recovery, entomb.might, entomb.hit, entomb.delay_ticks],
+		[SpellData.School.BLACK, 3, SpellData.Targeting.ONE_ENEMY, 2, 3, 8, 90, 3], "Entomb: black, tier 3, one enemy, 2 uses, recovery 3, Mt 8, Hit 90, delay 3")
+	var acts: Array[EnemyActionData] = [t.make_action("Slam", 6)]
+	var foe: EnemyData = t.make_enemy("Foe", acts, 500)
+	foe.resistance = 0
+	var cs: Array[CompanionData] = [caster("A", 10, [entomb], 100), caster("B", 10, [entomb], 100)]
+	var b := battle_with(cs, one(foe), [entomb])
+	var e := b.enemies[0]
+	t.check(b.cast(b.roster[0], entomb, e), "Entomb cast")
+	t.eq(e.hp, 500 - 18, "MAG 10 + Mt 8")
+	t.eq(e.countdown, 6 + 3 - 1, "pushed back 3, then the turn passes")
+	t.check(b.cast(b.roster[1], entomb, e), "a second Entomb")
+	t.eq(e.countdown, 6 + 3 - 2, "the same action cannot be delayed twice")
 
 
 func test_rare_shop_stock() -> void:
@@ -849,9 +926,27 @@ func test_magic_content() -> void:
 			t.check(sp.description != "", "%s has a description" % sp.display_name)
 			t.check(sp.targets_allies() == (school == SpellData.School.WHITE), "%s aims at the right side" % sp.display_name)
 			var expected: int = [6, 4, 2][sp.tier - 1]
-			t.check(sp.uses >= expected - 1 and sp.uses <= expected, "%s: %d uses for tier %d" % [sp.display_name, sp.uses, sp.tier])
-		t.check(tiers[1] >= 3 and tiers[2] >= 3 and tiers[3] >= 2, "%s: at least 3/3/2 by tier (%s)" % [SpellData.school_name(school), str(tiers)])
-	t.check(not lib.spells.has(aveline.signature_spell) and not lib.spells.has(freya.signature_spell), "signature spells are not in the pool")
+			# Mend and Shadow Bolt, the first two mages' starting spells, carry 8 uses (their own tuning).
+			var most := 8 if sp in [aveline.signature_spell, freya.signature_spell] else expected
+			t.check(sp.uses >= expected - 1 and sp.uses <= most, "%s: %d uses for tier %d" % [sp.display_name, sp.uses, sp.tier])
+		t.eq(lib.of_school(school).size(), 12, "%s: twelve spells" % SpellData.school_name(school))
+		t.eq([tiers[1], tiers[2], tiers[3]], [5, 4, 3], "%s: 5 / 4 / 3 by tier" % SpellData.school_name(school))
+	var names := {}
+	for sp in lib.spells:
+		t.check(not names.has(sp.display_name), "%s listed once" % sp.display_name)
+		names[sp.display_name] = true
+	for n in ["Thornward", "Sanctuary", "Blight", "Entomb"]:
+		t.check(names.has(n), "%s is in the library" % n)
+	# A mage's signature is simply the spell they start with: every one is in the library, so the other
+	# mage of that school can learn it.
+	for n in ["aveline", "elio", "freya", "sylas"]:
+		var d := companion(n)
+		t.check(d.signature_spell != null and lib.spells.has(d.signature_spell), "%s's signature spell %s is in the library" % [d.display_name, d.signature_spell.display_name])
+	var other := CompanionProgress.create(companion("elio"))
+	t.check(SpellLearning.unknown_spells(other, SpellData.School.WHITE, lib.spells).has(aveline.signature_spell),
+		"Elio can learn Aveline's Mend")
+	t.check(not SpellLearning.unknown_spells(CompanionProgress.create(aveline), SpellData.School.WHITE, lib.spells).has(aveline.signature_spell),
+		"Aveline already knows it")
 	var delay_ok := false
 	var veil_or_beacon := false
 	var cleanse := false

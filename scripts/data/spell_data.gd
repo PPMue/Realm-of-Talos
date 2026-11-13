@@ -6,9 +6,11 @@ extends Resource
 ##
 ## Black: damage = caster MAG + Mt - target RES (minimum 1), with the normal accuracy and crit formulas
 ## using this spell's Hit. Allowed effects: one enemy or every enemy, ignoring part of RES, a debuff on
-## each enemy hit, and delaying the target's pending action (once per pending action).
+## each enemy hit (damage over time included), and delaying the target's pending action (once per
+## pending action).
 ## White: always succeeds. Allowed effects: healing (caster MAG + power), a buff (stats, less damage
-## taken, or how likely enemies are to aim at the target), removing debuffs; one ally or every ally.
+## taken, how likely enemies are to aim at the target, or a reflecting ward that answers physical
+## blows like an art's stance), removing debuffs; one ally or every ally.
 
 enum School { BLACK, WHITE }
 enum Targeting { ONE_ENEMY, ALL_ENEMIES, ONE_ALLY, ALL_ALLIES }

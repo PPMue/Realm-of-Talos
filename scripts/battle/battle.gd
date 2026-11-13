@@ -14,8 +14,8 @@ extends RefCounted
 ## order, never below 1), add to companions' recovery, and aim single targets with the position weights
 ## mirrored. An enemy with a second phase switches action lists when its HP falls to a threshold, or
 ## when it is the last one standing. An enemy carrying a reflecting effect hurts whoever lands a weapon
-## strike or combat art on it; a companion carrying one (from an art) hurts an enemy whose physical
-## action lands on them. Spells and magic are never reflected.
+## strike or combat art on it; a companion carrying one (from an art or a spell) hurts an enemy whose
+## physical action lands on them. Spells and magic are never reflected.
 ##
 ## Attacking and using combat arts raise the actor's proficiency in the weapon type held
 ## (stored in their CompanionProgress, which outlives the battle). Each grade reached teaches
@@ -25,6 +25,9 @@ extends RefCounted
 ## with its own per-battle cap. Each school grade reached teaches a random spell from `spell_pool`;
 ## see SpellLearning. Black spells strike enemies with MAG against RES and may delay an enemy's
 ## pending action (once per action); white spells heal, buff and cleanse companions and always succeed.
+##
+## Every companion earns contribution points (BattleConfig.POINTS_*): for attacks, arts and spells, for
+## enemy blows they take, and for the killing blow on an enemy. Run shares a won battle's XP by them.
 
 enum Outcome { ONGOING, VICTORY, DEFEAT }
 
@@ -48,6 +51,10 @@ var spell_pool: Array[SpellData] = []
 var grade_ups: Array[Dictionary] = []
 ## Every companion injured at some point this battle, in order (a record only; rules do not read it).
 var injured_ever: Array[CompanionUnit] = []
+## Contribution points earned this battle: CompanionUnit -> int (missing = 0). See points_of().
+var points: Dictionary = {}
+## Enemies each companion landed the killing blow on this battle: CompanionUnit -> int (missing = 0).
+var kills: Dictionary = {}
 
 
 ## `party` holds each companion's progress, in the same order as `companion_data`; it is read and
@@ -98,6 +105,16 @@ func living_enemies() -> Array[EnemyUnit]:
 
 func is_over() -> bool:
 	return outcome != Outcome.ONGOING
+
+
+## Contribution points `c` has earned this battle.
+func points_of(c: CompanionUnit) -> int:
+	return int(points.get(c, 0))
+
+
+## Enemies `c` has landed the killing blow on this battle.
+func kills_of(c: CompanionUnit) -> int:
+	return int(kills.get(c, 0))
 
 
 ## True when only one companion is able to act at all; that companion ignores recovery.
@@ -269,7 +286,8 @@ func attack(c: CompanionUnit, target: EnemyUnit) -> bool:
 	_begin_tick()
 	_log("%s attacks %s with %s." % [c.display_name, target.display_name, c.weapon().display_name])
 	_emit({"type": "strike", "actor": c, "target": target, "name": "Attack", "art": null})
-	_companion_strike(c, target, null)
+	var landed := _companion_strike(c, target, null)
+	_add_points(c, BattleConfig.POINTS_ATTACK_HIT if landed else BattleConfig.POINTS_ATTACK_MISS)
 	_gain_proficiency(c, BattleConfig.PROFICIENCY_POINTS_ATTACK)
 	_end_player_action(c, BattleConfig.RECOVERY_ATTACK)
 	return true
@@ -299,9 +317,10 @@ func use_art(c: CompanionUnit, art: CombatArtData, target: EnemyUnit = null) -> 
 			if _companion_strike(c, t, art):
 				landed = true
 		if landed and art.target_effect != null and t.is_alive():
-			_apply_effect(t, art.target_effect, false)
+			_apply_effect(t, art.target_effect, false, c)
 	if art.self_effect != null:
-		_apply_effect(c, art.self_effect, true)
+		_apply_effect(c, art.self_effect, true, c)
+	_add_points(c, BattleConfig.POINTS_ART)
 	_gain_proficiency(c, BattleConfig.PROFICIENCY_POINTS_ART)
 	_end_player_action(c, art.recovery)
 	return true
@@ -334,6 +353,7 @@ func cast(c: CompanionUnit, spell: SpellData, target: Combatant = null) -> bool:
 			_spell_strike(c, spell, t as EnemyUnit)
 		else:
 			_white_magic(c, spell, t as CompanionUnit)
+	_add_points(c, BattleConfig.POINTS_SPELL)
 	_gain_magic(c, spell.school)
 	_end_player_action(c, spell.recovery)
 	return true
@@ -552,7 +572,7 @@ func _companion_strike(c: CompanionUnit, target: EnemyUnit, art: CombatArtData) 
 	_emit({"type": "damage", "target": target, "amount": dmg, "crit": crit, "hp": target.hp,
 		"effective": f.effective, "magic": f.magic})
 	var back := reflect_amount(c, target, dmg)
-	_after_enemy_hurt(target)
+	_after_enemy_hurt(target, c)
 	if back > 0 and c.is_active():
 		_log("  %s's %s strikes back at %s!" % [target.display_name, _reflect_name(target), c.display_name])
 		_emit({"type": "reflect", "source": target, "target": c, "amount": back})
@@ -568,11 +588,15 @@ func _reflect_name(unit: Combatant) -> String:
 
 
 ## After an enemy lost HP: its defeat, or the start of its second phase. A defeat that leaves a
-## LAST_STANDING enemy alone starts that enemy's phase.
-func _after_enemy_hurt(e: EnemyUnit) -> void:
+## LAST_STANDING enemy alone starts that enemy's phase. `by`: the companion credited with the blow,
+## who earns the kill bonus if it was the last one.
+func _after_enemy_hurt(e: EnemyUnit, by: CompanionUnit = null) -> void:
 	if not e.is_alive():
 		_log("  %s is defeated!" % e.display_name)
-		_emit({"type": "defeated", "target": e})
+		_emit({"type": "defeated", "target": e, "by": by})
+		if by != null:
+			kills[by] = kills_of(by) + 1
+			_add_points(by, BattleConfig.POINTS_KILL)
 		var left := living_enemies()
 		if left.size() == 1 and left[0].phase == 0 and left[0].data.has_phase() \
 				and left[0].data.phase_trigger == EnemyData.PhaseTrigger.LAST_STANDING:
@@ -595,14 +619,18 @@ func _enter_phase(e: EnemyUnit) -> void:
 
 
 ## Poison, burning and the like: every effect's damage per tick, added up. A companion can be injured by
-## it, but one already injured (or gone) takes none, so it never removes anyone.
+## it, but one already injured (or gone) takes none, so it never removes anyone. An enemy it kills is
+## credited to the companion who applied the first of those effects (if a companion did).
 func _damage_over_time(unit: Combatant) -> void:
 	var total := 0
 	var names: Array[String] = []
+	var by: CompanionUnit = null
 	for fx in unit.effects:
 		if fx.damage_per_tick > 0:
 			total += fx.damage_per_tick
 			names.append(fx.display_name)
+			if by == null and fx.source is CompanionUnit:
+				by = fx.source as CompanionUnit
 	if total <= 0:
 		return
 	if unit is CompanionUnit:
@@ -625,7 +653,7 @@ func _damage_over_time(unit: Combatant) -> void:
 		e.hp -= total
 		_log("  %s loses %d HP to %s (%d/%d HP)." % [e.display_name, total, ", ".join(names), maxi(e.hp, 0), e.max_hp()])
 		_emit({"type": "dot", "target": e, "amount": total, "hp": e.hp, "name": names[0]})
-		_after_enemy_hurt(e)
+		_after_enemy_hurt(e, by)
 
 
 ## A black spell striking one enemy: hit roll, damage, then a countdown delay and a debuff if it landed.
@@ -644,13 +672,13 @@ func _spell_strike(c: CompanionUnit, spell: SpellData, target: EnemyUnit) -> voi
 		", effective" if f.effective else "", maxi(target.hp, 0), target.max_hp()])
 	_emit({"type": "damage", "target": target, "amount": dmg, "crit": crit, "hp": target.hp,
 		"effective": f.effective, "magic": true})
-	_after_enemy_hurt(target)
+	_after_enemy_hurt(target, c)
 	if not target.is_alive():
 		return
 	if spell.delay_ticks > 0:
 		delay_action(target, spell.delay_ticks)
 	if spell.effect != null:
-		_apply_effect(target, spell.effect, false)
+		_apply_effect(target, spell.effect, false, c)
 
 
 ## Adds `ticks` to an enemy's pending action, unless that action was already delayed. Returns true if
@@ -687,7 +715,7 @@ func _white_magic(c: CompanionUnit, spell: SpellData, target: CompanionUnit) -> 
 			_log("  %s is cleansed of %s." % [target.display_name, ", ".join(removed)])
 		_emit({"type": "cleanse", "target": target, "removed": removed})
 	if spell.effect != null:
-		_apply_effect(target, spell.effect, true)
+		_apply_effect(target, spell.effect, true, c)
 
 
 ## Proficiency for acting with the weapon held, up to the per-battle cap.
@@ -761,7 +789,9 @@ func _enemy_strike(e: EnemyUnit, action: EnemyActionData, target: CompanionUnit)
 		# fells them. Magic is never reflected. Worked out first: a companion who is gone loses effects.
 		var back := reflect_amount(e, target, dmg) if action.damage_type == CombatMath.DamageType.PHYSICAL else 0
 		var stance := _reflect_name(target)
+		var guarding := target.has_effect("Guard")
 		_damage_companion(target, dmg, crit)
+		_add_points(target, BattleConfig.POINTS_BLOW_TAKEN_GUARDING if guarding else BattleConfig.POINTS_BLOW_TAKEN)
 		if back > 0 and e.is_alive():
 			_reflect_on_enemy(target, stance, e, back)
 	if action.effect != null and not target.is_gone():
@@ -771,7 +801,7 @@ func _enemy_strike(e: EnemyUnit, action: EnemyActionData, target: CompanionUnit)
 
 
 ## A companion's reflecting stance (`stance`, its name) hurting the enemy that struck them for `amount`.
-## The enemy can be defeated by it.
+## The enemy can be defeated by it, and then the kill is `c`'s.
 func _reflect_on_enemy(c: CompanionUnit, stance: String, e: EnemyUnit, amount: int) -> void:
 	_log("  %s's %s strikes back at %s!" % [c.display_name, stance, e.display_name])
 	_emit({"type": "riposte", "source": c, "target": e, "amount": amount})
@@ -779,7 +809,7 @@ func _reflect_on_enemy(c: CompanionUnit, stance: String, e: EnemyUnit, amount: i
 	_log("  %s takes %d damage (%d/%d HP)." % [e.display_name, amount, maxi(e.hp, 0), e.max_hp()])
 	_emit({"type": "damage", "target": e, "amount": amount, "crit": false, "hp": e.hp,
 		"effective": false, "magic": false})
-	_after_enemy_hurt(e)
+	_after_enemy_hurt(e, c)
 
 
 ## A landed hit. Injured companions who are hit again are gone for good.
@@ -802,11 +832,19 @@ func _damage_companion(c: CompanionUnit, dmg: int, crit: bool) -> void:
 
 
 ## `helpful`: a buff or defend (as opposed to a debuff); only changes how it is shown.
-func _apply_effect(unit: Combatant, data: StatusEffectData, helpful: bool) -> void:
+## `source`: the companion who applied it, if any. It is kept only on damage over time (which credits
+## them with a kill), so a companion's own effects never hold a reference back to a companion.
+func _apply_effect(unit: Combatant, data: StatusEffectData, helpful: bool, source: CompanionUnit = null) -> void:
 	var effect := StatusEffect.from_data(data)
+	if effect.damage_per_tick > 0 and unit != source:
+		effect.source = source
 	unit.add_effect(effect)
 	_log("  %s gains %s." % [unit.display_name, effect.describe()])
 	_emit({"type": "effect", "target": unit, "name": effect.display_name, "helpful": helpful})
+
+
+func _add_points(c: CompanionUnit, amount: int) -> void:
+	points[c] = points_of(c) + amount
 
 
 ## Returns true if the battle is over (and sets outcome on the first call that sees it).

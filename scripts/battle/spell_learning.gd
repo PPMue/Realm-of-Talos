@@ -4,7 +4,7 @@ extends RefCounted
 ## (see ArtLearning): roll a tier from BattleConfig.ART_TIER_ODDS for the grade just reached, pick a
 ## random unknown spell of that tier and school, fall through to the nearest tier that still has one
 ## (lower first on a tie), and learn nothing once every spell of the school is known.
-## Signature spells are not in the pool.
+## Signature spells are in the pool like any other; a mage already knows their own.
 
 
 ## Spells of school `s` in `pool` that `progress` does not know yet.

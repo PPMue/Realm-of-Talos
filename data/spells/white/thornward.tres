@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="SpellData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/spell_data.gd" id="1_spell"]
+[ext_resource type="Script" path="res://scripts/data/status_effect_data.gd" id="2_fx"]
+
+[sub_resource type="Resource" id="Resource_fx"]
+script = ExtResource("2_fx")
+display_name = "Thornward"
+stat_mods = {
+"DEF": 2
+}
+duration_ticks = 3
+reflect_percent = 40
+
+[resource]
+script = ExtResource("1_spell")
+display_name = "Thornward"
+description = "A hedge of bright thorns grows about an ally, and whatever strikes them is cut in turn."
+school = 1
+tier = 2
+targeting = 2
+uses = 4
+recovery = 2
+effect = SubResource("Resource_fx")

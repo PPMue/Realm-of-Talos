@@ -28,13 +28,12 @@ func play(run: Run) -> int:
 	return run.day
 
 
-## Fields up to five, healthiest at the front (rightmost), and hands out the best weapons it can.
-## Healers patch up anyone below half HP first, keeping a few uses for battle. Against a boss that aims
-## at the far end of the line (reversed targeting), the healthiest stand on the left instead.
+## Fields up to four, healthiest at the front (rightmost), and hands out the best weapons it can.
+## Against a boss that aims at the far end of the line (reversed targeting), the healthiest stand on
+## the left instead.
 func prepare_party(run: Run) -> void:
 	for c in run.roster:
 		_equip_best(run, c)
-	heal_between_battles(run)
 	var by_hp := run.roster.duplicate()
 	by_hp.sort_custom(func(a: RunCompanion, b: RunCompanion) -> bool: return a.hp < b.hp)
 	for c in run.lineup.duplicate():
@@ -147,16 +146,6 @@ func spell_fraction(run: Run) -> float:
 			left += c.progress.uses_left(sp)
 			total += sp.uses
 	return 1.0 if total == 0 else float(left) / total
-
-
-func heal_between_battles(run: Run) -> void:
-	for healer in run.roster:
-		for sp in healer.progress.known_spells:
-			if not sp.heals or sp.targeting != SpellData.Targeting.ONE_ALLY:
-				continue
-			for c in run.roster:
-				if c.hp * 2 < c.max_hp() and healer.progress.uses_left(sp) > 2:
-					run.cast_heal(healer, sp, c)
 
 
 ## Greedy battle play: each ready companion casts a sensible spell if it has one (see cast_spell),

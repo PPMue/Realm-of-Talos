@@ -60,6 +60,11 @@ func _init() -> void:
 		test_art_buffs_user,
 		test_art_reflecting_stance,
 		test_art_bleed_kills_enemy,
+		test_points_for_attacks,
+		test_points_for_arts_and_spells,
+		test_points_for_blows_taken,
+		test_points_for_kills,
+		test_kill_by_bleed_or_stance_is_credited,
 		test_art_stances_change_aim,
 		test_art_debuff_stacks,
 		test_art_oath_raises_damage_taken,
@@ -1145,6 +1150,162 @@ func test_art_bleed_kills_enemy() -> void:
 	eq(b.outcome, Battle.Outcome.VICTORY, "and the battle is won")
 	for path in ["bow/barbed_arrow", "dagger/night_venom", "spear/impale"]:
 		check(load_art(path).target_effect.damage_per_tick > 0, "%s bleeds the target" % path)
+
+
+# ---------------------------------------------------------------- contribution points
+
+## A landed Attack earns 2 points, a miss 1.
+func test_points_for_attacks() -> void:
+	var cs: Array[CompanionData] = [make_companion("A", 100, 0, make_weapon(1, 0))]   # Hit 0: the 20% floor
+	var b := make_battle(cs, one_enemy(idle_enemy(100000)))
+	var c := b.roster[0]   # alone: ignores recovery
+	var hits := 0
+	var misses := 0
+	for i in 40:
+		b.attack(c, b.enemies[0])
+		if count_events(b, "miss") > 0:
+			misses += 1
+		else:
+			hits += 1
+	check(hits > 0 and misses > 0, "both hits (%d) and misses (%d) happened" % [hits, misses])
+	eq(b.points_of(c), hits * BattleConfig.POINTS_ATTACK_HIT + misses * BattleConfig.POINTS_ATTACK_MISS, "2 a hit, 1 a miss")
+	eq([BattleConfig.POINTS_ATTACK_HIT, BattleConfig.POINTS_ATTACK_MISS], [2, 1], "the attack points")
+
+
+## An art used earns 3 however many enemies it strikes; a spell cast of any kind earns 3; Focus, Guard
+## and Wait earn nothing.
+func test_points_for_arts_and_spells() -> void:
+	var cs: Array[CompanionData] = [make_companion("A", 100), make_companion("B", 100), make_companion("C", 100)]
+	cs[2].magic = 5
+	var es: Array[EnemyData] = [idle_enemy(1000), idle_enemy(1000), idle_enemy(1000)]
+	var b := make_battle(cs, es)
+	var a := b.roster[0]
+	var sweep := make_art("Sweep", 1, 5, 1, 0)
+	sweep.hits_all_enemies = true
+	give_art(a, sweep)
+	check(b.use_art(a, sweep), "the art strikes every enemy")
+	eq(b.points_of(a), BattleConfig.POINTS_ART, "3 for the art, not 3 per enemy")
+	var bolt := SpellData.new()
+	bolt.display_name = "Bolt"
+	bolt.might = 1
+	bolt.hit = 999
+	var mend := SpellData.new()
+	mend.display_name = "Mend"
+	mend.school = SpellData.School.WHITE
+	mend.targeting = SpellData.Targeting.ONE_ALLY
+	mend.heals = true
+	var ward := SpellData.new()
+	ward.display_name = "Ward"
+	ward.school = SpellData.School.WHITE
+	ward.targeting = SpellData.Targeting.ALL_ALLIES
+	ward.effect = make_effect("Warded", {}, 3, 0.5)
+	var mage := b.roster[2]
+	for sp in [bolt, mend, ward]:
+		mage.progress.learn_spell(sp)
+	check(b.cast(mage, bolt, b.enemies[0]), "damage spell")
+	eq(b.points_of(mage), BattleConfig.POINTS_SPELL, "3 for a damage spell")
+	mage.recovery = 0
+	check(b.cast(mage, mend, a), "heal")
+	mage.recovery = 0
+	check(b.cast(mage, ward), "support on everyone")
+	eq(b.points_of(mage), 3 * BattleConfig.POINTS_SPELL, "3 for each, whatever the kind")
+	var other := b.roster[1]
+	check(b.focus(other), "focus")
+	eq(b.points_of(other), 0, "Focus earns nothing")
+	a.recovery = 0
+	other.recovery = 0
+	b.guard(other)
+	eq(b.points_of(other), 0, "Guard alone earns nothing")
+	for c in b.roster:
+		c.recovery = 5
+	var before := b.points.duplicate()
+	check(b.wait(), "wait")
+	eq(b.points, before, "Wait earns nothing")
+
+
+## Each enemy blow that lands on a companion earns them 1, or 2 while guarding; one on everyone counts
+## for each companion it lands on.
+func test_points_for_blows_taken() -> void:
+	var cs: Array[CompanionData] = [make_companion("A", 1000)]
+	var b := make_battle(cs, one_enemy(brute()))
+	var c := b.roster[0]
+	b.focus(c)
+	eq(b.points_of(c), BattleConfig.POINTS_BLOW_TAKEN, "1 for a blow taken")
+	b.guard(c)
+	eq(b.points_of(c), BattleConfig.POINTS_BLOW_TAKEN + BattleConfig.POINTS_BLOW_TAKEN_GUARDING, "2 for one taken on Guard")
+	var b2 := make_battle(three_companions(1000), one_enemy(brute(1000, EnemyActionData.Targeting.ALL_COMPANIONS)))
+	b2.focus(b2.roster[0])
+	for x in b2.roster:
+		eq(b2.points_of(x), BattleConfig.POINTS_BLOW_TAKEN, "%s: 1 from the sweep" % x.display_name)
+	# A blow that misses earns nothing: over many turns, the points are exactly the blows that landed.
+	var dodgy := brute()
+	dodgy.actions[0].hit = 0
+	var nimble: Array[CompanionData] = [make_companion("A", 100000)]
+	var b3 := make_battle(nimble, one_enemy(dodgy))
+	var landed := 0
+	for i in 40:
+		b3.focus(b3.roster[0])
+		if count_events(b3, "miss") == 0:
+			landed += 1
+	check(landed > 0 and landed < 40, "some blows missed (%d of 40 landed)" % landed)
+	eq(b3.points_of(b3.roster[0]), landed * BattleConfig.POINTS_BLOW_TAKEN, "only landed blows count")
+
+
+## The companion who lands the killing blow earns 4 more; an art that kills several earns it for each.
+func test_points_for_kills() -> void:
+	var cs: Array[CompanionData] = [make_companion("A", 100), make_companion("B", 100)]
+	var es: Array[EnemyData] = [idle_enemy(5), idle_enemy(1000)]
+	var b := make_battle(cs, es)
+	var a := b.roster[0]
+	check(b.attack(a, b.enemies[0]), "attack")
+	check(not b.enemies[0].is_alive(), "the first enemy falls")
+	eq(b.points_of(a), BattleConfig.POINTS_ATTACK_HIT + BattleConfig.POINTS_KILL, "2 for the hit, 4 for the kill")
+	eq(b.kills_of(a), 1, "one kill")
+	eq(BattleConfig.POINTS_KILL, 4, "the kill bonus")
+	var defeated: Dictionary = {}
+	for ev in b.events:
+		if ev.type == "defeated":
+			defeated = ev
+	eq(defeated.get("by"), a, "the defeat event names who landed it")
+	# An art striking every enemy, killing three of four.
+	var four: Array[EnemyData] = [idle_enemy(5), idle_enemy(5), idle_enemy(1000), idle_enemy(5)]
+	var b2 := make_battle(cs, four)
+	var c := b2.roster[1]
+	var sweep := make_art("Sweep", 1, 5, 1, 0)
+	sweep.hits_all_enemies = true
+	give_art(c, sweep)
+	check(b2.use_art(c, sweep), "the sweep")
+	eq(b2.living_enemies().size(), 1, "three fall")
+	eq(b2.kills_of(c), 3, "three kills")
+	eq(b2.points_of(c), BattleConfig.POINTS_ART + 3 * BattleConfig.POINTS_KILL, "3 for the art, 4 for each kill")
+	eq(b2.points_of(b2.roster[0]), 0, "nothing for the other")
+
+
+## A kill by bleeding goes to whoever applied it, even on someone else's turn; a kill by a reflecting
+## stance goes to whoever carries it.
+func test_kill_by_bleed_or_stance_is_credited() -> void:
+	var cut := load_art("dagger/bleeding_cut")
+	var cs: Array[CompanionData] = [make_companion("A", 100), make_companion("B", 100, 0, make_weapon(5, 999, 0, WeaponData.WeaponType.DAGGER))]
+	cs[1].speed = 10
+	var b := make_battle(cs, one_enemy(idle_enemy(20)))
+	var cutter := b.roster[1]
+	give_art(cutter, cut)
+	check(b.use_art(cutter, cut, b.enemies[0]), "Bleeding Cut")
+	eq(b.enemies[0].hp, 2, "16 and 2 of bleeding")
+	b.guard(b.roster[0])
+	check(not b.enemies[0].is_alive(), "it bleeds out on A's turn")
+	eq(b.kills_of(cutter), 1, "the kill is the cutter's")
+	eq(b.points_of(cutter), BattleConfig.POINTS_ART + BattleConfig.POINTS_KILL, "3 for the art, 4 for the kill")
+	eq(b.points_of(b.roster[0]), 0, "nothing for A")
+	# Riposte: the Brute's blow (1 point) is answered and kills it (4 more), after the art (3).
+	var riposte := load_art("sword/riposte")
+	var one: Array[CompanionData] = [make_companion("A", 100)]
+	var b2 := make_battle(one, one_enemy(brute(20)))
+	give_art(b2.roster[0], riposte)
+	b2.use_art(b2.roster[0], riposte, b2.enemies[0])
+	check(not b2.enemies[0].is_alive(), "struck down by its own blow")
+	eq(b2.kills_of(b2.roster[0]), 1, "the kill is the stance's bearer's")
+	eq(b2.points_of(b2.roster[0]), BattleConfig.POINTS_ART + BattleConfig.POINTS_BLOW_TAKEN + BattleConfig.POINTS_KILL, "art, blow taken and kill")
 
 
 ## Challenge, Phalanx and Fade change how likely enemies are to aim at the user.

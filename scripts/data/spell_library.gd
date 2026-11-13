@@ -1,7 +1,8 @@
 class_name SpellLibrary
 extends Resource
 ## Every spell that can be learned by raising a magic school's grade.
-## Signature spells are not listed here: each belongs to one companion (CompanionData.signature_spell).
+## Twelve for each school, 5 / 4 / 3 by tier. A mage's signature spell (CompanionData.signature_spell)
+## is one of them: they start a run knowing it, and the other mage of that school can learn it.
 
 const DEFAULT_PATH := "res://data/spells/spell_library.tres"
 

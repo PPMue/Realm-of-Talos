@@ -98,3 +98,16 @@ const MAGIC_CAP_PER_BATTLE := 12
 
 # --- Battle end ---
 const VICTORY_INJURED_HP := 1
+
+# --- Contribution ---
+# Points each companion earns in a battle; a won battle's XP is mostly shared out by them (see Run).
+# Focus and Wait earn nothing.
+const POINTS_ATTACK_HIT := 2
+const POINTS_ATTACK_MISS := 1
+const POINTS_ART := 3                 # per art used, however many enemies it strikes
+const POINTS_SPELL := 3               # per spell cast, of any kind
+const POINTS_BLOW_TAKEN := 1          # per enemy blow that lands on the companion
+const POINTS_BLOW_TAKEN_GUARDING := 2
+# Landing the killing blow on an enemy, per enemy. Damage over time counts for whoever applied it, a
+# reflecting stance for whoever carries it.
+const POINTS_KILL := 4

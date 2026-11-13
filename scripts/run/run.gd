@@ -263,6 +263,7 @@ func finish_battle(battle: Battle) -> BattleReport:
 	report.grade_ups = battle.grade_ups.duplicate()
 	var fielded := lineup.duplicate()
 	var standing: Array[RunCompanion] = []
+	var points: Array[int] = []
 	for i in fielded.size():
 		var c: RunCompanion = fielded[i]
 		var unit := battle.roster[i]
@@ -274,9 +275,11 @@ func finish_battle(battle: Battle) -> BattleReport:
 			report.injured.append(c.display_name())
 		c.hp = RunConfig.INJURED_RETURN_HP if unit.is_injured() or unit.hp <= 0 else mini(unit.hp, c.max_hp())
 		standing.append(c)
+		points.append(battle.points_of(unit))
+		report.points[c.display_name()] = battle.points_of(unit)
 	if report.won:
 		battles_won += 1
-		_grant_xp(report, front.xp_pool, standing)
+		_grant_xp(report, front.xp_pool, standing, points)
 		report.gold = front.reward_gold
 		report.materials = front.reward_materials.duplicate()
 		gold += front.reward_gold
@@ -448,65 +451,17 @@ func hire(data: CompanionData) -> RunCompanion:
 	return c
 
 
-# ---------------------------------------------------------------- healing between battles
-
-## HP a healing spell restores out of battle: the caster's MAG + the spell's power.
-func heal_amount(caster: RunCompanion, spell: SpellData) -> int:
-	return maxi(0, int(caster.progress.stats().get(Stat.MAG, 0)) + spell.heal_power) if spell != null and spell.heals else 0
-
-
-## Companions a healing spell would reach between battles: one, or the whole roster for every-ally spells.
-func heal_targets(spell: SpellData, target: RunCompanion) -> Array[RunCompanion]:
-	if spell != null and spell.targeting == SpellData.Targeting.ALL_ALLIES:
-		return roster.duplicate()
-	var out: Array[RunCompanion] = []
-	if target != null and roster.has(target):
-		out.append(target)
-	return out
-
-
-## Why `caster` cannot cast `spell` on `target` between battles, or "". Only healing spells can be cast
-## outside battle, while the party can still be changed; it spends a use like in battle.
-func heal_block_reason(caster: RunCompanion, spell: SpellData, target: RunCompanion = null) -> String:
-	if not can_change_party():
-		return "Not now."
-	if caster == null or not roster.has(caster):
-		return "Not in the roster."
-	if spell == null or not caster.progress.knows_spell(spell):
-		return "Not a known spell."
-	if not spell.heals:
-		return "Only healing spells can be cast between battles."
-	if caster.progress.uses_left(spell) <= 0:
-		return "No uses left. Rest restores them."
-	var targets := heal_targets(spell, target)
-	if targets.is_empty():
-		return "Choose who to heal."
-	for c in targets:
-		if c.hp < c.max_hp():
-			return ""
-	return "%s is at full health." % targets[0].display_name() if targets.size() == 1 else "Everyone is at full health."
-
-
-## Casts a healing spell between battles. Returns the HP restored in total, or -1 if not allowed.
-func cast_heal(caster: RunCompanion, spell: SpellData, target: RunCompanion = null) -> int:
-	if heal_block_reason(caster, spell, target) != "":
-		return -1
-	caster.progress.spend_use(spell)
-	var total := 0
-	for c in heal_targets(spell, target):
-		total += c.heal(heal_amount(caster, spell))
-	return total
-
-
-## Splits a won battle's XP pool evenly (rounded down) among `standing` and applies level-ups.
-## Max HP gained from a level also raises current HP by the same amount.
-func _grant_xp(report: BattleReport, pool: int, standing: Array[RunCompanion]) -> void:
+## Shares a won battle's XP pool among `standing` by their contribution points (`points`, in the same
+## order; see Levels.split_xp) and applies level-ups. Max HP gained from a level also raises current HP
+## by the same amount.
+func _grant_xp(report: BattleReport, pool: int, standing: Array[RunCompanion], points: Array[int]) -> void:
 	if standing.is_empty() or pool <= 0:
 		return
-	report.xp_each = floori(float(pool) / standing.size())
-	for c in standing:
-		report.xp_to.append(c.display_name())
-		for up in Levels.add_xp(c.progress, report.xp_each, rng):
+	var shares := Levels.split_xp(pool, points)
+	for i in standing.size():
+		var c := standing[i]
+		report.xp_gained[c.display_name()] = shares[i]
+		for up in Levels.add_xp(c.progress, shares[i], rng):
 			c.hp += int(up.gains.get(Stat.HP, 0))
 			report.level_ups.append({"name": c.display_name(), "level": up.level, "gains": up.gains})
 

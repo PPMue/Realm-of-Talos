@@ -81,8 +81,8 @@ func open(report: BattleReport, roster: Array[CompanionUnit]) -> void:
 					"text": "+%d %s" % [int(report.materials[m]), String(RunConfig.MATERIAL_NAMES[m]).to_lower()], "color": UiTheme.TEXT})
 		if report.weapon_found != null:
 			_rewards.append({"icon": "swords", "text": "found: %s" % report.weapon_found.display_name, "color": UiTheme.GOLD})
-		if report.xp_each > 0:
-			_rewards.append({"icon": "diamond", "text": "+%d XP each" % report.xp_each, "color": UiTheme.TEXT})
+		if report.xp_total() > 0:
+			_rewards.append({"icon": "diamond", "text": "+%d XP" % report.xp_total(), "color": UiTheme.TEXT})
 	elif report.front != null and report.front.is_boss:
 		_rewards.append({"icon": "rampart", "text": "%s breaks through. The city falls." % report.front.group.display_name,
 			"color": UiTheme.INJURED})
@@ -108,7 +108,7 @@ func open(report: BattleReport, roster: Array[CompanionUnit]) -> void:
 	modulate.a = 0.0
 	create_tween().tween_property(self, "modulate:a", 1.0, 0.35)
 
-	if report.xp_each > 0:
+	if report.xp_total() > 0:
 		for card: SpoilsCard in _cards.get_children():
 			card.play(FILL_SECONDS)
 		var generation := _generation
@@ -181,7 +181,7 @@ func _card_for(c: CompanionUnit, report: BattleReport) -> SpoilsCard:
 			ups.append(up)
 	var level_after := c.progress.level
 	var level_before := level_after - ups.size()
-	var gained := report.xp_each if report.xp_to.has(who) else 0
+	var gained := report.xp_of(who)
 	var total := c.progress.xp
 	for l in range(level_before, level_after):
 		total += Levels.xp_to_next(l)

@@ -55,9 +55,11 @@ const ENEMY_DEF_EVERY_DAYS := 9         # +1 DEF on days 10, 19, 28, 37 (+4)
 const ENEMY_SPD_EVERY_DAYS := 11        # +1 SPD and DEX on days 12, 23, 34 (+3)
 
 # --- Levels and XP ---
-# A won battle grants an XP pool, split evenly (rounded down) among the fielded companions still in
-# the run at its end. Pace target: fielded in every battle in a party of about four, a companion ends
-# the run around level 12-15. Measured by the level pace test.
+# A won battle grants an XP pool, shared among the fielded companions still in the run at its end:
+# XP_EVEN_SHARE_PERCENT of it evenly, the rest by the contribution points each earned in the battle
+# (BattleConfig.POINTS_*; Levels.split_xp). Pace target: fielded in every battle in a party of about
+# four with an average share, a companion ends the run around level 12-15 (the level pace test).
+const XP_EVEN_SHARE_PERCENT := 25
 const XP_POOL_BY_DANGER: Array[int] = [57, 86, 119]
 const XP_POOL_GROWTH_PER_DAY := 0.028   # pool x (1 + 0.028 x (day - 1)): day 42 is x2.15
 const BOSS_XP_POOL: Array[int] = [220, 320, 420]

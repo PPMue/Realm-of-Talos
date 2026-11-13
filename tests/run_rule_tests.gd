@@ -47,7 +47,9 @@ func tests() -> Array[Callable]:
 		test_bld_never_rises,
 		test_minimum_stat_gains,
 		test_level_gains_reach_battle,
+		test_split_xp,
 		test_xp_split_among_fielded,
+		test_xp_follows_battle_points,
 		test_no_xp_on_loss,
 		test_max_hp_gain_raises_hp,
 		test_tavern_hire_level,
@@ -1076,22 +1078,57 @@ func total_xp(c: RunCompanion) -> int:
 	return Levels.total_xp_for(c.level()) + c.progress.xp
 
 
+## The XP split: 25% evenly, 75% by contribution points; all even when nobody scored; rounded down with
+## the leftover going to the highest scorers first, so the shares always add up to the pool.
+func test_split_xp() -> void:
+	t.eq(RunConfig.XP_EVEN_SHARE_PERCENT, 25, "a quarter is shared evenly")
+	t.eq(Levels.split_xp(100, [0, 0, 0, 0] as Array[int]), [25, 25, 25, 25] as Array[int], "nobody scored: all even")
+	t.eq(Levels.split_xp(10, [0, 0, 0] as Array[int]), [4, 3, 3] as Array[int], "nobody scored: the leftover goes in line order")
+	# 100: 25 evenly (6.25 each) and 75 by points; 10 of 10 points to the first.
+	t.eq(Levels.split_xp(100, [10, 0, 0, 0] as Array[int]), [82, 6, 6, 6] as Array[int], "81.25 + leftover, 6.25 for the idle")
+	# 200 among 2: 25 each evenly, then 150 split 3:1.
+	t.eq(Levels.split_xp(200, [30, 10] as Array[int]), [138, 62] as Array[int], "137.5 and 62.5: the leftover goes to the higher scorer")
+	t.eq(Levels.split_xp(90, [6, 6, 6] as Array[int]), [30, 30, 30] as Array[int], "equal points: equal shares")
+	t.eq(Levels.split_xp(101, [5, 5, 5] as Array[int]), [34, 34, 33] as Array[int], "equal points: the leftover in line order")
+	t.eq(Levels.split_xp(50, [0, 3, 9] as Array[int]), [4, 13, 33] as Array[int], "4.17, 13.54, 32.29: the highest scorer gets the leftover")
+	t.eq(Levels.split_xp(77, [] as Array[int]), [] as Array[int], "nobody: nothing")
+	t.eq(Levels.split_xp(77, [4] as Array[int]), [77] as Array[int], "one companion: all of it")
+	# Random cases: never created or lost, never below the even floor, more points never less XP.
+	var rng := _seeded(77)
+	for i in 500:
+		var n := rng.randi_range(1, 4)
+		var pool := rng.randi_range(0, 1000)
+		var pts: Array[int] = []
+		for k in n:
+			pts.append(rng.randi_range(0, 40) if rng.randf() < 0.8 else 0)
+		var shares := Levels.split_xp(pool, pts)
+		var total := 0
+		for s in shares:
+			total += s
+		t.eq(total, pool, "case %d: the shares add up to the pool" % i)
+		for a in n:
+			t.check(shares[a] >= floori(pool * RunConfig.XP_EVEN_SHARE_PERCENT / 100.0 / n), "case %d: at least the even part" % i)
+			for b in n:
+				if pts[a] > pts[b]:
+					t.check(shares[a] >= shares[b], "case %d: more points, no less XP" % i)
+
+
 func test_xp_split_among_fielded() -> void:
 	var run := make_run(41)
 	run.gold = 10000
 	force_day(run, RunCalendar.DayType.FREE)
-	while run.roster.size() < 4:
+	while run.roster.size() < 5:
 		run.actions_left = 2
 		run.actions_used.clear()
 		run.tavern_offers.clear()
 		run._make_tavern_offers()
 		run.hire(run.tavern_offers[0])
-	var benched := run.lineup[0]
-	run.bench(benched)
-	t.eq(run.lineup.size(), 3, "three fielded, one in reserve")
+	t.eq(run.lineup.size(), RunConfig.MAX_FIELDED, "four fielded")
+	var benched: RunCompanion = run.roster.filter(func(c: RunCompanion) -> bool: return not run.lineup.has(c))[0]
 	var gone := run.lineup[0]
 	var injured := run.lineup[1]
 	var fine := run.lineup[2]
+	var idle := run.lineup[3]
 	run.day = 3
 	force_day(run, RunCalendar.DayType.BATTLE)
 	var f := run.fronts[0]
@@ -1099,23 +1136,67 @@ func test_xp_split_among_fielded() -> void:
 	for c in run.roster:
 		before[c] = total_xp(c)
 	var r := fight(run, true, f, func(b: Battle) -> void:
+		b.points[b.roster[0]] = 50   # removed: their points are not counted
+		b.points[b.roster[1]] = 30
+		b.points[b.roster[2]] = 10
 		b._damage_companion(b.roster[0], 999, false)
 		b._damage_companion(b.roster[0], 1, false)
 		b._damage_companion(b.roster[1], 999, false))
 	t.check(r.removed.has(gone.display_name()), "one removed")
-	t.eq(r.xp_each, floori(float(f.xp_pool) / 2), "the pool is split between the two left standing")
-	t.eq(r.xp_to.size(), 2, "two shares")
-	for c: RunCompanion in [injured, fine]:
-		t.eq(total_xp(c) - int(before[c]), r.xp_each, "%s gets a share (injured or not)" % c.display_name())
+	t.check(r.injured.has(injured.display_name()), "one injured")
+	var expected := Levels.split_xp(f.xp_pool, [30, 10, 0] as Array[int])
+	t.eq(r.xp_gained.keys(), [injured.display_name(), fine.display_name(), idle.display_name()], "a share for each still in the run, in line order")
+	t.eq(r.xp_total(), f.xp_pool, "the whole pool is handed out")
+	var pool := float(f.xp_pool)
+	t.check(absf(r.xp_of(injured.display_name()) - (pool * 0.25 / 3 + pool * 0.75 * 30 / 40)) < 1.01, "injured: a third of the quarter, 30/40 of the rest")
+	t.check(absf(r.xp_of(fine.display_name()) - (pool * 0.25 / 3 + pool * 0.75 * 10 / 40)) < 1.01, "fine: a third of the quarter, 10/40 of the rest")
+	t.check(absf(r.xp_of(idle.display_name()) - pool * 0.25 / 3) < 1.01, "idle: only a third of the quarter")
+	for i in 3:
+		var c: RunCompanion = [injured, fine, idle][i]
+		t.eq(r.xp_of(c.display_name()), expected[i], "%s: the split's share" % c.display_name())
+		t.eq(total_xp(c) - int(before[c]), expected[i], "%s gets that XP (injured or not)" % c.display_name())
+	t.eq(r.points, {injured.display_name(): 30, fine.display_name(): 10, idle.display_name(): 0}, "the report gives each one's points")
+	t.eq(r.points_of(injured.display_name()), 30, "points by name")
 	t.eq(total_xp(benched), int(before[benched]), "reserve gets nothing")
-	t.check(not r.xp_to.has(gone.display_name()) and not r.xp_to.has(benched.display_name()), "no share for gone or reserve")
+	t.check(not r.xp_gained.has(gone.display_name()) and not r.xp_gained.has(benched.display_name()), "no share for gone or reserve")
 	t.check(f.xp_pool > 0, "fronts carry an XP pool")
 	t.check(RunConfig.XP_POOL_BY_DANGER[0] < RunConfig.XP_POOL_BY_DANGER[1] and RunConfig.XP_POOL_BY_DANGER[1] < RunConfig.XP_POOL_BY_DANGER[2],
 		"higher danger, more XP")
+	# Nobody scored: an even split of the whole pool.
+	var run2 := make_run(46)
+	var f2 := run2.fronts[0]
+	var r2 := fight(run2, true, f2)
+	t.eq(r2.xp_gained.values(), Array(Levels.split_xp(f2.xp_pool, [0, 0] as Array[int])), "nobody scored: even")
+	t.eq(r2.xp_total(), f2.xp_pool, "and nothing lost to rounding")
 	run.day = 25
 	force_day(run, RunCalendar.DayType.BATTLE)
 	for fr in run.fronts:
 		t.check(fr.xp_pool > RunConfig.XP_POOL_BY_DANGER[fr.danger - 1], "the pool grows with the day")
+
+
+## Contribution points come from a real battle into the report and the split.
+func test_xp_follows_battle_points() -> void:
+	var run := make_run(47)
+	var f := run.fronts[0]
+	var b := run.start_battle(f)
+	var first := b.roster[0]
+	var target := b.enemies[0]
+	first.recovery = 0
+	t.check(b.attack(first, target), "an attack")
+	var pts := b.points_of(first)
+	t.check(pts >= BattleConfig.POINTS_ATTACK_MISS, "points earned (%d)" % pts)
+	for e in b.enemies:
+		e.hp = 0
+	b._check_end()
+	var r := run.finish_battle(b)
+	var names_in := run.lineup.map(func(c: RunCompanion) -> String: return c.display_name())
+	t.eq(r.points_of(names_in[0]), pts, "the report carries the battle's points")
+	var all_pts: Array[int] = []
+	for n: String in names_in:
+		all_pts.append(r.points_of(n))
+	var shares := Levels.split_xp(f.xp_pool, all_pts)
+	for i in names_in.size():
+		t.eq(r.xp_of(names_in[i]), shares[i], "%s: XP by points" % names_in[i])
 
 
 func test_no_xp_on_loss() -> void:
@@ -1125,7 +1206,8 @@ func test_no_xp_on_loss() -> void:
 	var points := c.progress.points_in(kind)
 	var r := fight(run, false, null, func(b: Battle) -> void:
 		b._gain_proficiency(b.roster[0], 3))
-	t.eq(r.xp_each, 0, "no XP on a loss")
+	t.check(r.xp_gained.is_empty() and r.xp_total() == 0, "no XP on a loss")
+	t.eq(r.points.size(), run.lineup.size(), "points are still reported")
 	t.check(r.level_ups.is_empty(), "no level-ups")
 	for x in run.roster:
 		t.eq(x.progress.xp, 0, "no XP for %s" % x.display_name())
@@ -1171,7 +1253,9 @@ func test_tavern_hire_level() -> void:
 	t.eq(fresh.hire(fresh.tavern_offers[0]).level(), 1, "a level 1 roster hires at level 1")
 
 
-## The pace target: fielded in every battle in a party of four, a companion ends around level 12-15.
+## The pace target: fielded in every battle in a party of four with an average share of the points, a
+## companion ends around level 12-15. Battles here end at once with nobody scoring, so every share is
+## exactly the average one (the pool split evenly).
 ## Battles are won outright (this measures XP, not survival) on the front nearest danger 2.
 func test_level_pace() -> void:
 	var levels: Array[int] = []
@@ -1224,6 +1308,9 @@ func test_playthrough() -> void:
 	var reached := [0, 0, 0]   # boss 1, 2, 3 reached
 	var final_levels := 0
 	var final_count := 0
+	var spread_total := 0   # highest minus lowest level in the company at the end, over runs with 2+
+	var spread_runs := 0
+	var spread_widest := 0
 	var faced := {}    # boss group -> times faced
 	var beaten := {}   # boss group -> times beaten
 	for s in runs:
@@ -1250,9 +1337,17 @@ func test_playthrough() -> void:
 		total_won += run.battles_won
 		total_lost += run.battles_lost
 		roster_sizes += run.roster.size()
+		var low := RunConfig.MAX_LEVEL
+		var high := 0
 		for c in run.roster:
 			final_levels += c.level()
 			final_count += 1
+			low = mini(low, c.level())
+			high = maxi(high, c.level())
+		if run.roster.size() >= 2:
+			spread_total += high - low
+			spread_runs += 1
+			spread_widest = maxi(spread_widest, high - low)
 		city_left += run.city_health
 		gold_left += run.gold
 		for i in 3:
@@ -1275,6 +1370,8 @@ func test_playthrough() -> void:
 	print("    ended by: %s" % str(causes))
 	print("    end day counts: %s" % ", ".join(spread))
 	print("    average final level of the companions still in the run: %.1f" % (float(final_levels) / maxf(1, final_count)))
+	print("    level spread in the company at the end (highest - lowest): average %.1f, widest %d (%d runs with 2+)" % [
+		float(spread_total) / maxf(1, spread_runs), spread_widest, spread_runs])
 	print("    per run: %.1f battles won, %.1f lost; %.1f companions, %.0f city health, %.0f gold at the end" % [
 		float(total_won) / runs, float(total_lost) / runs, float(roster_sizes) / runs, float(city_left) / runs, float(gold_left) / runs])
 	print("    bosses (faced / beaten / beaten %):")
