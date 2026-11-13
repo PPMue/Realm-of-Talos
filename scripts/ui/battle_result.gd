@@ -258,13 +258,11 @@ func _card_for(c: CompanionUnit, report: BattleReport, kills: int, foremost: boo
 		level += 1
 
 	var status := ""
-	if c.is_gone() or report.removed.has(who):
-		status = "LOST"
-	elif report.injured.has(who):
+	if report.injured.has(who):
 		status = "INJURED"
 	var lines: Array = []
 	var tips: Array[String] = []
-	if status != "LOST" and c.weapon() != null:
+	if c.weapon() != null:
 		var t := c.weapon().weapon_type
 		# The weapon is left out for a caster who did not fight with it.
 		if c.spells().is_empty() or c.proficiency_gained > 0 or c.magic_gained == 0:
@@ -305,9 +303,7 @@ Did the most in this fight."
 				all[key] = int(all.get(key, 0)) + int(up.gains[key])
 		tip += "\nLevel up from %d: %s" % [level_before, Levels.gains_text(all)]
 	if status == "INJURED":
-		tip += "\nInjured: back at %d HP." % RunConfig.INJURED_RETURN_HP
-	elif status == "LOST":
-		tip += "\nGone for the rest of the run."
+		tip += "\nInjured: %d days in the infirmary." % RunConfig.INFIRMARY_DAYS
 	for line in tips:
 		tip += "\n" + line
 	if not learned.is_empty():

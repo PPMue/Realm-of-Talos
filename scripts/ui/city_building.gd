@@ -6,12 +6,12 @@ extends Control
 
 signal pressed
 
-enum Kind { TAVERN, SMITHY, INN, MASON, BARRACKS, WATCHTOWER, GATE, YARD }
+enum Kind { TAVERN, SMITHY, INN, MASON, BARRACKS, WATCHTOWER, GATE, YARD, INFIRMARY }
 
 const NAMES := {
 	Kind.TAVERN: "The Tavern", Kind.SMITHY: "The Smithy", Kind.INN: "The Inn", Kind.MASON: "Mason's Yard",
 	Kind.BARRACKS: "The Barracks", Kind.WATCHTOWER: "The Watchtower", Kind.GATE: "The Gate",
-	Kind.YARD: "The Drill Yard",
+	Kind.YARD: "The Drill Yard", Kind.INFIRMARY: "The Infirmary",
 }
 ## Where each building stands in the 1920x1080 scene.
 const RECTS := {
@@ -23,6 +23,7 @@ const RECTS := {
 	Kind.TAVERN: Rect2(70, 548, 400, 350),
 	Kind.SMITHY: Rect2(1440, 580, 410, 320),
 	Kind.YARD: Rect2(505, 752, 290, 168),
+	Kind.INFIRMARY: Rect2(1150, 742, 270, 178),
 }
 
 var kind: Kind = Kind.TAVERN
@@ -89,6 +90,8 @@ func smoke_points() -> Array[Vector2]:
 			out.append(position + Vector2(314, 0))
 		Kind.INN:
 			out.append(position + Vector2(57, 2))
+		Kind.INFIRMARY:
+			out.append(position + Vector2(204, 18))
 	return out
 
 
@@ -153,6 +156,8 @@ func _draw() -> void:
 			_gate()
 		Kind.YARD:
 			_yard()
+		Kind.INFIRMARY:
+			_infirmary()
 	if interactive:
 		_board()
 
@@ -520,3 +525,45 @@ func _straw_man(foot: Vector2, k: float, lean: float, wood: Color, straw: Color)
 		chest + side * 7.0 * k - up * 16.0 * k, chest - side * 7.0 * k - up * 16.0 * k]), straw)
 	draw_line(chest - side * 8.0 * k - up * 2.0 * k, chest + side * 8.0 * k - up * 2.0 * k, straw.darkened(0.3), 1.5)
 	draw_circle(foot + up * 51.0 * k, 7.5 * k, straw)
+
+
+## The infirmary: a low whitewashed house with a slate roof, a white board with a red cross for a
+## sign, a lamp that burns all night, and linen drying on a line beside it.
+func _infirmary() -> void:
+	var a := ambient
+	CityArt.chimney(self, Rect2(196, 22, 16, 44), CityArt.STONE_DARK, a)
+	CityArt.roof(self, 26, 232, 82, 44, 34, CityArt.ROOF_SLATE, a)
+	CityArt.wall(self, Rect2(26, 82, 206, 96), Color("e4dccb"), a, 10.0)
+	var beam := _t(CityArt.TIMBER)
+	draw_rect(Rect2(26, 82, 6, 96), beam)
+	draw_rect(Rect2(226, 82, 6, 96), beam)
+	draw_rect(Rect2(26, 170, 206, 8), _t(CityArt.STONE))
+	# The sick room keeps a light: its windows glow a little even by day.
+	CityArt.window(self, Rect2(46, 106, 32, 38), maxf(glow, 0.35), a, true)
+	CityArt.window(self, Rect2(182, 106, 32, 38), maxf(glow, 0.35), a, true)
+	CityArt.door(self, Rect2(108, 104, 44, 74), Color("6a7a6a"), a)
+	# A lamp over the door.
+	draw_line(Vector2(130, 88), Vector2(130, 96), _t(Color("2b2622")), 2.0)
+	draw_circle(Vector2(130, 100), 14.0, Color(CityArt.LAMP, 0.10 + 0.16 * glow))
+	draw_rect(Rect2(126, 95, 8, 10), CityArt.LAMP)
+	# The sign: a red cross on a white board.
+	var c := CityArt.sign_board(self, Vector2(26, 92), a, -1.0, Vector2(38, 36))
+	draw_rect(Rect2(c - Vector2(15, 14), Vector2(30, 28)), _t(Color("efe8da")))
+	draw_rect(Rect2(c.x - 4, c.y - 11, 8, 22), _t(Color("a8322c")))
+	draw_rect(Rect2(c.x - 11, c.y - 4, 22, 8), _t(Color("a8322c")))
+	# Linen on a line to the right, lifting in the wind.
+	var post := _t(CityArt.WOOD)
+	draw_line(Vector2(232, 112), Vector2(266, 108), _t(Color("3a3028")), 1.5)
+	draw_line(Vector2(266, 178), Vector2(266, 104), post, 4.0)
+	var lift := sin(time * 1.4) * 3.0
+	for i in 2:
+		var x := 238.0 + i * 13.0
+		var top := 111.5 - i * 1.5
+		draw_colored_polygon(PackedVector2Array([Vector2(x, top), Vector2(x + 10, top - 1), Vector2(x + 10 + lift, top + 30),
+			Vector2(x + lift, top + 32)]), _t(Color("efe8da") if i == 0 else Color("d8d0c0")))
+	# A bench and a water butt by the door.
+	draw_rect(Rect2(160, 156, 18, 22), _t(CityArt.WOOD.darkened(0.1)))
+	draw_rect(Rect2(160, 162, 18, 2), _t(Color("2b2622")))
+	draw_rect(Rect2(60, 160, 36, 5), _t(CityArt.WOOD))
+	draw_rect(Rect2(63, 165, 4, 13), _t(CityArt.WOOD.darkened(0.2)))
+	draw_rect(Rect2(89, 165, 4, 13), _t(CityArt.WOOD.darkened(0.2)))

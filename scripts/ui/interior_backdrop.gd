@@ -3,7 +3,7 @@ extends Control
 ## The inside of a building, behind its screen: a plank wall, a fire to one side (the tavern's hearth
 ## or the smithy's forge), a hanging lantern, and shadow in the corners. Drawn in code.
 
-enum Kind { TAVERN, SMITHY, BARRACKS, YARD }
+enum Kind { TAVERN, SMITHY, BARRACKS, YARD, INFIRMARY }
 
 var kind := Kind.TAVERN:
 	set(v):
@@ -40,6 +40,10 @@ func _draw() -> void:
 	elif kind == Kind.BARRACKS:
 		wall = Color("1f1c1a")
 		glow = Color(1.0, 0.7, 0.4)
+	elif kind == Kind.INFIRMARY:
+		# Whitewash gone grey in the lamplight.
+		wall = Color("27221d")
+		glow = Color(1.0, 0.74, 0.46)
 	elif kind == Kind.YARD:
 		# The yard's palisade, with a brazier for the fire.
 		wall = Color("2b2118")

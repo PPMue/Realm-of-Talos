@@ -23,15 +23,15 @@ func open(run: Run) -> void:
 	_title.add_theme_color_override("font_color", UiTheme.GOLD if won else UiTheme.INJURED)
 	_ribbon.border = UiTheme.GOLD if won else UiTheme.INJURED
 	_reason.text = run.end_reason
-	var survivors: Array[String] = []
-	for c in run.roster:
-		survivors.append(c.display_name())
-	var lost: Array[String] = []
-	for d in run.gone:
-		lost.append(d.display_name)
-	_stats.text = "DAY REACHED   %d / %d\nBATTLES   %d won, %d lost\nCITY HEALTH   %d / %d\nGOLD   %d\nSTILL STANDING   %s\nLOST   %s" % [
+	var standing: Array[String] = []
+	for c in run.available():
+		standing.append(c.display_name())
+	var beds: Array[String] = []
+	for c in run.infirmary():
+		beds.append(c.display_name())
+	_stats.text = "DAY REACHED   %d / %d\nBATTLES   %d won, %d lost\nCITY HEALTH   %d / %d\nGOLD   %d\nSTILL STANDING   %s\nIN THE INFIRMARY   %s" % [
 		run.day, RunConfig.DAYS, run.battles_won, run.battles_lost, run.city_health, RunConfig.CITY_MAX_HEALTH, run.gold,
-		", ".join(survivors) if not survivors.is_empty() else "nobody", ", ".join(lost) if not lost.is_empty() else "nobody"]
+		", ".join(standing) if not standing.is_empty() else "nobody", ", ".join(beds) if not beds.is_empty() else "nobody"]
 	visible = true
 	modulate.a = 0.0
 	create_tween().tween_property(self, "modulate:a", 1.0, 0.4)

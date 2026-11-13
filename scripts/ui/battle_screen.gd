@@ -170,7 +170,7 @@ func cast_on_ally(c: CompanionUnit) -> void:
 
 ## Points at a companion while a white spell waits for a target, to see what it would do.
 func point_at_ally(c: CompanionUnit) -> void:
-	_hot_ally = c if (_mode == Mode.TARGET_ALLY and c != null and battle.line().has(c)) else null
+	_hot_ally = c if (_mode == Mode.TARGET_ALLY and c != null and battle.line().has(c) and not c.is_injured()) else null
 	_refresh_party()
 
 
@@ -362,7 +362,7 @@ func _aim_at_pointer() -> void:
 	var u := _unit_at(_pointer)
 	if _aims_at_enemies() and u is EnemyUnit:
 		_hot_enemy = u
-	elif _mode == Mode.TARGET_ALLY and u is CompanionUnit and battle.line().has(u):
+	elif _mode == Mode.TARGET_ALLY and u is CompanionUnit and battle.line().has(u) and not (u as CompanionUnit).is_injured():
 		_hot_ally = u
 
 
@@ -590,12 +590,6 @@ func _show_event(ev: Dictionary) -> float:
 			panel.set_status(PartyPanel.Status.INJURED)
 			_popup(panel.popup_anchor() + Vector2(0, -50), "INJURED", UiTheme.INJURED, 50)
 			return 0.45
-		"gone":
-			var panel: PartyPanel = _party_panels[ev.target]
-			_popup(panel.popup_anchor() + Vector2(0, -50), "GONE", UiTheme.INJURED, 56)
-			var t := panel.create_tween()
-			t.tween_property(panel, "modulate:a", 0.0, 0.4)
-			return 0.5
 		"countdown":
 			var countdowns: Dictionary = ev.countdowns
 			for e: EnemyUnit in countdowns:
@@ -837,11 +831,6 @@ func _refresh_party() -> void:
 		rev_total += w
 	for c: CompanionUnit in _party_panels:
 		var panel: PartyPanel = _party_panels[c]
-		panel.visible = not c.is_gone()
-		if c.is_gone():
-			if c == _inspected:
-				inspect(null)
-			continue
 		panel.modulate.a = 1.0
 		panel.set_hp(c.hp, c.max_hp())
 		panel.set_stamina(c.stamina, c.max_stamina())
@@ -866,7 +855,8 @@ func _refresh_party() -> void:
 			share = roundi(weights[index] / total * 100.0)
 			rev_share = roundi(rev_weights[index] / rev_total * 100.0)
 		var aim_tip := "Enemies aim at this spot %d%% of the time." % share
-		if c.is_gone() or index < 0 or battle.is_over():
+		# Nobody aims at someone who is down.
+		if c.is_injured() or index < 0 or battle.is_over():
 			panel.set_threat("")
 		elif aim.y == 0:
 			panel.set_threat("%d%%" % share)
@@ -899,7 +889,8 @@ func _refresh_party() -> void:
 		if c == _inspected:
 			_fill_inspect()
 		panel.set_selection(c == _selected, not _busy and battle.can_act(c))
-		if _mode == Mode.TARGET_ALLY and not _busy and _spell != null and line.has(c):
+		# White magic cannot reach someone who is down.
+		if _mode == Mode.TARGET_ALLY and not _busy and _spell != null and line.has(c) and not c.is_injured():
 			var hot := _spell.targets_all() or c == _hot_ally
 			panel.set_spell_target(true, hot, _ally_preview(c),
 				float(battle.hp_after_heal(_selected, _spell, c)) if _spell.heals else -INF)
@@ -931,8 +922,6 @@ func _ally_preview(c: CompanionUnit) -> String:
 	if _spell.heals:
 		var after := battle.hp_after_heal(_selected, _spell, c)
 		parts.append("HP %d → %d" % [c.hp, after])
-		if c.is_injured() and after > 0:
-			parts.append("BACK UP")
 	if _spell.cleanse:
 		var harmful: Array[String] = []
 		for e in c.effects:

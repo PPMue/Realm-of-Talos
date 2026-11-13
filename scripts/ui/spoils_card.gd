@@ -3,8 +3,8 @@ extends Control
 ## One companion after a battle: their face, their level with the XP bar filling by what the battle
 ## gave (the level number turns over each time the bar fills), and how far their weapon and magic
 ## grades came. XP is shared by what each did, so the card also shows it: a skull on the face for every
-## enemy they felled, and gold marks beside the name of whoever did the most. Hurt or lost is written
-## across the face. The details are in the tooltip.
+## enemy they felled, and gold marks beside the name of whoever did the most. Injured is written
+## across the face of whoever goes to the infirmary. The details are in the tooltip.
 
 const W := 244.0
 const H := 392.0
@@ -47,7 +47,7 @@ func _init() -> void:
 	add_child(_marks)
 
 
-## `status`: "" or "INJURED" or "LOST".
+## `status`: "" or "INJURED" (they go to the infirmary).
 func setup(data: CompanionData, display_name: String, level_before: int, level_after: int, xp_before: int, xp_after: int, xp_gained: int,
 		lines: Array, learned: Array[String], status: String, kills: int = 0, foremost: bool = false) -> void:
 	_kills = kills
@@ -64,7 +64,7 @@ func setup(data: CompanionData, display_name: String, level_before: int, level_a
 	_portrait.texture = data.portrait
 	_portrait.focus = data.portrait_focus + Vector2(0.0, 0.05)
 	_portrait.zoom = 1.7 * data.figure_scale
-	_portrait.tint = Color(0.42, 0.42, 0.46) if status == "LOST" else (Color(0.8, 0.5, 0.48) if status == "INJURED" else Color.WHITE)
+	_portrait.tint = Color(0.8, 0.5, 0.48) if status == "INJURED" else Color.WHITE
 	_shown = 0.0
 	queue_redraw()
 	_marks.queue_redraw()
@@ -117,9 +117,8 @@ func _draw() -> void:
 	var display := UiTheme.display_font()
 	var body := UiTheme.body_font()
 	var italic := UiTheme.italic_font()
-	var lost := _status == "LOST"
 	var y := PAD + PORTRAIT_H + 8.0
-	var name_ink := UiTheme.MUTED if lost else (UiTheme.GOLD if _foremost else UiTheme.TEXT)
+	var name_ink := UiTheme.GOLD if _foremost else UiTheme.TEXT
 	UiTheme.draw_text(self, display, Vector2(0, y), _name, 27, name_ink, 4, W, HORIZONTAL_ALIGNMENT_CENTER)
 	if _foremost:
 		var half := display.get_string_size(_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 27).x * 0.5 + 16.0
@@ -177,7 +176,7 @@ func _draw_marks() -> void:
 		_marks.draw_circle(at, 13.0, Color(UiTheme.INK, 0.82))
 		UiIcons.skull(_marks, at, 17.0, UiTheme.TEXT)
 	if _status != "":
-		var color := UiTheme.INJURED if _status == "INJURED" else UiTheme.MUTED
+		var color := UiTheme.INJURED
 		var band := Rect2(0, _marks.size.y - 32.0, w, 32.0)
 		_marks.draw_rect(band, Color(UiTheme.INK, 0.88))
 		UiTheme.draw_text(_marks, display, Vector2(0, band.position.y + 4.0), _status, 19, color, 0, w, HORIZONTAL_ALIGNMENT_CENTER)

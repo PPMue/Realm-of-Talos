@@ -44,6 +44,7 @@ var _war_table := WarTable.new()
 var _party_screen := PartyScreen.new()
 var _store_screen := StoreScreen.new()
 var _training_screen := TrainingScreen.new()
+var _infirmary_screen := InfirmaryScreen.new()
 var _battle_screen := BattleScreen.new()
 var _end_screen := RunEndScreen.new()
 
@@ -67,7 +68,8 @@ func new_run(seed_value: int = 0, opening: bool = true) -> void:
 	else:
 		rng.randomize()
 	run = Run.create(rng, RunContent.load_default(), _art_pool, _spell_pool)
-	for screen: Control in [_end_screen, _battle_screen, _party_screen, _store_screen, _training_screen, _war_table, _letter]:
+	for screen: Control in [_end_screen, _battle_screen, _party_screen, _store_screen, _training_screen, _infirmary_screen, _war_table,
+			_letter]:
 		screen.visible = false
 	_begin_day(_day_title(), _day_text())
 	if opening:
@@ -201,6 +203,9 @@ func visit(kind: CityBuilding.Kind) -> void:
 				open_shop()
 			else:
 				_say("The Smithy", _in_world(why))
+		CityBuilding.Kind.INFIRMARY:
+			# Open on any day: the beds can always be looked in on.
+			_infirmary_screen.open(run)
 		CityBuilding.Kind.YARD:
 			var why := _yard_block_reason()
 			if why == "":
@@ -242,7 +247,10 @@ func visit(kind: CityBuilding.Kind) -> void:
 func _visit_gate() -> void:
 	match run.day_type():
 		RunCalendar.DayType.BATTLE, RunCalendar.DayType.BOSS:
-			open_war_table()
+			if run.yield_block_reason() == "":
+				_open_yield()
+			else:
+				open_war_table()
 		RunCalendar.DayType.FREE:
 			if run.event_pending():
 				_open_event()
@@ -258,6 +266,27 @@ func _visit_gate() -> void:
 				"choices": [{"label": "End the day", "action": end_day}],
 				"leave": "Not yet",
 			})
+
+
+## Everyone is in the infirmary on a day the enemy comes: there is nothing to do but give the day up.
+func _open_yield() -> void:
+	var boss := run.day_type() == RunCalendar.DayType.BOSS
+	_letter.open({
+		"kicker": "The Gate",
+		"title": "Nobody Can March Out",
+		"body": "\"They are all in the infirmary, Commander. There is no one to send.\"",
+		"facts": "The day is lost without a fight. %s" % ("%s reaches the gate, and the city falls." % _boss_name() if boss
+			else "The walls take what the worst of today's fronts would have cost."),
+		"choices": [{"label": "Give up the day", "action": yield_day}],
+		"leave": "Not yet",
+	})
+
+
+func yield_day() -> void:
+	var report := run.yield_day()
+	if report == null:
+		return
+	_after_day("The Front Was Lost", "No one could march out. The walls lost %d. %s" % [report.city_damage, _day_text()])
 
 
 func _open_watch() -> void:
@@ -328,6 +357,9 @@ func _after_day(title: String = "", text: String = "") -> void:
 		_end_screen.open(run)
 		return
 	var heal := "Overnight the company recovered a fifth of its strength. "
+	if not run.released_today.is_empty():
+		var up := _names(run.released_today)
+		heal = "%s %s out of the infirmary and back on the bench. %s" % [" and ".join(up), "is" if up.size() == 1 else "are", heal]
 	_begin_day(_day_title() if title == "" else title, (heal + _day_text()) if title == "" else text)
 	_announce_day()
 
@@ -538,6 +570,19 @@ func _refresh_buildings() -> void:
 				var why := run.visit_block_reason(A.SHOP)
 				b.open = why == ""
 				b.status = "Weapons for sale" if why == "" else _short(why)
+			CityBuilding.Kind.INFIRMARY:
+				var beds := run.infirmary()
+				b.open = true
+				if beds.is_empty():
+					b.status = "The beds are empty"
+				else:
+					var soonest := beds[0]
+					for c in beds:
+						if c.days_left(run.day) < soonest.days_left(run.day):
+							soonest = c
+					var left := soonest.days_left(run.day)
+					b.status = "%d in the beds  ·  %s up %s" % [beds.size(), soonest.display_name(),
+						"tomorrow" if left <= 1 else "in %d days" % left]
 			CityBuilding.Kind.YARD:
 				var why := run.free_action_block_reason(A.TRAIN)
 				b.open = why == ""
@@ -591,6 +636,18 @@ func _build_party() -> void:
 		_party_row.add_child(gap)
 		for c in run.reserve():
 			_party_row.add_child(_medallion(c, false, "In reserve"))
+	if not run.infirmary().is_empty():
+		var gap := Control.new()
+		gap.custom_minimum_size = Vector2(26, 0)
+		gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_party_row.add_child(gap)
+		for c in run.infirmary():
+			var left := c.days_left(run.day)
+			var m := PartyMedallion.new()
+			m.setup(c, false, "In the infirmary: %s" % ("up tomorrow" if left <= 1 else "%d days to go" % left))
+			m.modulate = Color(0.62, 0.5, 0.5)
+			m.pressed.connect(visit.bind(CityBuilding.Kind.INFIRMARY))
+			_party_row.add_child(m)
 
 
 func _medallion(c: RunCompanion, fielded: bool, where: String) -> PartyMedallion:
@@ -626,7 +683,8 @@ func _hide_news() -> void:
 # ---------------------------------------------------------------- input
 
 func _overlay_open() -> bool:
-	return _battle_screen.visible or _party_screen.visible or _store_screen.visible or _training_screen.visible or _end_screen.visible \
+	return _battle_screen.visible or _party_screen.visible or _store_screen.visible or _training_screen.visible or _infirmary_screen.visible \
+		or _end_screen.visible \
 		or _letter.visible or _war_table.visible
 
 
@@ -715,7 +773,8 @@ func _build() -> void:
 	_news.add_child(_news_text)
 
 	# Screens that open over the city.
-	for screen: Control in [_war_table, _party_screen, _store_screen, _training_screen, _letter, _battle_screen, _end_screen]:
+	for screen: Control in [_war_table, _party_screen, _store_screen, _training_screen, _infirmary_screen, _letter, _battle_screen,
+			_end_screen]:
 		screen.visible = false
 		screen.z_index = 10
 		add_child(screen)
@@ -723,6 +782,7 @@ func _build() -> void:
 	_party_screen.closed.connect(refresh)
 	_store_screen.closed.connect(refresh)
 	_training_screen.closed.connect(refresh)
+	_infirmary_screen.closed.connect(refresh)
 	_battle_screen.finished.connect(_on_battle_finished)
 	_battle_screen.closed.connect(_on_battle_closed)
 	_end_screen.closed.connect(func() -> void: left_run.emit())
