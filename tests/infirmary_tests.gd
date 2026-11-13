@@ -21,6 +21,7 @@ func tests() -> Array[Callable]:
 		test_yield_on_boss_day_ends_run,
 		test_cure_price,
 		test_cure_action,
+		test_no_event_can_lock_the_day,
 	]
 
 
@@ -282,3 +283,38 @@ func test_cure_action() -> void:
 		run.event_days.append(run.day)
 	run._begin_day()
 	t.eq(run.cure_block_reason(other), Run.EVENT_FIRST, "the gate's matter first")
+
+
+## Every event in the content always has one choice that costs nothing the player might lack: with
+## the whole roster in the infirmary (or with everyone fit), no gold and no materials, some choice is
+## open, choosing it answers the event, and the day can then end (or the run is over).
+func test_no_event_can_lock_the_day() -> void:
+	var events := RunContent.load_default().events
+	t.check(not events.is_empty(), "there are events")
+	for ev in events:
+		for everyone_away in [true, false]:
+			var run := make_run(320)
+			run.day = 2
+			run.calendar[run.day - 1] = RunCalendar.DayType.FREE
+			if not run.event_days.has(run.day):
+				run.event_days.append(run.day)
+			run._begin_day()
+			run.event = ev
+			run._draw_event_weapons()
+			run.gold = 0
+			run.materials = {}
+			if everyone_away:
+				for c in run.roster.duplicate():
+					run._to_infirmary(c)
+			var label := "%s (%s)" % [ev.title, "all in the infirmary" if everyone_away else "everyone fit"]
+			var open: EventChoiceData = null
+			for ch in ev.choices:
+				if run.choice_block_reason(ch) == "":
+					open = ch
+					break
+			t.check(open != null, "%s: a choice is open with no gold and no materials" % label)
+			if open == null:
+				continue
+			t.check(run.choose(open) != "", "%s: choosing it answers the event" % label)
+			t.check(not run.event_pending(), "%s: nothing waits" % label)
+			t.check(run.is_over() or run.end_free_day(), "%s: the day can end" % label)
