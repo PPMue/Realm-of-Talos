@@ -8,6 +8,7 @@ const MagicTests := preload("res://tests/magic_tests.gd")
 const BestiaryTests := preload("res://tests/bestiary_tests.gd")
 const WeaponTests := preload("res://tests/weapon_tests.gd")
 const TrainingTests := preload("res://tests/training_tests.gd")
+const InfirmaryTests := preload("res://tests/infirmary_tests.gd")
 
 var _failures: Array[String] = []
 var _run_rules: RefCounted   # kept alive: Callables do not hold a reference to their object
@@ -15,6 +16,7 @@ var _magic: RefCounted
 var _bestiary: RefCounted
 var _weapons: RefCounted
 var _training: RefCounted
+var _infirmary: RefCounted
 var _checks := 0
 var _current := ""
 
@@ -33,13 +35,13 @@ func _init() -> void:
 		test_guard_halves_damage_and_expires,
 		test_guard_and_injured_target_weights,
 		test_targeting_distribution,
-		test_gone_companions_leave_line,
-		test_injured_then_gone,
-		test_miss_does_not_finish_injured,
-		test_area_attack_finishes_injured,
-		test_heal_clears_injury,
-		test_victory_sets_injured_to_1hp,
-		test_defeat_no_companions_left,
+		test_injured_stay_in_line,
+		test_injured_out_of_battle,
+		test_injured_never_aimed_at,
+		test_area_attack_skips_injured,
+		test_heal_never_lifts_injury,
+		test_victory_keeps_injured,
+		test_injury_ends_effects,
 		test_defeat_all_injured,
 		test_art_costs_stamina_and_focus_restores,
 		test_events_record_the_tick,
@@ -88,6 +90,8 @@ func _init() -> void:
 	tests.append_array(_weapons.tests())
 	_training = TrainingTests.new(self)
 	tests.append_array(_training.tests())
+	_infirmary = InfirmaryTests.new(self)
+	tests.append_array(_infirmary.tests())
 	var verbose := OS.get_environment("TEST_VERBOSE") != ""
 	var only := OS.get_environment("TEST_ONLY")
 	if only != "":
@@ -114,12 +118,6 @@ func _init() -> void:
 
 
 # ---------------------------------------------------------------- helpers
-
-## A battle in which a revive is always possible (stands in for future revive items).
-class ReviveBattle extends Battle:
-	func can_revive() -> bool:
-		return true
-
 
 func check(cond: bool, msg: String) -> void:
 	_checks += 1
@@ -412,7 +410,7 @@ func test_lone_companion_ignores_recovery() -> void:
 	var b := make_battle(three_companions(), one_enemy(idle_enemy(1000)))
 	var e := b.enemies[0]
 	set_injured(b.roster[0])
-	b.roster[1].state = CompanionUnit.State.GONE
+	set_injured(b.roster[1])
 	var lone := b.roster[2]
 	check(b.use_art(lone, lone.arts()[0], e), "lone companion uses an art")
 	check(b.can_act(lone), "lone companion can act despite recovery")
@@ -464,7 +462,7 @@ func test_guard_and_injured_target_weights() -> void:
 	eq(b.target_weights(), [1.0, 2.0, 4.0] as Array[float], "base weights 1, 2, 4")
 	b.roster[0].add_effect(StatusEffect.guard())
 	set_injured(b.roster[2])
-	eq(b.target_weights(), [4.0, 2.0, 1.0] as Array[float], "guard x4, injured x0.25")
+	eq(b.target_weights(), [4.0, 2.0, 0.0] as Array[float], "guard x4, injured 0: never aimed at")
 	var cs: Array[CompanionData] = []
 	for i in 5:
 		cs.append(make_companion("C%d" % i))
@@ -494,109 +492,117 @@ func test_targeting_distribution() -> void:
 		check(absf(share - exp2[i]) < 0.015, "guarded slot %d share %.3f ~ %.3f" % [i, share, exp2[i]])
 
 
-func test_gone_companions_leave_line() -> void:
+func test_injured_stay_in_line() -> void:
 	var b := make_battle(three_companions(), one_enemy(idle_enemy()))
-	b.roster[1].state = CompanionUnit.State.GONE
-	eq(b.line().size(), 2, "gone companion leaves the line")
-	eq(b.target_weights(), [1.0, 2.0] as Array[float], "remaining companions close up")
+	set_injured(b.roster[1])
+	eq(b.line().size(), 3, "an injured companion stays in the line")
+	eq(b.standing(), [b.roster[0], b.roster[2]] as Array[CompanionUnit], "standing() leaves them out")
+	eq(b.target_weights(), [1.0, 0.0, 4.0] as Array[float], "their place keeps its count, with weight 0")
 
 
 # ---------------------------------------------------------------- injury
 
-func test_injured_then_gone() -> void:
+func test_injured_out_of_battle() -> void:
 	# 15 damage per hit; Solo is alone in the line so the target is certain.
 	var acts: Array[EnemyActionData] = [make_action("Hit", 1)]
-	var cs: Array[CompanionData] = [make_companion("Solo", 20)]
+	var cs: Array[CompanionData] = [make_companion("Solo", 20), make_companion("Other", 200)]
 	var b := make_battle(cs, one_enemy(make_enemy("E", acts)))
 	var solo := b.roster[0]
-	b.perform_enemy_action(b.enemies[0], acts[0])
+	b._enemy_strike(b.enemies[0], acts[0], solo)
 	eq(solo.hp, 5, "first hit")
 	check(solo.is_active(), "still active above 0")
-	b.perform_enemy_action(b.enemies[0], acts[0])
-	eq(solo.hp, -10, "HP can go negative")
-	check(solo.is_injured(), "injured at 0 or below")
+	b._enemy_strike(b.enemies[0], acts[0], solo)
+	eq(solo.hp, 0, "down to 0")
+	check(solo.is_injured(), "injured at 0")
 	check(not b.can_act(solo), "injured companion cannot act")
-	eq(b.line().size(), 1, "injured companion stays in line")
-	eq(b.pick_target(), solo, "injured companion can still be targeted")
-	b.perform_enemy_action(b.enemies[0], acts[0])
-	check(solo.is_gone(), "hit on injured companion -> gone")
-	eq(b.line().size(), 0, "gone companion left the line")
-
-func test_miss_does_not_finish_injured() -> void:
-	var miss := make_action("Whiff", 1)
-	miss.hit = -999   # clamps to 20%, so some rolls miss
-	var cs: Array[CompanionData] = [make_companion("Solo", 20)]
-	var b := make_battle(cs, one_enemy(make_enemy("E", [miss] as Array[EnemyActionData])), 3)
-	var solo := b.roster[0]
-	set_injured(solo)
-	var landed := false
-	for i in 50:
-		var hp_before := solo.hp
-		b.perform_enemy_action(b.enemies[0], miss)
-		if solo.hp == hp_before:
-			check(solo.is_injured(), "a miss leaves the injured companion injured")
-		else:
-			landed = true
-			check(solo.is_gone(), "a landed hit finishes them")
-			break
-	check(landed, "eventually a hit lands")
+	eq(b.line().size(), 2, "injured companion stays in line")
+	b._enemy_strike(b.enemies[0], acts[0], solo)
+	eq(solo.hp, 0, "never struck again")
+	check(solo.is_injured(), "still injured, nothing worse")
+	for i in 200:
+		eq(b.pick_target(), b.roster[1], "only the one standing is aimed at")
+	set_injured(b.roster[1])
+	check(b.pick_target() == null, "nobody to aim at")
 
 
-func test_area_attack_finishes_injured() -> void:
+func test_injured_never_aimed_at() -> void:
+	var b := make_battle(three_companions(), one_enemy(idle_enemy()), 4321)
+	set_injured(b.roster[2])
+	var counts := [0, 0, 0]
+	var n := 6000
+	for i in n:
+		counts[b.line().find(b.pick_target())] += 1
+	eq(counts[2], 0, "the injured rightmost is never picked")
+	check(absf(counts[0] / float(n) - 1.0 / 3.0) < 0.02 and absf(counts[1] / float(n) - 2.0 / 3.0) < 0.02,
+		"the others share the weight 1 : 2 (%s)" % str(counts))
+	# Single-target actions in play.
+	var acts: Array[EnemyActionData] = [make_action("Hit", 1, EnemyActionData.Targeting.SINGLE, 1)]
+	var b2 := make_battle(three_companions(500), one_enemy(make_enemy("E", acts)), 7)
+	set_injured(b2.roster[2])
+	for i in 100:
+		b2.perform_enemy_action(b2.enemies[0], acts[0])
+	eq(b2.roster[2].hp, 0, "never hit")
+
+
+func test_area_attack_skips_injured() -> void:
 	var acts: Array[EnemyActionData] = [make_action("Boom", 1, EnemyActionData.Targeting.ALL_COMPANIONS, 1)]
 	var b := make_battle(three_companions(50), one_enemy(make_enemy("E", acts)))
 	set_injured(b.roster[0])
+	b.events.clear()
 	b.perform_enemy_action(b.enemies[0], acts[0])
-	check(b.roster[0].is_gone(), "area attack finishes the injured companion")
+	check(b.roster[0].is_injured() and b.roster[0].hp == 0, "the injured companion is skipped")
+	for ev in b.events:
+		check(ev.get("target") != b.roster[0], "no event touches them")
 	check(b.roster[1].is_active() and b.roster[2].is_active(), "others merely damaged")
 	eq(b.roster[1].hp, 39, "area damage 10 + 1 - 0")
 
 
-func test_heal_clears_injury() -> void:
+func test_heal_never_lifts_injury() -> void:
 	var b := make_battle(three_companions(), one_enemy(idle_enemy()))
 	var c := b.roster[0]
-	c.hp = -5
-	c.state = CompanionUnit.State.INJURED
-	b.heal(c, 3)
-	check(c.is_injured(), "healing to 0 or below keeps the injury")
-	b.heal(c, 3)
-	eq(c.hp, 1, "healed above 0")
-	check(c.is_active(), "injury cleared above 0 HP")
-	b.heal(c, 999)
-	eq(c.hp, c.max_hp(), "healing caps at max HP")
+	set_injured(c)
+	b.heal(c, 30)
+	check(c.is_injured() and c.hp == 0, "nothing in battle undoes an injury")
+	var d := b.roster[1]
+	d.hp = 5
+	b.heal(d, 3)
+	eq(d.hp, 8, "a standing companion is healed")
+	b.heal(d, 999)
+	eq(d.hp, d.max_hp(), "healing caps at max HP")
 
 
 # ---------------------------------------------------------------- battle end
 
-func test_victory_sets_injured_to_1hp() -> void:
+func test_victory_keeps_injured() -> void:
 	var b := make_battle(three_companions(), one_enemy(idle_enemy(1)))
-	set_injured(b.roster[0])
-	b.roster[0].hp = -7
+	b._damage_companion(b.roster[0], 999, false)
 	check(b.attack(b.roster[2], b.enemies[0]), "finishing blow")
 	eq(b.outcome, Battle.Outcome.VICTORY, "victory when all enemies dead")
-	eq(b.roster[0].hp, 1, "injured companion set to 1 HP")
-	check(b.roster[0].is_active(), "no longer injured")
+	check(b.roster[0].is_injured() and b.roster[0].hp == 0, "the injured stay injured after a win")
+	eq(b.injured_ever, [b.roster[0]] as Array[CompanionUnit], "recorded")
 	eq(b.roster[1].hp, 20, "healthy companion HP unchanged")
 	check(not b.focus(b.roster[1]), "no commands after the battle ends")
 
 
-func test_defeat_no_companions_left() -> void:
-	# With today's rules all-injured always ends the battle first, so "no companions left" can only
-	# be reached once revives exist. Simulate that with a battle whose can_revive() is true.
-	var acts: Array[EnemyActionData] = [make_action("Boom", 1, EnemyActionData.Targeting.ALL_COMPANIONS, 100)]
-	var b := ReviveBattle.new(three_companions(), one_enemy(make_enemy("E", acts)), RandomNumberGenerator.new())
-	set_injured(b.roster[0])
-	set_injured(b.roster[1])
-	# Right acts alone; Boom finishes Left and Mid and injures Right. Revive possible -> battle goes on.
-	check(b.focus(b.roster[2]), "lone companion acts")
-	check(b.roster[0].is_gone() and b.roster[1].is_gone(), "injured finished by the area attack")
-	check(b.roster[2].is_injured(), "right injured")
-	eq(b.outcome, Battle.Outcome.ONGOING, "all-injured is not a defeat while a revive is possible")
-	check(b.can_wait(), "nobody can act -> wait")
-	b.wait()
-	check(b.line().is_empty(), "line empty")
-	eq(b.outcome, Battle.Outcome.DEFEAT, "defeat when no companions are left")
-	check(b.log_lines[-1].contains("no companions left"), "reason: no companions left")
+## Injury ends every effect on the companion, and nothing new lands on them.
+func test_injury_ends_effects() -> void:
+	var acts: Array[EnemyActionData] = [make_action("Hit", 1, EnemyActionData.Targeting.SINGLE, 100)]
+	var cs: Array[CompanionData] = [make_companion("A", 20), make_companion("B", 500)]
+	var b := make_battle(cs, one_enemy(make_enemy("E", acts)))
+	var a := b.roster[0]
+	var poison := make_effect("Poison", {}, 5)
+	poison.damage_per_tick = 2
+	b._apply_effect(a, poison, false)
+	b._apply_effect(a, make_effect("Brave", {Stat.STR: 2}, 5), true)
+	eq(a.effects.size(), 2, "two effects on A")
+	b._enemy_strike(b.enemies[0], acts[0], a)
+	check(a.is_injured(), "A injured")
+	eq(a.effects.size(), 0, "every effect on A ends")
+	b._apply_effect(a, poison, false)
+	eq(a.effects.size(), 0, "nothing new lands on A")
+	b._damage_over_time(a)
+	eq(a.hp, 0, "no damage over time on A")
+
 
 func test_defeat_all_injured() -> void:
 	# A is injured; B (alone able to act) focuses; a 40-damage hit lands on someone.
@@ -888,7 +894,7 @@ func test_grade_up_in_battle_learns_and_equips() -> void:
 
 
 ## A full set of three: the art is known but not carried ("equipped" false); swap() carries it.
-## A companion removed in the battle learns nothing; one injured at a defeat still learns.
+## Everyone learns after the battle, injured ones too (nobody is removed), on a defeat as well.
 func test_learning_after_battle_slots_and_removed() -> void:
 	var sword := WeaponData.WeaponType.SWORD
 	var pool := make_pool([4])
@@ -905,7 +911,7 @@ func test_learning_after_battle_slots_and_removed() -> void:
 	eq(b.grade_ups.size(), 3, "three grade-ups recorded")
 	var gone_known := gone.progress.known_arts.size()
 	gone.hp = 0
-	gone.state = CompanionUnit.State.GONE
+	gone.state = CompanionUnit.State.INJURED
 	hurt.hp = 0
 	hurt.state = CompanionUnit.State.INJURED
 	full.hp = 0
@@ -920,8 +926,8 @@ func test_learning_after_battle_slots_and_removed() -> void:
 	eq(full.progress.equipped_arts[1], e_full.art, "in the same slot")
 	check(not full.progress.is_equipped(old) and full.progress.knows(old), "the old one is left behind, still known")
 	check(not full.progress.swap(old, e_full.art), "swap refuses an art not carried")
-	check(b.grade_ups[1].art == null, "a removed companion learns nothing")
-	eq(gone.progress.known_arts.size(), gone_known, "nothing known")
+	check(b.grade_ups[1].art != null, "an injured companion learns too")
+	eq(gone.progress.known_arts.size(), gone_known + 1, "one more art known")
 	check(b.grade_ups[2].art != null and b.grade_ups[2].equipped, "the injured one learns and carries it")
 
 
@@ -1475,7 +1481,6 @@ func test_progress_survives_into_second_battle() -> void:
 	c.hp = -3
 	c.state = CompanionUnit.State.INJURED
 	c.stamina = 0
-	b1.roster[1].state = CompanionUnit.State.GONE
 
 	var b2 := make_battle(cs, one_enemy(idle_enemy(1000)), 6, party, pool)
 	var c2 := b2.roster[0]
@@ -1486,7 +1491,6 @@ func test_progress_survives_into_second_battle() -> void:
 	eq(c2.hp, c2.max_hp(), "HP restored")
 	eq(c2.stamina, c2.max_stamina(), "stamina restored")
 	check(c2.is_active(), "injury gone")
-	check(b2.roster[1].is_active(), "removed companion back")
 	eq(c2.proficiency_gained, 0, "per-battle allowance reset")
 
 	var snapshot := party[0].copy()
@@ -1672,5 +1676,5 @@ func test_prototype_data_simulation() -> void:
 		if b.outcome == Battle.Outcome.VICTORY:
 			wins += 1
 			for c in b.line():
-				check(not c.is_injured() and c.hp > 0, "no injured companions after victory")
+				check(c.is_injured() == b.injured_ever.has(c) and (c.is_injured() or c.hp > 0), "after a victory the injured are exactly those who fell")
 	print("  random-policy simulation: %d/%d victories" % [wins, runs])

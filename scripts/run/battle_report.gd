@@ -8,9 +8,11 @@ var gold: int = 0
 ## Material id -> amount gained.
 var materials: Dictionary = {}
 var city_damage: int = 0
-## Names of companions who were injured at the end (back at 1 HP) and who were removed for good.
+## Names of the companions injured in the battle (won or lost): they go to the infirmary.
 var injured: Array[String] = []
-var removed: Array[String] = []
+## True if the day was given up because nobody could be fielded (Run.yield_day): a lost battle at the
+## worst front, with no fighting.
+var yielded: bool = false
 ## Battle.grade_ups entries: {"actor", "weapon_type", "grade", "art", "equipped"}.
 var grade_ups: Array[Dictionary] = []
 ## XP each fielded companion still in the run received, by name, in line order (empty on a loss).

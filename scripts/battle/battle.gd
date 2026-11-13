@@ -54,7 +54,8 @@ var spell_pool: Array[SpellData] = []
 var grade_ups: Array[Dictionary] = []
 ## True once learn_after_battle() has taught this battle's grade-ups.
 var learned: bool = false
-## Every companion injured at some point this battle, in order (a record only; rules do not read it).
+## Every companion injured this battle, in the order they fell. Nothing in battle undoes an injury, so
+## these are also the injured at the end (they go to the run's infirmary).
 var injured_ever: Array[CompanionUnit] = []
 ## Contribution points earned this battle: CompanionUnit -> int (missing = 0). See points_of().
 var points: Dictionary = {}
@@ -82,16 +83,18 @@ func _init(companion_data: Array[CompanionData], enemy_data: Array[EnemyData], p
 
 # ---------------------------------------------------------------- queries
 
-## Companions still standing in the line (active or injured), left to right.
+## The fielded companions, left to right, injured ones included (CompanionUnit.is_injured() tells
+## them apart; see standing()).
 func line() -> Array[CompanionUnit]:
-	var out: Array[CompanionUnit] = []
-	for c in roster:
-		if not c.is_gone():
-			out.append(c)
-	return out
+	return roster.duplicate()
 
 
-## Companions who are neither injured nor gone.
+## The companions still standing (not injured), left to right. Only they act and are aimed at.
+func standing() -> Array[CompanionUnit]:
+	return active_companions()
+
+
+## Companions who are not injured.
 func active_companions() -> Array[CompanionUnit]:
 	var out: Array[CompanionUnit] = []
 	for c in roster:
@@ -222,9 +225,9 @@ func heal_amount(c: CompanionUnit, spell: SpellData) -> int:
 	return maxi(0, c.stat(Stat.MAG) + spell.heal_power) if spell.heals else 0
 
 
-## HP `target` would have after `spell` heals it (capped at max HP); its HP now if gone or no heal.
+## HP `target` would have after `spell` heals it (capped at max HP); its HP now if injured or no heal.
 func hp_after_heal(c: CompanionUnit, spell: SpellData, target: CompanionUnit) -> int:
-	if target.is_gone() or not spell.heals:
+	if target.is_injured() or not spell.heals:
 		return target.hp
 	return mini(target.max_hp(), target.hp + heal_amount(c, spell))
 
@@ -255,15 +258,29 @@ func spell_targets(spell: SpellData, target: Combatant = null) -> Array[Combatan
 		SpellData.Targeting.ALL_ENEMIES:
 			out.append_array(living_enemies())
 		SpellData.Targeting.ONE_ALLY:
-			if target is CompanionUnit and line().has(target):
+			if target is CompanionUnit and roster.has(target) and (target as CompanionUnit).is_active():
 				out.append(target)
 		SpellData.Targeting.ALL_ALLIES:
-			out.append_array(line())
+			out.append_array(active_companions())
 	return out
 
 
+## Why `spell` cannot be aimed at `target`, or "". An injured companion is out of the battle: white
+## magic cannot reach them (a spell on every ally skips them).
+func spell_target_block_reason(spell: SpellData, target: Combatant) -> String:
+	if spell == null:
+		return "No spell chosen."
+	if spell.targeting == SpellData.Targeting.ONE_ALLY and target is CompanionUnit and (target as CompanionUnit).is_injured():
+		return "%s is injured and out of this battle." % target.display_name
+	if not spell.targets_all() and spell_targets(spell, target).is_empty():
+		return "Not a target for %s." % spell.display_name
+	return ""
+
+
 ## Single-target weights for line(), left to right. `reversed`: the position weights mirrored, so the
-## leftmost companion has the largest (Guard, veils, beacons and injury still apply the same way).
+## leftmost companion has the largest (Guard, veils and beacons apply the same way). An injured
+## companion's weight is 0: enemies never aim at them, so the others share it all. Places are counted
+## along the whole line, injured ones included.
 func target_weights(reversed: bool = false) -> Array[float]:
 	var out: Array[float] = []
 	var l := line()
@@ -272,14 +289,9 @@ func target_weights(reversed: bool = false) -> Array[float]:
 		var w := BattleConfig.TARGET_WEIGHT_BASE * pow(BattleConfig.TARGET_WEIGHT_GROWTH, place)
 		w *= l[i].target_weight_mult()
 		if l[i].is_injured():
-			w *= BattleConfig.INJURED_TARGET_WEIGHT_MULT
+			w = 0.0
 		out.append(w)
 	return out
-
-
-## Hook for revive items or arts. Nothing can revive yet, so all-injured is a defeat.
-func can_revive() -> bool:
-	return false
 
 
 # ---------------------------------------------------------------- commands
@@ -331,8 +343,8 @@ func use_art(c: CompanionUnit, art: CombatArtData, target: EnemyUnit = null) -> 
 	return true
 
 
-## Casts a known spell with uses left. `target` is an enemy for ONE_ENEMY, a companion still in the
-## line (injured ones included) for ONE_ALLY, and ignored by spells that affect everyone.
+## Casts a known spell with uses left. `target` is an enemy for ONE_ENEMY, a companion still standing
+## (not injured; see spell_target_block_reason) for ONE_ALLY, and ignored by spells that affect everyone.
 func cast(c: CompanionUnit, spell: SpellData, target: Combatant = null) -> bool:
 	if not can_cast(c, spell):
 		return false
@@ -397,19 +409,15 @@ func wait() -> bool:
 	return true
 
 
-## Heals a companion. Healing an injured companion above 0 HP clears the injury. Gone companions
-## cannot be healed.
+## Heals a companion still standing. An injured companion cannot be healed: nothing in battle undoes
+## an injury.
 func heal(c: CompanionUnit, amount: int) -> void:
-	if c.is_gone() or amount <= 0:
+	if c.is_injured() or amount <= 0:
 		return
 	var before := c.hp
 	c.hp = mini(c.max_hp(), c.hp + amount)
 	_log("  %s recovers %d HP (%d/%d HP)." % [c.display_name, c.hp - before, c.hp, c.max_hp()])
 	_emit({"type": "heal", "target": c, "amount": c.hp - before, "hp": c.hp})
-	if c.is_injured() and c.hp > 0:
-		c.state = CompanionUnit.State.ACTIVE
-		_log("%s is back on their feet (%d HP)." % [c.display_name, c.hp])
-		_emit({"type": "revived", "target": c})
 
 
 # ---------------------------------------------------------------- enemy side (public for tests)
@@ -457,7 +465,7 @@ func perform_enemy_action(e: EnemyUnit, action: EnemyActionData) -> void:
 			if target != null:
 				_enemy_strike(e, action, target)
 		EnemyActionData.Targeting.ALL_COMPANIONS:
-			for target in line():
+			for target in active_companions():
 				if not e.is_alive():
 					break   # struck down by a reflecting stance partway through
 				_enemy_strike(e, action, target)
@@ -465,10 +473,10 @@ func perform_enemy_action(e: EnemyUnit, action: EnemyActionData) -> void:
 		_hasten_others(e, action.hasten_allies)
 
 
-## Weighted random single target from the line; null if nobody is left. `reversed`: mirrored weights.
+## Weighted random single target among those standing; null if nobody is. `reversed`: mirrored weights.
 func pick_target(reversed: bool = false) -> CompanionUnit:
 	var l := line()
-	if l.is_empty():
+	if active_companions().is_empty():
 		return null
 	return l[_weighted_index(target_weights(reversed))]
 
@@ -506,7 +514,7 @@ func heal_enemy(e: EnemyUnit, amount: int) -> void:
 	_emit({"type": "enemy_heal", "target": e, "amount": e.hp - before, "hp": e.hp})
 
 
-## Recovery pressure: `c` sits out `ticks` more actions. Injured and gone companions are left alone,
+## Recovery pressure: `c` sits out `ticks` more actions. Injured companions are left alone,
 ## and a lone companion still ignores recovery (see can_act).
 func add_recovery(c: CompanionUnit, ticks: int) -> void:
 	if not c.is_active() or ticks <= 0:
@@ -624,7 +632,7 @@ func _enter_phase(e: EnemyUnit) -> void:
 
 
 ## Poison, burning and the like: every effect's damage per tick, added up. A companion can be injured by
-## it, but one already injured (or gone) takes none, so it never removes anyone. An enemy it kills is
+## it (and then loses every effect); one already injured takes none. An enemy it kills is
 ## credited to the companion who applied the first of those effects (if a companion did).
 func _damage_over_time(unit: Combatant) -> void:
 	var total := 0
@@ -646,11 +654,7 @@ func _damage_over_time(unit: Combatant) -> void:
 		_log("  %s loses %d HP to %s (%d/%d HP)." % [c.display_name, total, ", ".join(names), c.hp, c.max_hp()])
 		_emit({"type": "dot", "target": c, "amount": total, "hp": c.hp, "name": names[0]})
 		if c.hp <= 0:
-			c.state = CompanionUnit.State.INJURED
-			if not injured_ever.has(c):
-				injured_ever.append(c)
-			_log("  %s is injured!" % c.display_name)
-			_emit({"type": "injured", "target": c})
+			_injure(c)
 	elif unit is EnemyUnit:
 		var e := unit as EnemyUnit
 		if not e.is_alive():
@@ -702,9 +706,9 @@ func delay_action(target: EnemyUnit, ticks: int) -> bool:
 	return true
 
 
-## A white spell on one companion still in the line: heal, then remove debuffs, then the buff.
+## A white spell on one companion still standing: heal, then remove debuffs, then the buff.
 func _white_magic(c: CompanionUnit, spell: SpellData, target: CompanionUnit) -> void:
-	if target.is_gone():
+	if target.is_injured():
 		return
 	if spell.heals:
 		heal(target, heal_amount(c, spell))
@@ -767,8 +771,8 @@ func _gain_magic(c: CompanionUnit, s: SpellData.School) -> void:
 		_emit(ev)
 
 
-## Once the battle is over: every grade reached this battle by a companion still in the run (won or
-## lost; not one removed in it) teaches its art or spell, in the order the grades were reached, with
+## Once the battle is over: every grade reached this battle (won or lost, injured or not) teaches its
+## art or spell, in the order the grades were reached, with
 ## the same picking rules and generator. Fills "art" and "equipped" (true only if a slot was free) or
 ## "spell" into each grade_ups entry. Called by _check_end when the battle ends, so callers need not;
 ## calling it again (or before the end) does nothing.
@@ -778,8 +782,6 @@ func learn_after_battle() -> void:
 	learned = true
 	for ev in grade_ups:
 		var c: CompanionUnit = ev.actor
-		if c.is_gone():
-			continue
 		var g: int = ev.grade
 		if ev.magic:
 			var school := SpellData.school_name(ev.school)
@@ -807,6 +809,8 @@ func learn_after_battle() -> void:
 
 
 func _enemy_strike(e: EnemyUnit, action: EnemyActionData, target: CompanionUnit) -> void:
+	if target.is_injured():
+		return   # out of the battle: never struck
 	if action.deals_damage:
 		var f := CombatMath.forecast(e, action.might, action.hit, 0, target, 0, action.damage_type)
 		if not _roll(f.hit):
@@ -816,7 +820,7 @@ func _enemy_strike(e: EnemyUnit, action: EnemyActionData, target: CompanionUnit)
 		var crit := _roll(f.crit)
 		var dmg := f.crit_damage if crit else f.damage
 		# A companion's reflecting stance (Riposte, Set Spear) answers physical blows, even one that
-		# fells them. Magic is never reflected. Worked out first: a companion who is gone loses effects.
+		# fells them. Magic is never reflected. Worked out first: a companion who is injured loses effects.
 		var back := reflect_amount(e, target, dmg) if action.damage_type == CombatMath.DamageType.PHYSICAL else 0
 		var stance := _reflect_name(target)
 		var guarding := target.has_effect("Guard")
@@ -824,7 +828,7 @@ func _enemy_strike(e: EnemyUnit, action: EnemyActionData, target: CompanionUnit)
 		_add_points(target, BattleConfig.POINTS_BLOW_TAKEN_GUARDING if guarding else BattleConfig.POINTS_BLOW_TAKEN)
 		if back > 0 and e.is_alive():
 			_reflect_on_enemy(target, stance, e, back)
-	if action.effect != null and not target.is_gone():
+	if action.effect != null and target.is_active():
 		_apply_effect(target, action.effect, false)
 	if action.add_recovery > 0:
 		add_recovery(target, action.add_recovery)
@@ -842,29 +846,36 @@ func _reflect_on_enemy(c: CompanionUnit, stance: String, e: EnemyUnit, amount: i
 	_after_enemy_hurt(e, c)
 
 
-## A landed hit. Injured companions who are hit again are gone for good.
+## A landed hit on a companion still standing. At 0 HP they are injured.
 func _damage_companion(c: CompanionUnit, dmg: int, crit: bool) -> void:
-	var was_injured := c.is_injured()
+	if c.is_injured():
+		return
 	c.hp -= dmg
 	_log("  %s%s takes %d damage (%d/%d HP)." % ["CRITICAL! " if crit else "", c.display_name, dmg, c.hp, c.max_hp()])
 	_emit({"type": "damage", "target": c, "amount": dmg, "crit": crit, "hp": c.hp})
-	if was_injured:
-		c.state = CompanionUnit.State.GONE
-		c.effects.clear()
-		_log("  %s is gone!" % c.display_name)
-		_emit({"type": "gone", "target": c})
-	elif c.hp <= 0:
-		c.state = CompanionUnit.State.INJURED
-		if not injured_ever.has(c):
-			injured_ever.append(c)
-		_log("  %s is injured!" % c.display_name)
-		_emit({"type": "injured", "target": c})
+	if c.hp <= 0:
+		_injure(c)
+
+
+## `c` drops to 0 HP: injured and out of this battle. They no longer act or are aimed at, every effect
+## on them ends and nothing new lands on them; nothing in battle undoes it.
+func _injure(c: CompanionUnit) -> void:
+	c.hp = 0
+	c.state = CompanionUnit.State.INJURED
+	c.effects.clear()
+	c.recovery = 0
+	if not injured_ever.has(c):
+		injured_ever.append(c)
+	_log("  %s is injured and out of the battle!" % c.display_name)
+	_emit({"type": "injured", "target": c})
 
 
 ## `helpful`: a buff or defend (as opposed to a debuff); only changes how it is shown.
 ## `source`: the companion who applied it, if any. It is kept only on damage over time (which credits
 ## them with a kill), so a companion's own effects never hold a reference back to a companion.
 func _apply_effect(unit: Combatant, data: StatusEffectData, helpful: bool, source: CompanionUnit = null) -> void:
+	if unit is CompanionUnit and (unit as CompanionUnit).is_injured():
+		return   # nothing new lands on someone out of the battle
 	var effect := StatusEffect.from_data(data)
 	if effect.damage_per_tick > 0 and unit != source:
 		effect.source = source
@@ -883,10 +894,6 @@ func _check_end() -> bool:
 		return true
 	if living_enemies().is_empty():
 		outcome = Outcome.VICTORY
-		for c in line():
-			if c.is_injured():
-				c.hp = BattleConfig.VICTORY_INJURED_HP
-				c.state = CompanionUnit.State.ACTIVE
 		_log("Victory!")
 		learn_after_battle()
 		return true
@@ -895,7 +902,7 @@ func _check_end() -> bool:
 		_log("Defeat: no companions left.")
 		learn_after_battle()
 		return true
-	if active_companions().is_empty() and not can_revive():
+	if active_companions().is_empty():
 		outcome = Outcome.DEFEAT
 		_log("Defeat: every remaining companion is injured.")
 		learn_after_battle()

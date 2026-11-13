@@ -21,8 +21,13 @@ const STARTING_COMPANIONS := 2
 const MAX_FIELDED := 4
 ## At the end of every day each surviving companion heals this share of max HP (rounded up).
 const DAILY_HEAL_FRACTION := 0.2
-## HP an injured companion comes back with after a battle, won or lost.
-const INJURED_RETURN_HP := 1
+## Everyone injured in a battle (won or lost) goes to the infirmary: injured on day D, they are away
+## days D+1 .. D+INFIRMARY_DAYS and come out at the start of day D+INFIRMARY_DAYS+1 at full HP.
+const INFIRMARY_DAYS := 7
+## Curing someone at once (the Cure free-day action) costs, in gold, the days still to serve x
+## (BASE + PER_LEVEL x their level): level 1 with 7 days left 42, level 10 with 7 days 168.
+const CURE_GOLD_PER_DAY_BASE := 4
+const CURE_GOLD_PER_DAY_PER_LEVEL := 2
 
 # --- Fronts ---
 ## Chance a battle day offers three fronts (danger 1, 2 and 3) instead of two.

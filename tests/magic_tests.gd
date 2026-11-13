@@ -21,7 +21,7 @@ func tests() -> Array[Callable]:
 		test_spell_learning_odds_duplicates_fall_through,
 		test_spell_learned_on_grade_up_in_battle,
 		test_heal_amounts,
-		test_heal_lifts_injured_and_not_gone,
+		test_white_magic_refuses_injured,
 		test_white_cleanse,
 		test_white_buffs_and_damage_reduction,
 		test_white_veil_and_beacon,
@@ -337,7 +337,7 @@ func test_spell_learned_on_grade_up_in_battle() -> void:
 		if e.type == "learned" and e.spell == ev.spell:
 			found = true
 	t.check(found, "a learned event for the screen")
-	# A removed caster learns nothing.
+	# An injured caster still learns (nobody is removed).
 	var d2 := caster("Mage", 5, [bolt])
 	d2.start_grade_black = Proficiency.Grade.D
 	var b2 := battle_with(cs1(d2), one(enemy_with(0, 9999)), [], 3, pool)
@@ -347,10 +347,11 @@ func test_spell_learned_on_grade_up_in_battle() -> void:
 	t.eq(b2.grade_ups.size(), 1, "a grade-up")
 	var spells2 := c2.progress.known_spells.size()
 	c2.hp = 0
-	c2.state = CompanionUnit.State.GONE
+	c2.state = CompanionUnit.State.INJURED
 	b2._check_end()
-	t.check(b2.is_over() and b2.grade_ups[0].spell == null, "removed: no spell")
-	t.eq(c2.progress.known_spells.size(), spells2, "nothing learned")
+	t.check(b2.is_over() and b2.outcome == Battle.Outcome.DEFEAT, "lost")
+	t.check(b2.grade_ups[0].spell != null, "injured: still learns")
+	t.eq(c2.progress.known_spells.size(), spells2 + 1, "one spell learned")
 
 
 # ---------------------------------------------------------------- white magic
@@ -390,36 +391,30 @@ func test_heal_amounts() -> void:
 	t.eq(healer.hp, 18, "healed self")
 
 
-func test_heal_lifts_injured_and_not_gone() -> void:
+func test_white_magic_refuses_injured() -> void:
 	var mend := heal_spell(4)
 	var cs: Array[CompanionData] = [t.make_companion("A", 30), t.make_companion("B", 30), caster("Healer", 6, [mend])]
 	var b := battle_with(cs, one(enemy_with(0)))
 	var injured := b.roster[0]
-	var gone := b.roster[1]
+	var hurt := b.roster[1]
 	var healer := b.roster[2]
-	injured.hp = -4
+	injured.hp = 0
 	injured.state = CompanionUnit.State.INJURED
-	gone.hp = -8
-	gone.state = CompanionUnit.State.GONE
-	t.check(b.cast(healer, mend, injured), "an injured companion can be targeted")
-	t.eq(injured.hp, 6, "-4 + 10")
-	t.check(injured.is_active(), "lifted above 0: no longer injured")
+	hurt.hp = 10
+	t.check(b.spell_target_block_reason(mend, injured).contains("injured"), "refused with a reason: %s" % b.spell_target_block_reason(mend, injured))
+	t.check(not b.cast(healer, mend, injured), "an injured companion cannot be targeted")
+	t.eq(injured.hp, 0, "no heal")
+	t.check(injured.is_injured(), "still injured")
+	t.eq(b.hp_after_heal(healer, mend, injured), 0, "the forecast says so too")
+	t.eq(b.spell_target_block_reason(mend, hurt), "", "a standing ally can be")
+	t.check(b.cast(healer, mend, hurt), "healed")
+	t.eq(hurt.hp, 20, "10 + 10")
 	healer.recovery = 0
-	t.check(not b.cast(healer, mend, gone), "a removed companion cannot be targeted")
-	t.eq(gone.hp, -8, "no effect on the removed")
-	t.check(gone.is_gone(), "still gone")
 	var all_heal := heal_spell(4, SpellData.Targeting.ALL_ALLIES)
 	healer.progress.learn_spell(all_heal)
 	t.check(b.cast(healer, all_heal), "heal everyone")
-	t.eq(gone.hp, -8, "every-ally heal skips the removed")
-	# Healing to 0 or below keeps the injury.
-	var small := heal_spell(0)
-	var b2 := battle_with(cs, one(enemy_with(0)), [small])
-	b2.roster[0].hp = -10
-	b2.roster[0].state = CompanionUnit.State.INJURED
-	b2.cast(b2.roster[2], small, b2.roster[0])
-	t.eq(b2.roster[0].hp, -4, "-10 + MAG 6")
-	t.check(b2.roster[0].is_injured(), "still injured at or below 0")
+	t.eq(injured.hp, 0, "every-ally heal skips the injured")
+	t.check(injured.is_injured(), "still injured")
 
 
 func test_white_cleanse() -> void:
@@ -475,9 +470,10 @@ func test_white_every_ally() -> void:
 	var rally := make_spell("Rally", SpellData.School.WHITE, 2, SpellData.Targeting.ALL_ALLIES)
 	rally.effect = t.make_effect("Rallied", {"DEX": 2}, 3)
 	var b := battle_with(t.three_companions(), one(enemy_with(0)), [rally])
-	b.roster[0].state = CompanionUnit.State.GONE
+	b.roster[0].hp = 0
+	b.roster[0].state = CompanionUnit.State.INJURED
 	t.check(b.cast(b.roster[2], rally), "no target needed")
-	t.check(not b.roster[0].has_effect("Rallied"), "not the removed")
+	t.check(not b.roster[0].has_effect("Rallied"), "not the injured")
 	t.check(b.roster[1].has_effect("Rallied") and b.roster[2].has_effect("Rallied"), "everyone in the line")
 	t.check(not b.cast(b.roster[1], make_spell("Unknown", SpellData.School.WHITE)), "unknown spells cannot be cast")
 

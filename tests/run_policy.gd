@@ -7,6 +7,9 @@ var rng: RandomNumberGenerator
 ## Drills taken at the training ground: Sparring, and proficiency drills.
 var sparred := 0
 var drilled := 0
+## Companions cured in the infirmary, and days given up because nobody could be fielded.
+var cured := 0
+var yielded := 0
 
 
 func _init(p_rng: RandomNumberGenerator) -> void:
@@ -21,9 +24,13 @@ func play(run: Run) -> int:
 		prepare_party(run)
 		match run.day_type():
 			RunCalendar.DayType.BATTLE, RunCalendar.DayType.BOSS:
-				var battle := run.start_battle(pick_front(run))
-				play_battle(battle)
-				run.finish_battle(battle)
+				if run.lineup.is_empty() and run.yield_block_reason() == "":
+					run.yield_day()   # forced: everyone is in the infirmary
+					yielded += 1
+				else:
+					var battle := run.start_battle(pick_front(run))
+					play_battle(battle)
+					run.finish_battle(battle)
 			RunCalendar.DayType.FREE:
 				if run.event_pending():
 					run.choose(pick_choice(run))
@@ -31,13 +38,14 @@ func play(run: Run) -> int:
 	return run.day
 
 
-## Fields up to four, healthiest at the front (rightmost), and hands out the best weapons it can.
+## Fields up to four of those not in the infirmary, healthiest at the front (rightmost), and hands out
+## the best weapons it can.
 ## Against a boss that aims at the far end of the line (reversed targeting), the healthiest stand on
 ## the left instead.
 func prepare_party(run: Run) -> void:
 	for c in run.roster:
 		_equip_best(run, c)
-	var by_hp := run.roster.duplicate()
+	var by_hp := run.available()
 	by_hp.sort_custom(func(a: RunCompanion, b: RunCompanion) -> bool: return a.hp < b.hp)
 	for c in run.lineup.duplicate():
 		run.bench(c)
@@ -98,7 +106,7 @@ func pick_front(run: Run) -> Front:
 
 
 ## One action a day, so the first that applies: rest before a boss if anything is spent, mend badly
-## damaged walls, fill the line, rest a hurt company, buy upgrades, rest a lightly hurt one, mend
+## damaged walls, cure (see cure_best), fill the line, rest a hurt company, buy upgrades, rest a lightly hurt one, mend
 ## the walls, train (see train). Every command after the first that succeeds is refused (except further purchases), so trying
 ## them in order is enough.
 func free_day(run: Run) -> void:
@@ -108,7 +116,8 @@ func free_day(run: Run) -> void:
 		run.rest()
 	if run.city_health <= 40:
 		run.repair()
-	if run.roster.size() < RunConfig.MAX_FIELDED and not run.tavern_offers.is_empty():
+	cure_best(run)
+	if run.available().size() < RunConfig.MAX_FIELDED and not run.tavern_offers.is_empty():
 		run.hire(run.tavern_offers[0])
 	if hp_fraction(run) < 0.6 or spell_fraction(run) < 0.5:
 		run.rest()
@@ -189,6 +198,28 @@ func _hybrid_wants(run: Run, c: RunCompanion, drill: Drill) -> bool:
 		if _power(c, w) > _power(c, c.weapon()):
 			return true
 	return false
+
+
+## Cures one companion from the infirmary when the line is short, the gold is there and they are one
+## of the company's best: among the four highest levels, with 3 or more days left (any days left when
+## a boss is due within two days). The highest level first.
+func cure_best(run: Run) -> void:
+	if run.free_action_block_reason(Run.FreeAction.CURE) != "" or run.available().size() >= RunConfig.MAX_FIELDED:
+		return
+	var by_level := run.roster.duplicate()
+	by_level.sort_custom(func(a: RunCompanion, b: RunCompanion) -> bool: return a.level() > b.level())
+	var best := by_level.slice(0, RunConfig.MAX_FIELDED)
+	var boss_soon := run.day_type(run.day + 1) == RunCalendar.DayType.BOSS or run.day_type(run.day + 2) == RunCalendar.DayType.BOSS
+	var pick: RunCompanion = null
+	for c in run.infirmary():
+		if not best.has(c) or run.cure_block_reason(c) != "":
+			continue
+		if c.days_left(run.day) < 3 and not boss_soon:
+			continue
+		if pick == null or c.level() > pick.level():
+			pick = c
+	if pick != null and run.cure(pick):
+		cured += 1
 
 
 func pick_choice(run: Run) -> EventChoiceData:

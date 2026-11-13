@@ -39,7 +39,6 @@ const FOCUS_RESTORE := 5               # stamina, flat: about the cost of a tier
 # --- Enemy single-target selection ---
 const TARGET_WEIGHT_BASE := 1.0         # leftmost companion
 const TARGET_WEIGHT_GROWTH := 2.0       # multiplier per slot to the right
-const INJURED_TARGET_WEIGHT_MULT := 0.25
 
 # --- Enemy countdowns ---
 const MIN_ACTION_COUNTDOWN := 1
@@ -103,9 +102,6 @@ const MAGIC_POINTS_PER_CAST := 4
 # Separate from the weapon cap: the most magic points one companion can gain in a single battle.
 const MAGIC_CAP_PER_BATTLE := 12
 # Spells learned on a school grade-up use ART_TIER_ODDS, like combat arts.
-
-# --- Battle end ---
-const VICTORY_INJURED_HP := 1
 
 # --- Contribution ---
 # Points each companion earns in a battle; a won battle's XP is mostly shared out by them (see Run).

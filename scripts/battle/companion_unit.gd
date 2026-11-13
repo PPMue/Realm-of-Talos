@@ -2,7 +2,7 @@ class_name CompanionUnit
 extends Combatant
 ## A companion during battle.
 
-enum State { ACTIVE, INJURED, GONE }
+enum State { ACTIVE, INJURED }
 
 var data: CompanionData
 ## Proficiency and arts carried between battles. Battle updates it as the companion fights.
@@ -81,5 +81,3 @@ func is_injured() -> bool:
 	return state == State.INJURED
 
 
-func is_gone() -> bool:
-	return state == State.GONE

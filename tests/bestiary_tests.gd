@@ -166,8 +166,9 @@ func test_poison_injures_but_never_removes() -> void:
 	t.check(c.is_injured(), "poison can injure")
 	t.check(b.injured_ever.has(c), "recorded as injured")
 	pass_ticks(b, 3)
-	t.check(c.is_injured() and not c.is_gone(), "poison never removes an injured companion")
-	t.eq(c.hp, 4 - 5, "and takes no more HP once injured")
+	t.check(c.is_injured(), "still injured, nothing worse")
+	t.eq(c.hp, 0, "and takes no more HP once injured")
+	t.eq(c.effects.size(), 0, "the poison ended with the injury")
 	# The last active companion falling to poison loses the battle.
 	var b2: Battle = t.make_battle(cs(1, 3), t.one_enemy(t.idle_enemy()))
 	b2._apply_effect(b2.roster[0], fx("Poison", {"dot": 5}), false)
@@ -241,7 +242,6 @@ func test_reflection_on_strikes_and_arts_not_spells() -> void:
 	b2._apply_effect(b2.enemies[0], fx("Mirror", {"reflect": 100, "dur": 99}), true)
 	b2.attack(b2.roster[1], b2.enemies[0])
 	t.check(b2.roster[1].is_injured(), "a blow reflected in full injures a 5 HP striker")
-	t.check(not b2.roster[1].is_gone(), "but does not remove them")
 
 
 # ---------------------------------------------------------------- healing

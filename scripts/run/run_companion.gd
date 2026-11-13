@@ -6,6 +6,11 @@ extends RefCounted
 var data: CompanionData
 var progress: CompanionProgress
 var hp: int = 0
+## In the infirmary: injured in a battle, away until `back_on_day` (see Run.infirmary). They cannot be
+## fielded or trained and are skipped by Rest, the daily heal and events; their weapon and progress stay.
+var injured: bool = false
+## The day they come out by themselves (at its start, at full HP, onto the bench); 0 when not injured.
+var back_on_day: int = 0
 
 
 static func create(p_data: CompanionData) -> RunCompanion:
@@ -14,6 +19,17 @@ static func create(p_data: CompanionData) -> RunCompanion:
 	c.progress = CompanionProgress.create(p_data)
 	c.hp = c.max_hp()
 	return c
+
+
+## Days still to serve on `today` (the days until they come out by themselves): 7 on the day after
+## the injury, 1 on the last day; 0 when not injured.
+func days_left(today: int) -> int:
+	return maxi(0, back_on_day - today) if injured else 0
+
+
+## Not in the infirmary: can be fielded, trained and healed.
+func is_available() -> bool:
+	return not injured
 
 
 func display_name() -> String:

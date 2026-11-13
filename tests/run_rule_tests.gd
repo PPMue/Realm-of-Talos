@@ -26,10 +26,9 @@ func tests() -> Array[Callable]:
 		test_lost_boss_ends_run,
 		test_day_42_win,
 		test_city_health_zero_ends_run,
-		test_empty_roster_ends_run,
+		test_nobody_is_ever_removed,
 		test_daily_heal,
-		test_injured_return_at_1hp,
-		test_removed_stay_gone,
+		test_injured_go_to_infirmary,
 		test_fielded_limit_and_order,
 		test_party_locked_after_commit,
 		test_free_day_action_limits,
@@ -466,14 +465,29 @@ func test_city_health_zero_ends_run() -> void:
 	t.check(not by_event.end_free_day(), "nothing more to do that day")
 
 
-func test_empty_roster_ends_run() -> void:
+## However often the party is beaten, nobody leaves the roster.
+func test_nobody_is_ever_removed() -> void:
 	var run := make_run(9)
-	fight(run, false, null, func(b: Battle) -> void:
-		for c in b.roster:
-			c.state = CompanionUnit.State.GONE)
-	t.eq(run.roster.size(), 0, "everyone gone")
-	t.eq(run.outcome, Run.Outcome.DEFEAT, "an empty roster ends the run")
-	t.check(run.end_reason.contains("No companions"), "reason given")
+	var size := run.roster.size()
+	var guard := 0
+	while not run.is_over() and guard < 60:
+		guard += 1
+		match run.day_type():
+			RunCalendar.DayType.BATTLE, RunCalendar.DayType.BOSS:
+				if run.lineup.is_empty():
+					for c in run.reserve():
+						run.field(c)
+				if run.lineup.is_empty():
+					t.check(run.yield_day() != null, "day %d: given up with nobody to field" % run.day)
+				else:
+					fight(run, false, null, func(b: Battle) -> void:
+						for c in b.roster:
+							b._damage_companion(c, 999, false)
+							b._damage_companion(c, 999, false))
+			_:
+				advance(run)
+		t.eq(run.roster.size(), size, "day %d: nobody removed" % run.day)
+	t.check(run.is_over(), "the run ends (the walls or a boss)")
 
 
 func test_daily_heal() -> void:
@@ -489,32 +503,21 @@ func test_daily_heal() -> void:
 	t.eq(run.day, 2, "next day")
 
 
-func test_injured_return_at_1hp() -> void:
+## Injured in a battle, won or lost: off to the infirmary (out of the line, weapon kept).
+func test_injured_go_to_infirmary() -> void:
 	for win in [true, false]:
 		var run := make_run(12)
 		var first := run.lineup[0]
+		var weapon := run.inventory.held_by(first)
+		var injured_on := run.day
 		var r := fight(run, win, null, func(b: Battle) -> void:
-			# The first companion is injured during the battle.
 			b._damage_companion(b.roster[0], 999, false))
 		t.check(r.injured.has(first.display_name()), "reported injured (won: %s)" % win)
-		t.eq(first.hp, 1 + heal_amount(first), "back at 1 HP, then the daily heal (won: %s)" % win)
+		t.check(first.injured and run.infirmary().has(first), "in the infirmary (won: %s)" % win)
+		t.eq(first.back_on_day, injured_on + RunConfig.INFIRMARY_DAYS + 1, "back on day D + 8")
+		t.check(not run.lineup.has(first) and not run.reserve().has(first), "neither fielded nor on the bench")
 		t.check(run.roster.has(first), "still in the roster")
-
-
-func test_removed_stay_gone() -> void:
-	var run := make_run(13)
-	var lost := run.lineup[0]
-	var weapon := run.inventory.held_by(lost)
-	var r := fight(run, true, null, func(b: Battle) -> void:
-		b._damage_companion(b.roster[0], 999, false)
-		b._damage_companion(b.roster[0], 1, false))
-	t.check(r.removed.has(lost.display_name()), "reported removed")
-	t.check(not run.roster.has(lost) and not run.lineup.has(lost), "out of the roster and line")
-	t.check(run.gone.has(lost.data), "remembered as gone")
-	t.check(weapon.holder == null and run.inventory.weapons.has(weapon), "their weapon goes back to the armory")
-	for d in 40:
-		run._restock_week()
-		t.check(not run.tavern_offers.has(lost.data), "never offered at the tavern again")
+		t.eq(run.inventory.held_by(first), weapon, "the weapon stays in their hand")
 
 
 func test_fielded_limit_and_order() -> void:
@@ -703,7 +706,7 @@ func test_weekly_refresh() -> void:
 		for item: ShopItemData in ladder:
 			t.check(not stock.has(item) and item != bought and item.min_day == 8, "seed %d: rolled for week 2" % s)
 		for d in run.tavern_offers:
-			t.check(not run._in_roster(d) and not run.gone.has(d), "seed %d: only companions who can join" % s)
+			t.check(not run._in_roster(d), "seed %d: only companions who can join" % s)
 		if hired != null:
 			t.check(not run.tavern_offers.has(hired), "seed %d: someone hired is never offered again" % s)
 		var week2 := run.tavern_offers.duplicate()
@@ -1136,29 +1139,30 @@ func test_xp_split_among_fielded() -> void:
 	for c in run.roster:
 		before[c] = total_xp(c)
 	var r := fight(run, true, f, func(b: Battle) -> void:
-		b.points[b.roster[0]] = 50   # removed: their points are not counted
+		b.points[b.roster[0]] = 10   # injured twice over: nothing worse, and a share all the same
 		b.points[b.roster[1]] = 30
 		b.points[b.roster[2]] = 10
 		b._damage_companion(b.roster[0], 999, false)
 		b._damage_companion(b.roster[0], 1, false)
 		b._damage_companion(b.roster[1], 999, false))
-	t.check(r.removed.has(gone.display_name()), "one removed")
-	t.check(r.injured.has(injured.display_name()), "one injured")
-	var expected := Levels.split_xp(f.xp_pool, [30, 10, 0] as Array[int])
-	t.eq(r.xp_gained.keys(), [injured.display_name(), fine.display_name(), idle.display_name()], "a share for each still in the run, in line order")
+	t.check(r.injured.has(gone.display_name()) and r.injured.has(injured.display_name()), "two injured")
+	var all4 := Levels.split_xp(f.xp_pool, [10, 30, 10, 0] as Array[int])
+	t.eq(r.xp_gained.keys(), [gone.display_name(), injured.display_name(), fine.display_name(), idle.display_name()], "a share for everyone fielded, in line order")
+	t.eq(r.xp_of(gone.display_name()), all4[0], "the twice-hit one gets their share")
+	var expected: Array[int] = all4.slice(1)
 	t.eq(r.xp_total(), f.xp_pool, "the whole pool is handed out")
 	var pool := float(f.xp_pool)
-	t.check(absf(r.xp_of(injured.display_name()) - (pool * 0.25 / 3 + pool * 0.75 * 30 / 40)) < 1.01, "injured: a third of the quarter, 30/40 of the rest")
-	t.check(absf(r.xp_of(fine.display_name()) - (pool * 0.25 / 3 + pool * 0.75 * 10 / 40)) < 1.01, "fine: a third of the quarter, 10/40 of the rest")
-	t.check(absf(r.xp_of(idle.display_name()) - pool * 0.25 / 3) < 1.01, "idle: only a third of the quarter")
+	t.check(absf(r.xp_of(injured.display_name()) - (pool * 0.25 / 4 + pool * 0.75 * 30 / 50)) < 1.01, "injured: a quarter of the quarter, 30/50 of the rest")
+	t.check(absf(r.xp_of(fine.display_name()) - (pool * 0.25 / 4 + pool * 0.75 * 10 / 50)) < 1.01, "fine: a quarter of the quarter, 10/50 of the rest")
+	t.check(absf(r.xp_of(idle.display_name()) - pool * 0.25 / 4) < 1.01, "idle: only a quarter of the quarter")
 	for i in 3:
 		var c: RunCompanion = [injured, fine, idle][i]
 		t.eq(r.xp_of(c.display_name()), expected[i], "%s: the split's share" % c.display_name())
 		t.eq(total_xp(c) - int(before[c]), expected[i], "%s gets that XP (injured or not)" % c.display_name())
-	t.eq(r.points, {injured.display_name(): 30, fine.display_name(): 10, idle.display_name(): 0}, "the report gives each one's points")
+	t.eq(r.points, {gone.display_name(): 10, injured.display_name(): 30, fine.display_name(): 10, idle.display_name(): 0}, "the report gives each one's points")
 	t.eq(r.points_of(injured.display_name()), 30, "points by name")
 	t.eq(total_xp(benched), int(before[benched]), "reserve gets nothing")
-	t.check(not r.xp_gained.has(gone.display_name()) and not r.xp_gained.has(benched.display_name()), "no share for gone or reserve")
+	t.check(not r.xp_gained.has(benched.display_name()), "no share for the reserve")
 	t.check(f.xp_pool > 0, "fronts carry an XP pool")
 	t.check(RunConfig.XP_POOL_BY_DANGER[0] < RunConfig.XP_POOL_BY_DANGER[1] and RunConfig.XP_POOL_BY_DANGER[1] < RunConfig.XP_POOL_BY_DANGER[2],
 		"higher danger, more XP")
@@ -1207,7 +1211,7 @@ func test_no_xp_on_loss() -> void:
 	var r := fight(run, false, null, func(b: Battle) -> void:
 		b._gain_proficiency(b.roster[0], 3))
 	t.check(r.xp_gained.is_empty() and r.xp_total() == 0, "no XP on a loss")
-	t.eq(r.points.size(), run.lineup.size(), "points are still reported")
+	t.eq(r.points.size(), r.injured.size(), "points are still reported (everyone fielded, now in the infirmary)")
 	t.check(r.level_ups.is_empty(), "no level-ups")
 	for x in run.roster:
 		t.eq(x.progress.xp, 0, "no XP for %s" % x.display_name())
@@ -1314,6 +1318,9 @@ func test_playthrough() -> void:
 	var faced := {}    # boss group -> times faced
 	var sparred := 0
 	var drilled := 0
+	var cured := 0
+	var yielded := 0
+	var walls_after_empty := 0   # runs lost by the walls after a day given up for want of anyone
 	var beaten := {}   # boss group -> times beaten
 	for s in runs:
 		var run := make_run(1000 + s)
@@ -1321,6 +1328,10 @@ func test_playthrough() -> void:
 		policy.play(run)
 		sparred += policy.sparred
 		drilled += policy.drilled
+		cured += policy.cured
+		yielded += policy.yielded
+		if run.outcome == Run.Outcome.DEFEAT and run.city_health <= 0 and policy.yielded > 0:
+			walls_after_empty += 1
 		for d: int in run.boss_draw:
 			var g: EnemyGroupData = run.boss_draw[d]
 			if run.day < d:
@@ -1379,6 +1390,8 @@ func test_playthrough() -> void:
 	print("    per run: %.1f battles won, %.1f lost; %.1f companions, %.0f city health, %.0f gold at the end" % [
 		float(total_won) / runs, float(total_lost) / runs, float(roster_sizes) / runs, float(city_left) / runs, float(gold_left) / runs])
 	print("    training ground per run: %.1f sparring, %.1f proficiency drills" % [float(sparred) / runs, float(drilled) / runs])
+	print("    infirmary: %.1f cures per run; %d days given up with nobody to field; %d runs lost by the walls after such a day" % [
+		float(cured) / runs, yielded, walls_after_empty])
 	print("    bosses (faced / beaten / beaten %):")
 	for g in content().bosses:
 		var f: int = faced.get(g, 0)

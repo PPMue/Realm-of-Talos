@@ -10,14 +10,15 @@ extends RefCounted
 ##   2. the player may change the party freely (who is fielded, their order, weapons, arts)
 ##   3. the player commits to the activity: a battle, or on a free day the event's choice first (if the
 ##      day has one), then the free-day action, then End day
-##   4. ends: every surviving companion heals 20% of max HP, the run checks for its end, the next day begins
+##   4. ends: every companion not in the infirmary heals 20% of max HP, the run checks for its end, the
+##      next day begins (and whoever's infirmary stay is over comes out)
 ##
 ## Commands return false (or "") and change nothing when not allowed; the *_block_reason queries say why.
 
 enum Outcome { ONGOING, VICTORY, DEFEAT }
-enum FreeAction { REST, SHOP, TAVERN, REPAIR, TRAIN }
+enum FreeAction { REST, SHOP, TAVERN, REPAIR, TRAIN, CURE }
 
-const FREE_ACTION_NAMES: Array[String] = ["Rest", "Shop", "Tavern", "Repair", "Train"]
+const FREE_ACTION_NAMES: Array[String] = ["Rest", "Shop", "Tavern", "Repair", "Train", "Cure"]
 
 var rng: RandomNumberGenerator
 var content: RunContent
@@ -34,12 +35,15 @@ var city_health: int = RunConfig.CITY_MAX_HEALTH
 var gold: int = 0
 ## Material id -> amount.
 var materials: Dictionary = {}
-## Companions still in the run (fielded and reserve), in the order they joined.
+## Every companion in the run (fielded, bench and infirmary), in the order they joined. Nobody is ever
+## removed.
 var roster: Array[RunCompanion] = []
 ## The fielded companions, left to right; the rightmost stands nearest the enemies.
 var lineup: Array[RunCompanion] = []
-## Companions removed in battle; they never come back.
-var gone: Array[CompanionData] = []
+## The infirmary, in the order they went in (see infirmary()).
+var _infirmary: Array[RunCompanion] = []
+## Who came out of the infirmary at the start of today (by themselves), for the day's news.
+var released_today: Array[RunCompanion] = []
 var inventory := RunInventory.new()
 var outcome: Outcome = Outcome.ONGOING
 var end_reason: String = ""
@@ -160,12 +164,35 @@ func upcoming(ahead: int = RunConfig.DAYS_SHOWN_AHEAD) -> Array[int]:
 	return out
 
 
+## The bench: companions not fielded and not in the infirmary.
 func reserve() -> Array[RunCompanion]:
 	var out: Array[RunCompanion] = []
 	for c in roster:
-		if not lineup.has(c):
+		if not lineup.has(c) and c.is_available():
 			out.append(c)
 	return out
+
+
+## Everyone who can be fielded or trained: the roster minus the infirmary, in roster order.
+func available() -> Array[RunCompanion]:
+	var out: Array[RunCompanion] = []
+	for c in roster:
+		if c.is_available():
+			out.append(c)
+	return out
+
+
+## Companions in the infirmary, in the order they went in. See RunCompanion.injured, back_on_day,
+## days_left().
+func infirmary() -> Array[RunCompanion]:
+	return _infirmary.duplicate()
+
+
+## "X is in the infirmary until day N." (N: the day they come out), or "" if they are not.
+func infirmary_block_reason(c: RunCompanion) -> String:
+	if c == null or not c.injured:
+		return ""
+	return "%s is in the infirmary until day %d." % [c.display_name(), c.back_on_day]
 
 
 func material(id: String) -> int:
@@ -183,9 +210,25 @@ func can_change_party() -> bool:
 
 # ---------------------------------------------------------------- party
 
-## Puts a reserve companion in the line at `index` (default: the front, rightmost).
+## Why `c` cannot be put in the line now, or "".
+func field_block_reason(c: RunCompanion) -> String:
+	if not can_change_party():
+		return "Not now."
+	if c == null or not roster.has(c):
+		return "Not in the company."
+	if c.injured:
+		return infirmary_block_reason(c)
+	if lineup.has(c):
+		return "%s is already in the line." % c.display_name()
+	if lineup.size() >= RunConfig.MAX_FIELDED:
+		return "The line is full."
+	return ""
+
+
+## Puts a reserve companion in the line at `index` (default: the front, rightmost). Not someone in the
+## infirmary.
 func field(c: RunCompanion, index: int = -1) -> bool:
-	if not can_change_party() or not roster.has(c) or lineup.has(c) or lineup.size() >= RunConfig.MAX_FIELDED:
+	if field_block_reason(c) != "":
 		return false
 	lineup.insert(lineup.size() if index < 0 else clampi(index, 0, lineup.size()), c)
 	return true
@@ -233,8 +276,52 @@ func battle_block_reason(front: Front) -> String:
 	if not fronts.has(front):
 		return "That front is not open today."
 	if lineup.is_empty():
-		return "Field at least one companion."
+		return "Field at least one companion." if not available().is_empty() else NOBODY_TO_FIELD
 	return ""
+
+
+const NOBODY_TO_FIELD := "Everyone is in the infirmary: nobody can march out."
+
+
+## Why today cannot be given up (yield_day), or "". Only on a battle or boss day before its battle,
+## and only when nobody can be fielded (everyone is in the infirmary).
+func yield_block_reason() -> String:
+	if is_over():
+		return "The run is over."
+	if day_type() != RunCalendar.DayType.BATTLE and day_type() != RunCalendar.DayType.BOSS:
+		return "Only on a battle or boss day."
+	if committed_front != null:
+		return "Today's battle has already begun."
+	if fronts.is_empty():
+		return "No front is open today."
+	if not available().is_empty():
+		return "Someone can still be fielded."
+	return ""
+
+
+## Gives the day up when nobody can be fielded: counts exactly as a lost battle at the worst front
+## (the one that would cost the walls most; on a boss day the boss, and the city falls). The day ends.
+## Returns the report (won false, no XP), or null if not allowed.
+func yield_day() -> BattleReport:
+	if yield_block_reason() != "":
+		return null
+	var worst: Front = fronts[0]
+	for f in fronts:
+		if f.city_damage > worst.city_damage or (f.city_damage == worst.city_damage and f.danger > worst.danger):
+			worst = f
+	var report := BattleReport.new()
+	report.front = worst
+	report.won = false
+	report.yielded = true
+	battles_lost += 1
+	if worst.is_boss:
+		_end(Outcome.DEFEAT, "%s broke through on day %d: nobody could march out." % [worst.group.display_name, day])
+	else:
+		report.city_damage = mini(worst.city_damage, city_health)
+		city_health -= report.city_damage
+	_end_day()
+	report.run_over = is_over()
+	return report
 
 
 ## Commits to a front and returns the battle to fight there, with the fielded companions at their
@@ -272,13 +359,12 @@ func finish_battle(battle: Battle) -> BattleReport:
 	for i in fielded.size():
 		var c: RunCompanion = fielded[i]
 		var unit := battle.roster[i]
-		if unit.is_gone():
-			report.removed.append(c.display_name())
-			_remove(c)
-			continue
-		if unit.is_injured() or battle.injured_ever.has(unit):
+		if unit.is_injured():
 			report.injured.append(c.display_name())
-		c.hp = RunConfig.INJURED_RETURN_HP if unit.is_injured() or unit.hp <= 0 else mini(unit.hp, c.max_hp())
+			_to_infirmary(c)
+		else:
+			c.hp = clampi(unit.hp, 1, c.max_hp())
+		# Everyone fielded shares the XP of a win, injured or not.
 		standing.append(c)
 		points.append(battle.points_of(unit))
 		report.points[c.display_name()] = battle.points_of(unit)
@@ -340,6 +426,9 @@ func free_action_block_reason(a: FreeAction) -> String:
 				return "Needs %d gold." % RunConfig.DRILL_COST
 			if not _anyone_can_drill():
 				return NO_USEFUL_DRILL
+		FreeAction.CURE:
+			if _infirmary.is_empty():
+				return "Nobody is in the infirmary."
 	return ""
 
 
@@ -351,14 +440,48 @@ func visit_block_reason(a: FreeAction) -> String:
 	return free_action_block_reason(a)
 
 
-## Every companion recovers to full HP and every spell's uses. Nothing else restores spell uses.
+## Every companion not in the infirmary recovers to full HP and every spell's uses. Nothing else
+## restores spell uses. It never shortens an infirmary stay.
 func rest() -> bool:
 	if free_action_block_reason(FreeAction.REST) != "":
 		return false
 	_spend(FreeAction.REST)
-	for c in roster:
+	for c in available():
 		c.hp = c.max_hp()
 		c.progress.restore_spell_uses()
+	return true
+
+
+# ---------------------------------------------------------------- the infirmary: curing
+
+## Gold to cure `c` now: days still to serve x (RunConfig.CURE_GOLD_PER_DAY_BASE +
+## RunConfig.CURE_GOLD_PER_DAY_PER_LEVEL x level). 0 if they are not in the infirmary.
+func cure_cost(c: RunCompanion) -> int:
+	if c == null or not c.injured:
+		return 0
+	return c.days_left(day) * (RunConfig.CURE_GOLD_PER_DAY_BASE + RunConfig.CURE_GOLD_PER_DAY_PER_LEVEL * c.level())
+
+
+## Why `c` cannot be cured now, or "". Cure is a free-day action (FreeAction.CURE).
+func cure_block_reason(c: RunCompanion) -> String:
+	var why := free_action_block_reason(FreeAction.CURE)
+	if why != "" and why != "Nobody is in the infirmary.":
+		return why
+	if c == null or not roster.has(c) or not c.injured:
+		return "%s is not in the infirmary." % (c.display_name() if c != null else "Nobody")
+	if gold < cure_cost(c):
+		return "Needs %d gold." % cure_cost(c)
+	return ""
+
+
+## Spends the day's action and cure_cost(c) gold: `c` comes out of the infirmary at once, at full HP,
+## onto the bench (and can be fielded the same day).
+func cure(c: RunCompanion) -> bool:
+	if cure_block_reason(c) != "":
+		return false
+	gold -= cure_cost(c)
+	_spend(FreeAction.CURE)
+	_release(c)
 	return true
 
 
@@ -464,7 +587,8 @@ func hire(data: CompanionData) -> RunCompanion:
 
 # ---------------------------------------------------------------- the training ground
 
-## Why `c` cannot take `drill` today, or "". A drill uses the day's free action (FreeAction.TRAIN)
+## Why `c` cannot take `drill` today, or "". Not someone in the infirmary. A drill uses the day's free
+## action (FreeAction.TRAIN)
 ## and RunConfig.DRILL_COST gold. A proficiency drill needs a grade below S in its weapon type or
 ## school (from E it opens a new one: a fighter can become a caster this way); Sparring needs a level
 ## below the top. Anyone in the
@@ -477,6 +601,8 @@ func drill_block_reason(drill: Drill, c: RunCompanion) -> String:
 		return "Not posted this week."
 	if c == null or not roster.has(c):
 		return "Not in the company."
+	if c.injured:
+		return infirmary_block_reason(c)
 	return _drill_unfit_reason(drill, c)
 
 
@@ -531,7 +657,7 @@ func _drill_unfit_reason(drill: Drill, c: RunCompanion) -> String:
 
 func _anyone_can_drill() -> bool:
 	for d in drills:
-		for c in roster:
+		for c in available():
 			if _drill_unfit_reason(d, c) == "":
 				return true
 	return false
@@ -632,8 +758,6 @@ func choice_block_reason(choice: EventChoiceData) -> String:
 			cost[m] = -int(choice.materials[m])
 	if not _can_pay(cost):
 		return "Needs %s." % cost_text(cost)
-	if choice.companion_hp != 0 and roster.is_empty():
-		return "Nobody to send."
 	return ""
 
 
@@ -659,11 +783,12 @@ func choose(choice: EventChoiceData) -> String:
 
 
 ## The companions a choice's HP change would apply to.
+## Never anyone in the infirmary.
 func hp_targets(choice: EventChoiceData) -> Array[RunCompanion]:
 	if choice.hp_target == EventChoiceData.HpTarget.ALL:
-		return roster.duplicate()
+		return available()
 	var best: RunCompanion = null
-	for c in roster:
+	for c in available():
 		if best == null or c.hp > best.hp:
 			best = c
 	var out: Array[RunCompanion] = []
@@ -685,6 +810,11 @@ static func cost_text(cost: Dictionary) -> String:
 # ---------------------------------------------------------------- day flow
 
 func _begin_day() -> void:
+	released_today.clear()
+	for c in _infirmary.duplicate():
+		if c.back_on_day <= day:
+			_release(c)
+			released_today.append(c)
 	fronts.clear()
 	committed_front = null
 	event = null
@@ -706,7 +836,7 @@ func _begin_day() -> void:
 
 
 func _end_day() -> void:
-	for c in roster:
+	for c in available():
 		c.heal(ceili(c.max_hp() * RunConfig.DAILY_HEAL_FRACTION))
 	if not is_over():
 		if city_health <= 0:
@@ -870,7 +1000,7 @@ func _post_drills() -> void:
 func _make_tavern_offers() -> void:
 	var pool: Array[CompanionData] = []
 	for d in content.companions:
-		if not _in_roster(d) and not gone.has(d):
+		if not _in_roster(d):
 			pool.append(d)
 	var count := mini(rng.randi_range(RunConfig.TAVERN_OFFERS_MIN, RunConfig.TAVERN_OFFERS_MAX), pool.size())
 	for i in count:
@@ -998,11 +1128,23 @@ func _join(data: CompanionData) -> RunCompanion:
 	return c
 
 
-func _remove(c: RunCompanion) -> void:
-	inventory.release(c)
-	roster.erase(c)
+## Injured in today's battle: to the infirmary until the start of day + INFIRMARY_DAYS + 1. They leave
+## the line; weapon and progress stay.
+func _to_infirmary(c: RunCompanion) -> void:
+	c.injured = true
+	c.hp = 0
+	c.back_on_day = day + RunConfig.INFIRMARY_DAYS + 1
 	lineup.erase(c)
-	gone.append(c.data)
+	if not _infirmary.has(c):
+		_infirmary.append(c)
+
+
+## Out of the infirmary: full HP, onto the bench.
+func _release(c: RunCompanion) -> void:
+	c.injured = false
+	c.back_on_day = 0
+	c.hp = c.max_hp()
+	_infirmary.erase(c)
 
 
 func _in_roster(data: CompanionData) -> bool:
@@ -1013,14 +1155,14 @@ func _in_roster(data: CompanionData) -> bool:
 
 
 func _any_spell_uses_spent() -> bool:
-	for c in roster:
+	for c in available():
 		if c.progress.has_spent_uses():
 			return true
 	return false
 
 
 func _everyone_at_full_hp() -> bool:
-	for c in roster:
+	for c in available():
 		if c.hp < c.max_hp():
 			return false
 	return true
