@@ -18,7 +18,7 @@ const COUNTER_H := 56.0
 const HIRE_ART := 600.0
 const HIRE_FACE_Y := 230.0
 const HIRE_STEP := 560.0
-const PAPER := Vector2(520, 432)
+const PAPER := Vector2(520, 412)
 const PAPER_Y := 628.0
 const PAPER_PAD := 28.0
 ## Smithy: the price list, and the company beside it.
@@ -174,6 +174,15 @@ func _draw_tavern() -> void:
 	_tavern.draw_rect(Rect2(0, COUNTER_Y + COUNTER_H, w, 500.0), Color(0.07, 0.05, 0.04, 0.55))
 
 
+## Every paper and what lies on it drawn again, after the stat view (values or growth) changed.
+func _redraw_papers() -> void:
+	for paper in _papers.get_children():
+		paper.queue_redraw()
+		for child in paper.get_children():
+			if child is CanvasItem:
+				child.queue_redraw()
+
+
 ## A hire's paper, laid on the counter under them.
 func _paper_for(data: CompanionData, x: float) -> Control:
 	var paper := Control.new()
@@ -197,6 +206,10 @@ func _paper_for(data: CompanionData, x: float) -> Control:
 		StatTable.draw(paper, Vector2(PAPER_PAD, 140.0), inner, 3, data.base_stats(), data)
 		paper.draw_line(Vector2(PAPER_PAD, 140.0 + StatTable.height(3) + 8.0), Vector2(PAPER_PAD + inner, 140.0 + StatTable.height(3) + 8.0),
 			Color(ink, 0.45), 1.0))
+	var toggle := StatToggle.new()
+	toggle.place(StatTable.free_cell(Vector2(PAPER_PAD, 140.0), inner, 3))
+	toggle.changed.connect(_redraw_papers)
+	paper.add_child(toggle)
 	var seal := ActionButton.new()
 	seal.paper = true
 	seal.title = "Hire"
@@ -425,6 +438,12 @@ func _build() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	var key := event as InputEventKey
-	if visible and key != null and key.pressed and not key.echo and key.keycode == KEY_ESCAPE:
+	if not visible or key == null or not key.pressed or key.echo:
+		return
+	if key.keycode == KEY_ESCAPE:
 		close()
+		get_viewport().set_input_as_handled()
+	elif key.keycode == KEY_G and _tavern.visible:
+		StatToggle.flip()
+		_redraw_papers()
 		get_viewport().set_input_as_handled()

@@ -17,10 +17,10 @@ const WALL_END := 1150.0
 const BENCH_Y := 664.0
 const PAGE := Rect2(1150, 110, 740, 946)
 const PAGE_PAD := 34.0
-## Height of a row of the stat table (the number, and under it how readily the stat grows), and how
-## far that pushes down the rest of the page compared with rows of the numbers alone.
+## Height of a row of the stat table (a name with its number, or with its growth rate and the line
+## under it), and how far that pushes down the rest of the page compared with rows of numbers alone.
 const STAT_ROW := StatTable.ROW
-const STAT_DROP := 40.0
+const STAT_DROP := 25.0
 
 var run: Run
 var _selected: RunCompanion
@@ -33,6 +33,7 @@ var _level: Label
 var _place: Label
 var _holds: Label
 var _stats := Control.new()
+var _stat_toggle := StatToggle.new()
 var _xp := SlantBar.new()
 var _xp_label: Label
 var _buttons := Control.new()
@@ -159,6 +160,7 @@ func _refresh_page() -> void:
 	_clear(_weapons)
 	var c := _selected
 	_stats.queue_redraw()
+	_stat_toggle.queue_redraw()
 	if c == null:
 		_name.text = ""
 		_place.text = "Nobody is left in the company."
@@ -375,6 +377,9 @@ func _build() -> void:
 	_stats.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_stats.draw.connect(_draw_stats)
 	_page.add_child(_stats)
+	_stat_toggle.place(StatTable.free_cell(_stats.position, inner, 4))
+	_stat_toggle.changed.connect(_show_stats_again)
+	_page.add_child(_stat_toggle)
 	_holds = UiTheme.label("", 18, UiTheme.PARCHMENT_INK)
 	_holds.position = Vector2(PAGE_PAD, 250 + STAT_DROP)
 	_holds.size = Vector2(inner, 50)
@@ -493,7 +498,13 @@ func _draw_page() -> void:
 	UiTheme.draw_rule(_page, Vector2(mid, 464 + STAT_DROP), w, Color(UiTheme.PARCHMENT_INK, 0.5))
 
 
-## The stats and how readily each grows, as a small table (see StatTable).
+## The table and its switch drawn again, after the view (values or growth) changed.
+func _show_stats_again() -> void:
+	_stats.queue_redraw()
+	_stat_toggle.queue_redraw()
+
+
+## The stats, or how readily each grows, as a small table (see StatTable).
 func _draw_stats() -> void:
 	var c := _selected
 	if c == null:
@@ -523,6 +534,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			toggle_fielded()
 		KEY_A:
 			open_arts()
+		KEY_G:
+			StatToggle.flip()
+			_show_stats_again()
 		_:
 			handled = false
 	if handled:
