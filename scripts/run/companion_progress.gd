@@ -159,6 +159,15 @@ func equip(art: CombatArtData) -> bool:
 	return true
 
 
+## Leaves the equipped `old` behind and carries the known, unequipped `new` in its place (same slot).
+## Returns false and changes nothing otherwise.
+func swap(old: CombatArtData, new: CombatArtData) -> bool:
+	if not is_equipped(old) or not knows(new) or is_equipped(new):
+		return false
+	equipped_arts[equipped_arts.find(old)] = new
+	return true
+
+
 func unequip(art: CombatArtData) -> bool:
 	if not is_equipped(art):
 		return false

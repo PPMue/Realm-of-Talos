@@ -19,11 +19,12 @@ extends RefCounted
 ##
 ## Attacking and using combat arts raise the actor's proficiency in the weapon type held
 ## (stored in their CompanionProgress, which outlives the battle). Each grade reached teaches
-## a random art of that type from `art_pool`; see ArtLearning.
+## a random art of that type from `art_pool` (see ArtLearning), but only when the battle is over
+## (learn_after_battle): nothing learned can be used in the battle it was earned in.
 ##
 ## Casting a spell spends one of its uses (no stamina) and raises the caster's grade in its school,
-## with its own per-battle cap. Each school grade reached teaches a random spell from `spell_pool`;
-## see SpellLearning. Black spells strike enemies with MAG against RES and may delay an enemy's
+## with its own per-battle cap. Each school grade reached teaches a random spell from `spell_pool`
+## (see SpellLearning), also when the battle is over. Black spells strike enemies with MAG against RES and may delay an enemy's
 ## pending action (once per action); white spells heal, buff and cleanse companions and always succeed.
 ##
 ## Every companion earns contribution points (BattleConfig.POINTS_*): for attacks, arts and spells, for
@@ -47,8 +48,12 @@ var art_pool: Array[CombatArtData] = []
 ## Spells that can be learned on a school grade-up (normally SpellLibrary.load_default().spells).
 var spell_pool: Array[SpellData] = []
 ## Every grade reached this battle, in order. Weapons: {"actor", "magic": false, "weapon_type", "grade",
-## "art", "equipped"}. Magic: {"actor", "magic": true, "school", "grade", "spell"}.
+## "art", "equipped"}. Magic: {"actor", "magic": true, "school", "grade", "spell"}. "art" and "spell"
+## stay null ("equipped" false) until the battle is over; learn_after_battle() then fills them in.
+## "equipped" is true only if the art went into a free slot.
 var grade_ups: Array[Dictionary] = []
+## True once learn_after_battle() has taught this battle's grade-ups.
+var learned: bool = false
 ## Every companion injured at some point this battle, in order (a record only; rules do not read it).
 var injured_ever: Array[CompanionUnit] = []
 ## Contribution points earned this battle: CompanionUnit -> int (missing = 0). See points_of().
@@ -736,15 +741,8 @@ func _gain_proficiency(c: CompanionUnit, amount: int) -> void:
 	if c.proficiency_gained >= BattleConfig.PROFICIENCY_CAP_PER_BATTLE:
 		_log("  %s has gained all the %s proficiency this battle can give." % [c.display_name, kind])
 	for g in range(before + 1, c.progress.grade(t) + 1):
-		var art := ArtLearning.pick_art(rng, c.progress, t, g, art_pool)
-		var equipped := c.progress.learn(art) if art != null else false
 		_log("  %s's %s grade rises to %s!" % [c.display_name, kind, Proficiency.grade_name(g)])
-		if art == null:
-			_log("  %s already knows every %s art." % [c.display_name, kind])
-		else:
-			_log("  %s learns %s (tier %d)%s." % [c.display_name, art.display_name, art.tier,
-				", equipped" if equipped else "; no free slot, so it is not equipped"])
-		var ev := {"type": "grade_up", "actor": c, "magic": false, "weapon_type": t, "grade": g, "art": art, "equipped": equipped}
+		var ev := {"type": "grade_up", "actor": c, "magic": false, "weapon_type": t, "grade": g, "art": null, "equipped": false}
 		grade_ups.append(ev)
 		_emit(ev)
 
@@ -763,17 +761,49 @@ func _gain_magic(c: CompanionUnit, s: SpellData.School) -> void:
 	if c.magic_gained >= BattleConfig.MAGIC_CAP_PER_BATTLE:
 		_log("  %s has gained all the magic proficiency this battle can give." % c.display_name)
 	for g in range(before + 1, c.progress.magic_grade(s) + 1):
-		var spell := SpellLearning.pick_spell(rng, c.progress, s, g, spell_pool)
-		if spell != null:
-			c.progress.learn_spell(spell)
 		_log("  %s's %s grade rises to %s!" % [c.display_name, school, Proficiency.grade_name(g)])
-		if spell == null:
-			_log("  %s already knows every %s spell." % [c.display_name, school])
-		else:
-			_log("  %s learns %s (tier %d)." % [c.display_name, spell.display_name, spell.tier])
-		var ev := {"type": "grade_up", "actor": c, "magic": true, "school": s, "grade": g, "spell": spell}
+		var ev := {"type": "grade_up", "actor": c, "magic": true, "school": s, "grade": g, "spell": null}
 		grade_ups.append(ev)
 		_emit(ev)
+
+
+## Once the battle is over: every grade reached this battle by a companion still in the run (won or
+## lost; not one removed in it) teaches its art or spell, in the order the grades were reached, with
+## the same picking rules and generator. Fills "art" and "equipped" (true only if a slot was free) or
+## "spell" into each grade_ups entry. Called by _check_end when the battle ends, so callers need not;
+## calling it again (or before the end) does nothing.
+func learn_after_battle() -> void:
+	if learned or not is_over():
+		return
+	learned = true
+	for ev in grade_ups:
+		var c: CompanionUnit = ev.actor
+		if c.is_gone():
+			continue
+		var g: int = ev.grade
+		if ev.magic:
+			var school := SpellData.school_name(ev.school)
+			var spell := SpellLearning.pick_spell(rng, c.progress, ev.school, g, spell_pool)
+			if spell != null:
+				c.progress.learn_spell(spell)
+				_log("  %s learns %s (tier %d)." % [c.display_name, spell.display_name, spell.tier])
+			else:
+				_log("  %s already knows every %s spell." % [c.display_name, school])
+			ev.spell = spell
+			_emit({"type": "learned", "actor": c, "magic": true, "school": ev.school, "grade": g, "spell": spell})
+		else:
+			var kind := WeaponData.type_name(ev.weapon_type).to_lower()
+			var art := ArtLearning.pick_art(rng, c.progress, ev.weapon_type, g, art_pool)
+			var equipped := c.progress.learn(art) if art != null else false
+			if art != null:
+				_log("  %s learns %s (tier %d)%s." % [c.display_name, art.display_name, art.tier,
+					", equipped" if equipped else "; no free slot, so it is not equipped"])
+			else:
+				_log("  %s already knows every %s art." % [c.display_name, kind])
+			ev.art = art
+			ev.equipped = equipped
+			_emit({"type": "learned", "actor": c, "magic": false, "weapon_type": ev.weapon_type, "grade": g,
+				"art": art, "equipped": equipped})
 
 
 func _enemy_strike(e: EnemyUnit, action: EnemyActionData, target: CompanionUnit) -> void:
@@ -858,14 +888,17 @@ func _check_end() -> bool:
 				c.hp = BattleConfig.VICTORY_INJURED_HP
 				c.state = CompanionUnit.State.ACTIVE
 		_log("Victory!")
+		learn_after_battle()
 		return true
 	if line().is_empty():
 		outcome = Outcome.DEFEAT
 		_log("Defeat: no companions left.")
+		learn_after_battle()
 		return true
 	if active_companions().is_empty() and not can_revive():
 		outcome = Outcome.DEFEAT
 		_log("Defeat: every remaining companion is injured.")
+		learn_after_battle()
 		return true
 	return false
 

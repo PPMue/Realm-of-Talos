@@ -264,6 +264,7 @@ func finish_battle(battle: Battle) -> BattleReport:
 	var report := BattleReport.new()
 	report.front = front
 	report.won = battle.outcome == Battle.Outcome.VICTORY
+	battle.learn_after_battle()   # the battle did it when it ended; harmless again
 	report.grade_ups = battle.grade_ups.duplicate()
 	var fielded := lineup.duplicate()
 	var standing: Array[RunCompanion] = []

@@ -324,15 +324,33 @@ func test_spell_learned_on_grade_up_in_battle() -> void:
 	t.eq(b.grade_ups.size(), 1, "one grade-up recorded")
 	var ev: Dictionary = b.grade_ups[0]
 	t.check(ev.magic and ev.school == SpellData.School.BLACK and ev.grade == Proficiency.Grade.D_PLUS, "a magic grade-up")
-	t.check(ev.spell != null and pool.has(ev.spell), "learned a spell from the pool")
+	t.check(ev.spell == null, "nothing learned during the battle")
+	t.eq(c.spells().size(), known, "no new spell to cast in this battle")
+	b.enemies[0].hp = 0
+	b._check_end()
+	t.check(ev.spell != null and pool.has(ev.spell), "learned a spell from the pool when the battle ends")
 	t.eq(c.spells().size(), known + 1, "the spell is known")
 	t.eq(c.progress.uses_left(ev.spell), (ev.spell as SpellData).uses, "with full uses")
 	t.eq((ev.spell as SpellData).tier, 1, "D+ teaches tier 1")
 	var found := false
 	for e in b.events:
-		if e.type == "grade_up":
+		if e.type == "learned" and e.spell == ev.spell:
 			found = true
-	t.check(found, "a grade_up event for the screen")
+	t.check(found, "a learned event for the screen")
+	# A removed caster learns nothing.
+	var d2 := caster("Mage", 5, [bolt])
+	d2.start_grade_black = Proficiency.Grade.D
+	var b2 := battle_with(cs1(d2), one(enemy_with(0, 9999)), [], 3, pool)
+	var c2 := b2.roster[0]
+	b2.cast(c2, bolt, b2.enemies[0])
+	b2.cast(c2, bolt, b2.enemies[0])
+	t.eq(b2.grade_ups.size(), 1, "a grade-up")
+	var spells2 := c2.progress.known_spells.size()
+	c2.hp = 0
+	c2.state = CompanionUnit.State.GONE
+	b2._check_end()
+	t.check(b2.is_over() and b2.grade_ups[0].spell == null, "removed: no spell")
+	t.eq(c2.progress.known_spells.size(), spells2, "nothing learned")
 
 
 # ---------------------------------------------------------------- white magic

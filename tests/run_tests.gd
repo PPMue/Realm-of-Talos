@@ -51,6 +51,7 @@ func _init() -> void:
 		test_tier_fall_through,
 		test_learning_nothing_when_pool_exhausted,
 		test_grade_up_in_battle_learns_and_equips,
+		test_learning_after_battle_slots_and_removed,
 		test_auto_equip_and_limit_of_three,
 		test_art_needs_matching_weapon_type,
 		test_art_costs_one_tick,
@@ -829,6 +830,10 @@ func test_learning_nothing_when_pool_exhausted() -> void:
 	eq(b.grade_ups.size(), 1, "one grade-up recorded")
 	eq(b.grade_ups[0].art, null, "with no art")
 	eq(c.progress.known_arts.size(), known, "nothing learned")
+	b.enemies[0].hp = 0
+	b._check_end()
+	eq(b.grade_ups[0].art, null, "nothing to learn at the end either")
+	eq(c.progress.known_arts.size(), known, "still nothing learned")
 	var logged := false
 	for line in b.log_lines:
 		logged = logged or line.contains("already knows every sword art")
@@ -841,6 +846,7 @@ func test_grade_up_in_battle_learns_and_equips() -> void:
 	var b := make_battle(three_companions(), one_enemy(make_enemy("E", [make_action("Poke", 1)] as Array[EnemyActionData], 1000)), 1,
 		[] as Array[CompanionProgress], pool)
 	var c := b.roster[0]
+	var arts_before := c.progress.known_arts.size()
 	c.progress.points[sword] = BattleConfig.PROFICIENCY_GRADE_POINTS[1] - 1
 	b.attack(c, b.enemies[0])
 	eq(c.progress.grade(sword), Proficiency.Grade.E_PLUS, "grade rose")
@@ -851,16 +857,72 @@ func test_grade_up_in_battle_learns_and_equips() -> void:
 		if e.type == "grade_up":
 			ev = e
 	check(not ev.is_empty(), "grade_up event emitted")
-	check(pool.has(ev.get("art")), "learned an art from the pool")
 	eq(ev.get("grade"), Proficiency.Grade.E_PLUS, "event names the new grade")
 	eq(ev.get("actor"), c, "event names the companion")
-	check(ev.get("equipped", false), "auto-equipped into a free slot")
-	check(c.progress.is_equipped(ev.art) and c.arts().has(ev.art), "and usable as an action")
+	check(ev.get("art") == null and ev.get("equipped") == false, "nothing learned during the battle")
+	eq(b.grade_ups.size(), 1, "recorded")
+	eq(c.progress.known_arts.size(), arts_before, "no new art known yet")
+	eq(c.arts().size(), arts_before, "and none usable in this battle")
 	check(types.find("grade_up") < types.find("countdown"), "the grade-up plays before the enemies' turn")
 	var logged := false
 	for line in b.log_lines:
-		logged = logged or (line.contains("grade rises to E+") or line.contains("learns %s" % ev.art.display_name))
+		logged = logged or line.contains("grade rises to E+")
 	check(logged, "grade-up written to the log")
+	b.learn_after_battle()
+	check(b.grade_ups[0].art == null and not b.learned, "learn_after_battle does nothing before the end")
+	# The battle ends: the art is learned and filled into the entry.
+	b.enemies[0].hp = 0
+	b._check_end()
+	check(b.learned, "learned at the end")
+	var art: CombatArtData = b.grade_ups[0].art
+	check(pool.has(art), "learned an art from the pool")
+	check(b.grade_ups[0].equipped, "auto-equipped into a free slot")
+	check(c.progress.knows(art) and c.progress.is_equipped(art), "known and carried now")
+	var learned_ev := false
+	for e in b.events:
+		learned_ev = learned_ev or (e.type == "learned" and e.art == art)
+	check(learned_ev, "a learned event for the screen")
+	# Calling it again changes nothing.
+	b.learn_after_battle()
+	eq(c.progress.known_arts.size(), arts_before + 1, "learned once")
+
+
+## A full set of three: the art is known but not carried ("equipped" false); swap() carries it.
+## A companion removed in the battle learns nothing; one injured at a defeat still learns.
+func test_learning_after_battle_slots_and_removed() -> void:
+	var sword := WeaponData.WeaponType.SWORD
+	var pool := make_pool([4])
+	var b := make_battle(three_companions(), one_enemy(idle_enemy(1000)), 1, [] as Array[CompanionProgress], pool)
+	var full := b.roster[0]
+	var gone := b.roster[1]
+	var hurt := b.roster[2]
+	for a in make_pool([2]):
+		full.progress.learn(a)
+	eq(full.progress.equipped_arts.size(), BattleConfig.MAX_EQUIPPED_ARTS, "three carried")
+	for u in [full, gone, hurt]:
+		u.progress.points[sword] = BattleConfig.PROFICIENCY_GRADE_POINTS[1] - 1
+		b._gain_proficiency(u, 1)
+	eq(b.grade_ups.size(), 3, "three grade-ups recorded")
+	var gone_known := gone.progress.known_arts.size()
+	gone.hp = 0
+	gone.state = CompanionUnit.State.GONE
+	hurt.hp = 0
+	hurt.state = CompanionUnit.State.INJURED
+	full.hp = 0
+	full.state = CompanionUnit.State.INJURED
+	b._check_end()
+	eq(b.outcome, Battle.Outcome.DEFEAT, "lost")
+	var e_full: Dictionary = b.grade_ups[0]
+	check(e_full.art != null and full.progress.knows(e_full.art), "learned on a defeat too")
+	check(not e_full.equipped and not full.progress.is_equipped(e_full.art), "no free slot: known, left behind")
+	var old := full.progress.equipped_arts[1]
+	check(full.progress.swap(old, e_full.art), "swap carries the new art")
+	eq(full.progress.equipped_arts[1], e_full.art, "in the same slot")
+	check(not full.progress.is_equipped(old) and full.progress.knows(old), "the old one is left behind, still known")
+	check(not full.progress.swap(old, e_full.art), "swap refuses an art not carried")
+	check(b.grade_ups[1].art == null, "a removed companion learns nothing")
+	eq(gone.progress.known_arts.size(), gone_known, "nothing known")
+	check(b.grade_ups[2].art != null and b.grade_ups[2].equipped, "the injured one learns and carries it")
 
 
 func test_auto_equip_and_limit_of_three() -> void:
@@ -1405,6 +1467,8 @@ func test_progress_survives_into_second_battle() -> void:
 	var c := b1.roster[0]
 	c.progress.points[sword] = BattleConfig.PROFICIENCY_GRADE_POINTS[1] - 1
 	b1.attack(c, b1.enemies[0])
+	b1.enemies[0].hp = 0
+	b1._check_end()
 	var learned: CombatArtData = b1.grade_ups[0].art
 	check(learned != null, "an art was learned in battle 1")
 	var points := party[0].points_in(sword)
