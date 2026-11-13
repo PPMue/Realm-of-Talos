@@ -853,8 +853,7 @@ func test_smithy_stocks_hybrids() -> void:
 
 
 ## Prints, for each companion, which families they can hold at bronze at the start of a run, and which
-## they could reach at every tier by training (a weapon drill opens any weapon type; a school must
-## already be above E).
+## they could reach at every tier by training (a drill opens any weapon type or school from E).
 func test_hybrid_reach() -> void:
 	print("  two-proficiency families by companion (bronze at the start / any tier by training):")
 	for d in content().companions:
@@ -865,8 +864,6 @@ func test_hybrid_reach() -> void:
 			var fam: String = f[0]
 			if p.can_equip_weapon(hybrid(WeaponData.Tier.BRONZE, fam)):
 				now.append(fam)
-			var sec: Array = f[2]
-			if sec[0] == "t" or p.magic_grade(sec[1]) > Proficiency.Grade.E:
-				later.append(fam)
+			later.append(fam)
 		print("    %-9s start: %-36s by training: %s" % [d.display_name, ", ".join(now), ", ".join(later)])
 	t.check(true, "printed")

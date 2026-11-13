@@ -20,6 +20,7 @@ func tests() -> Array[Callable]:
 		test_drill_grade_up,
 		test_sparring_level_up,
 		test_bench_can_train,
+		test_fighter_opens_a_school,
 	]
 
 
@@ -44,6 +45,15 @@ func free_day(run: Run) -> void:
 func fresh_action(run: Run) -> void:
 	run.actions_used.clear()
 	run.actions_left = RunConfig.FREE_DAY_ACTIONS
+
+
+func answer_event(run: Run) -> void:
+	if not run.event_pending():
+		return
+	for ch in run.event.choices:
+		if run.choice_block_reason(ch) == "":
+			run.choose(ch)
+			return
 
 
 func companion(name: String) -> CompanionData:
@@ -123,43 +133,90 @@ func test_drills_posted_weekly() -> void:
 	t.check(sets.size() > 3, "the drills vary between runs (%d different sets)" % sets.size())
 
 
-## Any weapon type someone is below S in (a drill can open one from E); a school only if someone is
-## above E and below S in it; fewer when fewer exist.
+## Any of the seven subjects (five weapon types, two schools) somebody is below S in: a drill opens
+## one from E. Fewer when fewer are left.
 func test_drills_only_useful_types() -> void:
 	var run := make_run(62)
-	# Elena has a grade only in axes, but every weapon type can be drilled; no school can.
-	var weapon_types := {}
-	for s in 40:
+	# Elena has a grade only in axes, but every weapon type and both schools can be drilled.
+	var subjects := {}
+	for s in 60:
 		var r := make_run(6200 + s)
 		set_roster(r, ["elena"])
-		t.eq(r.drills.size(), 3, "seed %d: Sparring and two weapon drills" % s)
+		t.eq(r.drills.size(), 3, "seed %d: Sparring and two proficiency drills" % s)
 		for d in r.drills.slice(1):
-			t.eq(d.kind, Drill.Kind.WEAPON, "seed %d: no school for Elena" % s)
-			weapon_types[d.weapon_type] = true
-	t.eq(weapon_types.size(), 5, "all five weapon types turn up")
-	# A weapon type at S for everyone is not posted.
+			subjects[drill_key(d)] = true
+			if d.kind == Drill.Kind.MAGIC:
+				t.check(d.display_name in ["Black Magic drill", "White Magic drill"], "named: %s" % d.display_name)
+	t.eq(subjects.size(), 7, "all seven subjects turn up (%d)" % subjects.size())
+	# A subject at S for everyone is not posted.
 	set_roster(run, ["elena"])
+	var p := run.roster[0].progress
 	for wt: int in WeaponData.WeaponType.values():
 		if wt != WeaponData.WeaponType.BOW:
-			run.roster[0].progress.points[wt] = Proficiency.points_for(Proficiency.Grade.S)
+			p.points[wt] = Proficiency.points_for(Proficiency.Grade.S)
+	for sc: int in SpellData.School.values():
+		p.magic_points[sc] = Proficiency.points_for(Proficiency.Grade.S)
 	run._post_drills()
 	t.eq(run.drills.size(), 2, "only the bow is left to train")
 	t.eq(run.drills[1].weapon_type, WeaponData.WeaponType.BOW, "the bow drill")
 	t.eq(run.drills[1].display_name, "Bow drill", "named")
-	run.roster[0].progress.points[WeaponData.WeaponType.BOW] = Proficiency.points_for(Proficiency.Grade.S)
+	p.magic_points[SpellData.School.WHITE] = 0
+	run._post_drills()
+	t.eq(run.drills.size(), 3, "white magic is back")
+	t.check(run.drills[2].kind == Drill.Kind.MAGIC and run.drills[2].school == SpellData.School.WHITE, "after the weapon drill")
+	p.points[WeaponData.WeaponType.BOW] = Proficiency.points_for(Proficiency.Grade.S)
+	p.magic_points[SpellData.School.WHITE] = Proficiency.points_for(Proficiency.Grade.S)
 	run._post_drills()
 	t.eq(run.drills.size(), 1, "only Sparring when every grade is done")
-	# A mage: schools are drills too. Elio has a grade only in white magic.
-	var white := 0
-	for s in 40:
-		var r := make_run(6250 + s)
-		set_roster(r, ["elio"])
-		for d in r.drills.slice(1):
-			if d.kind == Drill.Kind.MAGIC:
-				t.eq(d.school, SpellData.School.WHITE, "seed %d: only white magic" % s)
-				t.eq(d.display_name, "White Magic drill", "named")
-				white += 1
-	t.check(white > 5, "Elio's school is posted in some weeks (%d of 40)" % white)
+
+
+## A fighter opens white magic by drills: E+ teaches a white spell, castable in the next battle, and
+## Rest restores its uses.
+func test_fighter_opens_a_school() -> void:
+	var run := make_run(69)
+	set_roster(run, ["kaito"])
+	free_day(run)
+	run.gold = 100
+	var kaito := run.roster[0]
+	var white := Drill.magic(SpellData.School.WHITE)
+	run.drills = [run.drills[0], white]
+	t.eq(kaito.progress.magic_grade(SpellData.School.WHITE), Proficiency.Grade.E, "Kaito starts at E in white magic")
+	t.check(kaito.progress.known_spells.is_empty(), "and knows no spell")
+	t.eq(run.drill_block_reason(white, kaito), "", "a white magic drill is open to him")
+	kaito.progress.magic_points[SpellData.School.WHITE] = Proficiency.points_for(Proficiency.Grade.E_PLUS) - 1
+	var r := run.train(white, kaito)
+	t.check(r != null and r.grade_before == Proficiency.Grade.E and r.grade_after >= Proficiency.Grade.E_PLUS, "E+ reached")
+	var spell: SpellData = r.grade_ups[0].spell
+	t.check(spell != null and spell.school == SpellData.School.WHITE and kaito.progress.knows_spell(spell), "a white spell is learned")
+	t.eq(kaito.progress.spell_schools(), [SpellData.School.WHITE] as Array[int], "he now has a school")
+	# The next battle: he can cast it, weakly or not.
+	run.end_free_day()
+	while run.day_type() == RunCalendar.DayType.FREE:
+		answer_event(run)
+		run.end_free_day()
+	var b := run.start_battle(run.fronts[0])
+	var unit := b.roster[0]
+	t.check(unit.spells().has(spell), "the spell is in his list in battle")
+	t.eq(b.spell_block_reason(unit, spell), "", "and can be cast")
+	var target: Combatant = unit if spell.targets_allies() else b.enemies[0]
+	t.check(b.cast(unit, spell, target), "cast")
+	t.eq(kaito.progress.uses_left(spell), spell.uses - 1, "a use spent")
+	for e in b.enemies:
+		e.hp = 0
+	b._check_end()
+	run.finish_battle(b)
+	# Rest restores it.
+	while run.day_type() != RunCalendar.DayType.FREE or run.event_pending():
+		if run.event_pending():
+			answer_event(run)
+			continue
+		var b2 := run.start_battle(run.fronts[0])
+		for e in b2.enemies:
+			e.hp = 0
+		b2._check_end()
+		run.finish_battle(b2)
+	t.check(run.rest(), "rested")
+	t.eq(kaito.progress.uses_left(spell), spell.uses, "Rest restores its uses")
 
 
 # ---------------------------------------------------------------- who and when
@@ -198,7 +255,7 @@ func test_drill_block_reasons() -> void:
 	# Who can take which.
 	t.eq(run.drill_block_reason(axe, elena), "", "Elena trains axes")
 	t.eq(run.drill_block_reason(axe, elio), "", "Elio has no axe grade, but a weapon drill opens the type")
-	t.check(run.drill_block_reason(white, elena).contains("no grade in white magic"), "training never opens a school: %s" % run.drill_block_reason(white, elena))
+	t.eq(run.drill_block_reason(white, elena), "", "Elena has no white grade, but a drill opens the school")
 	t.eq(run.drill_block_reason(white, elio), "", "Elio trains white magic")
 	elena.progress.points[WeaponData.WeaponType.AXE] = Proficiency.points_for(Proficiency.Grade.S)
 	t.check(run.drill_block_reason(axe, elena).contains("already at S"), "not at the highest grade")
@@ -213,6 +270,8 @@ func test_drill_block_reasons() -> void:
 	elio.progress.magic_points[SpellData.School.WHITE] = Proficiency.points_for(Proficiency.Grade.S)
 	t.eq(run.free_action_block_reason(Run.FreeAction.TRAIN), "", "Elio can still open axes")
 	elio.progress.points[WeaponData.WeaponType.AXE] = Proficiency.points_for(Proficiency.Grade.S)
+	t.eq(run.free_action_block_reason(Run.FreeAction.TRAIN), "", "Elena can still open white magic")
+	elena.progress.magic_points[SpellData.School.WHITE] = Proficiency.points_for(Proficiency.Grade.S)
 	t.eq(run.free_action_block_reason(Run.FreeAction.TRAIN), Run.NO_USEFUL_DRILL, "nothing left to learn")
 	elio.progress.level = 1
 	# After another action, no drill; after a drill, nothing else.
