@@ -299,6 +299,7 @@ func test_drill_cost_and_action() -> void:
 	t.check(r != null, "trained")
 	t.eq(run.gold, 100 - RunConfig.DRILL_COST, "paid %d gold" % RunConfig.DRILL_COST)
 	t.eq(r.gold_spent, RunConfig.DRILL_COST, "the result says so")
+	t.eq(RunConfig.DRILL_COST, 30, "a drill costs 30 gold")
 	t.eq(run.actions_left, 0, "the day's action is spent")
 	t.check(run.actions_used.has(Run.FreeAction.TRAIN), "as Train")
 	t.eq(Run.FREE_ACTION_NAMES[Run.FreeAction.TRAIN], "Train", "named Train")
@@ -417,6 +418,7 @@ func test_drill_grade_up() -> void:
 	# A weapon drill opens a new type from E: reaching E+ teaches an art of it.
 	fresh_action(run)
 	t.eq(elio.progress.grade(WeaponData.WeaponType.AXE), Proficiency.Grade.E, "Elio starts at E in axes")
+	run.gold = 100
 	elio.progress.points[WeaponData.WeaponType.AXE] = Proficiency.points_for(Proficiency.Grade.E_PLUS) - 1
 	var r4 := run.train(axe, elio)
 	t.check(r4 != null, "an axe drill from E")

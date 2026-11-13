@@ -120,7 +120,7 @@ const REPAIR_AMOUNT := 20
 # proficiency drills in different weapon types or magic schools that someone in the roster has a
 # grade in (above E) and has not finished (below S).
 const DRILLS_PROFICIENCY_PER_WEEK := 2
-const DRILL_COST := 15                  # gold, on top of the day's free action
+const DRILL_COST := 30                  # gold, on top of the day's free action
 ## Chance (percent) of a poor, good and great drill (DrillResult.Quality).
 const DRILL_QUALITY_WEIGHTS: Array[int] = [25, 50, 25]
 ## Proficiency points toward the next grade by quality. Good is about one battle's worth with a
