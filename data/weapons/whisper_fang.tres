@@ -10,5 +10,7 @@ might = 3
 hit = 95
 damage_type = 1
 required_grade = 1
+rare = true
+price = 150
 display_name = "Whisper Fang"
 weight = 2

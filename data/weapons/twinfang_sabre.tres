@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="WeaponData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_data.gd" id="1_w"]
+
+[resource]
+script = ExtResource("1_w")
+weapon_type = 0
+tier = 2
+might = 3
+hit = 80
+required_grade = 4
+rare = true
+price = 280
+attack_strikes = 2
+display_name = "Twinfang Sabre"
+weight = 6

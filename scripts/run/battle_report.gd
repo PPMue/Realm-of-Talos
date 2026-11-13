@@ -4,7 +4,12 @@ extends RefCounted
 
 var front: Front
 var won: bool = false
+## Gold gained on a win: the front's reward plus kill_gold.
 var gold: int = 0
+## Part of `gold` paid by weapons for kills (WeaponData.gold_per_kill, e.g. Magpie), and by whom
+## (name -> gold). 0 / empty when nothing was.
+var kill_gold: int = 0
+var kill_gold_by: Dictionary = {}
 ## Material id -> amount gained.
 var materials: Dictionary = {}
 var city_damage: int = 0

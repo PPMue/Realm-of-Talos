@@ -84,7 +84,8 @@ const MATERIAL_ORDER: Array[String] = [IRON_ORE, TIMBER]
 # --- Weapons: the smithy, events and bosses ---
 # The smithy's stock is rolled on the first day of each week: this many weapons from the ladder
 # (WeaponData.Tier), each of a random type and a tier drawn by the week's weights below, no two the
-# same; plus each rare magic weapon (RunContent.shop) on a roll of its own chance.
+# same; plus, on a roll of SHOP_RARE_CHANCE, one rare weapon (RunContent.rare_weapons) whose grade fits
+# the week (RARE_GRADE_BY_WEEK).
 const SHOP_WEAPONS_PER_WEEK := 5
 ## By week (1-6), the weight of each tier: wooden, bronze, iron, steel, silver, platinum. The highest
 ## tier with any weight is what the smithy is selling that week (Run.smithy_top_tier).
@@ -101,6 +102,16 @@ const WEAPON_PRICE_BY_TIER: Array[int] = [20, 50, 110, 200, 320, 480]
 ## Each of the smithy's weekly slots, an event's random weapon and a boss's drop is, with this chance, a
 ## two-proficiency weapon of the tier rolled (when that tier has any: bronze to silver).
 const SHOP_HYBRID_CHANCE := 0.2
+## Chance each weekly restock also stocks one rare weapon, drawn from those whose needed grade is at
+## most RARE_GRADE_BY_WEEK for that week (-1: none). Grade D from week 2, C from week 3 (every rare).
+const SHOP_RARE_CHANCE := 0.35
+const RARE_GRADE_BY_WEEK: Array[int] = [-1, 2, 4, 4, 4, 4]
+## Chance an event's random weapon is a rare one (with the same weekly grade gate and the event's type).
+const EVENT_RARE_CHANCE := 0.15
+## Chance the day 14 / day 28 boss drops a rare weapon in place of its usual one, and the highest grade
+## it may need, by boss (day 14: D, day 28: any).
+const BOSS_RARE_CHANCE := 0.5
+const BOSS_RARE_MAX_GRADE: Array[int] = [2, 10]
 ## A two-proficiency weapon costs its tier's price x this, rounded to the nearest PRICE_ROUND_TO.
 const HYBRID_PRICE_MULT := 1.25
 const PRICE_ROUND_TO := 5

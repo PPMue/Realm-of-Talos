@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="WeaponData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_data.gd" id="1_w"]
+[ext_resource type="Script" path="res://scripts/data/status_effect_data.gd" id="2_fx"]
+
+[sub_resource type="Resource" id="Resource_venom"]
+script = ExtResource("2_fx")
+display_name = "Venom"
+duration_ticks = 3
+damage_per_tick = 2
+
+[resource]
+script = ExtResource("1_w")
+weapon_type = 4
+tier = 1
+might = 2
+hit = 95
+required_grade = 2
+rare = true
+price = 180
+on_hit_effect = SubResource("Resource_venom")
+display_name = "Viper's Kiss"
+weight = 2

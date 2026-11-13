@@ -224,13 +224,15 @@ func test_weapon_ladder() -> void:
 	t.check(p.can_equip_weapon(rc.ladder_weapon(WeaponData.Tier.PLATINUM, WeaponData.WeaponType.SWORD)), "S holds platinum")
 
 
-## The four rare magic weapons: between bronze and iron of their type in Mt, needing at most D.
+## The four magic weapons: rare, between bronze and iron of their type in Mt, needing at most D.
 func test_rare_magic_weapons_on_the_ladder() -> void:
 	var rc := content()
-	t.eq(rc.shop.size(), 4, "four rare items")
-	for item in rc.shop:
-		var w := item.weapon
-		t.check(w.is_magic(), "%s is magic" % w.display_name)
+	var magic := rc.rare_weapons.filter(func(w: WeaponData) -> bool: return w.is_magic())
+	t.eq(magic.size(), 4, "four magic weapons among the rare ones")
+	for w: WeaponData in magic:
+		t.check(w.rare, "%s is rare" % w.display_name)
+		t.eq(Run.weapon_price(w), 150, "%s keeps its price" % w.display_name)
+		t.check(w.trait_lines().has("Strikes with MAG against RES"), "%s: its trait line" % w.display_name)
 		t.eq(w.tier, WeaponData.Tier.BRONZE, "%s sits at bronze" % w.display_name)
 		var bronze := rc.ladder_weapon(WeaponData.Tier.BRONZE, w.weapon_type)
 		var iron := rc.ladder_weapon(WeaponData.Tier.IRON, w.weapon_type)
@@ -239,7 +241,6 @@ func test_rare_magic_weapons_on_the_ladder() -> void:
 			"%s: needs a little training, no more than bronze" % w.display_name)
 		t.eq(w.effective_against.has(EnemyTraits.FLYING), w.weapon_type == WeaponData.WeaponType.BOW, "%s: Flying if a bow" % w.display_name)
 		t.eq(w.effective_against.has(EnemyTraits.LARGE), w.weapon_type == WeaponData.WeaponType.SPEAR, "%s: Large if a spear" % w.display_name)
-		t.check(item.chance < 1.0 and item.min_day >= 8, "%s: rare, from week 2" % w.display_name)
 
 
 # ---------------------------------------------------------------- attack power
@@ -455,7 +456,7 @@ func test_weekly_stock_tiers() -> void:
 			var weights: Array = Run.shop_tier_weights(run.day)
 			for item in run.shop_stock():
 				var w := item.weapon
-				if w.is_magic() and not w.has_second_requirement():
+				if w.rare:
 					t.check(week >= 1, "rare weapons from week 2")
 					continue
 				t.check(float(weights[w.tier]) > 0.0, "week %d sells %s only if its weights allow" % [week + 1, w.display_name])
@@ -495,7 +496,7 @@ func test_weekly_stock_tiers() -> void:
 func test_stock_is_five_different_weapons() -> void:
 	for s in 30:
 		var run := make_run(700 + s)
-		var ladder := run.shop_stock().filter(func(i: ShopItemData) -> bool: return not i.weapon.is_magic() or i.weapon.has_second_requirement())
+		var ladder := run.shop_stock().filter(func(i: ShopItemData) -> bool: return not i.weapon.rare)
 		t.eq(ladder.size(), RunConfig.SHOP_WEAPONS_PER_WEEK, "seed %d: a handful of weapons" % s)
 		var seen := {}
 		var last_key := -1
@@ -503,12 +504,12 @@ func test_stock_is_five_different_weapons() -> void:
 			t.check(not seen.has(item.weapon), "seed %d: no two the same" % s)
 			seen[item.weapon] = true
 			var key: int = item.weapon.tier * 100 + item.weapon.weapon_type * 10 + (1 if item.weapon.has_second_requirement() else 0)
-			t.check(key > last_key, "seed %d: in order of tier and type" % s)
+			t.check(key >= last_key, "seed %d: in order of tier and type" % s)   # two families can share a main type
 			last_key = key
 		# Rare weapons, when in stock, come first.
 		var rare_done := false
 		for item in run.shop_stock():
-			if not (item.weapon.is_magic() and not item.weapon.has_second_requirement()):
+			if not item.weapon.rare:
 				rare_done = true
 			else:
 				t.check(not rare_done, "seed %d: rare items first" % s)
@@ -536,18 +537,21 @@ func test_event_weapon_fits_the_week() -> void:
 		run._draw_event_weapons()
 		var ch := any_choice if s % 2 == 0 else bow_choice
 		var w := run.choice_weapon(ch)
-		t.check(w != null and (not w.is_magic() or w.has_second_requirement()), "seed %d: a ladder or two-proficiency weapon is drawn" % s)
+		t.check(w != null and (not w.is_magic() or w.has_second_requirement() or w.rare), "seed %d: a ladder, two-proficiency or rare weapon is drawn" % s)
 		if w == null:
 			continue
 		if ch == bow_choice:
 			t.eq(w.weapon_type, WeaponData.WeaponType.BOW, "a bow")
 		var top := Run.smithy_top_tier(run.day)
 		var weights: Array = Run.shop_tier_weights(run.day)
-		t.check(float(weights[w.tier]) > 0.0 or w.tier == mini(top + 1, WeaponData.top_tier()),
-			"day %d: %s fits the week or is one above the smithy" % [run.day, w.display_name])
-		total += 1
-		if w.tier > top:
-			above += 1
+		if w.rare:
+			t.check(w.required_grade <= Run.rare_max_grade(run.day), "day %d: a rare %s fits the week's grade" % [run.day, w.display_name])
+		else:
+			t.check(float(weights[w.tier]) > 0.0 or w.tier == mini(top + 1, WeaponData.top_tier()),
+				"day %d: %s fits the week or is one above the smithy" % [run.day, w.display_name])
+			total += 1
+			if w.tier > top:
+				above += 1
 		# The same weapon until chosen, then it is in the armory and named.
 		t.eq(run.choice_weapon(ch), w, "the draw holds")
 		var before := run.inventory.weapons.size()
@@ -590,8 +594,11 @@ func test_boss_drops_a_weapon() -> void:
 			t.check(w != null, "day %d: a weapon is found" % boss_day)
 			if w == null:
 				continue
-			t.eq(w.tier, Run.boss_weapon_tier(boss_day), "day %d: the tier above the smithy" % boss_day)
-			t.check(not w.is_magic() or w.has_second_requirement(), "a ladder or two-proficiency weapon")
+			if w.rare:
+				t.check(boss_day == 28 or w.required_grade <= Proficiency.Grade.D, "day %d: a rare %s within the boss's grade" % [boss_day, w.display_name])
+			else:
+				t.eq(w.tier, Run.boss_weapon_tier(boss_day), "day %d: the tier above the smithy" % boss_day)
+			t.check(not w.is_magic() or w.has_second_requirement() or w.rare, "a ladder, two-proficiency or rare weapon")
 			t.eq(run.inventory.weapons.size(), before + 1, "into the armory")
 			t.check(run.inventory.weapons[-1].data == w and run.inventory.weapons[-1].holder == null, "unheld in the armory")
 			kinds[w.weapon_type] = true
@@ -823,7 +830,7 @@ func test_smithy_stocks_hybrids() -> void:
 			run.shop_week.clear()
 			run._stock_shop()
 			for item in run.shop_stock():
-				if run.content.shop.has(item):
+				if item.weapon.rare:
 					continue
 				var w := item.weapon
 				if w.tier >= WeaponData.Tier.BRONZE and w.tier <= WeaponData.Tier.SILVER:

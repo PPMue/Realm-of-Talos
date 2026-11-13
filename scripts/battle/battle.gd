@@ -175,19 +175,24 @@ func focus_amount(c: CompanionUnit) -> int:
 
 
 ## Forecast of one strike by a companion on an enemy: a plain attack, or with `art`'s bonuses.
-## For an art that strikes twice, this is each strike. Damage = attack power (by weapon type, see
-## CombatMath.attack_power) + Mt (+ the art's bonus) - DEF; a magic weapon uses MAG against RES.
-## Effective (weapon or art against one of the target's traits): half as much again, once.
+## For an action that strikes twice (an art's strikes, a weapon's attack_strikes), this is each strike
+## and `strikes` says how many. Damage = attack power (by weapon type, see CombatMath.attack_power) +
+## Mt (the weapon's for this wielder, + the art's bonus) - DEF; a magic weapon uses MAG against RES.
+## The weapon's crit bonus adds to the art's; of the weapon's and the art's DEF ignored, the larger
+## counts. Effective (weapon or art against one of the target's traits): half as much again, once.
 func forecast(c: CompanionUnit, target: EnemyUnit, art: CombatArtData = null) -> AttackForecast:
 	var w := c.weapon()
 	var effective := is_effective(c, target, art)
 	var power := CombatMath.attack_power(c, w)
+	var might := c.weapon_might()
 	var f: AttackForecast
 	if art == null:
-		f = CombatMath.forecast(c, w.might, w.hit, 0, target, 0, w.damage_type, effective, power)
+		f = CombatMath.forecast(c, might, w.hit, w.crit_bonus, target, w.ignore_def_percent, w.damage_type, effective, power)
+		f.strikes = maxi(1, w.attack_strikes)
 	else:
-		f = CombatMath.forecast(c, w.might + art.might_bonus, w.hit + art.hit_bonus, art.crit_bonus, target,
-			art.ignore_def_percent, w.damage_type, effective, power)
+		f = CombatMath.forecast(c, might + art.might_bonus, w.hit + art.hit_bonus, art.crit_bonus + w.crit_bonus, target,
+			maxi(art.ignore_def_percent, w.ignore_def_percent), w.damage_type, effective, power)
+		f.strikes = maxi(1, art.strikes)
 	f.reflect = reflect_amount(c, target, f.damage)
 	f.reflect_crit = reflect_amount(c, target, f.crit_damage)
 	return f
@@ -303,7 +308,12 @@ func attack(c: CompanionUnit, target: EnemyUnit) -> bool:
 	_begin_tick()
 	_log("%s attacks %s with %s." % [c.display_name, target.display_name, c.weapon().display_name])
 	_emit({"type": "strike", "actor": c, "target": target, "name": "Attack", "art": null})
-	var landed := _companion_strike(c, target, null)
+	var landed := false
+	for i in maxi(1, c.weapon().attack_strikes):
+		if not target.is_alive() or not c.is_active():
+			break
+		if _companion_strike(c, target, null):
+			landed = true
 	_add_points(c, BattleConfig.POINTS_ATTACK_HIT if landed else BattleConfig.POINTS_ATTACK_MISS)
 	_gain_proficiency(c, BattleConfig.PROFICIENCY_POINTS_ATTACK)
 	_end_player_action(c, BattleConfig.RECOVERY_ATTACK)
@@ -586,6 +596,14 @@ func _companion_strike(c: CompanionUnit, target: EnemyUnit, art: CombatArtData) 
 		"effective": f.effective, "magic": f.magic})
 	var back := reflect_amount(c, target, dmg)
 	_after_enemy_hurt(target, c)
+	var w := c.weapon()
+	if w.lifesteal_percent > 0 and c.is_active():
+		var drained := floori(dmg * w.lifesteal_percent / 100.0)
+		if drained > 0 and c.hp < c.max_hp():
+			_log("  %s drinks %d HP through %s." % [c.display_name, mini(drained, c.max_hp() - c.hp), w.display_name])
+			heal(c, drained)
+	if w.on_hit_effect != null and target.is_alive():
+		_apply_effect(target, w.on_hit_effect, false, c)
 	if back > 0 and c.is_active():
 		_log("  %s's %s strikes back at %s!" % [target.display_name, _reflect_name(target), c.display_name])
 		_emit({"type": "reflect", "source": target, "target": c, "amount": back})

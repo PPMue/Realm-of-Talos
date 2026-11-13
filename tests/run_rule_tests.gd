@@ -701,7 +701,7 @@ func test_weekly_refresh() -> void:
 		# Day 8: a new week, a new roll.
 		t.eq(run.day, 8, "seed %d: week 2" % s)
 		# A new stock is rolled: none of last week's ladder items is left over.
-		var ladder := run.shop_stock().filter(func(i: ShopItemData) -> bool: return not i.weapon.is_magic() or i.weapon.has_second_requirement())
+		var ladder := run.shop_stock().filter(func(i: ShopItemData) -> bool: return not i.weapon.rare)
 		t.eq(ladder.size(), RunConfig.SHOP_WEAPONS_PER_WEEK, "seed %d: a new week's ladder weapons" % s)
 		for item: ShopItemData in ladder:
 			t.check(not stock.has(item) and item != bought and item.min_day == 8, "seed %d: rolled for week 2" % s)
@@ -953,9 +953,9 @@ func test_run_content() -> void:
 				"%s %s: more might" % [WeaponData.type_name(t_kind), WeaponData.tier_name(tier)])
 			last_grade = w.required_grade
 			last_might = w.might
-	# The rare items in the smithy are the magic weapons.
-	for item in rc.shop:
-		t.check(item.weapon.is_magic() and item.chance < 1.0, "%s is a rare magic weapon" % item.weapon.display_name)
+	# The magic weapons are among the rare weapons.
+	for w in rc.rare_weapons:
+		t.check(w.rare, "%s is marked rare" % w.display_name)
 
 
 # ---------------------------------------------------------------- levels

@@ -67,6 +67,25 @@ func weight_penalty() -> int:
 	return CombatMath.weight_penalty(total_weight(), stat(Stat.BLD))
 
 
+## A stat as it stands in battle: with the held weapon's bonuses (WeaponData.held_stats) on top.
+func stat(key: String) -> int:
+	var w := weapon()
+	if w == null or not w.held_stats.has(key):
+		return super(key)
+	return maxi(0, super(key) + int(w.held_stats[key]))
+
+
+## Effects' aim multipliers times the held weapon's (WeaponData.target_weight_mult).
+func target_weight_mult() -> float:
+	var w := weapon()
+	return super() * (w.target_weight_mult if w != null else 1.0)
+
+
+## Mt of the weapon held for this companion (WeaponData.might_for).
+func weapon_might() -> int:
+	return weapon().might_for(progress) if weapon() != null else 0
+
+
 func stat_penalty(key: String) -> int:
 	if key == Stat.DEX or key == Stat.SPD:
 		return weight_penalty()

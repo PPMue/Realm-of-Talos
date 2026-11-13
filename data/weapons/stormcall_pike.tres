@@ -11,5 +11,7 @@ hit = 80
 damage_type = 1
 required_grade = 2
 effective_against = Array[String](["Large"])
+rare = true
+price = 150
 display_name = "Stormcall Pike"
 weight = 7

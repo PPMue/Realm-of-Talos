@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="WeaponData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_data.gd" id="1_w"]
+
+[resource]
+script = ExtResource("1_w")
+weapon_type = 4
+tier = 2
+might = 4
+hit = 90
+required_grade = 4
+rare = true
+price = 280
+gold_per_kill = 10
+display_name = "Magpie"
+weight = 3

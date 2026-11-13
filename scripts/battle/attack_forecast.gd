@@ -14,3 +14,6 @@ var effective := false
 ## 0 when the target reflects nothing. Spells never are.
 var reflect: int = 0
 var reflect_crit: int = 0
+## Strikes the action makes, each rolled on its own and each doing the figures above: an art's
+## `strikes`, or for a plain Attack the weapon's `attack_strikes`.
+var strikes: int = 1

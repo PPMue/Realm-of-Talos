@@ -371,9 +371,17 @@ func finish_battle(battle: Battle) -> BattleReport:
 	if report.won:
 		battles_won += 1
 		_grant_xp(report, front.xp_pool, standing, points)
-		report.gold = front.reward_gold
+		# Weapons that pay for kills (WeaponData.gold_per_kill): only on a win.
+		for i in fielded.size():
+			var unit := battle.roster[i]
+			var w := unit.weapon()
+			if w != null and w.gold_per_kill > 0 and battle.kills_of(unit) > 0:
+				var earned := battle.kills_of(unit) * w.gold_per_kill
+				report.kill_gold += earned
+				report.kill_gold_by[fielded[i].display_name()] = earned
+		report.gold = front.reward_gold + report.kill_gold
 		report.materials = front.reward_materials.duplicate()
-		gold += front.reward_gold
+		gold += report.gold
 		_add_materials(front.reward_materials)
 		if front.is_boss and day >= RunConfig.DAYS:
 			_end(Outcome.VICTORY, "The last boss has fallen. The city stands.")
@@ -1007,13 +1015,18 @@ func _make_tavern_offers() -> void:
 		tavern_offers.append(pool.pop_at(rng.randi_range(0, pool.size() - 1)))
 
 
-## The week's stock: each rare item sold by today on a roll of its chance, first; then
-## RunConfig.SHOP_WEAPONS_PER_WEEK different weapons, each a tier drawn by the week's weights and then
+## The week's stock: with RunConfig.SHOP_RARE_CHANCE one rare weapon whose grade fits the week
+## (rare_max_grade), first; then RunConfig.SHOP_WEAPONS_PER_WEEK different weapons, each a tier drawn by the week's weights and then
 ## (see _random_weapon) a two-proficiency weapon of that tier with RunConfig.SHOP_HYBRID_CHANCE, else
 ## a ladder weapon of a random type; priced by weapon_price, in order of tier and type.
 func _stock_shop() -> void:
-	for item in content.shop_stock(day):
-		if item.chance >= 1.0 or rng.randf() < item.chance:
+	if rng.randf() < RunConfig.SHOP_RARE_CHANCE:
+		var rare := _random_rare(rare_max_grade(day))
+		if rare != null:
+			var item := ShopItemData.new()
+			item.weapon = rare
+			item.price = weapon_price(rare)
+			item.min_day = day
 			shop_week.append(item)
 	var weights := shop_tier_weights(day)
 	var picked: Array[WeaponData] = []
@@ -1050,9 +1063,11 @@ func _roll_tier(weights: Array) -> int:
 	return smithy_top_tier(day)
 
 
-## The smithy's price of `w`: its tier's price; a two-proficiency weapon x RunConfig.HYBRID_PRICE_MULT,
-## rounded to the nearest RunConfig.PRICE_ROUND_TO.
+## The smithy's price of `w`: a rare weapon's own price; else its tier's price, a two-proficiency weapon
+## x RunConfig.HYBRID_PRICE_MULT rounded to the nearest RunConfig.PRICE_ROUND_TO.
 static func weapon_price(w: WeaponData) -> int:
+	if w.rare and w.price > 0:
+		return w.price
 	var base: int = RunConfig.WEAPON_PRICE_BY_TIER[w.tier]
 	if not w.has_second_requirement():
 		return base
@@ -1078,7 +1093,8 @@ func _random_ladder_weapon(tier: int, type: int = -1) -> WeaponData:
 
 ## Draws the random weapon of every choice of today's event that grants one: a tier drawn like the
 ## week's stock, or with RunConfig.EVENT_WEAPON_TIER_UP_CHANCE one above the best the smithy sells;
-## maybe a two-proficiency weapon of that tier and type (see _random_weapon).
+## maybe a two-proficiency weapon of that tier and type (see _random_weapon); and with
+## RunConfig.EVENT_RARE_CHANCE a rare weapon of that type whose grade fits the week instead.
 func _draw_event_weapons() -> void:
 	event_weapons.clear()
 	if event == null:
@@ -1090,17 +1106,45 @@ func _draw_event_weapons() -> void:
 		if rng.randf() < RunConfig.EVENT_WEAPON_TIER_UP_CHANCE:
 			tier = mini(smithy_top_tier(day) + 1, WeaponData.top_tier())
 		var w := _random_weapon(tier, choice.random_weapon_type)
+		if rng.randf() < RunConfig.EVENT_RARE_CHANCE:
+			var rare := _random_rare(rare_max_grade(day), choice.random_weapon_type)
+			if rare != null:
+				w = rare
 		if w != null:
 			event_weapons[choice] = w
 
 
 ## The weapon a beaten boss drops (see boss_weapon_tier): any type, at random, maybe a two-proficiency
-## one (see _random_weapon). Null for the last boss.
+## one (see _random_weapon); with RunConfig.BOSS_RARE_CHANCE a rare weapon in its place (day 14: one
+## needing at most D; day 28: any). Null for the last boss.
 func _boss_weapon() -> WeaponData:
 	var tier := boss_weapon_tier(day)
 	if tier < 0:
 		return null
-	return _random_weapon(tier)
+	var w := _random_weapon(tier)
+	if rng.randf() < RunConfig.BOSS_RARE_CHANCE:
+		var cap: int = RunConfig.BOSS_RARE_MAX_GRADE[clampi(RunCalendar.boss_index(day), 0, RunConfig.BOSS_RARE_MAX_GRADE.size() - 1)]
+		var rare := _random_rare(cap)
+		if rare != null:
+			w = rare
+	return w
+
+
+## The highest grade a rare weapon may need to be sold or given in the week of day `d`
+## (RunConfig.RARE_GRADE_BY_WEEK); -1: none that week.
+static func rare_max_grade(d: int) -> int:
+	var weeks: Array[int] = RunConfig.RARE_GRADE_BY_WEEK
+	return weeks[clampi(RunCalendar.week_of(d) - 1, 0, weeks.size() - 1)]
+
+
+## A random rare weapon needing at most `max_grade` (of type `type`, or any with -1), or null.
+func _random_rare(max_grade: int, type: int = -1) -> WeaponData:
+	if max_grade < 0:
+		return null
+	var pool := content.rare_pool(max_grade, type)
+	if pool.is_empty():
+		return null
+	return pool[rng.randi_range(0, pool.size() - 1)]
 
 
 func _pick_event() -> EventData:

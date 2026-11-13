@@ -54,6 +54,9 @@ func weapon() -> WeaponData:
 func attack_power(w: WeaponData = null) -> int:
 	var held := w if w != null else weapon()
 	var st := progress.stats()
+	if held != null:
+		for key: String in held.held_stats:
+			st[key] = int(st.get(key, 0)) + int(held.held_stats[key])
 	var total_weight := 0
 	for item: EquipmentData in [held, data.armor, data.accessory]:
 		if item != null:
@@ -64,11 +67,12 @@ func attack_power(w: WeaponData = null) -> int:
 		int(st.get(Stat.BLD, 0)))
 
 
-## "Attack" on the barracks page: attack power with `w` (default: the weapon held) + its Mt. A strike
-## deals this minus the target's DEF (RES for a magic weapon).
+## "Attack" on the barracks page: attack power with `w` (default: the weapon held) + its Mt for this
+## companion (WeaponData.might_for). A strike deals this minus the target's DEF (RES for a magic
+## weapon). Bonuses while held count.
 func attack(w: WeaponData = null) -> int:
 	var held := w if w != null else weapon()
-	return attack_power(held) + (held.might if held != null else 0)
+	return attack_power(held) + (held.might_for(progress) if held != null else 0)
 
 
 func heal(amount: int) -> int:

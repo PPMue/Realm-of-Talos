@@ -14,9 +14,10 @@ const DEFAULT_PATH := "res://data/run/run_content.tres"
 ## normal enemies.
 @export var bosses: Array[EnemyGroupData] = []
 @export var events: Array[EventData] = []
-## The rare magic weapons the smithy may stock (each on its own chance, from its own first day).
-## The ladder weapons it sells are rolled from `weapons` instead.
-@export var shop: Array[ShopItemData] = []
+## The rare weapons (WeaponData.rare): off the ladder, each needs a grade in its type and has a
+## property of its own; the four magic weapons are among them. The smithy, bosses and events may draw
+## one (RunConfig.SHOP_RARE_CHANCE, BOSS_RARE_CHANCE, EVENT_RARE_CHANCE).
+@export var rare_weapons: Array[WeaponData] = []
 ## The weapon ladder: one of every type in every tier (WeaponData.Tier), 30 in all. The smithy's
 ## weekly stock, events that grant a weapon and the bosses' drops are drawn from it.
 @export var weapons: Array[WeaponData] = []
@@ -73,10 +74,10 @@ func hybrids_of_tier(tier: int, type: int = -1) -> Array[WeaponData]:
 	return out
 
 
-## The rare items that may be stocked on `day` (each still rolls its chance).
-func shop_stock(day: int) -> Array[ShopItemData]:
-	var out: Array[ShopItemData] = []
-	for s in shop:
-		if s.min_day <= day:
-			out.append(s)
+## The rare weapons needing at most `max_grade` in their type, optionally of one type only (-1: any).
+func rare_pool(max_grade: int, type: int = -1) -> Array[WeaponData]:
+	var out: Array[WeaponData] = []
+	for w in rare_weapons:
+		if w.required_grade <= max_grade and (type < 0 or w.weapon_type == type):
+			out.append(w)
 	return out

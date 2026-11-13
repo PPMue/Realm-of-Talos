@@ -37,6 +37,31 @@ const TIER_NAMES: Array[String] = ["Wooden", "Bronze", "Iron", "Steel", "Silver"
 @export var second_grade: Proficiency.Grade = Proficiency.Grade.E
 ## The two-proficiency family ("Halberd", ...); "" for every other weapon.
 @export var family: String = ""
+
+@export_group("Rare")
+## A rare weapon (RunContent.rare_weapons): off the metal ladder, it needs a grade in its type (not a
+## tier) and has a property no ladder weapon has (the fields below; see trait_lines()).
+@export var rare: bool = false
+## Smithy price of a rare weapon (ladder weapons are priced by tier; see Run.weapon_price).
+@export var price: int = 0
+## Added to the crit chance of Attack and of every art made with it.
+@export var crit_bonus: int = 0
+## Strikes of a plain Attack, each rolled on its own (arts keep their own count).
+@export var attack_strikes: int = 1
+## Share (percent) of the damage it deals that heals the wielder (rounded down, never above max HP).
+@export var lifesteal_percent: int = 0
+## Share (percent) of the target's DEF ignored; with an art that ignores DEF too, the larger counts.
+@export var ignore_def_percent: int = 0
+## Stat key -> bonus while held (e.g. {"DEF": 3}).
+@export var held_stats: Dictionary = {}
+## Multiplies how likely enemies are to aim at the wielder (1.0: no change).
+@export var target_weight_mult: float = 1.0
+## Applied to the target on every hit that lands (Attack and arts), e.g. a poison.
+@export var on_hit_effect: StatusEffectData
+## Gold for every enemy its wielder fells in a won battle.
+@export var gold_per_kill: int = 0
+## Mt is the ladder base Mt of the best tier the wielder's grade in its type can hold
+## (BattleConfig.WEAPON_TIER_BASE_MIGHT; no type offset), in place of `might`. See might_for().
 ## A rare weapon may grant an art of its own while equipped. No weapon uses this yet.
 @export var unique_art: CombatArtData
 ## Reserved for weapon durability (-1 = unbreakable). Not used yet.
@@ -65,8 +90,61 @@ static func top_tier() -> int:
 	return Tier.PLATINUM
 
 
+@export var might_by_grade: bool = false
+
+
 func is_magic() -> bool:
 	return damage_type == CombatMath.DamageType.MAGIC
+
+
+func is_rare() -> bool:
+	return rare
+
+
+## Mt for a wielder with progress `p` (null: the listed `might`). A might_by_grade weapon uses the
+## ladder base Mt of the best tier their grade in its type can hold: 3 at D, 6 at C, 9 at B, 12 at A,
+## 15 at S.
+func might_for(p: CompanionProgress) -> int:
+	if not might_by_grade or p == null:
+		return might
+	return grade_might(p.grade(weapon_type))
+
+
+## Ladder base Mt of the best tier `grade` can hold.
+static func grade_might(grade: int) -> int:
+	var tier := 0
+	for t in BattleConfig.WEAPON_TIER_GRADE.size():
+		if grade >= BattleConfig.WEAPON_TIER_GRADE[t]:
+			tier = t
+	return BattleConfig.WEAPON_TIER_BASE_MIGHT[tier]
+
+
+## A rare or magic weapon's special properties in short lines for display; empty for others.
+func trait_lines() -> Array[String]:
+	var out: Array[String] = []
+	if might_by_grade:
+		out.append("Mt grows with the wielder's %s grade (3 at D up to 15 at S)" % type_name(weapon_type).to_lower())
+	if is_magic():
+		out.append("Strikes with MAG against RES")
+	if attack_strikes > 1:
+		out.append("An Attack strikes %s" % ("twice" if attack_strikes == 2 else "%d times" % attack_strikes))
+	if crit_bonus != 0:
+		out.append("Crit %+d" % crit_bonus)
+	if lifesteal_percent > 0:
+		out.append("Heals the wielder for %s the damage dealt" % ("half" if lifesteal_percent == 50 else "%d%% of" % lifesteal_percent))
+	if ignore_def_percent > 0:
+		out.append("Ignores %s the target's DEF" % ("half" if ignore_def_percent == 50 else "%d%% of" % ignore_def_percent))
+	for key: String in held_stats:
+		out.append("%s %+d while held" % [key, int(held_stats[key])])
+	if target_weight_mult > 1.0:
+		out.append("Enemies are %.1fx as likely to aim at the wielder" % target_weight_mult)
+	elif target_weight_mult < 1.0:
+		out.append("Enemies are less likely to aim at the wielder")
+	if on_hit_effect != null:
+		out.append("Every hit that lands: %s" % on_hit_effect.summary())
+	if gold_per_kill > 0:
+		out.append("+%d gold for every enemy felled in a won battle" % gold_per_kill)
+	return out
 
 
 ## True for a two-proficiency weapon.

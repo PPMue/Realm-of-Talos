@@ -902,17 +902,17 @@ func test_rare_shop_stock() -> void:
 		var run := make_run(2000 + s)
 		# Week 1's stock was rolled on day 1.
 		for item in run.shop_stock():
-			if (item.weapon.is_magic() and not item.weapon.has_second_requirement()):
+			if item.weapon.rare and item.weapon.is_magic():
 				early_rare += 1
 		run.day = 8
 		run._begin_day()
 		weeks += 1
 		for item in run.shop_stock():
-			if (item.weapon.is_magic() and not item.weapon.has_second_requirement()):
+			if item.weapon.rare and item.weapon.is_magic():
 				rare += 1
 	t.eq(early_rare, 0, "no magic weapons in the first week's smithy")
 	var per_week := float(rare) / weeks
-	t.check(per_week > 0.2 and per_week < 1.2, "rare from week 2: %.2f magic weapons per week" % per_week)
+	t.check(per_week > 0.03 and per_week < 0.3, "rare from week 2: %.2f magic weapons per week" % per_week)
 	var run2 := make_run(4)
 	t.eq(run2.day_type(), RunCalendar.DayType.BATTLE, "day 1 is a battle")
 	t.check(not run2.shop_stock().is_empty(), "the week's stock is there on a battle day")

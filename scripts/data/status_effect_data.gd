@@ -11,7 +11,7 @@ extends Resource
 @export var target_weight_mult: float = 1.0
 @export var duration_ticks: int = 3
 ## Damage over time (poison, burning): HP lost at the end of every tick while it lasts. Flat; Guard and
-## damage-taken multipliers do not change it. It can injure a companion but never removes an injured one.
+## damage-taken multipliers do not change it. It can injure a companion (and ends with the injury).
 @export var damage_per_tick: int = 0
 ## Reflection: a weapon strike or combat art that lands on the bearer hurts the striker for this share
 ## (percent) of the damage it dealt, at least 1. Spells are never reflected.
