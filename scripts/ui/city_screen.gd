@@ -510,16 +510,21 @@ func _time_cost() -> String:
 
 
 func _hurt_text() -> String:
+	# Only those a rest reaches: nobody in the infirmary.
 	var hurt := 0
 	var spent := 0
-	for c in run.roster:
+	var fit := run.available()
+	for c in fit:
 		if c.hp < c.max_hp():
 			hurt += 1
 		if c.progress.has_spent_uses():
 			spent += 1
-	var text := "%d of %d are hurt." % [hurt, run.roster.size()]
+	var text := "%d of %d are hurt." % [hurt, fit.size()]
 	if spent > 0:
 		text += "  %d %s low on spells." % [spent, "is" if spent == 1 else "are"]
+	var abed := run.infirmary().size()
+	if abed > 0:
+		text += "  Rest does nothing for the %s in the infirmary." % ("one" if abed == 1 else NUMBER_WORDS[mini(abed, 5)])
 	return text
 
 
