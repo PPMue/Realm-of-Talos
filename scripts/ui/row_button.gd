@@ -189,7 +189,8 @@ func _draw_paper() -> void:
 		var dc := UiTheme.WAX if (disabled or active) else UiTheme.PARCHMENT_MUTED
 		if lit:
 			dc = UiTheme.WAX.darkened(0.2)
-		UiTheme.draw_text(self, italic, Vector2(right - dw, (h - italic.get_height(16)) * 0.5), detail, 16, dc, 0, dw,
+		# With notes under it the tag sits beside the title, and the lines below have the whole width.
+		UiTheme.draw_text(self, italic, Vector2(right - dw, (h - italic.get_height(16)) * 0.5 if notes.is_empty() else 11.0), detail, 16, dc, 0, dw,
 			HORIZONTAL_ALIGNMENT_RIGHT)
 	if marked:
 		UiIcons.diamond(self, Vector2(x + 6.0, (h * 0.5 - 10.0) if notes.is_empty() else 21.0), 6.0, Color(UiTheme.WAX, 0.6 if disabled else 1.0))
@@ -201,10 +202,11 @@ func _draw_paper() -> void:
 	if not notes.is_empty():
 		# Title, small print, then the notes; the tag on the right keeps to the middle.
 		UiTheme.draw_text(self, display, Vector2(x, 7.0), title, title_size, ink, 0, room)
-		UiTheme.draw_text(self, body, Vector2(x + 1.0, 35.0), sub, 14, small, 0, room)
+		var wide := right - x
+		UiTheme.draw_text(self, body, Vector2(x + 1.0, 35.0), sub, 14, small, 0, wide)
 		var note_ink := Color(UiTheme.WAX.darkened(0.25), 0.7 if disabled else 1.0)
 		for i in notes.size():
-			UiTheme.draw_text(self, italic, Vector2(x + 1.0, 55.0 + i * NOTE_STEP), notes[i], 15, note_ink, 0, room)
+			UiTheme.draw_text(self, italic, Vector2(x + 1.0, 55.0 + i * NOTE_STEP), notes[i], 15, note_ink, 0, wide)
 	elif sub != "":
 		UiTheme.draw_text(self, display, Vector2(x, h * 0.5 - display.get_height(title_size) + 3.0), title, title_size, ink, 0, room)
 		UiTheme.draw_text(self, body, Vector2(x + 1.0, h * 0.5 + 3.0), sub, 14, small, 0, room)

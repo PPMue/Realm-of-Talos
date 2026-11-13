@@ -17,10 +17,14 @@ const COUNTER_Y := 560.0
 const COUNTER_H := 56.0
 const HIRE_ART := 600.0
 const HIRE_FACE_Y := 230.0
-const HIRE_STEP := 560.0
-const PAPER := Vector2(520, 412)
+const HIRE_STEP := 700.0
+const PAPER := Vector2(640, 406)
 const PAPER_Y := 628.0
 const PAPER_PAD := 28.0
+## A hire's stats and growth rates stand side by side on the paper, from here down.
+const PAPER_STATS_Y := 136.0
+const PAPER_STAT_ROW := 25.0
+const PAPER_GROWTH_ROW := 30.0
 ## Smithy: the price list, and the company beside it.
 const PAGE := Rect2(770, 110, 1110, 946)
 const PAGE_PAD := 36.0
@@ -174,13 +178,9 @@ func _draw_tavern() -> void:
 	_tavern.draw_rect(Rect2(0, COUNTER_Y + COUNTER_H, w, 500.0), Color(0.07, 0.05, 0.04, 0.55))
 
 
-## Every paper and what lies on it drawn again, after the stat view (values or growth) changed.
-func _redraw_papers() -> void:
-	for paper in _papers.get_children():
-		paper.queue_redraw()
-		for child in paper.get_children():
-			if child is CanvasItem:
-				child.queue_redraw()
+## Where the two stat tables on a hire's paper end.
+static func _paper_stats_end() -> float:
+	return PAPER_STATS_Y + StatTable.HEAD_H + maxf(StatTable.values_height(2, PAPER_STAT_ROW), StatTable.growth_height(2, PAPER_GROWTH_ROW))
 
 
 ## A hire's paper, laid on the counter under them.
@@ -203,18 +203,18 @@ func _paper_for(data: CompanionData, x: float) -> Control:
 		paper.draw_line(Vector2(PAPER_PAD, 74.0), Vector2(PAPER_PAD + inner, 74.0), Color(ink, 0.45), 1.0)
 		UiTheme.draw_text(paper, body, Vector2(PAPER_PAD, 82.0), _skills_text(data), 17, ink)
 		UiTheme.draw_text(paper, italic, Vector2(PAPER_PAD, 106.0), _brings_text(data), 15, muted)
-		StatTable.draw(paper, Vector2(PAPER_PAD, 140.0), inner, 3, data.base_stats(), data)
-		paper.draw_line(Vector2(PAPER_PAD, 140.0 + StatTable.height(3) + 8.0), Vector2(PAPER_PAD + inner, 140.0 + StatTable.height(3) + 8.0),
-			Color(ink, 0.45), 1.0))
-	var toggle := StatToggle.new()
-	toggle.place(StatTable.free_cell(Vector2(PAPER_PAD, 140.0), inner, 3))
-	toggle.changed.connect(_redraw_papers)
-	paper.add_child(toggle)
+		var half := (inner - 30.0) * 0.5
+		var top := PAPER_STATS_Y + StatTable.HEAD_H
+		StatTable.head(paper, Vector2(PAPER_PAD, PAPER_STATS_Y), half, "STATS")
+		StatTable.draw_values(paper, Vector2(PAPER_PAD, top), half, 2, data.base_stats(), "", PAPER_STAT_ROW)
+		StatTable.head(paper, Vector2(PAPER_PAD + half + 30.0, PAPER_STATS_Y), half, "GROWTH", "chance to rise")
+		StatTable.draw_growth(paper, Vector2(PAPER_PAD + half + 30.0, top), half, 2, data, PAPER_GROWTH_ROW)
+		paper.draw_line(Vector2(PAPER_PAD, _paper_stats_end() + 6.0), Vector2(PAPER_PAD + inner, _paper_stats_end() + 6.0), Color(ink, 0.45), 1.0))
 	var seal := ActionButton.new()
 	seal.paper = true
 	seal.title = "Hire"
 	seal.h = 50.0
-	seal.position = Vector2(PAPER_PAD - 6.0, 140.0 + StatTable.height(3) + 16.0)
+	seal.position = Vector2(PAPER_PAD - 6.0, _paper_stats_end() + 12.0)
 	var why := run.hire_block_reason(data)
 	seal.disabled = why != ""
 	seal.detail = "%d gold" % RunConfig.HIRE_COST if why == "" else why.trim_suffix(".").to_lower()
@@ -455,8 +455,4 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if key.keycode == KEY_ESCAPE:
 		close()
-		get_viewport().set_input_as_handled()
-	elif key.keycode == KEY_G and _tavern.visible:
-		StatToggle.flip()
-		_redraw_papers()
 		get_viewport().set_input_as_handled()

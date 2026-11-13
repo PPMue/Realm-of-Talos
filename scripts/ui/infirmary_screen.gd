@@ -1,7 +1,7 @@
 class_name InfirmaryScreen
 extends Control
-## The infirmary: a bed for everyone injured in battle. Each bed shows who lies in it, the seven days
-## of their stay as marks (those behind them filled in), the day they will be up again, and a slip
+## The infirmary: a bed for everyone injured in battle. Each bed shows who lies in it, the days of
+## their stay (RunConfig.INFIRMARY_DAYS) as marks (those behind them filled in), the day they will be up again, and a slip
 ## for paying the healer to have them on their feet today: the price falls with every day already
 ## served and rises with their level, and it is the day's one thing. Rest at the inn does nothing for
 ## them. Can be entered on any day, to look. Only reads the run and calls Run.cure.
@@ -104,7 +104,7 @@ func _bed(c: RunCompanion, h: float) -> Control:
 		UiTheme.draw_text(bed, display, Vector2(x, 2.0), c.display_name(), 38, UiTheme.TEXT, 6)
 		var nw := display.get_string_size(c.display_name(), HORIZONTAL_ALIGNMENT_LEFT, -1, 38).x
 		UiTheme.draw_text(bed, italic, Vector2(x + nw + 16.0, 20.0), "level %d" % c.level(), 20, UiTheme.TEXT.lerp(UiTheme.MUTED, 0.45), 4)
-		# Seven days: the ones served filled in.
+		# The days of the stay: the ones served filled in.
 		for d in RunConfig.INFIRMARY_DAYS:
 			var at := Vector2(x + 12.0 + d * 30.0, 70.0)
 			if d < served:
@@ -160,7 +160,7 @@ func _build() -> void:
 	var title := UiTheme.label("THE INFIRMARY", 44, UiTheme.GOLD, true, 8)
 	title.position = Vector2(60, 20)
 	add_child(title)
-	_hint = UiTheme.label("\"A week in bed mends most things, Commander. Sleep at the inn will not. Coin can hurry me, if you must have them today.\"",
+	_hint = UiTheme.label("\"A few days in bed mend most things, Commander. Sleep at the inn will not. Coin can hurry me, if you must have them today.\"",
 		20, UiTheme.TEXT.lerp(UiTheme.MUTED, 0.5), false, 4)
 	_hint.add_theme_font_override("font", UiTheme.italic_font())
 	_hint.position = Vector2(64, 78)
