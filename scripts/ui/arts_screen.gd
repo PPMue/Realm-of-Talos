@@ -146,7 +146,8 @@ func _make_tab(p: CompanionProgress) -> Control:
 	art.size = TAB_SIZE
 	art.texture = p.data.portrait
 	art.focus = p.data.portrait_focus + Vector2(-0.06, 0.0)
-	art.zoom = 2.1
+	art.zoom = 2.1 * p.data.figure_scale
+	art.backing = true
 	art.shade = 0.92
 	tab.add_child(art)
 	var label := UiTheme.label(p.data.display_name.to_upper(), 40, UiTheme.TEXT, true, 8)

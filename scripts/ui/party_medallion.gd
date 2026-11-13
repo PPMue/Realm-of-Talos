@@ -71,7 +71,8 @@ func _draw() -> void:
 	var dim := Color.WHITE if _fielded else Color(0.62, 0.6, 0.58)
 	draw_circle(c + Vector2(0, 3), r + 5.0, Color(0, 0, 0, 0.5))
 	draw_circle(c, r + 4.0, UiTheme.INK)
-	UiIcons.portrait(self, c, r, companion.data.portrait, companion.data.portrait_focus + Vector2(0.0, 0.02), 0.3, dim)
+	UiIcons.portrait(self, c, r, companion.data.portrait, companion.data.portrait_focus + Vector2(0.0, 0.02),
+		0.3 / companion.data.figure_scale, dim)
 	# Health: an arc clockwise from the top, over a dark ring.
 	var frac := clampf(float(companion.hp) / maxf(1.0, companion.max_hp()), 0.0, 1.0)
 	draw_arc(c, r + 2.0, 0.0, TAU, 48, UiTheme.GOLD if _hover else UiTheme.GOLD_DEEP, 2.0, true)

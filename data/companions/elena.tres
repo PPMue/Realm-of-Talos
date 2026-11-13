@@ -11,6 +11,7 @@ display_name = "Elena"
 portrait = ExtResource("1_b42f8")
 color = Color(0.35, 0.3, 0.3, 1)
 portrait_focus = Vector2(0.522, 0.116)
+figure_scale = 1.2
 max_hp = 30
 strength = 11
 magic = 1

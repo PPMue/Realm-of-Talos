@@ -9,7 +9,7 @@ extends Control
 ##   title     the heading
 ##   body      what is said, in italics
 ##   facts     plain small print: what a choice costs and does
-##   portraits [{texture, focus, name, sub}] shown in a row under the body
+##   portraits [{texture, focus, scale, name, sub}] shown in a row under the body
 ##   choices   [{label, sub, why, action}]; `why` not "" greys the choice out and says why
 ##   leave     the words for putting the letter down; "" means it must be answered
 ##   width     sheet width (default 880)
@@ -252,7 +252,8 @@ func _draw_portraits(row: Control, portraits: Array) -> void:
 		var c := Vector2(x0 + step * (i + 0.5), 60.0)
 		row.draw_circle(c + Vector2(2, 3), 60.0, Color(0, 0, 0, 0.3))
 		row.draw_circle(c, 60.0, UiTheme.PARCHMENT_INK)
-		UiIcons.portrait(row, c, 56.0, p.get("texture"), p.get("focus", Vector2(0.5, 0.2)) + Vector2(0.0, 0.02), 0.3)
+		UiIcons.portrait(row, c, 56.0, p.get("texture"), p.get("focus", Vector2(0.5, 0.2)) + Vector2(0.0, 0.02),
+			0.3 / float(p.get("scale", 1.0)))
 		UiTheme.draw_text(row, display, Vector2(c.x - step * 0.5, 126.0), String(p.get("name", "")), 24, UiTheme.PARCHMENT_INK, 0, step,
 			HORIZONTAL_ALIGNMENT_CENTER)
 		UiTheme.draw_text(row, italic, Vector2(c.x - step * 0.5, 154.0), String(p.get("sub", "")), 16, UiTheme.PARCHMENT_MUTED, 0, step,

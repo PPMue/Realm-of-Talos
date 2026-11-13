@@ -279,7 +279,8 @@ func _open_opening() -> void:
 		var kind := WeaponData.type_name(c.weapon().weapon_type).to_lower()
 		if c.data.is_mage():
 			kind = "%s mage" % ("black" if c.data.signature_spell.school == SpellData.School.BLACK else "white")
-		portraits.append({"texture": c.data.portrait, "focus": c.data.portrait_focus, "name": c.display_name(), "sub": kind})
+		portraits.append({"texture": c.data.portrait, "focus": c.data.portrait_focus, "scale": c.data.figure_scale,
+			"name": c.display_name(), "sub": kind})
 	_letter.open({
 		"kicker": "To the Commander",
 		"title": "The Last City",

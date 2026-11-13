@@ -52,6 +52,7 @@ func _init() -> void:
 	_portrait.size = Vector2(W - PAD * 2.0, PORTRAIT_H)
 	_portrait.zoom = 1.9
 	_portrait.shade = 0.85
+	_portrait.backing = true
 	_portrait.border_width = 0.0
 	_body.add_child(_portrait)
 
@@ -102,9 +103,11 @@ func _init() -> void:
 		_restyle())
 
 
-func setup(display_name: String, portrait: Texture2D, focus: Vector2) -> void:
+## `figure_scale`: CompanionData.figure_scale, so every face in the line is the same size.
+func setup(display_name: String, portrait: Texture2D, focus: Vector2, figure_scale: float = 1.0) -> void:
 	_name.text = display_name
 	_portrait.texture = portrait
+	_portrait.zoom = 1.9 * figure_scale
 	_portrait.focus = focus + Vector2(0.0, 0.05)
 
 

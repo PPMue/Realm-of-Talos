@@ -30,6 +30,11 @@ var zoom := 1.0:
 	set(v):
 		zoom = v
 		queue_redraw()
+## Paint a plain ground behind the art: for cut-outs with no background of their own.
+var backing := false:
+	set(v):
+		backing = v
+		queue_redraw()
 var tint := Color.WHITE:
 	set(v):
 		tint = v
@@ -65,6 +70,11 @@ func _draw() -> void:
 	if texture == null:
 		UiTheme.draw_frame(self, rect, fill, border if border_width > 0.0 else fill, border_width, studs)
 		return
+	if backing:
+		var cols := PackedColorArray()
+		for p in pts:
+			cols.append(UiTheme.PORTRAIT_BACK.lerp(UiTheme.PORTRAIT_BACK_LOW, p.y / size.y) * Color(tint.r, tint.g, tint.b, 1.0))
+		draw_polygon(pts, cols)
 	draw_colored_polygon(pts, tint, _uvs(pts), texture)
 	if shade > 0.0:
 		var mid_y := size.y * 0.45

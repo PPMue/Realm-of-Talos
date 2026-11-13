@@ -111,6 +111,7 @@ func _tavern_row(data: CompanionData) -> RowButton:
 	var row := RowButton.new(1500.0, 110.0)
 	row.texture = data.portrait
 	row.texture_focus = data.portrait_focus + Vector2(0.0, 0.03)
+	row.texture_zoom = data.figure_scale
 	row.title = "%s   ·   JOINS AT LEVEL %d" % [data.display_name.to_upper(), run.hire_level()]
 	var w := data.weapon
 	var t := w.weapon_type

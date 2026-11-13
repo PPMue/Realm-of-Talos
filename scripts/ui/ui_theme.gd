@@ -25,6 +25,9 @@ const PARCHMENT_SHADE := Color("b59f72")
 const PARCHMENT_INK := Color("2e2218")
 const PARCHMENT_MUTED := Color("6b5a42")
 const WAX := Color("8f2f2a")
+## Behind a cut-out face in a frame or a ring: lighter than the boards, so dark hair still shows.
+const PORTRAIT_BACK := Color("73654f")
+const PORTRAIT_BACK_LOW := Color("3c3126")
 ## Magic schools: Black (offence) and White (support).
 const BLACK_MAGIC := Color("9c7fd6")
 const WHITE_MAGIC := Color("cfe3ee")

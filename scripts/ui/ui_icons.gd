@@ -99,8 +99,12 @@ static func portrait(ci: CanvasItem, c: Vector2, r: float, tex: Texture2D, focus
 	origin.y = clampf(origin.y, 0.0, 1.0 - region.y)
 	var pts := PackedVector2Array()
 	var uvs := PackedVector2Array()
+	var ground := PackedColorArray()
 	for i in 36:
 		var d := Vector2.from_angle(TAU * i / 36.0)
 		pts.append(c + d * r)
 		uvs.append(origin + (d * 0.5 + Vector2(0.5, 0.5)) * region)
+		ground.append(UiTheme.PORTRAIT_BACK.lerp(UiTheme.PORTRAIT_BACK_LOW, d.y * 0.5 + 0.5) * Color(modulate.r, modulate.g, modulate.b, 1.0))
+	# The art is a cut-out: give the face something to stand against.
+	ci.draw_polygon(pts, ground)
 	ci.draw_colored_polygon(pts, modulate, uvs, tex)

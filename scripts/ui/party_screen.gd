@@ -10,8 +10,10 @@ extends Control
 signal closed
 
 const LINE_X := 60.0
-const LINE_Y := 136.0
-const LINE_STEP := MusterFigure.W + 14.0
+const LINE_Y := 150.0
+const LINE_STEP := MusterFigure.W
+## Where the wall, the rail and the bench's board stop: the muster roll lies over the rest.
+const WALL_END := 1150.0
 const BENCH_Y := 664.0
 const PAGE := Rect2(1150, 110, 740, 946)
 const PAGE_PAD := 34.0
@@ -182,7 +184,7 @@ func refresh() -> void:
 	var reserve := run.reserve()
 	for i in reserve.size():
 		var f := _figure(reserve[i], true)
-		f.position = Vector2(i * (MusterFigure.BENCH_W + 12.0), 0)
+		f.position = Vector2(i * (MusterFigure.BENCH_W + 8.0), 0)
 		f.dropped.connect(place.bind(-1))
 		_bench.add_child(f)
 	_bench_empty.visible = reserve.is_empty()
@@ -489,8 +491,12 @@ func _can_bench(_at: Vector2, data: Variant) -> bool:
 		and (data as Dictionary).get("companion") is RunCompanion and run.is_fielded((data as Dictionary)["companion"])
 
 
-## Marks on the wall and floor: which end of the line is which, and the bench.
+## What the company stands against: a lime-washed stretch of wall, the muster rail in front of the
+## line with which end is which under it, and the board the reserve sits behind.
 func _draw_marks(marks: Control) -> void:
+	var rail_y := LINE_Y + MusterFigure.PORTRAIT_H
+	_lit_wall(marks, LINE_Y - 4.0, rail_y, 0.92)
+	_board(marks, rail_y, MusterFigure.H - MusterFigure.PORTRAIT_H)
 	var y := LINE_Y + MusterFigure.H + 22.0
 	var x0 := LINE_X + 4.0
 	var x1 := LINE_X + LINE_STEP * RunConfig.MAX_FIELDED - 18.0
@@ -502,13 +508,41 @@ func _draw_marks(marks: Control) -> void:
 	UiTheme.draw_text(marks, italic, Vector2(x1 - fw - 26.0, y - 13.0), front, 19, chalk)
 	marks.draw_line(Vector2(x0 + 90.0, y), Vector2(x1 - fw - 40.0, y), Color(UiTheme.TEXT, 0.18), 1.5)
 	marks.draw_colored_polygon(PackedVector2Array([Vector2(x1 - 16.0, y - 7.0), Vector2(x1, y), Vector2(x1 - 16.0, y + 7.0)]), chalk)
-	# The bench: a long board on two trestles.
-	var by := BENCH_Y + MusterFigure.BENCH_H + 6.0
-	var bx1 := LINE_X + LINE_STEP * RunConfig.MAX_FIELDED - 14.0
-	marks.draw_rect(Rect2(LINE_X - 10.0, by, bx1 - LINE_X + 20.0, 12.0), Color("3a2a1c"))
-	marks.draw_rect(Rect2(LINE_X - 10.0, by, bx1 - LINE_X + 20.0, 3.0), Color("5a4430"))
-	for lx: float in [LINE_X + 40.0, bx1 - 60.0]:
-		marks.draw_rect(Rect2(lx, by + 12.0, 14.0, 40.0), Color("2a1e14"))
+	# The bench: the reserve sits behind a long board.
+	var by := BENCH_Y + MusterFigure.BENCH_PORTRAIT_H
+	_lit_wall(marks, BENCH_Y - 2.0, by, 0.55)
+	_board(marks, by, MusterFigure.BENCH_H - MusterFigure.BENCH_PORTRAIT_H)
+
+
+## A stretch of wall with lantern light on it, so a dark-haired figure still stands out.
+func _lit_wall(marks: Control, top: float, bottom: float, strength: float) -> void:
+	var lit := Color("6a5a45")
+	var hi := Color(lit, strength)
+	var mid := Color(lit, strength * 0.7)
+	var off := Color(lit, 0.0)
+	var fade := 60.0
+	var xm := WALL_END * 0.45
+	# Brightest low and in the middle, falling away to the corners and up into the beam.
+	marks.draw_polygon(PackedVector2Array([Vector2(0, top), Vector2(xm, top), Vector2(xm, top + fade), Vector2(0, top + fade)]),
+		PackedColorArray([off, off, mid, Color(lit, strength * 0.35)]))
+	marks.draw_polygon(PackedVector2Array([Vector2(xm, top), Vector2(WALL_END, top), Vector2(WALL_END, top + fade), Vector2(xm, top + fade)]),
+		PackedColorArray([off, off, Color(lit, strength * 0.35), mid]))
+	marks.draw_polygon(PackedVector2Array([Vector2(0, top + fade), Vector2(xm, top + fade), Vector2(xm, bottom), Vector2(0, bottom)]),
+		PackedColorArray([Color(lit, strength * 0.35), mid, hi, Color(lit, strength * 0.5)]))
+	marks.draw_polygon(PackedVector2Array([Vector2(xm, top + fade), Vector2(WALL_END, top + fade), Vector2(WALL_END, bottom), Vector2(xm, bottom)]),
+		PackedColorArray([mid, Color(lit, strength * 0.35), Color(lit, strength * 0.5), hi]))
+
+
+## A long wooden board across the room at `y`: the figures behind it are cut off at its top edge.
+func _board(marks: Control, y: float, h: float) -> void:
+	var r := Rect2(0, y, WALL_END, h)
+	marks.draw_rect(Rect2(0, y - 10.0, WALL_END, 10.0), Color(0, 0, 0, 0.22))
+	marks.draw_rect(r, Color("33251a"))
+	UiTheme.draw_grain(marks, r, 0.2)
+	marks.draw_rect(Rect2(0, y, WALL_END, 4.0), Color("6b5239"))
+	marks.draw_rect(Rect2(0, y + 4.0, WALL_END, 2.0), Color(0, 0, 0, 0.3))
+	marks.draw_rect(Rect2(0, y + h - 5.0, WALL_END, 5.0), Color(0, 0, 0, 0.45))
+	marks.draw_rect(Rect2(0, y + h, WALL_END, 14.0), Color(0, 0, 0, 0.25))
 
 
 func _draw_page() -> void:

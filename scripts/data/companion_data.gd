@@ -8,6 +8,9 @@ extends Resource
 @export var color: Color = Color.GRAY
 ## Where the face is in the portrait art (0-1 on each axis); the UI crops around it.
 @export var portrait_focus: Vector2 = Vector2(0.5, 0.2)
+## How much larger this art must be drawn for the head to match the others': the art was painted at
+## different distances. The UI multiplies by it wherever companions are shown side by side.
+@export var figure_scale: float = 1.0
 
 @export_group("Stats")
 @export var max_hp: int = 20

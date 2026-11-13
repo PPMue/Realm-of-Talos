@@ -93,7 +93,7 @@ func start(p_battle: Battle, title: String) -> void:
 	_party_row.add_child(_row_marker("the rear"))
 	for c in battle.roster:
 		var panel := PartyPanel.new()
-		panel.setup(c.display_name, c.data.portrait, c.data.portrait_focus)
+		panel.setup(c.display_name, c.data.portrait, c.data.portrait_focus, c.data.figure_scale)
 		panel.set_level(c.progress.level)
 		panel.clicked.connect(pick_companion.bind(c))
 		panel.hover_changed.connect(_on_ally_hover.bind(c))

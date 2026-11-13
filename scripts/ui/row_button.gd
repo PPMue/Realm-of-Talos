@@ -27,6 +27,8 @@ var detail_color := UiTheme.GOLD:
 var hotkey := ""
 var texture: Texture2D
 var texture_focus := Vector2(0.5, 0.25)
+## 1 = the usual crop; higher shows less of the art (see CompanionData.figure_scale).
+var texture_zoom := 1.0
 ## Greyed out and not clickable; `detail` should say why.
 var disabled := false:
 	set(v):
@@ -110,11 +112,15 @@ func _draw() -> void:
 		var pts := UiTheme.para(box, 0.0)
 		var uvs := PackedVector2Array()
 		var tex := texture.get_size()
-		var region := Vector2(0.34, 0.34 * box.size.y / box.size.x * tex.x / maxf(1.0, tex.y))
+		var span := 0.34 / maxf(0.1, texture_zoom)
+		var region := Vector2(span, span * box.size.y / box.size.x * tex.x / maxf(1.0, tex.y))
 		var origin := texture_focus - region * 0.5
 		for p in pts:
 			uvs.append(origin + Vector2((p.x - box.position.x) / box.size.x, (p.y - box.position.y) / box.size.y) * region)
-		draw_colored_polygon(pts, Color.WHITE if not disabled else Color(0.5, 0.48, 0.45), uvs, texture)
+		var dim := Color.WHITE if not disabled else Color(0.5, 0.48, 0.45)
+		draw_polygon(pts, PackedColorArray([UiTheme.PORTRAIT_BACK * dim, UiTheme.PORTRAIT_BACK * dim, UiTheme.PORTRAIT_BACK_LOW * dim,
+			UiTheme.PORTRAIT_BACK_LOW * dim]))
+		draw_colored_polygon(pts, dim, uvs, texture)
 		draw_rect(box, Color(UiTheme.INK, 0.9), false, 2.0)
 		x = pw + 22.0
 
