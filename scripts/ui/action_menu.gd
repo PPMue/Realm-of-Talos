@@ -61,11 +61,11 @@ func _init() -> void:
 	_name.position = Vector2(_edge_x(NAME_Y + 74.0) + 22.0, NAME_Y)
 	add_child(_name)
 	_weapon = UiTheme.label("", 17, UiTheme.TEXT, false, 6)
-	_weapon.position = Vector2(_edge_x(598.0) + 22.0, 552.0)
+	_weapon.position = Vector2(_edge_x(598.0) + 22.0, 544.0)
 	add_child(_weapon)
 	# Weapon grade: "SWORD D", and a bar of progress toward the next grade under it.
 	_grade = UiTheme.label("", 24, UiTheme.GOLD, true, 6)
-	_grade.position = Vector2(_edge_x(632.0) + 22.0, 602.0)
+	_grade.position = Vector2(_edge_x(632.0) + 22.0, 604.0)
 	_grade.size = Vector2(200, 30)
 	_grade.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(_grade)
