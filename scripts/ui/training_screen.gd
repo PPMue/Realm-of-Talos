@@ -5,11 +5,12 @@ extends Control
 ## and one of the company, then set them to it: that is the day's one thing, and it costs a few coins.
 ## How it went is then written up on the board: a poor, good or great drill, the line toward the next
 ## grade (or the next level) filling by what it gave, and after sparring every level gained shown
-## stat by stat like after a battle. Only reads the run and calls Run.train.
+## stat by stat like after a battle, and an art or spell learned from a new grade written out in full
+## (with the swap, if all three places are taken). Only reads the run and calls Run.train.
 
 signal closed
 
-enum Stage { CHOOSE, RESULT, LEVELS, DONE }
+enum Stage { CHOOSE, RESULT, LEVELS, LEARNED, DONE }
 
 const LIST_X := 60.0
 const LIST_Y := 156.0
@@ -47,6 +48,9 @@ var _shown := 0.0
 var _stamp := 0.0
 var _tween: Tween
 var _next_level := 0
+## Arts and spells the drill taught, still to show: {art, equipped} or {spell}.
+var _learned: Array[Dictionary] = []
+var _next_learned := 0
 
 var _rows: Dictionary = {}          # RunCompanion -> Control
 var _row_box := Control.new()
@@ -61,6 +65,7 @@ var _purse := Control.new()
 var _hint: Label
 var _dim := ColorRect.new()
 var _panel := LevelUpPanel.new()
+var _learn := LearnedPanel.new()
 var _back := Button.new()
 
 
@@ -136,6 +141,13 @@ func begin() -> void:
 	_shown = 0.0
 	_stamp = 0.0
 	_next_level = 0
+	_learned.clear()
+	_next_learned = 0
+	for g: Dictionary in _result.grade_ups:
+		if g.get("art") != null:
+			_learned.append({"art": g.art, "equipped": bool(g.get("equipped", false))})
+		if g.get("spell") != null:
+			_learned.append({"spell": g.spell})
 	_refresh()
 	var total := float(_amount())
 	_tween = create_tween()
@@ -155,17 +167,17 @@ func advance() -> void:
 				_set_stamp(1.0)
 				_set_shown(float(_amount()))
 				_counted()
-			elif _next_level < _result.level_ups.size():
-				_show_next_level()
 			else:
-				_finish()
+				_next_beat()
 		Stage.LEVELS:
 			if not _panel.is_done():
 				_panel.skip()
-			elif _next_level < _result.level_ups.size():
-				_show_next_level()
 			else:
-				_finish()
+				_next_beat()
+		Stage.LEARNED:
+			# An art that waits for a decision has its own way on.
+			if not _learn.needs_choice():
+				_next_beat()
 
 
 func is_done() -> bool:
@@ -243,10 +255,36 @@ func _set_stamp(v: float) -> void:
 
 func _counted() -> void:
 	_tween = null
-	if _result.level_ups.is_empty():
+	if _result.level_ups.is_empty() and _learned.is_empty():
 		_finish()
 	else:
 		_hint.visible = true
+
+
+## The next thing to show after the board: a level gained, then anything learned, then the way back.
+func _next_beat() -> void:
+	if _next_level < _result.level_ups.size():
+		_show_next_level()
+	elif _next_learned < _learned.size():
+		_show_next_learned()
+	else:
+		_finish()
+
+
+func _show_next_learned() -> void:
+	var l := _learned[_next_learned]
+	_next_learned += 1
+	_stage = Stage.LEARNED
+	_panel.visible = false
+	_dim.visible = true
+	_learn.visible = true
+	_learn.modulate.a = 0.0
+	create_tween().tween_property(_learn, "modulate:a", 1.0, 0.12)
+	if l.has("art"):
+		_learn.show_art(_who.progress, _who.display_name(), l.art, l.equipped)
+	else:
+		_learn.show_spell(_who.progress, _who.display_name(), l.spell)
+	_hint.visible = not _learn.needs_choice()
 
 
 func _show_next_level() -> void:
@@ -272,6 +310,7 @@ func _finish() -> void:
 	_stage = Stage.DONE
 	_dim.visible = false
 	_panel.visible = false
+	_learn.visible = false
 	_hint.visible = false
 	_back.text = "Back to the city"
 	_refresh()
@@ -292,9 +331,10 @@ func _refresh() -> void:
 	_begin.visible = choosing
 	_slip.visible = choosing
 	_why.visible = choosing
-	_dim.visible = _stage == Stage.LEVELS
+	_dim.visible = _stage == Stage.LEVELS or _stage == Stage.LEARNED
 	_panel.visible = _stage == Stage.LEVELS
-	if _stage != Stage.RESULT and _stage != Stage.LEVELS:
+	_learn.visible = _stage == Stage.LEARNED
+	if _stage == Stage.CHOOSE or _stage == Stage.DONE:
 		_hint.visible = false
 	if choosing:
 		_back.text = "Leave"
@@ -761,6 +801,10 @@ func _build() -> void:
 	_panel.visible = false
 	_panel.finished.connect(_on_level_shown)
 	add_child(_panel)
+	_learn.position = _panel.position
+	_learn.visible = false
+	_learn.finished.connect(_next_beat)
+	add_child(_learn)
 	_hint = UiTheme.label("Click to go on", 22, UiTheme.MUTED, false, 4)
 	_hint.add_theme_font_override("font", UiTheme.italic_font())
 	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -775,7 +819,7 @@ func _build() -> void:
 func _input(event: InputEvent) -> void:
 	var mb := event as InputEventMouseButton
 	if is_visible_in_tree() and mb != null and mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT \
-			and (_stage == Stage.RESULT or _stage == Stage.LEVELS):
+			and (_stage == Stage.RESULT or _stage == Stage.LEVELS or (_stage == Stage.LEARNED and not _learn.needs_choice())):
 		get_viewport().set_input_as_handled()
 		advance()
 
@@ -787,11 +831,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	match key.keycode:
 		KEY_ESCAPE:
 			get_viewport().set_input_as_handled()
-			if _stage == Stage.RESULT or _stage == Stage.LEVELS:
+			if _stage == Stage.RESULT or _stage == Stage.LEVELS or _stage == Stage.LEARNED:
 				advance()
 			else:
 				close()
 		KEY_SPACE, KEY_ENTER, KEY_KP_ENTER:
-			if _stage == Stage.RESULT or _stage == Stage.LEVELS:
+			if _stage == Stage.RESULT or _stage == Stage.LEVELS or _stage == Stage.LEARNED:
 				get_viewport().set_input_as_handled()
 				advance()

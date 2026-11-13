@@ -263,8 +263,8 @@ func _shop_row(item: ShopItemData) -> RowButton:
 	row.paper = true
 	row.title = w.display_name
 	var kind := WeaponData.type_name(w.weapon_type).to_lower()
-	row.sub = "%s  ·  Mt %d  ·  Hit %d  ·  weight %d  ·  needs %s grade %s" % [kind, w.might, w.hit, w.weight, kind,
-		Proficiency.grade_name(w.required_grade)]
+	row.sub = "%s  ·  Mt %d  ·  Hit %d  ·  weight %d  ·  needs %s" % [kind, w.might, w.hit, w.weight,
+		w.requirement_text().replace(" · ", " and ")]
 	if w.is_magic():
 		row.sub += "  ·  strikes with MAG against RES"
 	elif not w.effective_against.is_empty():
@@ -312,9 +312,9 @@ func _crew_row(c: RunCompanion, h: float) -> Control:
 		line = "can hold it  ·  Attack %d → %d%s" % [c.attack(), c.attack(_pointed), "  ·  too heavy: -%d DEX and SPD" % heavy if heavy > 0 else ""]
 		ink = UiTheme.GOLD
 	else:
-		var t := _pointed.weapon_type
-		line = "cannot: %s %s, needs %s" % [WeaponData.type_name(t).to_lower(), Proficiency.grade_name(c.progress.grade(t)),
-			Proficiency.grade_name(_pointed.required_grade)]
+		# The rules name the grade that is missing: "Needs axe D; Elena is E."
+		var why := c.progress.weapon_block_reason(_pointed).trim_suffix(".")
+		line = "cannot: " + why.left(1).to_lower() + why.substr(1)
 		ink = Color(UiTheme.MUTED, 0.75)
 	var dim := _pointed != null and not able
 	row.draw.connect(func() -> void:

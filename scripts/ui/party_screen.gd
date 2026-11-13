@@ -225,8 +225,8 @@ func _refresh_page() -> void:
 		var row := _row()
 		row.title = d.display_name
 		var too_heavy := d.weight - c.data.build
-		row.sub = "%s  ·  Mt %d  ·  Hit %d  ·  weight %d  ·  needs grade %s%s" % [WeaponData.type_name(d.weapon_type).to_lower(),
-			d.might, d.hit, d.weight, Proficiency.grade_name(d.required_grade),
+		row.sub = "%s  ·  Mt %d  ·  Hit %d  ·  weight %d  ·  needs %s%s" % [WeaponData.type_name(d.weapon_type).to_lower(),
+			d.might, d.hit, d.weight, d.requirement_text().replace(" · ", " and "),
 			"  ·  too heavy: -%d DEX/SPD" % too_heavy if too_heavy > 0 else ""]
 		var why := run.equip_block_reason(c, item)
 		if item.holder == c:
@@ -248,7 +248,7 @@ func _spell_row(c: RunCompanion, sp: SpellData) -> RowButton:
 	row.mouse_default_cursor_shape = Control.CURSOR_ARROW
 	row.title = sp.display_name
 	row.sub = "%s  ·  tier %s  ·  %s" % [sp.school_text().to_lower(), CombatArtData.tier_numeral(sp.tier), sp.effect_summary()]
-	row.tooltip_text = sp.description + "\n" + sp.effect_summary()
+	row.tooltip_text = sp.effect_summary()
 	row.detail = "%d of %d uses" % [c.progress.uses_left(sp), sp.uses]
 	return row
 

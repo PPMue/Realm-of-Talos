@@ -3,7 +3,9 @@ extends Control
 ## The left side of the battle screen: the chosen companion, close up, and beside them the orders
 ## the commander can give: Attack, up to three equipped combat arts, Magic (for anyone who knows a
 ## spell), Guard, Focus. Magic changes the list to the spells: every known spell with its school,
-## tier and uses left, and Back. What the order under the pointer does is written under the list.
+## tier and uses left, and Back. What the order under the pointer does is written under the list;
+## for a combat art or a spell it is set out to be read at a glance (see ArtFacts), and stays set
+## out while that art or spell waits for its target, however it was chosen (click or key).
 ## The orders are written in light on a veil of shadow with no edge, so the companion and the
 ## field show through and nothing bright sits on top of the art.
 ## Display only: it reports which order was pressed and the battle screen decides what happens.
@@ -48,7 +50,7 @@ const BUTTON_STEP_TIGHT := 44.0
 const BUTTON_H_TIGHT := 44.0
 const BUTTON_H := 50.0
 const INFO_W := ActionButton.W
-const INFO_H := 136.0
+const INFO_H := 178.0
 ## Where the name block starts.
 const NAME_Y := 690.0
 
@@ -65,6 +67,12 @@ var _grade_bar := SlantBar.new()
 var _penalty: Label
 var _buttons: Dictionary = {}       # id -> ActionButton
 var _descriptions: Dictionary = {}  # id -> String
+## For an art or a spell: id -> {figures, lines, accent, note}, drawn in place of the description.
+var _facts: Dictionary = {}
+var _info_facts: Dictionary = {}
+## The order waiting for a target ("" for none), and whether the info shows it for want of a pointer.
+var _active_id := ""
+var _info_is_active := false
 var _order: Array[String] = []      # visible actions, top to bottom; hotkey = place + 1
 var _info := Control.new()
 var _info_label: Label
@@ -160,6 +168,7 @@ func _init() -> void:
 
 	_info.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_info.size = Vector2(INFO_W, INFO_H)
+	_info.draw.connect(_draw_info)
 	add_child(_info)
 	_info_label = UiTheme.label("", 16, UiTheme.TEXT.lerp(UiTheme.MUTED, 0.3), false, 4)
 	_info_label.add_theme_font_override("font", UiTheme.italic_font())
@@ -193,6 +202,8 @@ func description(id: String) -> String:
 ## Shows a companion's actions. `active_id` is the action currently waiting for a target ("" for none).
 func show_companion(c: CompanionUnit, battle: Battle, active_id: String, enabled: bool) -> void:
 	visible = true
+	_facts.clear()
+	_active_id = active_id
 	_sheet_title = "ORDERS"
 	_show_art(c, Color.WHITE)
 	_show_weapon_lines(c)
@@ -208,11 +219,11 @@ func show_companion(c: CompanionUnit, battle: Battle, active_id: String, enabled
 	_arrange(order)
 
 	var w := c.weapon()
-	_descriptions[ATTACK] = "Strike one enemy with %s%s. Costs nothing, then sits out the next action." % [w.display_name,
+	_descriptions[ATTACK] = "Strike one enemy with %s%s. No cost. Recovery 1." % [w.display_name,
 		" (magic: MAG against RES)" if w.is_magic() else ""]
-	_descriptions[GUARD] = "Until this turn ends: take half damage, and enemies are %dx as likely to aim at %s. Then sits out the next action." % [
+	_descriptions[GUARD] = "Until this turn ends: take half damage, and enemies are %dx as likely to aim at %s. Recovery 1." % [
 		roundi(BattleConfig.GUARD_TARGET_WEIGHT_MULT), c.display_name]
-	_descriptions[FOCUS] = "Recover %d stamina. Then sits out the next action." % battle.focus_amount(c)
+	_descriptions[FOCUS] = "Gain %d stamina. Recovery 1." % battle.focus_amount(c)
 	(_buttons[FOCUS] as ActionButton).detail = "+%d stamina" % battle.focus_amount(c)
 	if not c.spells().is_empty():
 		var ready := 0
@@ -234,17 +245,18 @@ func show_companion(c: CompanionUnit, battle: Battle, active_id: String, enabled
 		b.title = art.display_name
 		b.detail = "%d stamina" % art.stamina_cost
 		var about := art_info(art)
+		var why := ""
 		if battle.art_block_reason(c, art) != "":
 			if enabled and active_id == "":
 				b.disabled = true
-			var why := ""
 			if c.weapon() == null or c.weapon().weapon_type != art.weapon_type:
 				b.detail = "%s ONLY" % art.type_name().to_upper()
 				why = "Needs a %s in hand." % art.type_name().to_lower()
 			else:
-				why = "Needs %d STA, %s has %d. Focus to recover." % [art.stamina_cost, c.display_name, c.stamina]
+				why = "Needs %d stamina, %s has %d. Focus to recover." % [art.stamina_cost, c.display_name, c.stamina]
 			about = "%s\n%s" % [why, about]
 		_descriptions[art_id(i)] = about
+		_facts[art_id(i)] = {"figures": ArtFacts.art_figures(art), "lines": ArtFacts.art_lines(art), "accent": UiTheme.GOLD, "note": why}
 
 	if active_id != "":
 		var index := art_index(active_id)
@@ -263,6 +275,8 @@ func show_companion(c: CompanionUnit, battle: Battle, active_id: String, enabled
 ## `active_id` is the spell waiting for a target ("" for none).
 func show_spells(c: CompanionUnit, battle: Battle, active_id: String, enabled: bool, page: int) -> void:
 	visible = true
+	_facts.clear()
+	_active_id = active_id
 	_sheet_title = "SPELLS"
 	_show_art(c, Color.WHITE)
 	_show_weapon_lines(c)
@@ -299,6 +313,10 @@ func show_spells(c: CompanionUnit, battle: Battle, active_id: String, enabled: b
 			b.detail = "spent  ·  0/%d" % sp.uses
 			about = "%s\n%s" % [why, about]
 		_descriptions[id] = about
+		var lines := ArtFacts.spell_lines(sp)
+		if sp.heals:
+			lines.append("Heals %d now" % battle.heal_amount(c, sp))
+		_facts[id] = {"figures": ArtFacts.spell_figures(sp, left), "lines": lines, "accent": UiTheme.school_color(sp.school), "note": why}
 	for id in order:
 		var b: ActionButton = _buttons[id]
 		b.active = id == active_id
@@ -325,16 +343,14 @@ func show_spells(c: CompanionUnit, battle: Battle, active_id: String, enabled: b
 
 ## Tier, cost, recovery and effect of an art, for the info panel.
 static func art_info(art: CombatArtData) -> String:
-	var rec := "the next action" if art.recovery == 1 else "%d actions" % art.recovery
-	return "Tier %s · %d STA · then sits out %s.\n%s" % [
-		CombatArtData.tier_numeral(art.tier), art.stamina_cost, rec, art.effect_summary()]
+	return "Tier %s · %d stamina · Recovery %d\n%s" % [
+		CombatArtData.tier_numeral(art.tier), art.stamina_cost, art.recovery, art.effect_summary()]
 
 
 ## School, tier, uses, recovery and effect of a spell, for the info panel.
 static func spell_info(sp: SpellData, c: CompanionUnit, battle: Battle) -> String:
-	var rec := "the next action" if sp.recovery == 1 else "%d actions" % sp.recovery
-	var text := "%s %s · %d/%d uses · then sits out %s.\n%s" % [sp.school_text(), CombatArtData.tier_numeral(sp.tier),
-		c.progress.uses_left(sp), sp.uses, rec, sp.effect_summary()]
+	var text := "%s %s · %d/%d uses · Recovery %d\n%s" % [sp.school_text(), CombatArtData.tier_numeral(sp.tier),
+		c.progress.uses_left(sp), sp.uses, sp.recovery, sp.effect_summary()]
 	if sp.heals:
 		text += " Heals %d now." % battle.heal_amount(c, sp)
 	return text
@@ -344,6 +360,8 @@ static func spell_info(sp: SpellData, c: CompanionUnit, battle: Battle) -> Strin
 ## `next_up` is whoever will be ready soonest; their art is shown dimmed.
 func show_wait(enabled: bool, next_up: CompanionUnit) -> void:
 	visible = true
+	_facts.clear()
+	_active_id = ""
 	_sheet_title = "ORDERS"
 	_art.visible = next_up != null
 	_name.visible = next_up != null
@@ -384,7 +402,7 @@ func _arrange(order: Array[String]) -> void:
 		b.queue_redraw()
 	var below := BUTTON_Y + step * order.size()
 	_info.position = Vector2(BUTTON_X, below + 6.0)
-	_sheet.size = Vector2(ActionButton.W + SHEET_PAD * 2.0, below + INFO_H + 22.0 - SHEET_Y)
+	_sheet.size = Vector2(ActionButton.W + SHEET_PAD * 2.0, below + INFO_H + 48.0 - SHEET_Y)
 	_sheet.queue_redraw()
 
 
@@ -479,14 +497,39 @@ func _add_button(id: String) -> ActionButton:
 
 func _update_info() -> void:
 	var text := _default_info
+	_info_facts = {}
+	_info_is_active = false
 	if _hovered_id != "" and _buttons.has(_hovered_id) and _buttons[_hovered_id].visible and _descriptions.has(_hovered_id):
 		text = _descriptions[_hovered_id]
+		_info_facts = _facts.get(_hovered_id, {})
+	elif _active_id != "" and _facts.has(_active_id):
+		# Nothing under the pointer: the art or spell waiting for its target stays set out.
+		_info_facts = _facts[_active_id]
+		_info_is_active = true
+	# An art or a spell is set out in figures and lines; anything else is a sentence.
+	_info_label.visible = _info_facts.is_empty()
+	_info.queue_redraw()
 	_info_label.text = text
 	var font_size := 16
 	var font := UiTheme.italic_font()
 	while font_size > 12 and font.get_multiline_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, INFO_W - 8.0, font_size).y > INFO_H - 14.0:
 		font_size -= 1
 	_info_label.add_theme_font_size_override("font_size", font_size)
+
+
+func _draw_info() -> void:
+	if _info_facts.is_empty():
+		return
+	var lines: Array[String] = []
+	lines.assign(_info_facts.lines)
+	var note := String(_info_facts.note)
+	var note_ink := UiTheme.RECOVERING
+	if note == "" and _info_is_active:
+		# What to do next, in a few words: "Choose an enemy to hit."
+		note = _default_info.get_slice(". ", 0).trim_suffix(".") + "."
+		note_ink = UiTheme.TEXT.lerp(UiTheme.MUTED, 0.3)
+	ArtFacts.draw(_info, Vector2(4, 6), INFO_W - 8.0, _info_facts.figures, lines, _info_facts.accent, UiTheme.TEXT,
+		UiTheme.TEXT.lerp(UiTheme.MUTED, 0.3), 0.62, INFO_H - (104.0 if note != "" else 66.0), 4, note, note_ink, 19)
 
 
 ## The companion's art, cropped to the column without stretching, fading out to the right and at the

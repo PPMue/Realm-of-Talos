@@ -1,16 +1,19 @@
 class_name BattleResult
 extends Control
-## After a battle, over the field, in three beats:
+## After a battle, over the field, in four beats:
 ##   1. won or lost and what it gave or cost, with the company in a row and their XP bars filling,
 ##      each by their own share (a skull for every enemy they felled, gold marks for whoever did most);
 ##   2. one LevelUpPanel for every level gained, the stats coming up one at a time;
-##   3. the company again, and the way back.
-## A click, Space or Enter moves it on (advance()). It only reads the report; the run has already
+##   3. one LearnedPanel for every combat art or spell learned (they are learned now, not during the
+##      fight), written out in full; an art that found no free place can be swapped in there;
+##   4. the company again, and the way back.
+## A click, Space or Enter moves it on (advance()), except past an art that waits for a decision:
+## that panel has its own way on. It only reads the report; the run has already
 ## been changed by the time this opens.
 
 signal leave_pressed
 
-enum Stage { SPOILS, LEVELS, DONE }
+enum Stage { SPOILS, LEVELS, LEARNED, DONE }
 
 const FILL_SECONDS := 0.7
 const CARD_GAP := 18.0
@@ -24,12 +27,16 @@ var _dim := ColorRect.new()
 var _head := Control.new()
 var _cards := Control.new()
 var _panel := LevelUpPanel.new()
+var _learn := LearnedPanel.new()
 var _hint: Label
 var _button := Button.new()
 var _stage := Stage.DONE
 ## Levels still to show: {data, name, level, before, gains}.
 var _queue: Array[Dictionary] = []
 var _next := 0
+## Arts and spells still to show: {progress, name, art, equipped} or {progress, name, spell}.
+var _learned: Array[Dictionary] = []
+var _next_learned := 0
 var _generation := 0
 var _won := true
 ## What the battle gave or cost, drawn as pictures with numbers: {icon, text, color}.
@@ -51,6 +58,9 @@ func _init() -> void:
 	_panel.visible = false
 	_panel.finished.connect(_on_level_shown)
 	add_child(_panel)
+	_learn.visible = false
+	_learn.finished.connect(_after_learned)
+	add_child(_learn)
 	_hint = UiTheme.label("Click to go on", 22, UiTheme.MUTED, false, 4)
 	_hint.add_theme_font_override("font", UiTheme.italic_font())
 	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -96,6 +106,14 @@ func open(report: BattleReport, roster: Array[CompanionUnit], battle: Battle = n
 		child.queue_free()
 	_queue.clear()
 	_next = 0
+	_learned.clear()
+	_next_learned = 0
+	for g: Dictionary in report.grade_ups:
+		var actor: CompanionUnit = g.actor
+		if g.get("art") != null:
+			_learned.append({"progress": actor.progress, "name": actor.display_name, "art": g.art, "equipped": bool(g.get("equipped", false))})
+		if g.get("spell") != null:
+			_learned.append({"progress": actor.progress, "name": actor.display_name, "spell": g.spell})
 	# Whoever did the most, when one companion stands out.
 	var best := 0
 	var shared := false
@@ -110,6 +128,7 @@ func open(report: BattleReport, roster: Array[CompanionUnit], battle: Battle = n
 	_button.visible = false
 	_hint.visible = false
 	_panel.visible = false
+	_learn.visible = false
 	_cards.visible = true
 	_stage = Stage.SPOILS
 	_layout()
@@ -145,17 +164,45 @@ func advance() -> void:
 			elif _next < _queue.size():
 				_show_next_level()
 			else:
-				_finish()
+				_after_levels()
+		Stage.LEARNED:
+			# An art that waits for a decision has its own way on.
+			if not _learn.needs_choice():
+				_after_learned()
 
 
 func _after_spoils() -> void:
 	for card: SpoilsCard in _cards.get_children():
 		card.finish()
 	if _queue.is_empty():
-		_finish()
+		_after_levels()
 	else:
 		_stage = Stage.LEVELS
 		_show_next_level()
+
+
+func _after_levels() -> void:
+	_panel.visible = false
+	_after_learned()
+
+
+## Shows the next art or spell learned, or the way back when there is none left.
+func _after_learned() -> void:
+	if _next_learned >= _learned.size():
+		_finish()
+		return
+	var l := _learned[_next_learned]
+	_next_learned += 1
+	_stage = Stage.LEARNED
+	_cards.visible = false
+	_learn.visible = true
+	_learn.modulate.a = 0.0
+	create_tween().tween_property(_learn, "modulate:a", 1.0, 0.12)
+	if l.has("art"):
+		_learn.show_art(l.progress, l.name, l.art, l.equipped)
+	else:
+		_learn.show_spell(l.progress, l.name, l.spell)
+	_hint.visible = not _learn.needs_choice()
 
 
 func _show_next_level() -> void:
@@ -177,6 +224,7 @@ func _on_level_shown() -> void:
 func _finish() -> void:
 	_stage = Stage.DONE
 	_panel.visible = false
+	_learn.visible = false
 	_hint.visible = false
 	_cards.visible = true
 	_button.visible = true
@@ -284,6 +332,7 @@ func _layout() -> void:
 	for i in n:
 		(_cards.get_child(i) as Control).position = Vector2(i * (SpoilsCard.W + CARD_GAP), 0)
 	_panel.position = Vector2((size.x - LevelUpPanel.SIZE.x) * 0.5, PANEL_Y)
+	_learn.position = _panel.position
 	_hint.position = Vector2((size.x - _hint.size.x) * 0.5, FOOT_Y + 14.0)
 	_button.position = Vector2((size.x - _button.size.x) * 0.5, FOOT_Y)
 

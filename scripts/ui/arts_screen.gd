@@ -4,7 +4,8 @@ extends Control
 ## one chosen stands beside an open book. Its left page is their grades in every weapon and both
 ## schools of magic, each with a line for the way to the next grade; its right page is every combat
 ## art they know (click one to carry it into battle or leave it behind; three are carried) and every
-## spell with its uses left. What the art or spell under the pointer does is written at the foot.
+## spell with its uses left. What the art or spell under the pointer costs and does is set out at
+## the foot (see ArtFacts).
 ## Reached from the barracks. Changes go straight into the party's CompanionProgress.
 
 signal closed
@@ -25,7 +26,7 @@ const LEFT_W := FOLD - PAD * 2.0 + 10.0
 const RIGHT_X := FOLD + 34.0
 const RIGHT_W := BOOK.size.x - RIGHT_X - PAD
 const GRADE_H := 58.0
-const FOOT_H := 150.0
+const FOOT_H := 196.0
 const DEFAULT_FOOT := "Point at an art or a spell to read it. Click an art to carry it into battle, or to leave it behind."
 
 var _party: Array[CompanionProgress] = []
@@ -39,6 +40,9 @@ var _carried: Label
 var _scroll := ScrollContainer.new()
 var _list := VBoxContainer.new()
 var _foot: Label
+## The art or spell under the pointer, set out at the foot: {figures, lines}, or empty.
+var _reading: Dictionary = {}
+var _foot_facts := Control.new()
 
 
 func _init() -> void:
@@ -135,14 +139,13 @@ func _refresh() -> void:
 		_list.add_child(_section("Spells  ·  every known spell can be cast; uses come back with a rest at the inn"))
 		for sp in p.known_spells:
 			_list.add_child(_spell_row(p, sp))
-	_foot.text = DEFAULT_FOOT
+	_read({})
 
 
 func _art_row(p: CompanionProgress, art: CombatArtData) -> RowButton:
 	var row := RowButton.new(RIGHT_W - 14.0, 58.0)
 	row.paper = true
 	row.title = art.display_name
-	var sits := "the next action" if art.recovery == 1 else "%d actions" % art.recovery
 	row.sub = "%s  ·  tier %s  ·  %d stamina%s" % [art.type_name().to_lower(), CombatArtData.tier_numeral(art.tier),
 		art.stamina_cost, "  ·  signature" if art == p.data.signature_art else ""]
 	var slot := p.equipped_arts.find(art) + 1
@@ -157,9 +160,8 @@ func _art_row(p: CompanionProgress, art: CombatArtData) -> RowButton:
 	else:
 		row.detail = "needs a %s in hand" % art.type_name().to_lower() if wrong else "left behind"
 	row.pressed.connect(toggle.bind(art))
-	var about := "%s\n%s Then sits out %s.%s" % [art.description, art.effect_summary(), sits,
-		"\nOnly usable with a %s in hand." % art.type_name().to_lower() if wrong else ""]
-	_read_on_hover(row, about)
+	_read_on_hover(row, {"figures": ArtFacts.art_figures(art),
+		"lines": ArtFacts.art_lines(art, p.weapon.weapon_type if p.weapon != null else -1)})
 	return row
 
 
@@ -171,16 +173,31 @@ func _spell_row(p: CompanionProgress, sp: SpellData) -> RowButton:
 	row.sub = "%s  ·  tier %s%s" % [sp.school_text().to_lower(), CombatArtData.tier_numeral(sp.tier),
 		"  ·  signature" if sp == p.data.signature_spell else ""]
 	row.detail = "%d of %d uses" % [p.uses_left(sp), sp.uses]
-	_read_on_hover(row, "%s\n%s" % [sp.description, sp.effect_summary()])
+	_read_on_hover(row, {"figures": ArtFacts.spell_figures(sp, p.uses_left(sp)), "lines": ArtFacts.spell_lines(sp)})
 	return row
 
 
-## While the pointer is on `row`, the foot of the page reads `about`.
-func _read_on_hover(row: Control, about: String) -> void:
-	row.mouse_entered.connect(func() -> void: _foot.text = about)
+## While the pointer is on `row`, the foot of the page sets out `what` ({figures, lines}).
+func _read_on_hover(row: Control, what: Dictionary) -> void:
+	row.mouse_entered.connect(_read.bind(what))
 	row.mouse_exited.connect(func() -> void:
-		if _foot.text == about:
-			_foot.text = DEFAULT_FOOT)
+		if _reading == what:
+			_read({}))
+
+
+func _read(what: Dictionary) -> void:
+	_reading = what
+	_foot.visible = what.is_empty()
+	_foot_facts.queue_redraw()
+
+
+func _draw_foot() -> void:
+	if _reading.is_empty():
+		return
+	var lines: Array[String] = []
+	lines.assign(_reading.lines)
+	ArtFacts.draw(_foot_facts, Vector2.ZERO, _foot_facts.size.x, _reading.figures, lines, UiTheme.WAX.darkened(0.1), UiTheme.PARCHMENT_INK,
+		UiTheme.PARCHMENT_MUTED, 0.78, _foot_facts.size.y - 78.0, 0, "", Color.WHITE, 21)
 
 
 func _section(text: String) -> Label:
@@ -336,8 +353,8 @@ func _draw_book() -> void:
 	var w := p.weapon
 	UiTheme.draw_text(_book, body, Vector2(PAD, 108.0), "In hand: %s" % (w.display_name if w != null else "nothing"), 18, ink)
 	if w != null:
-		UiTheme.draw_text(_book, italic, Vector2(PAD, 132.0), "%s, needs grade %s" % [WeaponData.type_name(w.weapon_type).to_lower(),
-			Proficiency.grade_name(w.required_grade)], 15, muted)
+		UiTheme.draw_text(_book, italic, Vector2(PAD, 132.0), "%s, needs %s" % [WeaponData.type_name(w.weapon_type).to_lower(),
+			w.requirement_text().replace(" · ", " and ")], 15, muted)
 	UiTheme.draw_text(_book, italic, Vector2(PAD, 172.0), "Weapons", 15, muted)
 	UiTheme.draw_text(_book, italic, Vector2(PAD, 172.0 + 26.0 + GRADE_H * 5.0 + 6.0), "Magic", 15, muted)
 	var note_y := 172.0 + 26.0 + GRADE_H * 7.0 + 34.0 + 22.0
@@ -402,6 +419,11 @@ func _build() -> void:
 	_foot.position = Vector2(RIGHT_X, BOOK.size.y - FOOT_H + 4.0)
 	_foot.size = Vector2(RIGHT_W, FOOT_H - 30.0)
 	_book.add_child(_foot)
+	_foot_facts.position = Vector2(RIGHT_X, BOOK.size.y - FOOT_H)
+	_foot_facts.size = Vector2(RIGHT_W, FOOT_H - 26.0)
+	_foot_facts.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_foot_facts.draw.connect(_draw_foot)
+	_book.add_child(_foot_facts)
 
 	var back := Button.new()
 	back.text = "Back"

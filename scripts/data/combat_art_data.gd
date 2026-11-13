@@ -51,6 +51,11 @@ static func tier_numeral(value: int) -> String:
 
 ## What the art does, in one or two short sentences built from its numbers.
 func effect_summary() -> String:
+	return ". ".join(effect_lines()) + "."
+
+
+## The same, one thing per entry and without full stops, for a screen that sets them out as lines.
+func effect_lines() -> Array[String]:
 	var parts: Array[String] = []
 	if hits_all_enemies:
 		parts.append("Strikes every enemy")
@@ -76,5 +81,5 @@ func effect_summary() -> String:
 	if self_effect != null:
 		parts.append("User gains %s" % self_effect.summary())
 	if parts.is_empty():
-		return "A plain strike."
-	return ". ".join(parts) + "."
+		parts.append("A plain strike")
+	return parts

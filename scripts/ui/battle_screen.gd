@@ -337,6 +337,7 @@ func _toggle_targeting(mode: Mode, art: CombatArtData = null) -> void:
 	_art = null if same else art
 	if _mode != Mode.IDLE and battle.living_enemies().size() == 1:
 		_hot_enemy = battle.living_enemies()[0]
+	_aim_at_pointer()
 	_refresh()
 
 
@@ -351,7 +352,18 @@ func _toggle_spell(sp: SpellData) -> void:
 			_hot_enemy = battle.living_enemies()[0]
 		if mode == Mode.TARGET_ALLY and battle.line().size() == 1:
 			_hot_ally = battle.line()[0]
+		_aim_at_pointer()
 	_refresh()
+
+
+## An order given by key while the pointer already rests on an enemy (or, for a white spell, on a
+## companion) aims there at once, so the forecast shows without moving the mouse off and back on.
+func _aim_at_pointer() -> void:
+	var u := _unit_at(_pointer)
+	if _aims_at_enemies() and u is EnemyUnit:
+		_hot_enemy = u
+	elif _mode == Mode.TARGET_ALLY and u is CompanionUnit and battle.line().has(u):
+		_hot_ally = u
 
 
 func _aims_at_enemies() -> bool:
@@ -728,8 +740,8 @@ func _show_phase(ev: Dictionary) -> void:
 	_play_big_banner()
 
 
-## A weapon or magic grade went up: a banner over the stage naming the companion, the grade and the
-## art or spell learned.
+## A weapon or magic grade went up: a banner over the stage naming the companion and the grade. What
+## the grade teaches is learned after the battle and shown on the result (see BattleResult).
 func _show_grade_up(ev: Dictionary) -> void:
 	var c: CompanionUnit = ev.actor
 	var grade := Proficiency.grade_name(ev.grade)
@@ -739,21 +751,11 @@ func _show_grade_up(ev: Dictionary) -> void:
 		kind = SpellData.school_name(ev.school).to_upper()
 		color = UiTheme.school_color(ev.school)
 		_grade_kicker.text = "MAGIC GRADE UP"
-		var spell: SpellData = ev.spell
-		if spell == null:
-			_grade_detail.text = "EVERY %s SPELL ALREADY KNOWN" % kind
-		else:
-			_grade_detail.text = "LEARNED  %s  (TIER %s)  ·  %d USES" % [spell.display_name.to_upper(),
-				CombatArtData.tier_numeral(spell.tier), spell.uses]
+		_grade_detail.text = "A NEW SPELL AFTER THE BATTLE"
 	else:
 		kind = WeaponData.type_name(ev.weapon_type).to_upper()
 		_grade_kicker.text = "GRADE UP"
-		var art: CombatArtData = ev.art
-		if art == null:
-			_grade_detail.text = "EVERY %s ART ALREADY KNOWN" % kind
-		else:
-			_grade_detail.text = "LEARNED  %s  (TIER %s)%s" % [art.display_name.to_upper(), CombatArtData.tier_numeral(art.tier),
-				"  ·  EQUIPPED" if ev.equipped else "  ·  SLOTS FULL"]
+		_grade_detail.text = "A NEW COMBAT ART AFTER THE BATTLE"
 	_grade_title.text = "%s  ·  %s  %s" % [c.display_name.to_upper(), kind, grade]
 	_grade_title.add_theme_color_override("font_color", color)
 	_grade_banner.border = color

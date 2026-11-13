@@ -77,6 +77,11 @@ func target_text() -> String:
 
 ## What the spell does, in one or two short sentences built from its numbers.
 func effect_summary() -> String:
+	return ". ".join(effect_lines()) + "."
+
+
+## The same, one thing per entry and without full stops, for a screen that sets them out as lines.
+func effect_lines() -> Array[String]:
 	var parts: Array[String] = []
 	if deals_damage():
 		var dmg := "%s: MAG + %d Mt vs RES, Hit %d" % [target_text(), might, hit]
@@ -103,4 +108,4 @@ func effect_summary() -> String:
 			bits.append("grants " + effect.summary())
 		parts.append("%s: %s" % [target_text(), ", ".join(bits)])
 		parts.append("Always succeeds")
-	return ". ".join(parts) + "."
+	return parts
