@@ -61,11 +61,16 @@ var _popups := Control.new()
 var _log_panel := PanelContainer.new()
 var _log := RichTextLabel.new()
 var _overlay := BattleResult.new()
-## The sheet of what is known about one enemy, shown by a right-click on it.
+## The sheet of what is known about one enemy or companion, shown while Shift is held over them.
 var _inspect := SlantPanel.new()
 var _inspect_title: Label
 var _inspect_body: Label
-var _inspected: EnemyUnit
+var _inspected: Combatant
+## Whether Shift is held, and where the pointer is (screen), as last heard from the input events.
+var _shift := false
+var _pointer := Vector2(-1, -1)
+## Companion -> the text of their sheet, kept up to date by _refresh_party.
+var _party_sheets: Dictionary = {}
 var _grade_banner := SlantPanel.new()
 var _grade_kicker: Label
 var _grade_title: Label
@@ -90,6 +95,7 @@ func start(p_battle: Battle, title: String) -> void:
 		child.get_parent().remove_child(child)
 		child.queue_free()
 	_party_panels.clear()
+	_party_sheets.clear()
 	_enemy_views.clear()
 
 	_party_row.add_child(_row_marker("the rear"))
@@ -242,39 +248,55 @@ func strike_enemy(e: EnemyUnit) -> void:
 
 
 ## Right-click or Esc: stop choosing a target; with no target pending, leave the spell list.
-## Shows the sheet of what is known about `e` (name, stats, traits, what is on it now) at `at`, or
-## beside the enemy when no place is given. null puts the sheet away.
-func inspect_enemy(e: EnemyUnit, at: Vector2 = Vector2(-1, -1)) -> void:
-	if e != null and not _enemy_views.has(e):
-		e = null
-	_inspected = e
-	_inspect.visible = e != null
-	if e == null:
+## Shows the sheet of what is known about `u`, an enemy or a companion (name, stats, and what is on
+## them now): over an enemy's art, above a companion's portrait. null puts the sheet away.
+func inspect(u: Combatant) -> void:
+	if u != null and not _enemy_views.has(u) and not _party_panels.has(u):
+		u = null
+	_inspected = u
+	_inspect.visible = u != null
+	if u == null:
 		return
 	_fill_inspect()
-	if at.x < 0.0:
-		var view: EnemyView = _enemy_views[e]
-		at = view.get_global_rect().get_center() - global_position - Vector2(_inspect.size.x * 0.5, 120.0)
-	else:
-		at += Vector2(18, 18)
+	var node: Control = _enemy_views[u] if u is EnemyUnit else _party_panels[u]
+	var r := node.get_global_rect()
+	var at := r.get_center() - global_position - Vector2(_inspect.size.x * 0.5, 120.0)
+	if u is CompanionUnit:
+		at.y = r.position.y - global_position.y - _inspect.size.y - 12.0
 	_inspect.position = Vector2(clampf(at.x, 16.0, maxf(16.0, size.x - _inspect.size.x - 16.0)),
 		clampf(at.y, 16.0, maxf(16.0, size.y - _inspect.size.y - 16.0)))
 
 
+## Shift held over someone shows their sheet; anything else puts it away.
+func _update_inspect() -> void:
+	var want: Combatant = null
+	if _shift and not _overlay.visible:
+		want = _unit_at(_pointer)
+	if want != _inspected:
+		inspect(want)
+
+
 func _fill_inspect() -> void:
-	var text := _enemy_tooltip(_inspected)
+	var text := _enemy_tooltip(_inspected) if _inspected is EnemyUnit else String(_party_sheets.get(_inspected, ""))
 	var cut := text.find("\n")
 	_inspect_title.text = _inspected.display_name
 	var body := text.substr(cut + 1) if cut >= 0 else ""
 	_inspect_body.text = body
 	var inner := INSPECT_W - 48.0
-	var h := UiTheme.body_font().get_multiline_string_size(body, HORIZONTAL_ALIGNMENT_LEFT, inner, 19).y
+	# The label knows its own height once it has its width.
+	_inspect_body.size = Vector2(inner, 0)
+	var h := _inspect_body.get_minimum_size().y
 	_inspect_body.size = Vector2(inner, h)
 	_inspect.size = Vector2(INSPECT_W, 64.0 + h + 22.0)
 
 
-## The living enemy under a point of the screen (global), the nearest one where their art overlaps.
-func _enemy_at(point: Vector2) -> EnemyUnit:
+## The companion or living enemy under a point of the screen (global). Where enemy art overlaps, the
+## nearest one.
+func _unit_at(point: Vector2) -> Combatant:
+	for c: CompanionUnit in _party_panels:
+		var panel: PartyPanel = _party_panels[c]
+		if panel.visible and panel.get_global_rect().has_point(point):
+			return c
 	var best: EnemyUnit = null
 	var best_d := INF
 	for e: EnemyUnit in _enemy_views:
@@ -361,11 +383,23 @@ func _on_enemy_hover(inside: bool, e: EnemyUnit) -> void:
 		point_at_enemy(null)
 
 
-## _input rather than _unhandled_input: right-click must work even over an enemy or a panel.
-## A right-click on an enemy shows what is known about it; anywhere else it puts that sheet away,
-## or backs out of choosing a target. Any other click puts the sheet away too.
+## _input rather than _unhandled_input: right-click must cancel even over an enemy or a panel.
+## Holding Shift while pointing at an enemy or a companion shows what is known about them; the
+## sheet goes when Shift is let go or the pointer leaves them.
 func _input(event: InputEvent) -> void:
 	if not is_visible_in_tree() or battle == null:
+		return
+	var motion := event as InputEventMouseMotion
+	if motion != null:
+		_pointer = motion.position
+		_shift = motion.shift_pressed
+		_update_inspect()
+		return
+	var shift := event as InputEventKey
+	if shift != null and shift.keycode == KEY_SHIFT:
+		# Not an order and not a skip: only the sheet.
+		_shift = shift.pressed
+		_update_inspect()
 		return
 	var mb := event as InputEventMouseButton
 	if mb != null and mb.pressed:
@@ -376,17 +410,8 @@ func _input(event: InputEvent) -> void:
 			return
 		if _busy:
 			_skip = true
-			inspect_enemy(null)
 		elif mb.button_index == MOUSE_BUTTON_RIGHT:
-			var under := _enemy_at(mb.position)
-			if under != null and under != _inspected:
-				inspect_enemy(under, mb.position - global_position)
-			elif _inspected != null:
-				inspect_enemy(null)
-			else:
-				cancel_targeting()
-		else:
-			inspect_enemy(null)
+			cancel_targeting()
 		return
 	var key := event as InputEventKey
 	if key == null or not key.pressed or key.echo:
@@ -409,10 +434,7 @@ func _input(event: InputEvent) -> void:
 		return
 	match key.keycode:
 		KEY_ESCAPE:
-			if _inspected != null:
-				inspect_enemy(null)
-			else:
-				cancel_targeting()
+			cancel_targeting()
 		KEY_L:
 			_toggle_log()
 		KEY_SPACE, KEY_ENTER:
@@ -441,7 +463,6 @@ static func _number_key(code: Key) -> int:
 
 ## A command went through: show what it did, step by step, then hand control back.
 func _commit(actor: CompanionUnit) -> void:
-	inspect_enemy(null)
 	_clear_targeting()
 	_spell_menu = false
 	_busy = true
@@ -758,6 +779,7 @@ func _play_big_banner() -> void:
 ## The result screen: won or lost and what it gave or cost, the company's XP, then every level gained
 ## shown stat by stat (see BattleResult).
 func show_report(report: BattleReport) -> void:
+	inspect(null)
 	_overlay.open(report, battle.roster)
 
 
@@ -802,6 +824,8 @@ func _refresh_party() -> void:
 		var panel: PartyPanel = _party_panels[c]
 		panel.visible = not c.is_gone()
 		if c.is_gone():
+			if c == _inspected:
+				inspect(null)
 			continue
 		panel.modulate.a = 1.0
 		panel.set_hp(c.hp, c.max_hp())
@@ -851,11 +875,14 @@ func _refresh_party() -> void:
 			for sp in c.spells():
 				spells.append("%s %d/%d" % [sp.display_name, c.progress.uses_left(sp), sp.uses])
 			magic += "\nSpells: " + ", ".join(spells)
-		panel.tooltip_text = "%s  ·  level %d  ·  %s\n%s\n\n%s %s%s\nArts: %s%s\n\n%s" % [
+		# Not a tooltip: the battle screen shows it while Shift is held (see inspect).
+		_party_sheets[c] = "%s\nLevel %d  ·  %s\n%s\n\n%s %s%s\nArts: %s%s\n\n%s" % [
 			c.display_name, c.progress.level, c.weapon().display_name, _stat_sheet(c, Stat.COMPANION_KEYS), WeaponData.type_name(kind),
 			Proficiency.grade_name(c.progress.grade(kind)),
 			"" if step.y == 0 else "  (%d / %d to %s)" % [step.x, step.y, Proficiency.grade_name(c.progress.grade(kind) + 1)],
 			", ".join(arts) if not arts.is_empty() else "none", magic, aim_tip]
+		if c == _inspected:
+			_fill_inspect()
 		panel.set_selection(c == _selected, not _busy and battle.can_act(c))
 		if _mode == Mode.TARGET_ALLY and not _busy and _spell != null and line.has(c):
 			var hot := _spell.targets_all() or c == _hot_ally
@@ -913,7 +940,7 @@ func _refresh_enemies() -> void:
 			if e.is_alive():
 				_fill_inspect()
 			else:
-				inspect_enemy(null)
+				inspect(null)
 		if hot and _selected != null and _mode == Mode.TARGET_SPELL:
 			var note := ""
 			if _spell.delay_ticks > 0:
@@ -1195,7 +1222,7 @@ func _build_ui() -> void:
 	_log.add_theme_font_size_override("normal_font_size", 17)
 	_log_panel.add_child(_log)
 
-	# What is known about an enemy: shown by a right-click on it, put away by the next click.
+	# What is known about an enemy or a companion: shown while Shift is held over them.
 	_inspect.fill = Color(UiTheme.INK, 0.95)
 	_inspect.border = UiTheme.GOLD_DEEP
 	_inspect.studs = false

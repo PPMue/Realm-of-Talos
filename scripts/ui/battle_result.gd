@@ -11,7 +11,7 @@ signal leave_pressed
 
 enum Stage { SPOILS, LEVELS, DONE }
 
-const FILL_SECONDS := 1.3
+const FILL_SECONDS := 0.7
 const CARD_GAP := 18.0
 const TITLE_Y := 26.0
 const REWARDS_Y := 178.0
@@ -110,7 +110,7 @@ func open(report: BattleReport, roster: Array[CompanionUnit]) -> void:
 		for card: SpoilsCard in _cards.get_children():
 			card.play(FILL_SECONDS)
 		var generation := _generation
-		get_tree().create_timer(FILL_SECONDS + (0.8 if not _queue.is_empty() else 0.1)).timeout.connect(func() -> void:
+		get_tree().create_timer(FILL_SECONDS + (0.35 if not _queue.is_empty() else 0.1)).timeout.connect(func() -> void:
 			if generation == _generation and _stage == Stage.SPOILS:
 				_after_spoils())
 	else:
@@ -153,7 +153,7 @@ func _show_next_level() -> void:
 	_hint.visible = false
 	_panel.visible = true
 	_panel.modulate.a = 0.0
-	create_tween().tween_property(_panel, "modulate:a", 1.0, 0.18)
+	create_tween().tween_property(_panel, "modulate:a", 1.0, 0.1)
 	_panel.show_level(q.data, q.name, q.level, q.before, q.gains)
 
 

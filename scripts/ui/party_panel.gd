@@ -111,7 +111,7 @@ func setup(display_name: String, portrait: Texture2D, focus: Vector2, figure_sca
 	_portrait.focus = focus + Vector2(0.0, 0.05)
 
 
-## Kept for callers; the level is given in the tooltip, not on the portrait.
+## Kept for callers; the level is on the sheet Shift shows, not on the portrait.
 func set_level(_level: int) -> void:
 	pass
 

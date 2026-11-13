@@ -32,7 +32,7 @@ godot --path .
 - The company is the row of portraits along the bottom; the rightmost stands nearest the enemies and is aimed at most. The small roundel on each portrait is how often the enemy aims at that place. Someone who has just acted is dimmed under an hourglass with the number of actions until they are ready again, the same picture an enemy's countdown uses; someone injured is reddened and sunk. Click anyone who is ready to choose who acts: they step up out of the line, and their portrait fills the left edge of the screen.
 - Give an order from the list beside them, or press its number: Attack, the companion's equipped combat arts (up to 3), Magic (for anyone who knows a spell), Guard, Focus. Point at an order to read what it does under the list; an art you cannot afford is greyed out and says why.
 - Magic changes the list to the companion's spells, each with its school, tier and uses left (number keys; Back, Esc or right-click returns; more than six spells page with More). A spell with no uses left is greyed out and says why.
-- For Attack and single-target arts, point at an enemy to see hit %, damage and crit %, then click it to strike. Arts that strike every enemy light up every enemy at once; click any of them to confirm. Right-click away from an enemy, or Esc, backs out.
+- For Attack and single-target arts, point at an enemy to see hit %, damage and crit %, then click it to strike. Arts that strike every enemy light up every enemy at once; click any of them to confirm. Right-click or Esc backs out.
 - A spell aimed at a companion is cast by clicking their portrait below; each portrait shows what it would do (for a heal, HP before and after). A spell for every ally or every enemy lights them all up; one click confirms.
 - Under each enemy: its HP, an hourglass with the ticks left until it acts, and the kind of action coming. Every action you take, art, spell or not, is one tick. A pending action already pushed back by a spell shows its countdown in pale blue with a DELAYED tag; one brought forward by another enemy's order shows it in orange with a HASTENED tag (and pops SOONER -N).
 - Traits such as FLYING show as a tag above an enemy's name (hover it). The forecast says EFFECTIVE when the strike doubles Mt, and MAGIC when it is MAG against RES.
@@ -41,7 +41,7 @@ godot --path .
 - An enemy that aims from the left carries an AIMS LEFT tag. The party panels' "targeted N%" then counts it: with only such enemies the figure is the mirrored one ("aims from the left"); with both kinds the panel shows both ("targeted N% · from the left N%").
 - A second phase gets the big banner (PHASE TWO, its name and one line) and a tag under the enemy. Recovery added by an enemy pops +N RECOVERY on the panel; an enemy's heal pops +N on it.
 - When nobody is ready, Wait (1 or Space) lets a tick pass. L opens the battle log. Clicking during playback speeds it up.
-- Right-click an enemy for what is known about it: stats, traits and what is on it now. The next click, or Esc, puts the sheet away. Hover a companion for their stats.
+- Hold Shift while pointing at an enemy or a companion for what is known about them: stats, grades, arts, traits and what is on them now. Let go of Shift, or move off them, and the sheet goes. Nothing of the kind pops up on hover alone.
 
 Proficiency and arts:
 

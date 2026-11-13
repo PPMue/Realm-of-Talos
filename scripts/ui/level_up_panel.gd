@@ -13,10 +13,10 @@ const NAMES := {Stat.HP: "Health", Stat.STA: "Stamina", Stat.STR: "Strength", St
 	Stat.DEX: "Dexterity", Stat.SPD: "Speed", Stat.DEF: "Defence", Stat.RES: "Resistance", Stat.LCK: "Luck"}
 ## Seconds before the light starts down the list, how long it rests on each stat, and how long it
 ## stays on one that rose.
-const INTRO := 0.65
-const CONSIDER := 0.22
-const HOLD := 0.45
-const LEVEL_AT := 0.3
+const INTRO := 0.35
+const CONSIDER := 0.08
+const HOLD := 0.2
+const LEVEL_AT := 0.15
 const ROWS := 5
 const GRID := Vector2(700, 250)
 const COL_W := 350.0
@@ -60,7 +60,7 @@ func show_level(data: CompanionData, display_name: String, level_from: int, stat
 		t += CONSIDER
 		if int(gains.get(key, 0)) > 0:
 			t += HOLD
-	_end = t + 0.2
+	_end = t + 0.1
 	_t = 0.0
 	_done = false
 	set_process(true)
@@ -175,7 +175,7 @@ func _draw_stat(i: int) -> void:
 		# The light: full while it rests on the stat, and it stays on one that rose.
 		var a := 0.16
 		if considering:
-			a = 0.2 + 0.08 * sin(_t * 30.0)
+			a = 0.3
 		elif age < 0.45:
 			a = lerpf(0.5, 0.16, age / 0.45)
 		var clear := Color(UiTheme.GOLD, 0.0)
@@ -208,7 +208,7 @@ func _draw_stat(i: int) -> void:
 	elif considering:
 		# Not known yet: a diamond turning over where the gain would be written.
 		var c := Vector2(pos.x + 268.0, mid)
-		var w := 7.0 * absf(cos(_t * 14.0)) + 1.5
+		var w := 7.0 * absf(cos(_t * 40.0)) + 1.5
 		draw_colored_polygon(PackedVector2Array([c + Vector2(-w, 0), c + Vector2(0, -8), c + Vector2(w, 0), c + Vector2(0, 8)]),
 			Color(UiTheme.GOLD, 0.9))
 

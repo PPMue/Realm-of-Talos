@@ -177,7 +177,7 @@ func layout(slot: Vector2, side: float, back: bool) -> void:
 
 ## Redraws everything from the unit's real state.
 ## `sheet` is everything known about the enemy; it is kept in `details` for the battle screen to
-## show on a right-click, not as a tooltip.
+## show while Shift is held, not as a tooltip.
 func refresh(targetable: bool, hot: bool, sheet: String) -> void:
 	details = sheet
 	_hp.set_values(maxi(unit.hp, 0), unit.max_hp())
