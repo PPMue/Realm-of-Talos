@@ -1,13 +1,11 @@
 [gd_resource type="Resource" script_class="WeaponData" format=3]
 
 [ext_resource type="Script" path="res://scripts/data/weapon_data.gd" id="1_baudn"]
-[ext_resource type="Resource" path="res://data/skills/cleave.tres" id="2_5gk5c"]
 
 [resource]
 script = ExtResource("1_baudn")
 weapon_type = 1
 might = 9
 hit = 75
-skill = ExtResource("2_5gk5c")
 display_name = "Iron Axe"
 weight = 11

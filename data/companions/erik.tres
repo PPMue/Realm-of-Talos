@@ -3,6 +3,7 @@
 [ext_resource type="Texture2D" path="res://assets/character/erik.png" id="1_4f0ir"]
 [ext_resource type="Script" path="res://scripts/data/companion_data.gd" id="2_wfi8r"]
 [ext_resource type="Resource" path="res://data/weapons/iron_bow.tres" id="3_ktahn"]
+[ext_resource type="Resource" path="res://data/arts/bow/aimed_shot.tres" id="4_sig"]
 
 [resource]
 script = ExtResource("2_wfi8r")
@@ -19,3 +20,5 @@ speed = 8
 resistance = 5
 luck = 5
 weapon = ExtResource("3_ktahn")
+start_grade_bow = 2
+signature_art = ExtResource("4_sig")

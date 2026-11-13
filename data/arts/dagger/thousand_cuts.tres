@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="CombatArtData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/combat_art_data.gd" id="1_art"]
+
+[resource]
+script = ExtResource("1_art")
+display_name = "Thousand Cuts"
+description = "Dance down the enemy line, cutting as you go."
+weapon_type = 4
+tier = 3
+stamina_cost = 13
+recovery = 3
+durability_cost = 3
+might_bonus = 1
+crit_bonus = 15
+strikes = 2
+hits_all_enemies = true

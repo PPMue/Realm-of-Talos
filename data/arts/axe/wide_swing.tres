@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CombatArtData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/combat_art_data.gd" id="1_art"]
+
+[resource]
+script = ExtResource("1_art")
+display_name = "Wide Swing"
+description = "A broad sweep that catches everyone in reach."
+weapon_type = 1
+tier = 1
+stamina_cost = 6
+recovery = 1
+durability_cost = 1
+might_bonus = -2
+hit_bonus = -5
+hits_all_enemies = true

@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="CombatArtData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/combat_art_data.gd" id="1_art"]
+[ext_resource type="Script" path="res://scripts/data/status_effect_data.gd" id="2_fx"]
+
+[sub_resource type="Resource" id="Resource_target"]
+script = ExtResource("2_fx")
+display_name = "Sundered"
+stat_mods = {
+"DEF": -3
+}
+duration_ticks = 3
+
+[resource]
+script = ExtResource("1_art")
+display_name = "Sunder"
+description = "Bite through armour so the next blows land deeper."
+weapon_type = 1
+tier = 1
+stamina_cost = 5
+recovery = 1
+durability_cost = 1
+might_bonus = 1
+target_effect = SubResource("Resource_target")

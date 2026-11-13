@@ -5,14 +5,19 @@ extends Combatant
 enum State { ACTIVE, INJURED, GONE }
 
 var data: CompanionData
+## Proficiency and arts carried between battles. Battle updates it as the companion fights.
+var progress: CompanionProgress
+## Proficiency points gained this battle, for BattleConfig.PROFICIENCY_CAP_PER_BATTLE.
+var proficiency_gained: int = 0
 var stamina: int = 0
 ## Number of following player actions this companion sits out.
 var recovery: int = 0
 var state: State = State.ACTIVE
 
 
-func _init(p_data: CompanionData) -> void:
+func _init(p_data: CompanionData, p_progress: CompanionProgress = null) -> void:
 	data = p_data
+	progress = p_progress if p_progress != null else CompanionProgress.create(p_data)
 	display_name = p_data.display_name
 	base_stats = p_data.base_stats()
 	hp = max_hp()
@@ -27,8 +32,14 @@ func weapon() -> WeaponData:
 	return data.weapon
 
 
-func skill() -> SkillData:
-	return data.weapon.skill if data.weapon != null else null
+## Equipped combat arts, in action order.
+func arts() -> Array[CombatArtData]:
+	return progress.equipped_arts
+
+
+## Grade in the type of the weapon held, or -1 without a weapon.
+func weapon_grade() -> int:
+	return progress.grade(data.weapon.weapon_type) if data.weapon != null else -1
 
 
 func total_weight() -> int:

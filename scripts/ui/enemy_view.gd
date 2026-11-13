@@ -160,12 +160,13 @@ func show_hp(hp: int) -> void:
 	_hp.set_values(maxi(hp, 0), unit.max_hp())
 
 
-## Shows what the pending strike would do; pass null to hide.
-func set_forecast(f: AttackForecast) -> void:
+## Shows what the pending strike would do; pass null to hide. `strikes` > 1 shows "DMG 8x2".
+func set_forecast(f: AttackForecast, strikes: int = 1) -> void:
 	_forecast.visible = f != null
-	_hp.set_preview(f.damage if f != null else 0)
+	_hp.set_preview(f.damage * strikes if f != null else 0)
 	if f != null:
-		_forecast_label.text = "HIT %d%%    DMG %d    CRIT %d%%" % [f.hit, f.damage, f.crit]
+		var dmg := str(f.damage) if strikes <= 1 else "%dx%d" % [f.damage, strikes]
+		_forecast_label.text = "HIT %d%%    DMG %s    CRIT %d%%" % [f.hit, dmg, f.crit]
 
 
 func popup_anchor() -> Vector2:

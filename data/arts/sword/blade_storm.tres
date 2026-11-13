@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CombatArtData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/combat_art_data.gd" id="1_art"]
+
+[resource]
+script = ExtResource("1_art")
+display_name = "Blade Storm"
+description = "A whirl of steel that leaves no one untouched."
+tier = 3
+stamina_cost = 14
+recovery = 3
+durability_cost = 3
+might_bonus = -1
+hit_bonus = 5
+strikes = 2
+hits_all_enemies = true

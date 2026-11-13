@@ -1,12 +1,10 @@
 [gd_resource type="Resource" script_class="WeaponData" format=3]
 
 [ext_resource type="Script" path="res://scripts/data/weapon_data.gd" id="1_t7xi1"]
-[ext_resource type="Resource" path="res://data/skills/aimed_shot.tres" id="2_aqcte"]
 
 [resource]
 script = ExtResource("1_t7xi1")
 weapon_type = 3
 hit = 100
-skill = ExtResource("2_aqcte")
 display_name = "Iron Bow"
 weight = 5

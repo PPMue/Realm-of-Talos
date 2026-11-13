@@ -31,12 +31,19 @@ static func weight_penalty(total_weight: int, build: int) -> int:
 	return maxi(0, total_weight - build) * BattleConfig.WEIGHT_PENALTY_PER_POINT
 
 
+## DEF left after ignoring a share of it, rounded down.
+static func defense_after_ignore(defense: int, ignore_percent: int) -> int:
+	return floori(defense * (100 - clampi(ignore_percent, 0, 100)) / 100.0)
+
+
 ## Full forecast of one physical strike. Works for companions and enemies alike.
-static func forecast(attacker: Combatant, might: int, hit: int, crit_bonus: int, target: Combatant) -> AttackForecast:
+static func forecast(attacker: Combatant, might: int, hit: int, crit_bonus: int, target: Combatant,
+		ignore_def_percent: int = 0) -> AttackForecast:
 	var f := AttackForecast.new()
 	f.hit = hit_chance(hit, attacker.stat(Stat.DEX), target.stat(Stat.SPD), target.stat(Stat.LCK))
 	f.crit = crit_chance(attacker.stat(Stat.CRT), target.stat(Stat.LCK), crit_bonus)
-	var base := physical_damage(attacker.stat(Stat.STR), might, target.stat(Stat.DEF))
+	var defense := defense_after_ignore(target.stat(Stat.DEF), ignore_def_percent)
+	var base := physical_damage(attacker.stat(Stat.STR), might, defense)
 	var mult := target.damage_taken_mult()
 	f.damage = final_damage(base, false, mult)
 	f.crit_damage = final_damage(base, true, mult)

@@ -1,6 +1,7 @@
 class_name CompanionData
 extends Resource
-## A companion's definition: base stats and equipment.
+## A companion's definition: base stats, equipment, starting weapon grades and signature art.
+## What changes during a run (proficiency, known and equipped arts) lives in CompanionProgress.
 
 @export var display_name: String = ""
 @export var portrait: Texture2D
@@ -26,6 +27,16 @@ extends Resource
 @export var armor: EquipmentData
 @export var accessory: EquipmentData
 
+@export_group("Proficiency")
+## Grade in each weapon type at the start of a run.
+@export var start_grade_sword: Proficiency.Grade = Proficiency.Grade.E
+@export var start_grade_axe: Proficiency.Grade = Proficiency.Grade.E
+@export var start_grade_spear: Proficiency.Grade = Proficiency.Grade.E
+@export var start_grade_bow: Proficiency.Grade = Proficiency.Grade.E
+@export var start_grade_dagger: Proficiency.Grade = Proficiency.Grade.E
+## Known and equipped from the start of a run.
+@export var signature_art: CombatArtData
+
 @export_group("Progression (not used yet)")
 @export var level: int = 1
 ## Stat key -> growth percent.
@@ -46,3 +57,18 @@ func equipment() -> Array[EquipmentData]:
 		if item != null:
 			items.append(item)
 	return items
+
+
+func starting_grade(t: WeaponData.WeaponType) -> int:
+	match t:
+		WeaponData.WeaponType.SWORD:
+			return start_grade_sword
+		WeaponData.WeaponType.AXE:
+			return start_grade_axe
+		WeaponData.WeaponType.SPEAR:
+			return start_grade_spear
+		WeaponData.WeaponType.BOW:
+			return start_grade_bow
+		WeaponData.WeaponType.DAGGER:
+			return start_grade_dagger
+	return Proficiency.Grade.E

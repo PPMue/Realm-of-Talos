@@ -3,6 +3,7 @@
 [ext_resource type="Texture2D" path="res://assets/character/aina.png" id="1_cvger"]
 [ext_resource type="Script" path="res://scripts/data/companion_data.gd" id="2_a05xp"]
 [ext_resource type="Resource" path="res://data/weapons/iron_sword.tres" id="3_rxjye"]
+[ext_resource type="Resource" path="res://data/arts/sword/keen_edge.tres" id="4_sig"]
 
 [resource]
 script = ExtResource("2_a05xp")
@@ -21,3 +22,6 @@ resistance = 3
 luck = 6
 build = 6
 weapon = ExtResource("3_rxjye")
+start_grade_sword = 2
+start_grade_dagger = 1
+signature_art = ExtResource("4_sig")

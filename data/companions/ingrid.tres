@@ -3,6 +3,7 @@
 [ext_resource type="Texture2D" path="res://assets/character/ingrid.png" id="1_t8c8j"]
 [ext_resource type="Script" path="res://scripts/data/companion_data.gd" id="2_4m3k1"]
 [ext_resource type="Resource" path="res://data/weapons/iron_spear.tres" id="3_03pa1"]
+[ext_resource type="Resource" path="res://data/arts/spear/lunge.tres" id="4_sig"]
 
 [resource]
 script = ExtResource("2_4m3k1")
@@ -21,3 +22,6 @@ resistance = 3
 luck = 4
 build = 7
 weapon = ExtResource("3_03pa1")
+start_grade_sword = 1
+start_grade_spear = 2
+signature_art = ExtResource("4_sig")

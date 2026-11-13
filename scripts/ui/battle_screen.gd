@@ -4,8 +4,12 @@ extends Control
 ##
 ## Layout: the chosen companion's art and actions on the left, enemies standing on the stage,
 ## the party as a row of panels along the bottom (rightmost = nearest the enemies).
+##
+## The party's progress (weapon grades, known and equipped arts) lives in `party` and is carried
+## from one battle to the next. Fight again keeps it; Start over makes it fresh; the Restart button
+## during a battle throws away what that battle had gained.
 
-enum Mode { IDLE, TARGET_ATTACK, TARGET_SKILL }
+enum Mode { IDLE, TARGET_ATTACK, TARGET_ART }
 
 ## The part of the screen the enemies stand in (margins from each edge, at 1920x1080).
 const STAGE_LEFT := 670.0
@@ -21,9 +25,15 @@ const ART_OVERLAP_STAGGERED := 1.45
 @export var setup: BattleSetup
 
 var battle: Battle
+## Each companion's run progress, in setup.companions order.
+var party: Array[CompanionProgress] = []
 
+var _party_at_start: Array[CompanionProgress] = []
+var _art_pool: Array[CombatArtData] = []
 var _selected: CompanionUnit
 var _mode := Mode.IDLE
+## The art waiting for a target while in TARGET_ART.
+var _art: CombatArtData
 var _hot_enemy: EnemyUnit
 var _busy := false
 var _skip := false
@@ -46,17 +56,31 @@ var _log_panel := PanelContainer.new()
 var _log := RichTextLabel.new()
 var _overlay := ColorRect.new()
 var _result_label: Label
+var _result_summary: Label
+var _grade_banner := SlantPanel.new()
+var _grade_title: Label
+var _grade_detail: Label
+var _grade_tween: Tween
+var _arts_screen := ArtsScreen.new()
 
 
 func _ready() -> void:
 	if setup == null:
 		setup = load("res://data/battles/prototype_battle.tres")
 	theme = UiTheme.theme()
+	var library := ArtLibrary.load_default()
+	if library != null:
+		_art_pool = library.arts
+	party = CompanionProgress.create_party(setup.companions)
 	_build_ui()
 	start_battle()
 
 
+## Starts a battle with the party's current progress. HP, stamina and removed companions are restored.
 func start_battle() -> void:
+	_party_at_start.clear()
+	for p in party:
+		_party_at_start.append(p.copy())
 	_generation += 1
 	_busy = false
 	_skip = false
@@ -66,7 +90,7 @@ func start_battle() -> void:
 	else:
 		rng.randomize()
 	_seed = rng.seed
-	battle = Battle.new(setup.companions, setup.enemies, rng)
+	battle = Battle.new(setup.companions, setup.enemies, rng, party, _art_pool)
 
 	for child in _party_row.get_children() + _stage.get_children() + _popups.get_children():
 		child.get_parent().remove_child(child)
@@ -99,7 +123,32 @@ func start_battle() -> void:
 	_mode = Mode.IDLE
 	_overlay.visible = false
 	_banner.visible = false
+	_grade_banner.visible = false
+	_arts_screen.visible = false
 	_after_change()
+
+
+## Result screen: next battle, keeping grades and arts.
+func fight_again() -> void:
+	start_battle()
+
+
+## Result screen: a fresh party, as at the start of a run.
+func start_over() -> void:
+	party = CompanionProgress.create_party(setup.companions)
+	start_battle()
+
+
+## Top bar: replays this battle from the start, without what it had gained.
+func restart_battle() -> void:
+	party = _party_at_start
+	start_battle()
+
+
+func open_arts_screen() -> void:
+	if not battle.is_over():
+		return
+	_arts_screen.open(party)
 
 
 func is_busy() -> bool:
@@ -127,12 +176,15 @@ func choose_action(id: String) -> void:
 	var c := _selected
 	if not battle.can_act(c):
 		return
+	var art_index := ActionMenu.art_index(id)
+	if art_index >= 0:
+		var arts := c.arts()
+		if art_index < arts.size() and battle.can_use_art(c, arts[art_index]):
+			_toggle_targeting(Mode.TARGET_ART, arts[art_index])
+		return
 	match id:
 		ActionMenu.ATTACK:
 			_toggle_targeting(Mode.TARGET_ATTACK)
-		ActionMenu.SKILL:
-			if battle.can_use_skill(c):
-				_toggle_targeting(Mode.TARGET_SKILL)
 		ActionMenu.GUARD:
 			if battle.guard(c):
 				_commit(c)
@@ -151,7 +203,7 @@ func strike_enemy(e: EnemyUnit) -> void:
 	if _busy or _mode == Mode.IDLE or not e.is_alive():
 		return
 	var c := _selected
-	var done := battle.use_skill(c, e) if _mode == Mode.TARGET_SKILL else battle.attack(c, e)
+	var done := battle.use_art(c, _art, e) if _mode == Mode.TARGET_ART else battle.attack(c, e)
 	if done:
 		_commit(c)
 
@@ -160,16 +212,24 @@ func cancel_targeting() -> void:
 	if _busy or _mode == Mode.IDLE:
 		return
 	_mode = Mode.IDLE
+	_art = null
 	_hot_enemy = null
 	_refresh()
 
 
-func _toggle_targeting(mode: Mode) -> void:
-	_mode = Mode.IDLE if _mode == mode else mode
+func _toggle_targeting(mode: Mode, art: CombatArtData = null) -> void:
+	var same := _mode == mode and _art == art
+	_mode = Mode.IDLE if same else mode
+	_art = null if same else art
 	_hot_enemy = null
 	if _mode != Mode.IDLE and battle.living_enemies().size() == 1:
 		_hot_enemy = battle.living_enemies()[0]
 	_refresh()
+
+
+## True while choosing a target for an art that strikes every enemy: all of them are lit at once.
+func _targets_all() -> bool:
+	return _mode == Mode.TARGET_ART and _art != null and _art.hits_all_enemies
 
 
 func _on_enemy_hover(inside: bool, e: EnemyUnit) -> void:
@@ -191,29 +251,38 @@ func _input(event: InputEvent) -> void:
 			cancel_targeting()
 		return
 	var key := event as InputEventKey
-	if key == null or not key.pressed or key.echo:
+	if key == null or not key.pressed or key.echo or _arts_screen.visible:
 		return
 	if _busy:
 		_skip = true
+		return
+	var number := _number_key(key.keycode)
+	if number > 0:
+		var id := _menu.action_for_key(number)
+		if id != "":
+			choose_action(id)
 		return
 	match key.keycode:
 		KEY_ESCAPE:
 			cancel_targeting()
 		KEY_L:
 			_toggle_log()
-		KEY_1, KEY_KP_1:
-			choose_action(ActionMenu.WAIT if battle.can_wait() else ActionMenu.ATTACK)
-		KEY_2, KEY_KP_2:
-			choose_action(ActionMenu.SKILL)
-		KEY_3, KEY_KP_3:
-			choose_action(ActionMenu.GUARD)
-		KEY_4, KEY_KP_4:
-			choose_action(ActionMenu.FOCUS)
 		KEY_SPACE, KEY_ENTER:
 			if battle.can_wait():
 				choose_action(ActionMenu.WAIT)
+			elif _targets_all() and not battle.living_enemies().is_empty():
+				strike_enemy(battle.living_enemies()[0])
 			elif _mode != Mode.IDLE and _hot_enemy != null:
 				strike_enemy(_hot_enemy)
+
+
+## 1-9 from the top row or the keypad, else 0.
+static func _number_key(code: Key) -> int:
+	if code >= KEY_1 and code <= KEY_9:
+		return code - KEY_0
+	if code >= KEY_KP_1 and code <= KEY_KP_9:
+		return code - KEY_KP_0
+	return 0
 
 
 # ---------------------------------------------------------------- playback
@@ -221,6 +290,7 @@ func _input(event: InputEvent) -> void:
 ## A command went through: show what it did, step by step, then hand control back.
 func _commit(actor: CompanionUnit) -> void:
 	_mode = Mode.IDLE
+	_art = null
 	_hot_enemy = null
 	_busy = true
 	_skip = false
@@ -260,7 +330,17 @@ func _play(events: Array[Dictionary], generation: int) -> void:
 func _show_event(ev: Dictionary) -> float:
 	match ev.type:
 		"strike":
+			var art: CombatArtData = ev.get("art")
+			if art == null:
+				return 0.0
+			_show_banner("%s  -  %s" % [ev.actor.display_name.to_upper(), art.display_name.to_upper()], UiTheme.GOLD)
+			(_party_panels[ev.actor] as PartyPanel).play_pulse(UiTheme.GOLD)
+			return 0.3
+		"proficiency":
 			return 0.0
+		"grade_up":
+			_show_grade_up(ev)
+			return 1.7
 		"guard":
 			var panel: PartyPanel = _party_panels[ev.actor]
 			panel.play_pulse(UiTheme.INTENT_COLORS[EnemyActionData.Intent.DEFEND])
@@ -307,9 +387,12 @@ func _show_event(ev: Dictionary) -> float:
 			view.play_lunge()
 			return 0.5
 		"effect":
-			var on_enemy: bool = ev.target is EnemyUnit
+			var helpful: bool = ev.get("helpful", ev.target is EnemyUnit)
 			_popup(_anchor_of(ev.target) + Vector2(0, 40), ev.name.to_upper(),
-				UiTheme.GOLD if on_enemy else UiTheme.INTENT_COLORS[EnemyActionData.Intent.DEBUFF], 40)
+				UiTheme.GOLD if helpful else UiTheme.INTENT_COLORS[EnemyActionData.Intent.DEBUFF], 40)
+			if ev.target is EnemyUnit:
+				var view: EnemyView = _enemy_views[ev.target]
+				view.refresh(false, false, view.tooltip_text)
 			return 0.32
 		"intent":
 			var view: EnemyView = _enemy_views[ev.enemy]
@@ -374,13 +457,68 @@ func _show_banner(text: String, color: Color) -> void:
 	_banner_tween.tween_property(_banner, "modulate:a", 0.0, 0.2)
 
 
+## A weapon grade went up: a banner over the stage naming the companion, the grade and the art learned.
+func _show_grade_up(ev: Dictionary) -> void:
+	var c: CompanionUnit = ev.actor
+	var kind := WeaponData.type_name(ev.weapon_type).to_upper()
+	var grade := Proficiency.grade_name(ev.grade)
+	var art: CombatArtData = ev.art
+	_grade_title.text = "%s  ·  %s  %s" % [c.display_name.to_upper(), kind, grade]
+	if art == null:
+		_grade_detail.text = "EVERY %s ART ALREADY KNOWN" % kind
+	else:
+		_grade_detail.text = "LEARNED  %s  (TIER %s)%s" % [art.display_name.to_upper(), CombatArtData.tier_numeral(art.tier),
+			"  ·  EQUIPPED" if ev.equipped else "  ·  SLOTS FULL"]
+	var panel: PartyPanel = _party_panels[c]
+	panel.play_pulse(UiTheme.GOLD)
+	_popup(panel.popup_anchor() + Vector2(0, -60), "%s %s" % [kind, grade], UiTheme.GOLD, 46)
+	if _grade_tween != null:
+		_grade_tween.kill()
+	# Takes the place of the art-name banner, which shows in the same spot.
+	if _banner_tween != null:
+		_banner_tween.kill()
+	_banner.visible = false
+	_grade_banner.visible = true
+	_grade_banner.modulate.a = 0.0
+	_grade_banner.scale = Vector2(0.9, 0.9)
+	_grade_tween = create_tween()
+	_grade_tween.tween_property(_grade_banner, "modulate:a", 1.0, 0.12)
+	_grade_tween.parallel().tween_property(_grade_banner, "scale", Vector2.ONE, 0.18).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	_grade_tween.tween_interval(1.4 * (0.3 if _skip else 1.0))
+	_grade_tween.tween_property(_grade_banner, "modulate:a", 0.0, 0.25)
+	_grade_tween.tween_callback(func() -> void: _grade_banner.visible = false)
+
+
 func _show_result() -> void:
 	var victory := battle.outcome == Battle.Outcome.VICTORY
+	_result_summary.text = _progress_summary()
 	_result_label.text = "VICTORY" if victory else "DEFEAT"
 	_result_label.add_theme_color_override("font_color", UiTheme.GOLD if victory else UiTheme.INJURED)
 	_overlay.visible = true
 	_overlay.modulate.a = 0.0
 	create_tween().tween_property(_overlay, "modulate:a", 1.0, 0.35)
+
+
+## One line per companion: grade in the weapon held, points gained, arts learned this battle.
+func _progress_summary() -> String:
+	var lines: Array[String] = []
+	for c in battle.roster:
+		var w := c.weapon()
+		if w == null:
+			continue
+		var t := w.weapon_type
+		var step := c.progress.progress_to_next(t)
+		var next := "max grade" if step.y == 0 else "%d / %d to %s" % [step.x, step.y, Proficiency.grade_name(c.progress.grade(t) + 1)]
+		var line := "%s   %s %s   +%d   (%s)" % [c.display_name.to_upper(), WeaponData.type_name(t), Proficiency.grade_name(c.progress.grade(t)),
+			c.proficiency_gained, next]
+		var learned: Array[String] = []
+		for g in battle.grade_ups:
+			if g.actor == c and g.art != null:
+				learned.append((g.art as CombatArtData).display_name)
+		if not learned.is_empty():
+			line += "   learned " + ", ".join(learned)
+		lines.append(line)
+	return "\n".join(lines)
 
 
 # ---------------------------------------------------------------- drawing from state
@@ -434,8 +572,16 @@ func _refresh_party() -> void:
 		if index >= 0 and total > 0.0:
 			share = roundi(weights[index] / total * 100.0)
 		panel.set_footer("%s   ·   targeted %d%%" % [c.weapon().display_name, share])
-		panel.tooltip_text = "%s\n%s\n\nEnemies aim at this spot %d%% of the time." % [
-			c.display_name, _stat_sheet(c, Stat.COMPANION_KEYS), share]
+		var kind := c.weapon().weapon_type
+		var step := c.progress.progress_to_next(kind)
+		var arts: Array[String] = []
+		for a in c.arts():
+			arts.append(a.display_name)
+		panel.tooltip_text = "%s\n%s\n\n%s %s%s\nArts: %s\n\nEnemies aim at this spot %d%% of the time." % [
+			c.display_name, _stat_sheet(c, Stat.COMPANION_KEYS), WeaponData.type_name(kind),
+			Proficiency.grade_name(c.progress.grade(kind)),
+			"" if step.y == 0 else "  (%d / %d to %s)" % [step.x, step.y, Proficiency.grade_name(c.progress.grade(kind) + 1)],
+			", ".join(arts) if not arts.is_empty() else "none", share]
 		panel.set_selection(c == _selected, not _busy and battle.can_act(c))
 
 
@@ -443,10 +589,11 @@ func _refresh_enemies() -> void:
 	var targeting := _mode != Mode.IDLE and not _busy
 	for e: EnemyUnit in _enemy_views:
 		var view: EnemyView = _enemy_views[e]
-		var hot := targeting and e == _hot_enemy
+		var hot := targeting and (e == _hot_enemy or (_targets_all() and e.is_alive()))
 		view.refresh(targeting, hot, "%s\n%s" % [e.display_name, _stat_sheet(e, Stat.ENEMY_KEYS)])
 		if hot and _selected != null:
-			view.set_forecast(battle.forecast(_selected, e, _mode == Mode.TARGET_SKILL))
+			var art := _art if _mode == Mode.TARGET_ART else null
+			view.set_forecast(battle.forecast(_selected, e, art), art.strikes if art != null else 1)
 		else:
 			view.set_forecast(null)
 
@@ -458,8 +605,8 @@ func _refresh_menu() -> void:
 		var active := ""
 		if _mode == Mode.TARGET_ATTACK:
 			active = ActionMenu.ATTACK
-		elif _mode == Mode.TARGET_SKILL:
-			active = ActionMenu.SKILL
+		elif _mode == Mode.TARGET_ART:
+			active = ActionMenu.art_id(_selected.arts().find(_art))
 		_menu.show_companion(_selected, battle, active, not _busy)
 	elif battle.can_wait() or _busy:
 		_menu.show_wait(not _busy, _next_ready())
@@ -487,6 +634,8 @@ func _draw_log() -> void:
 			color = "#ff5d5d"
 		elif line.contains("CRITICAL"):
 			color = "#ff9a45"
+		elif line.contains("grade rises") or line.contains(" learns ") or line.contains("already knows every"):
+			color = "#f4c552"
 		elif line.contains("defeated") or line.begins_with("Victory"):
 			color = "#86e27a"
 		elif line.contains("Miss") or line.contains("dodges"):
@@ -611,8 +760,9 @@ func _build_ui() -> void:
 	top_right.add_child(log_btn)
 	var restart := Button.new()
 	restart.text = "RESTART"
+	restart.tooltip_text = "Start this battle again. Proficiency and arts gained in it are lost."
 	restart.focus_mode = Control.FOCUS_NONE
-	restart.pressed.connect(start_battle)
+	restart.pressed.connect(restart_battle)
 	top_right.add_child(restart)
 
 	# Enemy action banner, above the stage.
@@ -624,6 +774,8 @@ func _build_ui() -> void:
 	_banner.offset_top = 80.0
 	_banner.offset_bottom = 148.0
 	_banner.visible = false
+	# Banners, popups, the log and the result screen draw above the enemies (whose parts use z 0-3).
+	_banner.z_index = 5
 	add_child(_banner)
 	_banner_label = UiTheme.label("", 38, UiTheme.TEXT, true)
 	_banner_label.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -631,8 +783,39 @@ func _build_ui() -> void:
 	_banner_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_banner.add_child(_banner_label)
 
+	# Grade-up banner, larger and lower than the enemy banner.
+	_grade_banner.fill = Color(UiTheme.INK, 0.95)
+	_grade_banner.border = UiTheme.GOLD
+	_grade_banner.border_width = 5.0
+	_grade_banner.size = Vector2(860, 132)
+	_grade_banner.pivot_offset = _grade_banner.size * 0.5
+	_grade_banner.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_grade_banner.offset_left = -430.0 + (STAGE_LEFT - STAGE_RIGHT) * 0.5
+	_grade_banner.offset_right = 430.0 + (STAGE_LEFT - STAGE_RIGHT) * 0.5
+	_grade_banner.offset_top = 84.0
+	_grade_banner.offset_bottom = 216.0
+	_grade_banner.visible = false
+	_grade_banner.z_index = 6
+	add_child(_grade_banner)
+	var kicker := UiTheme.label("GRADE UP", 20, UiTheme.GOLD_DEEP, true)
+	kicker.position = Vector2(80, 10)
+	kicker.size = Vector2(700, 24)
+	kicker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_grade_banner.add_child(kicker)
+	_grade_title = UiTheme.label("", 48, UiTheme.GOLD, true, 8)
+	_grade_title.position = Vector2(60, 30)
+	_grade_title.size = Vector2(740, 56)
+	_grade_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_grade_banner.add_child(_grade_title)
+	_grade_detail = UiTheme.label("", 26, UiTheme.TEXT, true, 6)
+	_grade_detail.position = Vector2(40, 86)
+	_grade_detail.size = Vector2(760, 34)
+	_grade_detail.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_grade_banner.add_child(_grade_detail)
+
 	_popups.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_popups.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_popups.z_index = 7
 	add_child(_popups)
 
 	# Battle log drawer, hidden until asked for.
@@ -648,6 +831,7 @@ func _build_ui() -> void:
 	_log_panel.offset_top = 84.0
 	_log_panel.offset_bottom = -PARTY_HEIGHT - 8.0
 	_log_panel.visible = false
+	_log_panel.z_index = 8
 	add_child(_log_panel)
 	_log.bbcode_enabled = true
 	_log.scroll_following = true
@@ -658,6 +842,7 @@ func _build_ui() -> void:
 	_overlay.color = Color(UiTheme.INK, 0.72)
 	_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_overlay.visible = false
+	_overlay.z_index = 9
 	add_child(_overlay)
 	var ribbon := SlantPanel.new()
 	ribbon.fill = Color(UiTheme.INK, 0.96)
@@ -674,17 +859,39 @@ func _build_ui() -> void:
 	_result_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_result_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	ribbon.add_child(_result_label)
-	var again := Button.new()
-	again.text = "FIGHT AGAIN"
-	again.focus_mode = Control.FOCUS_NONE
-	again.add_theme_font_size_override("font_size", 34)
-	again.set_anchors_preset(Control.PRESET_CENTER)
-	again.offset_left = -150.0
-	again.offset_right = 150.0
-	again.offset_top = 96.0
-	again.offset_bottom = 160.0
-	again.pressed.connect(start_battle)
-	_overlay.add_child(again)
+	var buttons := HBoxContainer.new()
+	buttons.set_anchors_preset(Control.PRESET_CENTER)
+	buttons.offset_left = -520.0
+	buttons.offset_right = 520.0
+	buttons.offset_top = 96.0
+	buttons.offset_bottom = 160.0
+	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+	buttons.add_theme_constant_override("separation", 28)
+	_overlay.add_child(buttons)
+	for spec: Array in [
+			["FIGHT AGAIN", fight_again, "Fight the same battle again. Grades and arts are kept; HP, stamina and everyone who fell are restored."],
+			["ARTS", open_arts_screen, "See each companion's weapon grades and arts, and choose which arts to equip."],
+			["START OVER", start_over, "Begin again with a fresh party: starting grades and signature arts only."]]:
+		var b := Button.new()
+		b.text = spec[0]
+		b.tooltip_text = spec[2]
+		b.focus_mode = Control.FOCUS_NONE
+		b.custom_minimum_size = Vector2(300, 64)
+		b.add_theme_font_size_override("font_size", 34)
+		b.pressed.connect(spec[1])
+		buttons.add_child(b)
+	_result_summary = UiTheme.label("", 22, UiTheme.TEXT, false, 6)
+	_result_summary.set_anchors_preset(Control.PRESET_CENTER)
+	_result_summary.offset_left = -520.0
+	_result_summary.offset_right = 520.0
+	_result_summary.offset_top = 190.0
+	_result_summary.offset_bottom = 340.0
+	_result_summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_overlay.add_child(_result_summary)
+
+	_arts_screen.visible = false
+	_arts_screen.z_index = 10
+	add_child(_arts_screen)
 
 
 func _row_marker(text: String) -> Label:

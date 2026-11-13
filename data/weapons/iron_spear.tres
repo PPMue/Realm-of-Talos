@@ -1,13 +1,11 @@
 [gd_resource type="Resource" script_class="WeaponData" format=3]
 
 [ext_resource type="Script" path="res://scripts/data/weapon_data.gd" id="1_cxgj6"]
-[ext_resource type="Resource" path="res://data/skills/lunge.tres" id="2_2vpyf"]
 
 [resource]
 script = ExtResource("1_cxgj6")
 weapon_type = 2
 might = 7
 hit = 85
-skill = ExtResource("2_2vpyf")
 display_name = "Iron Spear"
 weight = 8

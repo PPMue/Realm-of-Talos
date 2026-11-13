@@ -8,6 +8,10 @@ extends RefCounted
 ##   3. enemies at 0 act, left to right, then pick their next action
 ##   4. companion recovery counters tick down (not the companion who just acted)
 ##   5. timed effects (Guard, buffs, defends, debuffs) lose a tick and expire
+##
+## Attacking and using combat arts raise the actor's proficiency in the weapon type held
+## (stored in their CompanionProgress, which outlives the battle). Each grade reached teaches
+## a random art of that type from `art_pool`; see ArtLearning.
 
 enum Outcome { ONGOING, VICTORY, DEFEAT }
 
@@ -22,12 +26,21 @@ var log_lines: Array[String] = []
 ## What happened during the last command, in order, for the UI to play back.
 ## Each entry has a "type" plus fields; see the _emit calls. Cleared at the start of every tick.
 var events: Array[Dictionary] = []
+## Arts that can be learned on a grade-up (normally ArtLibrary.load_default().arts).
+var art_pool: Array[CombatArtData] = []
+## Every grade reached this battle, in order: {"actor", "weapon_type", "grade", "art", "equipped"}.
+var grade_ups: Array[Dictionary] = []
 
 
-func _init(companion_data: Array[CompanionData], enemy_data: Array[EnemyData], p_rng: RandomNumberGenerator = null) -> void:
+## `party` holds each companion's progress, in the same order as `companion_data`; it is read and
+## updated in place, so pass the same objects to the next battle to carry progress over.
+## Companions without one start fresh.
+func _init(companion_data: Array[CompanionData], enemy_data: Array[EnemyData], p_rng: RandomNumberGenerator = null,
+		party: Array[CompanionProgress] = [], p_art_pool: Array[CombatArtData] = []) -> void:
 	rng = p_rng if p_rng != null else RandomNumberGenerator.new()
-	for d in companion_data:
-		roster.append(CompanionUnit.new(d))
+	art_pool = p_art_pool
+	for i in companion_data.size():
+		roster.append(CompanionUnit.new(companion_data[i], party[i] if i < party.size() else null))
 	for d in enemy_data:
 		var e := EnemyUnit.new(d)
 		enemies.append(e)
@@ -92,26 +105,37 @@ func can_wait() -> bool:
 	return not is_over() and ready_companions().is_empty()
 
 
-func can_use_skill(c: CompanionUnit) -> bool:
-	var s := c.skill() if c != null else null
-	return can_act(c) and s != null and c.stamina >= s.stamina_cost
+func can_use_art(c: CompanionUnit, art: CombatArtData) -> bool:
+	return can_act(c) and art_block_reason(c, art) == ""
+
+
+## Why `c` cannot use `art` right now (equipment and stamina only), or "" if nothing stops it.
+func art_block_reason(c: CompanionUnit, art: CombatArtData) -> String:
+	if c == null or art == null:
+		return "No art chosen."
+	if not c.progress.is_equipped(art):
+		return "%s does not have %s equipped." % [c.display_name, art.display_name]
+	var w := c.weapon()
+	if w == null or w.weapon_type != art.weapon_type:
+		var kind := art.type_name().to_lower()
+		return "%s is a %s art: it needs a %s in hand." % [art.display_name, kind, kind]
+	if c.stamina < art.stamina_cost:
+		return "Not enough stamina: %s needs %d, %s has %d." % [art.display_name, art.stamina_cost, c.display_name, c.stamina]
+	return ""
 
 
 func focus_amount(c: CompanionUnit) -> int:
 	return maxi(1, roundi(c.max_stamina() * BattleConfig.FOCUS_RESTORE_FRACTION))
 
 
-## Forecast of a companion striking an enemy, with or without the weapon skill.
-func forecast(c: CompanionUnit, target: EnemyUnit, use_skill: bool = false) -> AttackForecast:
+## Forecast of one strike by a companion on an enemy: a plain attack, or with `art`'s bonuses.
+## For an art that strikes twice, this is each strike.
+func forecast(c: CompanionUnit, target: EnemyUnit, art: CombatArtData = null) -> AttackForecast:
 	var w := c.weapon()
-	var might := w.might
-	var hit := w.hit
-	var crit_bonus := 0
-	if use_skill and c.skill() != null:
-		might += c.skill().might_bonus
-		hit += c.skill().hit_bonus
-		crit_bonus += c.skill().crit_bonus
-	return CombatMath.forecast(c, might, hit, crit_bonus, target)
+	if art == null:
+		return CombatMath.forecast(c, w.might, w.hit, 0, target)
+	return CombatMath.forecast(c, w.might + art.might_bonus, w.hit + art.hit_bonus, art.crit_bonus, target,
+		art.ignore_def_percent)
 
 
 ## Single-target weights for line(), left to right.
@@ -127,7 +151,7 @@ func target_weights() -> Array[float]:
 	return out
 
 
-## Hook for revive items/skills. Nothing can revive yet, so all-injured is a defeat.
+## Hook for revive items or arts. Nothing can revive yet, so all-injured is a defeat.
 func can_revive() -> bool:
 	return false
 
@@ -140,22 +164,42 @@ func attack(c: CompanionUnit, target: EnemyUnit) -> bool:
 		return false
 	_begin_tick()
 	_log("%s attacks %s with %s." % [c.display_name, target.display_name, c.weapon().display_name])
-	_emit({"type": "strike", "actor": c, "target": target, "name": "Attack"})
-	_companion_strike(c, target, false)
+	_emit({"type": "strike", "actor": c, "target": target, "name": "Attack", "art": null})
+	_companion_strike(c, target, null)
+	_gain_proficiency(c, BattleConfig.PROFICIENCY_POINTS_ATTACK)
 	_end_player_action(c, BattleConfig.RECOVERY_ATTACK)
 	return true
 
 
-func use_skill(c: CompanionUnit, target: EnemyUnit) -> bool:
-	if not can_use_skill(c) or not _is_valid_target(target):
+## Uses an equipped combat art. `target` is ignored by arts that strike every enemy.
+func use_art(c: CompanionUnit, art: CombatArtData, target: EnemyUnit = null) -> bool:
+	if not can_use_art(c, art):
+		return false
+	var targets: Array[EnemyUnit] = []
+	if art.hits_all_enemies:
+		targets = living_enemies()
+	elif _is_valid_target(target):
+		targets.append(target)
+	if targets.is_empty():
 		return false
 	_begin_tick()
-	var s := c.skill()
-	c.stamina -= s.stamina_cost
-	_log("%s uses %s on %s (-%d STA)." % [c.display_name, s.display_name, target.display_name, s.stamina_cost])
-	_emit({"type": "strike", "actor": c, "target": target, "name": s.display_name})
-	_companion_strike(c, target, true)
-	_end_player_action(c, BattleConfig.RECOVERY_SKILL)
+	c.stamina -= art.stamina_cost
+	var aim := "every enemy" if art.hits_all_enemies else target.display_name
+	_log("%s uses %s on %s (-%d STA)." % [c.display_name, art.display_name, aim, art.stamina_cost])
+	_emit({"type": "strike", "actor": c, "target": null if art.hits_all_enemies else target, "name": art.display_name, "art": art})
+	for t in targets:
+		var landed := false
+		for i in art.strikes:
+			if not t.is_alive():
+				break
+			if _companion_strike(c, t, art):
+				landed = true
+		if landed and art.target_effect != null and t.is_alive():
+			_apply_effect(t, art.target_effect, false)
+	if art.self_effect != null:
+		_apply_effect(c, art.self_effect, true)
+	_gain_proficiency(c, BattleConfig.PROFICIENCY_POINTS_ART)
+	_end_player_action(c, art.recovery)
 	return true
 
 
@@ -229,7 +273,7 @@ func perform_enemy_action(e: EnemyUnit, action: EnemyActionData) -> void:
 	match action.targeting:
 		EnemyActionData.Targeting.SELF:
 			if action.effect != null:
-				_apply_effect(e, action.effect)
+				_apply_effect(e, action.effect, true)
 		EnemyActionData.Targeting.SINGLE:
 			var target := pick_target()
 			if target != null:
@@ -288,12 +332,13 @@ func _advance(acted: CompanionUnit) -> void:
 	_check_end()
 
 
-func _companion_strike(c: CompanionUnit, target: EnemyUnit, use_skill_bonus: bool) -> void:
-	var f := forecast(c, target, use_skill_bonus)
+## One strike. Returns true if it landed.
+func _companion_strike(c: CompanionUnit, target: EnemyUnit, art: CombatArtData) -> bool:
+	var f := forecast(c, target, art)
 	if not _roll(f.hit):
-		_log("  Miss! (%d%% to hit)" % f.hit)
+		_log("  Miss on %s! (%d%% to hit)" % [target.display_name, f.hit])
 		_emit({"type": "miss", "target": target})
-		return
+		return false
 	var crit := _roll(f.crit)
 	var dmg := f.crit_damage if crit else f.damage
 	target.hp -= dmg
@@ -302,6 +347,38 @@ func _companion_strike(c: CompanionUnit, target: EnemyUnit, use_skill_bonus: boo
 	if not target.is_alive():
 		_log("  %s is defeated!" % target.display_name)
 		_emit({"type": "defeated", "target": target})
+	return true
+
+
+## Proficiency for acting with the weapon held, up to the per-battle cap.
+## Every grade reached teaches a random art of that weapon type (if any is left to learn).
+func _gain_proficiency(c: CompanionUnit, amount: int) -> void:
+	var w := c.weapon()
+	if w == null or amount <= 0:
+		return
+	var t := w.weapon_type
+	var room := maxi(0, BattleConfig.PROFICIENCY_CAP_PER_BATTLE - c.proficiency_gained)
+	var before := c.progress.grade(t)
+	var gained := c.progress.add_points(t, mini(amount, room))
+	c.proficiency_gained += gained
+	if gained <= 0:
+		return
+	var kind := WeaponData.type_name(t).to_lower()
+	_emit({"type": "proficiency", "actor": c, "weapon_type": t, "gained": gained})
+	if c.proficiency_gained >= BattleConfig.PROFICIENCY_CAP_PER_BATTLE:
+		_log("  %s has gained all the %s proficiency this battle can give." % [c.display_name, kind])
+	for g in range(before + 1, c.progress.grade(t) + 1):
+		var art := ArtLearning.pick_art(rng, c.progress, t, g, art_pool)
+		var equipped := c.progress.learn(art) if art != null else false
+		_log("  %s's %s grade rises to %s!" % [c.display_name, kind, Proficiency.grade_name(g)])
+		if art == null:
+			_log("  %s already knows every %s art." % [c.display_name, kind])
+		else:
+			_log("  %s learns %s (tier %d)%s." % [c.display_name, art.display_name, art.tier,
+				", equipped" if equipped else "; no free slot, so it is not equipped"])
+		var ev := {"type": "grade_up", "actor": c, "weapon_type": t, "grade": g, "art": art, "equipped": equipped}
+		grade_ups.append(ev)
+		_emit(ev)
 
 
 func _enemy_strike(e: EnemyUnit, action: EnemyActionData, target: CompanionUnit) -> void:
@@ -314,7 +391,7 @@ func _enemy_strike(e: EnemyUnit, action: EnemyActionData, target: CompanionUnit)
 		var crit := _roll(f.crit)
 		_damage_companion(target, f.crit_damage if crit else f.damage, crit)
 	if action.effect != null and not target.is_gone():
-		_apply_effect(target, action.effect)
+		_apply_effect(target, action.effect, false)
 
 
 ## A landed hit. Injured companions who are hit again are gone for good.
@@ -334,11 +411,12 @@ func _damage_companion(c: CompanionUnit, dmg: int, crit: bool) -> void:
 		_emit({"type": "injured", "target": c})
 
 
-func _apply_effect(unit: Combatant, data: StatusEffectData) -> void:
+## `helpful`: a buff or defend (as opposed to a debuff); only changes how it is shown.
+func _apply_effect(unit: Combatant, data: StatusEffectData, helpful: bool) -> void:
 	var effect := StatusEffect.from_data(data)
 	unit.add_effect(effect)
 	_log("  %s gains %s." % [unit.display_name, effect.describe()])
-	_emit({"type": "effect", "target": unit, "name": effect.display_name})
+	_emit({"type": "effect", "target": unit, "name": effect.display_name, "helpful": helpful})
 
 
 ## Returns true if the battle is over (and sets outcome on the first call that sees it).

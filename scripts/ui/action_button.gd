@@ -1,12 +1,15 @@
 class_name ActionButton
 extends Control
 ## A leaning banner button in the action menu: hotkey, action name, and a short cost on the right.
+## Long names shrink to fit beside the cost.
 
 signal pressed
 signal hover_changed(inside: bool)
 
 const W := 336.0
-const H := 66.0
+const H := 54.0
+const TITLE_SIZE := 30
+const TITLE_MIN_SIZE := 20
 const NUDGE := 18.0
 
 var title := "":
@@ -79,13 +82,18 @@ func _draw() -> void:
 	var display := UiTheme.display_font()
 	var body := UiTheme.body_font()
 	if hotkey != "":
-		var chip := Rect2(x, 15.0, 44.0, H - 30.0)
+		var chip := Rect2(x, 11.0, 44.0, H - 22.0)
 		UiTheme.fill_para(self, chip, Color(UiTheme.INK, 0.85) if lit else Color(UiTheme.GOLD_DEEP, 0.0 if disabled else 0.9))
 		UiTheme.draw_text(self, display, Vector2(chip.position.x, chip.position.y + (chip.size.y - display.get_height(22)) * 0.5),
 			hotkey, 22, UiTheme.GOLD if lit else ink, 0, chip.size.x, HORIZONTAL_ALIGNMENT_CENTER)
 		x += 56.0
-	UiTheme.draw_text(self, display, Vector2(x, (H - display.get_height(34)) * 0.5), title, 34, ink)
+	var right := rect.end.x - s * 0.5 - 18.0
+	var room := right - x
 	if detail != "":
-		var right := rect.end.x - s * 0.5 - 18.0
+		room -= body.get_string_size(detail, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x + 12.0
 		UiTheme.draw_text(self, body, Vector2(rect.position.x, (H - body.get_height(18)) * 0.5), detail, 18, sub,
 			0, right - rect.position.x, HORIZONTAL_ALIGNMENT_RIGHT)
+	var title_size := TITLE_SIZE
+	while title_size > TITLE_MIN_SIZE and display.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size).x > room:
+		title_size -= 1
+	UiTheme.draw_text(self, display, Vector2(x, (H - display.get_height(title_size)) * 0.5), title, title_size, ink)

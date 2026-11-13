@@ -3,6 +3,7 @@
 [ext_resource type="Texture2D" path="res://assets/character/elena.png" id="1_b42f8"]
 [ext_resource type="Script" path="res://scripts/data/companion_data.gd" id="2_o2ulh"]
 [ext_resource type="Resource" path="res://data/weapons/iron_axe.tres" id="3_1mcxf"]
+[ext_resource type="Resource" path="res://data/arts/axe/cleave.tres" id="4_sig"]
 
 [resource]
 script = ExtResource("2_o2ulh")
@@ -19,3 +20,5 @@ defense = 7
 resistance = 2
 build = 9
 weapon = ExtResource("3_1mcxf")
+start_grade_axe = 2
+signature_art = ExtResource("4_sig")

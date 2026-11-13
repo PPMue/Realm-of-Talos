@@ -3,6 +3,7 @@
 [ext_resource type="Texture2D" path="res://assets/character/yuzu.png" id="1_0lfd4"]
 [ext_resource type="Script" path="res://scripts/data/companion_data.gd" id="2_q5iwk"]
 [ext_resource type="Resource" path="res://data/weapons/iron_dagger.tres" id="3_jecx5"]
+[ext_resource type="Resource" path="res://data/arts/dagger/backstab.tres" id="4_sig"]
 
 [resource]
 script = ExtResource("2_q5iwk")
@@ -21,3 +22,6 @@ resistance = 3
 luck = 8
 build = 4
 weapon = ExtResource("3_jecx5")
+start_grade_bow = 1
+start_grade_dagger = 2
+signature_art = ExtResource("4_sig")
