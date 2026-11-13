@@ -162,8 +162,8 @@ static func school(ci: CanvasItem, c: Vector2, size: float, of: int, color: Colo
 		sun(ci, c, size, color)
 		return
 	var h := size * 0.5
-	# The crescent lies to the right of its own circle's centre, so that centre sits left of `c`.
-	var o := c + Vector2(-h * 0.42, 0)
+	# The crescent lies to the right of its own circle's centre, so that centre sits a little left of `c`.
+	var o := c + Vector2(-h * 0.21, 0)
 	var pts := PackedVector2Array()
 	for k in 21:
 		pts.append(o + Vector2.from_angle(-PI * 0.5 + PI * k / 20.0) * h * 0.9)
