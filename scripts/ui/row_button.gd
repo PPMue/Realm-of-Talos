@@ -39,6 +39,12 @@ var active := false:
 		active = v
 		queue_redraw()
 
+## Written on parchment instead of standing as a board.
+var paper := false:
+	set(v):
+		paper = v
+		queue_redraw()
+
 var _hover := false
 
 
@@ -69,6 +75,9 @@ func _get_tooltip(_at_position: Vector2) -> String:
 
 
 func _draw() -> void:
+	if paper:
+		_draw_paper()
+		return
 	var w := size.x
 	var h := size.y
 	var lit := _hover and not disabled
@@ -129,3 +138,39 @@ func _draw() -> void:
 		title_y = h * 0.5 - display.get_height(title_size) + 4.0
 		UiTheme.draw_text(self, body, Vector2(x + 2.0, h * 0.5 + 4.0), sub, 16, small, 0, room)
 	UiTheme.draw_text(self, display, Vector2(x, title_y), title, title_size, ink, 0, room)
+
+
+## A line in a ledger: the entry in ink with small print under it, and a note on the right.
+func _draw_paper() -> void:
+	var w := size.x
+	var h := size.y
+	var lit := _hover and not disabled
+	var display := UiTheme.display_font()
+	var body := UiTheme.body_font()
+	var italic := UiTheme.italic_font()
+	if active:
+		draw_rect(Rect2(0, 1, w, h - 2.0), Color(UiTheme.WAX, 0.12))
+	elif lit:
+		draw_rect(Rect2(0, 1, w, h - 2.0), Color(UiTheme.PARCHMENT_INK, 0.09))
+	draw_line(Vector2(0, h - 0.5), Vector2(w, h - 0.5), Color(UiTheme.PARCHMENT_INK, 0.2), 1.0)
+	var ink := Color(UiTheme.PARCHMENT_MUTED, 0.8) if disabled else (UiTheme.WAX.darkened(0.25) if lit else UiTheme.PARCHMENT_INK)
+	var small := Color(UiTheme.PARCHMENT_MUTED, 0.75 if disabled else 1.0)
+	var x := 12.0
+	var right := w - 10.0
+	var room := right - x
+	if detail != "":
+		var dw := minf(italic.get_string_size(detail, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x, w * 0.45)
+		room -= dw + 14.0
+		var dc := UiTheme.WAX if (disabled or active) else UiTheme.PARCHMENT_MUTED
+		if lit:
+			dc = UiTheme.WAX.darkened(0.2)
+		UiTheme.draw_text(self, italic, Vector2(right - dw, (h - italic.get_height(16)) * 0.5), detail, 16, dc, 0, dw,
+			HORIZONTAL_ALIGNMENT_RIGHT)
+	var title_size := 21
+	while title_size > 15 and display.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size).x > room:
+		title_size -= 1
+	if sub != "":
+		UiTheme.draw_text(self, display, Vector2(x, h * 0.5 - display.get_height(title_size) + 3.0), title, title_size, ink, 0, room)
+		UiTheme.draw_text(self, body, Vector2(x + 1.0, h * 0.5 + 3.0), sub, 14, small, 0, room)
+	else:
+		UiTheme.draw_text(self, display, Vector2(x, (h - display.get_height(title_size)) * 0.5), title, title_size, ink, 0, room)

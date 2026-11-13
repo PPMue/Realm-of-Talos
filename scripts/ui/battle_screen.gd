@@ -90,7 +90,7 @@ func start(p_battle: Battle, title: String) -> void:
 	_party_panels.clear()
 	_enemy_views.clear()
 
-	_party_row.add_child(_row_marker("‹ BACK"))
+	_party_row.add_child(_row_marker("the rear"))
 	for c in battle.roster:
 		var panel := PartyPanel.new()
 		panel.setup(c.display_name, c.data.portrait, c.data.portrait_focus)
@@ -99,7 +99,7 @@ func start(p_battle: Battle, title: String) -> void:
 		panel.hover_changed.connect(_on_ally_hover.bind(c))
 		_party_row.add_child(panel)
 		_party_panels[c] = panel
-	_party_row.add_child(_row_marker("FRONT ›"))
+	_party_row.add_child(_row_marker("the front"))
 
 	for e in battle.enemies:
 		var view := EnemyView.new()
@@ -849,13 +849,15 @@ func _refresh_party() -> void:
 			share = roundi(weights[index] / total * 100.0)
 			rev_share = roundi(rev_weights[index] / rev_total * 100.0)
 		var aim_tip := "Enemies aim at this spot %d%% of the time." % share
-		if aim.y == 0:
-			panel.set_footer("%s   ·   targeted %d%%" % [c.weapon().display_name, share])
+		if c.is_gone() or index < 0 or battle.is_over():
+			panel.set_threat("")
+		elif aim.y == 0:
+			panel.set_threat("%d%%" % share)
 		elif aim.x == 0:
-			panel.set_footer("targeted %d%%   ·   aims from the left" % rev_share)
+			panel.set_threat("%d%%" % rev_share, true)
 			aim_tip = "Every enemy here aims from the left (mirrored): its single attacks hit this spot %d%% of the time." % rev_share
 		else:
-			panel.set_footer("targeted %d%%   ·   from the left %d%%" % [share, rev_share])
+			panel.set_threat("%d%% · %d%%" % [share, rev_share])
 			aim_tip = ("Most enemies aim at this spot %d%% of the time; those that aim from the left (mirrored) %d%% of the time." %
 				[share, rev_share])
 		var kind := c.weapon().weapon_type
@@ -1085,7 +1087,7 @@ func _build_ui() -> void:
 	resized.connect(_layout_enemies)
 
 	# Chosen companion and their actions.
-	_menu.position = Vector2(34, 92)
+	_menu.position = Vector2(0, 60)
 	_menu.action_pressed.connect(choose_action)
 	add_child(_menu)
 
@@ -1094,14 +1096,13 @@ func _build_ui() -> void:
 	_party_row.offset_top = -(PartyPanel.H + PartyPanel.LIFT) - 14.0
 	_party_row.offset_bottom = -14.0
 	_party_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	# Negative gap: the leaning panels tuck under each other, so five still fit across.
-	_party_row.add_theme_constant_override("separation", -50)
+	_party_row.add_theme_constant_override("separation", 8)
 	_party_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_party_row)
 
 	# Top bar.
-	_title = UiTheme.label("", 26, Color(UiTheme.GOLD, 0.85), true, 6)
-	_title.position = Vector2(38, 26)
+	_title = UiTheme.label("", 22, Color(UiTheme.GOLD, 0.85), true, 6)
+	_title.position = Vector2(30, 18)
 	add_child(_title)
 
 	var pennant := SlantPanel.new()
@@ -1262,9 +1263,9 @@ func _build_ui() -> void:
 
 
 func _row_marker(text: String) -> Label:
-	var l := UiTheme.label(text, 24, Color(UiTheme.MUTED, 0.8), true, 6)
-	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	# Wide enough to stay clear of the panels, which tuck under their neighbours.
-	l.custom_minimum_size = Vector2(190, 0)
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT if text.begins_with("‹") else HORIZONTAL_ALIGNMENT_RIGHT
+	var l := UiTheme.label(text, 19, Color(UiTheme.MUTED, 0.9), false, 5)
+	l.add_theme_font_override("font", UiTheme.italic_font())
+	l.size_flags_vertical = Control.SIZE_SHRINK_END
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.custom_minimum_size = Vector2(96, 60)
 	return l

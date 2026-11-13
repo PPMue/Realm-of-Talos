@@ -1,23 +1,35 @@
 class_name PartyScreen
 extends Control
-## Between battles: who is fielded and in what order, who waits in reserve, and which weapon each
-## companion holds (with the reason when one cannot be held). Opens the arts screen for combat arts.
+## The barracks, between battles. On the left the company stands in its line, rear to front, with the
+## reserve on the bench below; a companion is moved by carrying them to another place or to the bench
+## (or with the orders on their page). On the right is the muster roll, open at whoever is selected:
+## what they are, what they hold, and the armory to choose a weapon from (with the reason when one
+## cannot be held). A mage's healing spells can be cast from the page. Opens the arts screen.
 ## Every change is a Run command; the screen only reads the run and redraws.
 
 signal closed
 
-const DETAIL_TOP := 600.0
+const LINE_X := 60.0
+const LINE_Y := 136.0
+const LINE_STEP := MusterFigure.W + 14.0
+const BENCH_Y := 664.0
+const PAGE := Rect2(1150, 110, 740, 946)
+const PAGE_PAD := 34.0
 
 var run: Run
 var _selected: RunCompanion
-var _line_row := HBoxContainer.new()
-var _reserve_row := HBoxContainer.new()
-var _reserve_empty: Label
+var _line := Control.new()
+var _bench := Control.new()
+var _bench_empty: Label
+var _page := Control.new()
 var _name: Label
-var _info: Label
 var _level: Label
+var _place: Label
+var _holds: Label
+var _stats := Control.new()
 var _xp := SlantBar.new()
-var _buttons := VBoxContainer.new()
+var _xp_label: Label
+var _buttons := Control.new()
 var _weapons := VBoxContainer.new()
 var _weapons_head: Label
 ## A healing spell waiting for its target (clicking a companion casts it), and its caster.
@@ -71,8 +83,8 @@ func begin_cast(spell: SpellData) -> void:
 		return
 	_casting = spell
 	_caster = _selected
-	_cast_hint.text = "%s: click who %s heals (+%d HP)%s. Esc to cancel." % [spell.display_name.to_upper(), _caster.display_name(),
-		run.heal_amount(_caster, spell), ", or anyone to heal the whole roster" if spell.targeting == SpellData.Targeting.ALL_ALLIES else ""]
+	_cast_hint.text = "%s: choose who %s heals (+%d HP)%s. Esc to put it away." % [spell.display_name, _caster.display_name(),
+		run.heal_amount(_caster, spell), ", or anyone to heal the whole company" if spell.targeting == SpellData.Targeting.ALL_ALLIES else ""]
 	_cast_hint.add_theme_color_override("font_color", UiTheme.HEAL)
 	refresh()
 
@@ -99,7 +111,7 @@ func cast_on(target: RunCompanion) -> void:
 	_casting = null
 	_caster = null
 	var who := "everyone" if spell.targeting == SpellData.Targeting.ALL_ALLIES else target.display_name()
-	_cast_hint.text = "%s casts %s on %s: +%d HP. %d / %d uses left." % [caster.display_name(), spell.display_name, who, healed,
+	_cast_hint.text = "%s casts %s on %s: +%d HP. %d of %d uses left." % [caster.display_name(), spell.display_name, who, healed,
 		caster.progress.uses_left(spell), spell.uses]
 	_cast_hint.add_theme_color_override("font_color", UiTheme.HEAL)
 	refresh()
@@ -123,6 +135,24 @@ func toggle_fielded() -> void:
 	refresh()
 
 
+## Sets `c` down at place `index` of the line (0 = the rear), or on the bench when `index` is -1.
+## Someone from the bench set down on a full line changes places with whoever stood there.
+func place(c: RunCompanion, index: int) -> void:
+	if c == null or not run.can_change_party() or _casting != null:
+		return
+	if index < 0:
+		run.bench(c)
+	elif run.is_fielded(c):
+		run.move_in_line(c, index)
+	elif run.lineup.size() < RunConfig.MAX_FIELDED:
+		run.field(c, index)
+	elif index < run.lineup.size():
+		run.bench(run.lineup[index])
+		run.field(c, index)
+	_selected = c
+	refresh()
+
+
 func equip(w: OwnedWeapon) -> void:
 	if _selected != null and run.equip_weapon(_selected, w):
 		refresh()
@@ -142,100 +172,100 @@ func open_arts() -> void:
 func refresh() -> void:
 	if run == null:
 		return
-	_clear(_line_row)
-	_clear(_reserve_row)
-	_line_row.add_child(_marker("‹ BACK"))
+	_clear(_line)
+	_clear(_bench)
 	for i in RunConfig.MAX_FIELDED:
-		if i < run.lineup.size():
-			_line_row.add_child(_chip(run.lineup[i], i + 1, i == run.lineup.size() - 1))
-		else:
-			_line_row.add_child(_empty_slot())
-	_line_row.add_child(_marker("FRONT ›"))
-	for c in run.reserve():
-		_reserve_row.add_child(_chip(c, 0, false))
-	_reserve_empty.visible = run.reserve().is_empty()
-	_refresh_detail()
+		var f := _figure(run.lineup[i] if i < run.lineup.size() else null, false)
+		f.position = Vector2(i * LINE_STEP, 0)
+		f.dropped.connect(place.bind(i))
+		_line.add_child(f)
+	var reserve := run.reserve()
+	for i in reserve.size():
+		var f := _figure(reserve[i], true)
+		f.position = Vector2(i * (MusterFigure.BENCH_W + 12.0), 0)
+		f.dropped.connect(place.bind(-1))
+		_bench.add_child(f)
+	_bench_empty.visible = reserve.is_empty()
+	_refresh_page()
 
 
-func _chip(c: RunCompanion, slot: int, front: bool) -> CompanionChip:
-	var chip := CompanionChip.new()
-	chip.setup(c, slot, true)
-	if front:
-		chip.set_tag("FRONT")
-	chip.set_selected(c == _selected)
+func _figure(c: RunCompanion, bench: bool) -> MusterFigure:
+	var f := MusterFigure.new()
+	f.can_carry = run.can_change_party() and _casting == null
+	f.setup(c, bench)
+	if c == null:
+		return f
+	f.set_selected(c == _selected)
 	if _casting != null and (_casting.targeting == SpellData.Targeting.ALL_ALLIES or c.hp < c.max_hp()):
-		chip.set_heal_preview(mini(c.max_hp(), c.hp + run.heal_amount(_caster, _casting)))
-	chip.pressed.connect(select.bind(c))
-	return chip
+		f.set_heal_preview(mini(c.max_hp(), c.hp + run.heal_amount(_caster, _casting)))
+	f.pressed.connect(select.bind(c))
+	return f
 
 
-func _empty_slot() -> Control:
-	var p := SlantPanel.new()
-	p.custom_minimum_size = Vector2(CompanionChip.W, CompanionChip.H)
-	p.fill = Color(UiTheme.INK, 0.6)
-	p.border = Color(UiTheme.EDGE, 0.6)
-	var l := UiTheme.label("EMPTY", 26, Color(UiTheme.MUTED, 0.6), true)
-	l.set_anchors_preset(Control.PRESET_FULL_RECT)
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	p.add_child(l)
-	return p
-
-
-func _refresh_detail() -> void:
+func _refresh_page() -> void:
 	_clear(_buttons)
 	_clear(_weapons)
 	var c := _selected
+	_stats.queue_redraw()
 	if c == null:
 		_name.text = ""
-		_info.text = "Nobody left in the roster."
+		_place.text = "Nobody is left in the company."
 		_level.text = ""
+		_holds.text = ""
+		_xp.visible = false
+		_xp_label.text = ""
 		return
 	var fielded := run.is_fielded(c)
 	var index := run.lineup.find(c)
-	_name.text = c.display_name().to_upper()
+	_name.text = c.display_name()
 	var w := c.weapon()
 	var t := w.weapon_type
-	var place := "Reserve: does not fight." if not fielded else ("Line %d of %d%s" % [index + 1, run.lineup.size(),
-		", the front: nearest the enemies, aimed at most." if index == run.lineup.size() - 1 else "."])
+	if not fielded:
+		_place.text = "On the bench. Does not fight."
+	elif run.lineup.size() == 1:
+		_place.text = "Stands alone in the line."
+	elif index == run.lineup.size() - 1:
+		_place.text = "At the front of the line: nearest the enemy, and struck most often."
+	elif index == 0:
+		_place.text = "At the rear of the line: struck least often."
+	else:
+		_place.text = "Place %d of %d in the line, counting from the rear." % [index + 1, run.lineup.size()]
 	var heavy := w.weight - c.data.build
-	var st := c.progress.stats()
-	var stat_line: Array[String] = []
-	for key in [Stat.STR, Stat.MAG, Stat.DEX, Stat.SPD, Stat.DEF, Stat.RES, Stat.CRT, Stat.LCK, Stat.STA]:
-		stat_line.append("%s %d" % [key, int(st[key])])
-	_info.text = "HP %d / %d     %s\nHolds %s  ·  %s grade %s%s\n%s" % [c.hp, c.max_hp(), place, w.display_name,
-		WeaponData.type_name(t).to_lower(), Proficiency.grade_name(c.progress.grade(t)),
-		"  ·  too heavy: -%d DEX, -%d SPD" % [heavy, heavy] if heavy > 0 else "", "   ".join(stat_line)]
+	_holds.text = "In hand: %s  ·  %s grade %s%s" % [w.display_name, WeaponData.type_name(t).to_lower(),
+		Proficiency.grade_name(c.progress.grade(t)), "\nToo heavy: -%d DEX, -%d SPD" % [heavy, heavy] if heavy > 0 else ""]
+	for s in c.progress.spell_schools():
+		_holds.text += "  ·  %s grade %s" % [SpellData.school_name(s).to_lower(), Proficiency.grade_name(c.progress.magic_grade(s))]
 	var gains: Array[String] = []
 	for key in Levels.GROWTH_STATS:
 		gains.append("%s %d%%%s" % [key, Levels.growth_rate(c.data, key),
 			" (+%d)" % c.progress.stat_gain(key) if c.progress.stat_gain(key) > 0 else ""])
-	_info.tooltip_text = "Growth rates: the chance each stat rises on a level-up (gained so far in brackets).\n" + ", ".join(gains)
-	_level.text = "LV %d" % c.level()
+	_stats.tooltip_text = "Growth: the chance each of these rises when %s gains a level (gained so far in brackets).\n%s" % [
+		c.display_name(), ", ".join(gains)]
+	_level.text = "Level %d" % c.level()
 	var need := Levels.xp_to_next(c.level())
-	_xp.label_prefix = "XP " if need > 0 else "MAX LEVEL  "
+	_xp.visible = true
 	_xp.set_values(c.progress.xp if need > 0 else 1, need if need > 0 else 1, false)
+	_xp_label.text = "%d of %d to the next level" % [c.progress.xp, need] if need > 0 else "as high as a level goes"
 
-	var left := _button("MOVE BACK", "←", "Move one place to the left, away from the enemies.", move.bind(-1))
-	left.disabled = not fielded or index <= 0
-	var right := _button("MOVE FORWARD", "→", "Move one place to the right, nearer the enemies.", move.bind(1))
-	right.disabled = not fielded or index >= run.lineup.size() - 1
-	var field_tip := "Take out of the line; they wait in reserve and do not fight." if fielded else \
-		"Put in the line, at the front." if run.lineup.size() < RunConfig.MAX_FIELDED else \
-		"The line is full (%d). Move someone to reserve first." % RunConfig.MAX_FIELDED
-	var f := _button("TO RESERVE" if fielded else "FIELD", "F", field_tip, toggle_fielded)
-	f.disabled = not fielded and run.lineup.size() >= RunConfig.MAX_FIELDED
-	if f.disabled:
-		f.detail = "LINE FULL"
-	_button("ARTS AND MAGIC", "A", "See every companion's weapon and magic grades, arts and spells, and choose which arts are equipped.", open_arts)
+	var back := _order(0, "Step back", "←", "Move one place toward the rear, away from the enemy.", move.bind(-1))
+	back.disabled = not fielded or index <= 0 or not run.can_change_party()
+	var fwd := _order(1, "Step forward", "→", "Move one place toward the front, nearer the enemy.", move.bind(1))
+	fwd.disabled = not fielded or index >= run.lineup.size() - 1 or not run.can_change_party()
+	var field_tip := "Leave the line and wait on the bench. Those on the bench do not fight." if fielded else \
+		"Join the line, at the front." if run.lineup.size() < RunConfig.MAX_FIELDED else \
+		"The line is full (%d). Send someone to the bench first, or carry %s onto the one to replace." % [RunConfig.MAX_FIELDED, c.display_name()]
+	var f := _order(2, "To the bench" if fielded else "Into the line", "F", field_tip, toggle_fielded)
+	f.disabled = (not fielded and run.lineup.size() >= RunConfig.MAX_FIELDED) or not run.can_change_party()
+	if not fielded and run.lineup.size() >= RunConfig.MAX_FIELDED:
+		f.detail = "line full"
+	_order(3, "Arts and magic", "A", "Everyone's weapon and magic grades, combat arts and spells; choose which arts are carried into battle.", open_arts)
 
-	_weapons_head.text = "WEAPONS  ·  %d OWNED" % run.inventory.weapons.size()
+	_weapons_head.text = "THE ARMORY  ·  %d WEAPONS" % run.inventory.weapons.size()
 	if not c.progress.known_spells.is_empty():
-		_weapons_head.text = "SPELLS AND WEAPONS"
-		_weapons.add_child(_section("SPELLS  ·  uses come back with Rest on a free day; healing spells can be cast here"))
+		_weapons.add_child(_section("Spells  ·  uses come back with a rest at the inn; healing can be cast here"))
 		for sp in c.progress.known_spells:
 			_weapons.add_child(_spell_row(c, sp))
-		_weapons.add_child(_section("WEAPONS  ·  %d OWNED" % run.inventory.weapons.size()))
+		_weapons.add_child(_section("Weapons"))
 	var items := run.inventory.weapons.duplicate()
 	items.sort_custom(func(a: OwnedWeapon, b: OwnedWeapon) -> bool:
 		var ka := [0 if a.holder == c else 1, 0 if a.data.weapon_type == t else 1, a.data.weapon_type, -a.data.might]
@@ -246,42 +276,41 @@ func _refresh_detail() -> void:
 		return false)
 	for item: OwnedWeapon in items:
 		var d := item.data
-		var row := RowButton.new(1060.0, 70.0)
-		row.title = d.display_name.to_upper()
+		var row := _row()
+		row.title = d.display_name
 		var too_heavy := d.weight - c.data.build
-		row.sub = "%s  ·  Mt %d  ·  Hit %d  ·  Weight %d  ·  needs grade %s%s" % [WeaponData.type_name(d.weapon_type).to_upper(),
+		row.sub = "%s  ·  Mt %d  ·  Hit %d  ·  weight %d  ·  needs grade %s%s" % [WeaponData.type_name(d.weapon_type).to_lower(),
 			d.might, d.hit, d.weight, Proficiency.grade_name(d.required_grade),
-			"  ·  too heavy for %s: -%d DEX/SPD" % [c.display_name(), too_heavy] if too_heavy > 0 else ""]
+			"  ·  too heavy: -%d DEX/SPD" % too_heavy if too_heavy > 0 else ""]
 		var why := run.equip_block_reason(c, item)
 		if item.holder == c:
 			row.active = true
-			row.detail = "IN HAND"
-			row.disabled = false
+			row.detail = "in hand"
 			row.mouse_default_cursor_shape = Control.CURSOR_ARROW
 		elif why != "":
 			row.disabled = true
-			row.detail = ("HELD BY %s" % item.holder.display_name().to_upper()) if item.holder != null else why
+			row.detail = ("held by %s" % item.holder.display_name()) if item.holder != null else why.trim_suffix(".")
 		else:
-			row.detail = "EQUIP"
+			row.detail = "take in hand"
 			row.pressed.connect(equip.bind(item))
 		row.tooltip_text = why if why != "" and item.holder != c else ""
 		_weapons.add_child(row)
 
 
 func _spell_row(c: RunCompanion, sp: SpellData) -> RowButton:
-	var row := RowButton.new(1060.0, 70.0)
-	row.title = sp.display_name.to_upper()
-	row.sub = "%s  ·  tier %s  ·  %s" % [sp.school_text().to_upper(), CombatArtData.tier_numeral(sp.tier), sp.effect_summary()]
+	var row := _row()
+	row.title = sp.display_name
+	row.sub = "%s  ·  tier %s  ·  %s" % [sp.school_text().to_lower(), CombatArtData.tier_numeral(sp.tier), sp.effect_summary()]
 	row.tooltip_text = sp.description + "\n" + sp.effect_summary()
 	var left := c.progress.uses_left(sp)
-	var uses := "%d / %d USES" % [left, sp.uses]
+	var uses := "%d of %d uses" % [left, sp.uses]
 	if not sp.heals:
 		row.disabled = true
-		row.detail = "%s  ·  IN BATTLE" % uses
+		row.detail = "%s  ·  in battle only" % uses
 		return row
 	if _casting == sp and _caster == c:
 		row.active = true
-		row.detail = "CHOOSE WHO"
+		row.detail = "choose who"
 		row.pressed.connect(cancel_cast)
 		return row
 	var why := run.heal_block_reason(c, sp, c) if sp.targeting == SpellData.Targeting.ALL_ALLIES else ""
@@ -291,37 +320,39 @@ func _spell_row(c: RunCompanion, sp: SpellData) -> RowButton:
 		why = "Not now"
 	if why != "":
 		row.disabled = true
-		row.detail = "%s  ·  %s" % [uses, why.trim_suffix(".").to_upper()]
+		row.detail = "%s  ·  %s" % [uses, why.trim_suffix(".").to_lower()]
 		return row
-	row.detail = "CAST  ·  %s" % uses
-	row.detail_color = UiTheme.HEAL
+	row.detail = "cast  ·  %s" % uses
 	row.pressed.connect(begin_cast.bind(sp))
 	return row
 
 
+func _row() -> RowButton:
+	var row := RowButton.new(PAGE.size.x - PAGE_PAD * 2.0 - 14.0, 58.0)
+	row.paper = true
+	return row
+
+
 func _section(text: String) -> Label:
-	var l := UiTheme.label(text, 18, UiTheme.GOLD, true, 4)
-	l.custom_minimum_size = Vector2(1000, 30)
+	var l := UiTheme.label(text, 15, UiTheme.PARCHMENT_MUTED)
+	l.add_theme_font_override("font", UiTheme.italic_font())
+	l.custom_minimum_size = Vector2(600, 26)
 	l.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	return l
 
 
-func _button(title: String, hotkey: String, tip: String, action: Callable) -> ActionButton:
+## One of the four orders on the page, in a two-by-two block.
+func _order(slot: int, title: String, hotkey: String, tip: String, action: Callable) -> ActionButton:
 	var b := ActionButton.new()
+	b.paper = true
+	b.h = 46.0
 	b.title = title
 	b.hotkey = hotkey
 	b.tooltip_text = tip
+	b.position = Vector2((slot % 2) * ActionButton.W, (slot >> 1) * 46.0)
 	b.pressed.connect(action)
 	_buttons.add_child(b)
 	return b
-
-
-func _marker(text: String) -> Label:
-	var l := UiTheme.label(text, 22, Color(UiTheme.MUTED, 0.8), true, 6)
-	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	l.custom_minimum_size = Vector2(110, 0)
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	return l
 
 
 static func _clear(node: Node) -> void:
@@ -335,92 +366,115 @@ func _build() -> void:
 	backdrop.kind = InteriorBackdrop.Kind.BARRACKS
 	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(backdrop)
-	var dim := ColorRect.new()
-	dim.color = Color(UiTheme.INK, 0.35)
-	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(dim)
+	var marks := Control.new()
+	marks.set_anchors_preset(Control.PRESET_FULL_RECT)
+	marks.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	marks.draw.connect(_draw_marks.bind(marks))
+	add_child(marks)
 
-	var title := UiTheme.label("THE BARRACKS", 56, UiTheme.GOLD, true, 8)
-	title.position = Vector2(60, 24)
+	var title := UiTheme.label("THE BARRACKS", 44, UiTheme.GOLD, true, 8)
+	title.position = Vector2(60, 20)
 	add_child(title)
-	var hint := UiTheme.label("Up to %d stand in the line. Whoever is on the right stands nearest the enemy and is struck most often." % RunConfig.MAX_FIELDED,
-		20, UiTheme.MUTED)
+	var hint := UiTheme.label("The company, as it will stand. Carry someone to another place, or to the bench.", 20,
+		UiTheme.TEXT.lerp(UiTheme.MUTED, 0.5), false, 4)
 	hint.add_theme_font_override("font", UiTheme.italic_font())
-	hint.position = Vector2(64, 100)
+	hint.position = Vector2(64, 78)
 	add_child(hint)
-
-	var line_head := UiTheme.label("THE LINE", 24, UiTheme.GOLD, true, 6)
-	line_head.position = Vector2(64, 150)
-	add_child(line_head)
-	_line_row.position = Vector2(20, 188)
-	_line_row.size = Vector2(1880, CompanionChip.H)
-	_line_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	_line_row.add_theme_constant_override("separation", -14)
-	_line_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_line_row)
-
-	var reserve_head := UiTheme.label("RESERVE", 24, UiTheme.GOLD, true, 6)
-	reserve_head.position = Vector2(64, 372)
-	add_child(reserve_head)
-	_reserve_row.position = Vector2(150, 410)
-	_reserve_row.size = Vector2(1700, CompanionChip.H)
-	_reserve_row.add_theme_constant_override("separation", -14)
-	_reserve_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_reserve_row)
-	_reserve_empty = UiTheme.label("Nobody in reserve. Hire companions at the tavern on free days; anyone beyond %d waits here." % RunConfig.MAX_FIELDED,
-		19, UiTheme.MUTED)
-	_reserve_empty.position = Vector2(70, 470)
-	add_child(_reserve_empty)
 	_cast_hint = UiTheme.label("", 20, UiTheme.HEAL, true, 6)
-	_cast_hint.position = Vector2(300, 148)
-	_cast_hint.size = Vector2(1560, 30)
+	_cast_hint.position = Vector2(64, 104)
+	_cast_hint.size = Vector2(1060, 28)
 	add_child(_cast_hint)
 
-	var detail := SlantPanel.new()
-	detail.fill = Color(UiTheme.PANEL, 0.9)
-	detail.position = Vector2(40, DETAIL_TOP)
-	detail.size = Vector2(1840, 440)
-	add_child(detail)
-	_name = UiTheme.label("", 56, UiTheme.TEXT, true, 10)
-	_name.position = Vector2(190, DETAIL_TOP + 16.0)
-	add_child(_name)
-	_info = UiTheme.label("", 19, UiTheme.TEXT, false, 4)
-	_info.position = Vector2(176, DETAIL_TOP + 86.0)
-	_info.size = Vector2(560, 112)
-	_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_info.mouse_filter = Control.MOUSE_FILTER_STOP
-	add_child(_info)
-	_level = UiTheme.label("", 30, UiTheme.GOLD, true, 6)
-	_level.position = Vector2(470, DETAIL_TOP + 22.0)
-	add_child(_level)
-	_xp.fill_color = UiTheme.READY
-	_xp.font_size = 15
-	_xp.position = Vector2(470, DETAIL_TOP + 60.0)
-	_xp.size = Vector2(230, 22)
-	add_child(_xp)
-	_buttons.position = Vector2(124, DETAIL_TOP + 208.0)
-	_buttons.add_theme_constant_override("separation", 2)
-	add_child(_buttons)
+	_line.position = Vector2(LINE_X, LINE_Y)
+	_line.size = Vector2(LINE_STEP * RunConfig.MAX_FIELDED, MusterFigure.H)
+	_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_line)
 
-	_weapons_head = UiTheme.label("WEAPONS", 24, UiTheme.GOLD, true, 6)
-	_weapons_head.position = Vector2(760, DETAIL_TOP + 20.0)
-	add_child(_weapons_head)
+	# The bench takes anyone set down on it, not only on someone already sitting there.
+	var bench_area := Control.new()
+	bench_area.position = Vector2(LINE_X - 10.0, BENCH_Y - 34.0)
+	bench_area.size = Vector2(LINE_STEP * RunConfig.MAX_FIELDED + 20.0, MusterFigure.BENCH_H + 48.0)
+	bench_area.mouse_filter = Control.MOUSE_FILTER_PASS
+	bench_area.set_drag_forwarding(Callable(), _can_bench, func(_at: Vector2, data: Variant) -> void:
+		place((data as Dictionary)["companion"], -1))
+	add_child(bench_area)
+	var bench_head := UiTheme.label("ON THE BENCH", 17, UiTheme.MUTED, true, 5)
+	bench_head.position = Vector2(LINE_X + 4.0, BENCH_Y - 30.0)
+	add_child(bench_head)
+	_bench.position = Vector2(LINE_X, BENCH_Y)
+	_bench.size = Vector2(LINE_STEP * RunConfig.MAX_FIELDED, MusterFigure.BENCH_H)
+	_bench.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_bench)
+	_bench_empty = UiTheme.label("Nobody is waiting. Hire at the tavern on a quiet day; anyone beyond the %d in the line sits here." % RunConfig.MAX_FIELDED,
+		18, Color(UiTheme.MUTED, 0.85), false, 4)
+	_bench_empty.add_theme_font_override("font", UiTheme.italic_font())
+	_bench_empty.position = Vector2(LINE_X + 6.0, BENCH_Y + 20.0)
+	add_child(_bench_empty)
+
+	# The muster roll.
+	_page.position = PAGE.position
+	_page.size = PAGE.size
+	_page.mouse_filter = Control.MOUSE_FILTER_STOP
+	_page.draw.connect(_draw_page)
+	add_child(_page)
+	var inner := PAGE.size.x - PAGE_PAD * 2.0
+	_name = UiTheme.label("", 48, UiTheme.PARCHMENT_INK, true)
+	_name.position = Vector2(PAGE_PAD, 22)
+	_page.add_child(_name)
+	_level = UiTheme.label("", 24, UiTheme.PARCHMENT_MUTED, true)
+	_level.position = Vector2(PAGE_PAD, 34)
+	_level.size = Vector2(inner, 30)
+	_level.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_page.add_child(_level)
+	_xp.fill_color = UiTheme.GOLD_DEEP
+	_xp.show_text = false
+	_xp.position = Vector2(PAGE_PAD + inner - 250.0, 70)
+	_xp.size = Vector2(250, 8)
+	_page.add_child(_xp)
+	_xp_label = UiTheme.label("", 15, UiTheme.PARCHMENT_MUTED)
+	_xp_label.add_theme_font_override("font", UiTheme.italic_font())
+	_xp_label.position = Vector2(PAGE_PAD, 82)
+	_xp_label.size = Vector2(inner, 20)
+	_xp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_page.add_child(_xp_label)
+	_place = UiTheme.label("", 19, UiTheme.PARCHMENT_INK)
+	_place.add_theme_font_override("font", UiTheme.italic_font())
+	_place.position = Vector2(PAGE_PAD, 122)
+	_place.size = Vector2(inner, 26)
+	_page.add_child(_place)
+	_stats.position = Vector2(PAGE_PAD, 160)
+	_stats.size = Vector2(inner, 82)
+	_stats.mouse_filter = Control.MOUSE_FILTER_STOP
+	_stats.draw.connect(_draw_stats)
+	_page.add_child(_stats)
+	_holds = UiTheme.label("", 18, UiTheme.PARCHMENT_INK)
+	_holds.position = Vector2(PAGE_PAD, 250)
+	_holds.size = Vector2(inner, 50)
+	_page.add_child(_holds)
+	_buttons.position = Vector2(PAGE_PAD, 318)
+	_buttons.size = Vector2(inner, 92)
+	_buttons.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_page.add_child(_buttons)
+	_weapons_head = UiTheme.label("", 16, UiTheme.PARCHMENT_MUTED, true)
+	_weapons_head.position = Vector2(PAGE_PAD, 432)
+	_weapons_head.size = Vector2(inner, 22)
+	_weapons_head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_page.add_child(_weapons_head)
 	var scroll := ScrollContainer.new()
-	scroll.position = Vector2(740, DETAIL_TOP + 60.0)
-	scroll.size = Vector2(1110, 366)
+	scroll.position = Vector2(PAGE_PAD, 474)
+	scroll.size = Vector2(inner, PAGE.size.y - 474.0 - 30.0)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	add_child(scroll)
-	_weapons.add_theme_constant_override("separation", 8)
+	_page.add_child(scroll)
+	_weapons.add_theme_constant_override("separation", 0)
 	scroll.add_child(_weapons)
 
 	var back := Button.new()
 	back.text = "Leave"
-	back.tooltip_text = "Back to the city."
+	back.tooltip_text = "Back to the city.\nKey: Esc"
 	back.focus_mode = Control.FOCUS_NONE
-	back.add_theme_font_size_override("font_size", 32)
-	back.position = Vector2(1540, 22)
-	back.size = Vector2(320, 62)
+	back.add_theme_font_size_override("font_size", 28)
+	back.position = Vector2(1590, 28)
+	back.size = Vector2(300, 58)
 	back.pressed.connect(close)
 	add_child(back)
 
@@ -428,6 +482,66 @@ func _build() -> void:
 	_arts_screen.z_index = 2
 	_arts_screen.closed.connect(refresh)
 	add_child(_arts_screen)
+
+
+func _can_bench(_at: Vector2, data: Variant) -> bool:
+	return run != null and run.can_change_party() and _casting == null and data is Dictionary \
+		and (data as Dictionary).get("companion") is RunCompanion and run.is_fielded((data as Dictionary)["companion"])
+
+
+## Marks on the wall and floor: which end of the line is which, and the bench.
+func _draw_marks(marks: Control) -> void:
+	var y := LINE_Y + MusterFigure.H + 22.0
+	var x0 := LINE_X + 4.0
+	var x1 := LINE_X + LINE_STEP * RunConfig.MAX_FIELDED - 18.0
+	var chalk := Color(UiTheme.TEXT, 0.4)
+	var italic := UiTheme.italic_font()
+	UiTheme.draw_text(marks, italic, Vector2(x0, y - 13.0), "the rear", 19, chalk)
+	var front := "the front, nearest the enemy"
+	var fw := italic.get_string_size(front, HORIZONTAL_ALIGNMENT_LEFT, -1, 19).x
+	UiTheme.draw_text(marks, italic, Vector2(x1 - fw - 26.0, y - 13.0), front, 19, chalk)
+	marks.draw_line(Vector2(x0 + 90.0, y), Vector2(x1 - fw - 40.0, y), Color(UiTheme.TEXT, 0.18), 1.5)
+	marks.draw_colored_polygon(PackedVector2Array([Vector2(x1 - 16.0, y - 7.0), Vector2(x1, y), Vector2(x1 - 16.0, y + 7.0)]), chalk)
+	# The bench: a long board on two trestles.
+	var by := BENCH_Y + MusterFigure.BENCH_H + 6.0
+	var bx1 := LINE_X + LINE_STEP * RunConfig.MAX_FIELDED - 14.0
+	marks.draw_rect(Rect2(LINE_X - 10.0, by, bx1 - LINE_X + 20.0, 12.0), Color("3a2a1c"))
+	marks.draw_rect(Rect2(LINE_X - 10.0, by, bx1 - LINE_X + 20.0, 3.0), Color("5a4430"))
+	for lx: float in [LINE_X + 40.0, bx1 - 60.0]:
+		marks.draw_rect(Rect2(lx, by + 12.0, 14.0, 40.0), Color("2a1e14"))
+
+
+func _draw_page() -> void:
+	UiTheme.draw_parchment(_page, Rect2(Vector2.ZERO, _page.size))
+	var ink := Color(UiTheme.PARCHMENT_INK, 0.45)
+	var mid := _page.size.x * 0.5
+	var w := _page.size.x - PAGE_PAD * 2.0
+	_page.draw_line(Vector2(PAGE_PAD, 110), Vector2(PAGE_PAD + w, 110), ink, 1.0)
+	_page.draw_line(Vector2(PAGE_PAD, 308), Vector2(PAGE_PAD + w, 308), ink, 1.0)
+	UiTheme.draw_rule(_page, Vector2(mid, 464), w, Color(UiTheme.PARCHMENT_INK, 0.5))
+
+
+## The stats, written out as a small table: name in grey, number in ink.
+func _draw_stats() -> void:
+	var c := _selected
+	if c == null:
+		return
+	var st := c.progress.stats()
+	var cells: Array = [["Health", "%d / %d" % [c.hp, c.max_hp()]]]
+	var names := {Stat.STA: "Stamina", Stat.STR: "Strength", Stat.MAG: "Magic", Stat.DEX: "Dexterity", Stat.SPD: "Speed",
+		Stat.DEF: "Defence", Stat.RES: "Resistance", Stat.CRT: "Critical", Stat.LCK: "Luck"}
+	for key: String in [Stat.STA, Stat.STR, Stat.MAG, Stat.DEX, Stat.SPD, Stat.DEF, Stat.RES, Stat.CRT, Stat.LCK]:
+		cells.append([names[key], str(int(st[key]))])
+	cells.append(["Build", str(c.data.build)])
+	var cols := 4
+	var cw := _stats.size.x / cols
+	var body := UiTheme.body_font()
+	var display := UiTheme.display_font()
+	for i in cells.size():
+		var x := (i % cols) * cw
+		var y := floorf(float(i) / cols) * 27.0
+		UiTheme.draw_text(_stats, body, Vector2(x, y + 2.0), cells[i][0], 16, UiTheme.PARCHMENT_MUTED)
+		UiTheme.draw_text(_stats, display, Vector2(x, y), cells[i][1], 19, UiTheme.PARCHMENT_INK, 0, cw - 22.0, HORIZONTAL_ALIGNMENT_RIGHT)
 
 
 func _unhandled_input(event: InputEvent) -> void:

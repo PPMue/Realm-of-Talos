@@ -1,32 +1,35 @@
 class_name PartyPanel
 extends Control
-## One companion in the party row along the bottom of the screen. Display only.
-## The row is the battle line: the rightmost panel stands nearest the enemies.
+## One companion in the battle line along the foot of the screen: a framed portrait with their name,
+## health and stamina under it. The row is the line itself: the rightmost stands nearest the enemy.
+## A companion's state is shown the way an enemy's is, in pictures rather than tags: someone catching
+## their breath is dimmed under an hourglass and the number of actions left; someone injured is
+## reddened and sunk; whoever is being commanded steps up out of the line. A small roundel gives how
+## often the enemy aims at that place. Display only.
 
 signal clicked
 signal hover_changed(inside: bool)
 
 enum Status { NONE, READY, RECOVERING, INJURED }
 
-const W := 344.0
-const H := 232.0
-const LIFT := 26.0
-const PORTRAIT_H := 126.0
-const PAD := 6.0
+const W := 188.0
+const H := 244.0
+const LIFT := 24.0
+const PORTRAIT_H := 170.0
+const PAD := 5.0
 
 var _body := Control.new()
-var _bg := SlantPanel.new()
 var _portrait := SlantPanel.new()
+var _marks := Control.new()
 var _name: Label
-var _level: Label
-var _tag := SlantPanel.new()
-var _tag_label: Label
 var _effects: Label
 var _hp := SlantBar.new()
 var _sta := SlantBar.new()
-var _footer: Label
-var _preview := SlantPanel.new()
-var _preview_label: Label
+var _preview: Label
+var _status := Status.NONE
+var _recovery := 0
+var _threat := ""
+var _threat_mirrored := false
 var _targetable := false
 var _target_hot := false
 var _selected := false
@@ -42,75 +45,52 @@ func _init() -> void:
 	_body.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_body.position = Vector2(0, LIFT)
 	_body.size = Vector2(W, H)
+	_body.draw.connect(_draw_frame)
 	add_child(_body)
 
-	_bg.size = Vector2(W, H)
-	_bg.fill = Color(UiTheme.PANEL, 0.96)
-	_body.add_child(_bg)
-
-	_place(_portrait, PAD, PORTRAIT_H, PAD + 2.0)
-	_portrait.zoom = 2.1
-	_portrait.shade = 0.9
+	_portrait.position = Vector2(PAD, PAD)
+	_portrait.size = Vector2(W - PAD * 2.0, PORTRAIT_H)
+	_portrait.zoom = 1.9
+	_portrait.shade = 0.85
 	_portrait.border_width = 0.0
 	_body.add_child(_portrait)
 
-	_name = UiTheme.label("", 30, UiTheme.TEXT, true, 8)
-	_name.position = Vector2(_edge_x(PAD + PORTRAIT_H) + 18.0, PAD + PORTRAIT_H - 40.0)
-	_name.size = Vector2(W - 60.0, 44)
-	_body.add_child(_name)
-	_level = UiTheme.label("", 18, UiTheme.GOLD, true, 6)
-	_level.position = Vector2(_edge_x(PAD + PORTRAIT_H - 40.0) + 20.0, PAD + PORTRAIT_H - 60.0)
-	_body.add_child(_level)
+	_marks.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_marks.position = _portrait.position
+	_marks.size = _portrait.size
+	_marks.draw.connect(_draw_marks)
+	_body.add_child(_marks)
 
-	_tag.size = Vector2(150, 32)
-	_tag.position = Vector2(W - PAD - 10.0 - _tag.size.x, PAD + 8.0)
-	_tag.border = Color(UiTheme.INK, 0.9)
-	_body.add_child(_tag)
-	_tag_label = UiTheme.label("", 20, UiTheme.INK, true)
-	_tag_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_tag_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_tag_label.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_tag.add_child(_tag_label)
-
-	# Under the status tag, right-aligned over the portrait, so it never runs into the tag.
-	_effects = UiTheme.label("", 15, UiTheme.GOLD, false, 5)
-	_effects.position = Vector2(W * 0.3, PAD + 46.0)
-	_effects.size = Vector2(W * 0.7 - PAD - 16.0, 22)
-	_effects.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_effects = UiTheme.label("", 13, UiTheme.GOLD, false, 5)
+	_effects.position = Vector2(PAD + 6.0, PAD + PORTRAIT_H - 58.0)
+	_effects.size = Vector2(W - PAD * 2.0 - 12.0, 20)
 	_effects.clip_text = true
 	_body.add_child(_effects)
+	_name = UiTheme.label("", 25, UiTheme.TEXT, true, 8)
+	_name.position = Vector2(PAD + 7.0, PAD + PORTRAIT_H - 40.0)
+	_name.size = Vector2(W - PAD * 2.0 - 10.0, 36)
+	_name.clip_text = true
+	_body.add_child(_name)
 
-	_place(_hp, 138.0, 26.0, 12.0)
-	_hp.label_prefix = "HP "
+	_hp.position = Vector2(PAD + 4.0, PAD + PORTRAIT_H + 8.0)
+	_hp.size = Vector2(W - PAD * 2.0 - 8.0, 22.0)
+	_hp.font_size = 15
 	_body.add_child(_hp)
-	_place(_sta, 168.0, 20.0, 12.0)
+	_sta.position = Vector2(PAD + 4.0, PAD + PORTRAIT_H + 36.0)
+	_sta.size = Vector2(W - PAD * 2.0 - 8.0, 16.0)
 	_sta.fill_color = UiTheme.STA
-	_sta.label_prefix = "STA "
-	_sta.font_size = 15
+	_sta.font_size = 12
 	_body.add_child(_sta)
 
-	_footer = UiTheme.label("", 16, UiTheme.MUTED)
-	_footer.position = Vector2(_edge_x(H - 8.0) + 18.0, 194.0)
-	_footer.size = Vector2(W - 60.0, 26)
-	_footer.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_body.add_child(_footer)
-
-	# What a spell aimed at this companion would do, over the portrait.
-	# It takes the place of the status tag and the effects line at the top of the panel.
-	_preview.size = Vector2(W - 70.0, 38)
-	_preview.position = Vector2(_edge_x(PAD + 46.0) + 12.0, PAD + 8.0)
-	_preview.fill = Color(UiTheme.INK, 0.92)
-	_preview.border = UiTheme.HEAL
-	_preview.border_width = 2.0
+	# What a spell aimed at this companion would do, across the top of the portrait.
+	_preview = UiTheme.label("", 16, UiTheme.HEAL, true, 6)
+	_preview.position = Vector2(PAD, PAD + 6.0)
+	_preview.size = Vector2(W - PAD * 2.0, 28)
+	_preview.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_preview.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_preview.clip_text = true
 	_preview.visible = false
-	_preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_body.add_child(_preview)
-	_preview_label = UiTheme.label("", 20, UiTheme.HEAL, true, 6)
-	_preview_label.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_preview_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_preview_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_preview_label.clip_text = true
-	_preview.add_child(_preview_label)
 
 	mouse_entered.connect(func() -> void:
 		_hover = true
@@ -123,14 +103,14 @@ func _init() -> void:
 
 
 func setup(display_name: String, portrait: Texture2D, focus: Vector2) -> void:
-	_name.text = display_name.to_upper()
+	_name.text = display_name
 	_portrait.texture = portrait
-	# Nudged so the face sits right of centre, clear of the name.
-	_portrait.focus = focus + Vector2(-0.07, 0.0)
+	_portrait.focus = focus + Vector2(0.0, 0.05)
 
 
-func set_level(level: int) -> void:
-	_level.text = "LV %d" % level
+## Kept for callers; the level is given in the tooltip, not on the portrait.
+func set_level(_level: int) -> void:
+	pass
 
 
 func set_hp(current: int, maximum: int) -> void:
@@ -142,22 +122,18 @@ func set_stamina(current: int, maximum: int) -> void:
 
 
 func set_status(status: Status, recovery: int = 0) -> void:
-	_tag.visible = status != Status.NONE
+	_status = status
+	_recovery = recovery
 	match status:
-		Status.READY:
-			_tag.fill = UiTheme.READY
-			_tag_label.text = "READY"
-			_portrait.tint = Color.WHITE
 		Status.RECOVERING:
-			_tag.fill = UiTheme.RECOVERING
-			_tag_label.text = "RECOVER %d" % recovery
-			_portrait.tint = Color(0.5, 0.52, 0.6)
+			_portrait.tint = Color(0.4, 0.4, 0.46)
 		Status.INJURED:
-			_tag.fill = UiTheme.INJURED
-			_tag_label.text = "INJURED"
-			_portrait.tint = Color(0.75, 0.3, 0.3)
-		Status.NONE:
+			_portrait.tint = Color(0.7, 0.26, 0.24)
+		_:
 			_portrait.tint = Color.WHITE
+	_settle()
+	_marks.queue_redraw()
+	_body.queue_redraw()
 
 
 ## `harmful`: shown in the poison colour (a debuff or damage over time is on).
@@ -166,8 +142,12 @@ func set_effects(text: String, harmful: bool = false) -> void:
 	_effects.add_theme_color_override("font_color", UiTheme.POISON if harmful else UiTheme.GOLD)
 
 
-func set_footer(text: String) -> void:
-	_footer.text = text
+## How often the enemy aims at this place, for the roundel: "33%". `mirrored`: every enemy here aims
+## from the left. "" hides the roundel.
+func set_threat(text: String, mirrored: bool = false) -> void:
+	_threat = text
+	_threat_mirrored = mirrored
+	_marks.queue_redraw()
 
 
 ## While a spell is aimed at companions: `targetable` marks a possible target, `hot` the one (or all)
@@ -176,16 +156,15 @@ func set_spell_target(targetable: bool, hot: bool, preview: String = "", heal_to
 	_targetable = targetable
 	_target_hot = hot
 	_preview.visible = hot and preview != ""
-	_tag.modulate.a = 0.0 if _preview.visible else 1.0
-	_effects.visible = not _preview.visible
-	_preview_label.text = preview
-	var font_size := 20
-	while font_size > 13 and UiTheme.display_font().get_string_size(preview, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x > _preview.size.x - 30.0:
+	_preview.text = preview
+	var font_size := 16
+	while font_size > 11 and UiTheme.display_font().get_string_size(preview, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x > _preview.size.x - 12.0:
 		font_size -= 1
-	_preview_label.add_theme_font_size_override("font_size", font_size)
+	_preview.add_theme_font_size_override("font_size", font_size)
 	_hp.set_heal_preview(heal_to if hot else -INF)
 	if targetable:
 		mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	_marks.queue_redraw()
 	_restyle()
 
 
@@ -195,22 +174,16 @@ func set_selection(selected: bool, can_pick: bool) -> void:
 	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if can_pick else Control.CURSOR_ARROW
 	if selected != _selected:
 		_selected = selected
-		if _lift_tween != null:
-			_lift_tween.kill()
-		if is_inside_tree():
-			_lift_tween = create_tween()
-			_lift_tween.tween_property(_body, "position:y", 0.0 if selected else LIFT, 0.12).set_ease(Tween.EASE_OUT)
-		else:
-			_body.position.y = 0.0 if selected else LIFT
+		_settle()
 	_restyle()
 
 
 func popup_anchor() -> Vector2:
-	return global_position + Vector2(W * 0.5, LIFT + PORTRAIT_H * 0.5)
+	return global_position + Vector2(W * 0.5, LIFT + PORTRAIT_H * 0.45)
 
 
 func play_hit(crit: bool) -> void:
-	var push := 20.0 if crit else 11.0
+	var push := 18.0 if crit else 10.0
 	var flash := create_tween()
 	_body.modulate = Color(2.4, 1.3, 1.3)
 	flash.tween_property(_body, "modulate", Color.WHITE, 0.3)
@@ -226,15 +199,6 @@ func play_pulse(color: Color) -> void:
 	t.tween_property(_body, "modulate", Color.WHITE, 0.35)
 
 
-## Only the leaning shape itself counts as the panel, so neighbours that tuck under each other
-## do not steal clicks.
-func _has_point(point: Vector2) -> bool:
-	if point.y < 0.0 or point.y > size.y:
-		return false
-	var lean := UiTheme.SLANT * (size.y - point.y)
-	return point.x >= lean and point.x <= lean + W - UiTheme.SLANT * H
-
-
 func _gui_input(event: InputEvent) -> void:
 	var mb := event as InputEventMouseButton
 	if mb != null and mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
@@ -242,31 +206,76 @@ func _gui_input(event: InputEvent) -> void:
 		accept_event()
 
 
-func _restyle() -> void:
-	if _targetable:
-		_bg.border = UiTheme.HEAL if _target_hot else Color(UiTheme.HEAL, 0.45)
-		_bg.border_width = 5.0 if _target_hot else 3.0
-		_bg.fill = Color(UiTheme.PANEL_HI, 0.98) if _target_hot else Color(UiTheme.PANEL, 0.96)
-	elif _selected:
-		_bg.border = UiTheme.GOLD
-		_bg.border_width = 5.0
-		_bg.fill = Color(UiTheme.PANEL_HI, 0.98)
-	elif _hover and _can_pick:
-		_bg.border = Color(UiTheme.GOLD, 0.75)
-		_bg.border_width = 3.0
-		_bg.fill = Color(UiTheme.PANEL_HI, 0.96)
+## Where the body rests: stepped up when chosen, sunk when injured, in the line otherwise.
+func _settle() -> void:
+	var y := LIFT
+	if _selected:
+		y = 0.0
+	elif _status == Status.INJURED:
+		y = LIFT + 12.0
+	if _lift_tween != null:
+		_lift_tween.kill()
+	if is_inside_tree():
+		_lift_tween = create_tween()
+		_lift_tween.tween_property(_body, "position:y", y, 0.12).set_ease(Tween.EASE_OUT)
 	else:
-		_bg.border = UiTheme.EDGE
-		_bg.border_width = 2.0
-		_bg.fill = Color(UiTheme.PANEL, 0.96)
+		_body.position.y = y
 
 
-## Left edge of the leaning body at height `y` (measured from the body's top).
-func _edge_x(y: float) -> float:
-	return UiTheme.SLANT * (H - y)
+func _restyle() -> void:
+	_body.queue_redraw()
 
 
-## Fits a leaning child inside the body so its sides stay parallel to the body's sides.
-func _place(node: Control, y: float, height: float, margin: float) -> void:
-	node.position = Vector2(_edge_x(y + height) + margin, y)
-	node.size = Vector2(W - UiTheme.SLANT * H + UiTheme.slant_for(height) - margin * 2.0, height)
+func _draw_frame() -> void:
+	var rect := Rect2(Vector2.ZERO, Vector2(W, H))
+	var trim := UiTheme.EDGE
+	var width := 2.0
+	var fill := Color(UiTheme.INK, 0.94)
+	if _targetable:
+		trim = UiTheme.HEAL if _target_hot else Color(UiTheme.HEAL, 0.45)
+		width = 4.0 if _target_hot else 2.5
+	elif _selected:
+		trim = UiTheme.GOLD
+		width = 3.5
+		fill = Color(UiTheme.PANEL_HI, 0.97)
+	elif _hover and _can_pick:
+		trim = Color(UiTheme.GOLD, 0.8)
+		width = 2.5
+	elif _status == Status.INJURED:
+		trim = Color(UiTheme.INJURED, 0.7)
+	if _selected:
+		# Lamp-light under whoever is being commanded.
+		for i in 4:
+			_body.draw_rect(rect.grow(4.0 + 5.0 * i), Color(UiTheme.GOLD, 0.05))
+	UiTheme.draw_frame(_body, rect, fill, trim, width, false)
+
+
+## Pictures over the portrait: the hourglass of someone catching their breath, the mark of someone
+## injured, and the roundel of how often the enemy aims here.
+func _draw_marks() -> void:
+	var s := _marks.size
+	var font := UiTheme.display_font()
+	if _preview.visible:
+		_marks.draw_rect(Rect2(0, 4, s.x, 32), Color(UiTheme.INK, 0.86))
+	match _status:
+		Status.RECOVERING:
+			var c := Vector2(s.x * 0.5 - 22.0, s.y * 0.4)
+			_marks.draw_circle(Vector2(s.x * 0.5, s.y * 0.4), 44.0, Color(UiTheme.INK, 0.55))
+			UiTheme.draw_hourglass(_marks, c, 40.0, UiTheme.RECOVERING)
+			UiTheme.draw_text(_marks, font, Vector2(s.x * 0.5, s.y * 0.4 - font.get_height(50) * 0.5), str(_recovery), 50,
+				UiTheme.RECOVERING, 8)
+		Status.INJURED:
+			var band := Rect2(0, s.y * 0.34, s.x, 34.0)
+			_marks.draw_rect(band, Color(UiTheme.INK, 0.8))
+			_marks.draw_line(band.position, Vector2(band.end.x, band.position.y), Color(UiTheme.INJURED, 0.9), 1.5)
+			_marks.draw_line(Vector2(0, band.end.y), band.end, Color(UiTheme.INJURED, 0.9), 1.5)
+			UiTheme.draw_text(_marks, font, Vector2(0, band.position.y + (band.size.y - font.get_height(20)) * 0.5), "INJURED", 20,
+				UiTheme.INJURED, 0, s.x, HORIZONTAL_ALIGNMENT_CENTER)
+	if _threat != "" and not _preview.visible:
+		var tw := font.get_string_size(_threat, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x
+		var r := Rect2(s.x - tw - 34.0, 6.0, tw + 30.0, 24.0)
+		_marks.draw_rect(r, Color(UiTheme.INK, 0.78))
+		UiIcons.swords(_marks, Vector2(r.position.x + 12.0, r.get_center().y), 14.0,
+			UiTheme.REFLECT if _threat_mirrored else UiTheme.INTENT_COLORS[EnemyActionData.Intent.ATTACK])
+		UiTheme.draw_text(_marks, font, Vector2(r.position.x + 24.0, r.position.y + (r.size.y - font.get_height(15)) * 0.5), _threat, 15,
+			UiTheme.TEXT)

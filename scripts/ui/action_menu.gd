@@ -1,10 +1,11 @@
 class_name ActionMenu
 extends Control
-## The left side of the battle screen: the chosen companion's art, their weapon grade, and the
-## actions they can take: Attack, up to three equipped combat arts, Magic (for anyone who knows a
-## spell), Guard, Focus. Magic opens the spell list in the same place: every known spell with its
-## school, tier and uses left, and Back.
-## Display only: it reports which action was pressed and the battle screen decides what happens.
+## The left side of the battle screen: the chosen companion, close up, and the sheet of orders the
+## commander can give them: Attack, up to three equipped combat arts, Magic (for anyone who knows a
+## spell), Guard, Focus. Magic turns the sheet over to the spell list: every known spell with its
+## school, tier and uses left, and Back. What the order under the pointer does is written at the
+## foot of the sheet.
+## Display only: it reports which order was pressed and the battle screen decides what happens.
 
 signal action_pressed(id: String)
 
@@ -23,19 +24,31 @@ const SPELL_PREFIX := "spell:"
 const SPELLS_ON_ONE_PAGE := 6
 const SPELL_PAGE := 5
 
-const ART_SIZE := Vector2(420, 700)
-const BUTTON_X := 300.0
-const BUTTON_Y := 4.0
-const BUTTON_STEP := 60.0
-## With seven entries the buttons pack tighter so the info panel stays clear of the name.
-const BUTTON_STEP_TIGHT := 52.0
-const BUTTON_H_TIGHT := 48.0
-const INFO_W := 430.0
-const INFO_H := 112.0
-## Where the name block starts; the buttons and the info panel stay above it.
-const NAME_Y := 488.0
+## The companion's art runs down the left edge of the screen and fades out to the right.
+const ART_SIZE := Vector2(460, 1020)
+## The order sheet.
+const SHEET_X := 292.0
+const SHEET_Y := 44.0
+const SHEET_PAD := 22.0
+const SHEET_HEAD := 52.0
+const BUTTON_X := SHEET_X + SHEET_PAD
+const BUTTON_Y := SHEET_Y + SHEET_HEAD
+const BUTTON_STEP := 50.0
+## With seven entries the lines pack tighter.
+const BUTTON_STEP_TIGHT := 44.0
+const BUTTON_H_TIGHT := 44.0
+const BUTTON_H := 50.0
+const INFO_W := ActionButton.W
+const INFO_H := 136.0
+## Where the name block starts.
+const NAME_Y := 690.0
 
-var _art := SlantPanel.new()
+var _art := Control.new()
+var _art_texture: Texture2D
+var _art_focus := Vector2(0.5, 0.3)
+var _art_tint := Color.WHITE
+var _sheet := Control.new()
+var _sheet_title := "ORDERS"
 var _name: Label
 var _weapon: Label
 var _grade: Label
@@ -44,7 +57,7 @@ var _penalty: Label
 var _buttons: Dictionary = {}       # id -> ActionButton
 var _descriptions: Dictionary = {}  # id -> String
 var _order: Array[String] = []      # visible actions, top to bottom; hotkey = place + 1
-var _info := SlantPanel.new()
+var _info := Control.new()
 var _info_label: Label
 var _default_info := ""
 var _hovered_id := ""
@@ -75,55 +88,59 @@ static func spell_pages(count: int) -> int:
 
 func _init() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	size = Vector2(700, ART_SIZE.y)
+	size = Vector2(SHEET_X + ActionButton.W + SHEET_PAD * 2.0, ART_SIZE.y)
 
 	_art.size = ART_SIZE
-	_art.border = UiTheme.GOLD
-	_art.border_width = 4.0
-	_art.shade = 0.92
-	_art.zoom = 1.25
+	_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_art.draw.connect(_draw_art)
 	add_child(_art)
 
-	_name = UiTheme.label("", 60, UiTheme.TEXT, true, 12)
-	_name.position = Vector2(_edge_x(NAME_Y + 74.0) + 22.0, NAME_Y)
+	_name = UiTheme.label("", 64, UiTheme.TEXT, true, 12)
+	_name.position = Vector2(34, NAME_Y)
 	add_child(_name)
 	_weapon = UiTheme.label("", 17, UiTheme.TEXT, false, 6)
-	_weapon.position = Vector2(_edge_x(598.0) + 22.0, 544.0)
+	_weapon.position = Vector2(38, NAME_Y + 72.0)
 	add_child(_weapon)
 	# Weapon grade: "SWORD D", and a bar of progress toward the next grade under it.
-	_grade = UiTheme.label("", 24, UiTheme.GOLD, true, 6)
-	_grade.position = Vector2(_edge_x(632.0) + 22.0, 604.0)
-	_grade.size = Vector2(320, 30)
+	_grade = UiTheme.label("", 22, UiTheme.GOLD, true, 6)
+	_grade.position = Vector2(38, NAME_Y + 126.0)
+	_grade.size = Vector2(300, 30)
 	_grade.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(_grade)
 	_grade_bar.fill_color = UiTheme.GOLD
-	_grade_bar.font_size = 14
-	_grade_bar.size = Vector2(196, 20)
-	_grade_bar.position = Vector2(_edge_x(656.0) + 20.0, 636.0)
+	_grade_bar.font_size = 13
+	_grade_bar.size = Vector2(190, 18)
+	_grade_bar.position = Vector2(38, NAME_Y + 158.0)
 	add_child(_grade_bar)
 	_penalty = UiTheme.label("", 16, UiTheme.RECOVERING, false, 6)
-	_penalty.position = Vector2(_edge_x(684.0) + 22.0, 662.0)
+	_penalty.position = Vector2(38, NAME_Y + 182.0)
 	add_child(_penalty)
+
+	_sheet.mouse_filter = Control.MOUSE_FILTER_STOP
+	_sheet.position = Vector2(SHEET_X, SHEET_Y)
+	_sheet.draw.connect(_draw_sheet)
+	add_child(_sheet)
 
 	for id: String in [ATTACK, art_id(0), art_id(1), art_id(2), MAGIC, GUARD, FOCUS, WAIT, MORE, BACK]:
 		_add_button(id)
-	_buttons[ATTACK].title = "ATTACK"
-	_buttons[GUARD].title = "GUARD"
-	_buttons[FOCUS].title = "FOCUS"
-	_buttons[WAIT].title = "WAIT"
-	_buttons[MAGIC].title = "MAGIC"
-	_buttons[MORE].title = "MORE SPELLS"
-	_buttons[BACK].title = "‹ BACK"
+	_buttons[ATTACK].title = "Attack"
+	_buttons[GUARD].title = "Guard"
+	_buttons[FOCUS].title = "Focus"
+	_buttons[WAIT].title = "Wait"
+	_buttons[MAGIC].title = "Magic"
+	_buttons[MORE].title = "More spells"
+	_buttons[BACK].title = "Back"
 
+	_info.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_info.size = Vector2(INFO_W, INFO_H)
-	_info.fill = Color(UiTheme.INK, 0.86)
-	_info.border = UiTheme.EDGE
 	add_child(_info)
-	_info_label = UiTheme.label("", 17, UiTheme.TEXT)
+	_info_label = UiTheme.label("", 16, UiTheme.PARCHMENT_INK)
+	_info_label.add_theme_font_override("font", UiTheme.italic_font())
 	_info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_info_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_info_label.position = Vector2(UiTheme.slant_for(INFO_H) + 4.0, 6)
-	_info_label.size = Vector2(INFO_W - UiTheme.slant_for(INFO_H) * 2.0 - 2.0, INFO_H - 12.0)
+	_info_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	_info_label.position = Vector2(4, 8)
+	_info_label.size = Vector2(INFO_W - 8.0, INFO_H - 12.0)
+	_info_label.clip_text = false
 	_info.add_child(_info_label)
 
 
@@ -149,6 +166,7 @@ func description(id: String) -> String:
 ## Shows a companion's actions. `active_id` is the action currently waiting for a target ("" for none).
 func show_companion(c: CompanionUnit, battle: Battle, active_id: String, enabled: bool) -> void:
 	visible = true
+	_sheet_title = "ORDERS"
 	_show_art(c, Color.WHITE)
 	_show_weapon_lines(c)
 	_show_grade(c)
@@ -168,13 +186,13 @@ func show_companion(c: CompanionUnit, battle: Battle, active_id: String, enabled
 	_descriptions[GUARD] = "Until this tick ends: take half damage, and enemies are %dx as likely to aim at %s. Then sits out the next action." % [
 		roundi(BattleConfig.GUARD_TARGET_WEIGHT_MULT), c.display_name]
 	_descriptions[FOCUS] = "Recover %d stamina. Then sits out the next action." % battle.focus_amount(c)
-	(_buttons[FOCUS] as ActionButton).detail = "+%d STA" % battle.focus_amount(c)
+	(_buttons[FOCUS] as ActionButton).detail = "+%d stamina" % battle.focus_amount(c)
 	if not c.spells().is_empty():
 		var ready := 0
 		for sp in c.spells():
 			if c.progress.uses_left(sp) > 0:
 				ready += 1
-		(_buttons[MAGIC] as ActionButton).detail = "%d / %d READY" % [ready, c.spells().size()]
+		(_buttons[MAGIC] as ActionButton).detail = "%d of %d ready" % [ready, c.spells().size()]
 		(_buttons[MAGIC] as ActionButton).accent = UiTheme.school_color(c.spells()[0].school)
 		_descriptions[MAGIC] = "Open %s's spells (%d known, %d with uses left). A spell costs no stamina; its uses only come back with Rest on a free day." % [
 			c.display_name, c.spells().size(), ready]
@@ -186,8 +204,8 @@ func show_companion(c: CompanionUnit, battle: Battle, active_id: String, enabled
 	for i in arts.size():
 		var art := arts[i]
 		var b: ActionButton = _buttons[art_id(i)]
-		b.title = art.display_name.to_upper()
-		b.detail = "%d STA" % art.stamina_cost
+		b.title = art.display_name
+		b.detail = "%d stamina" % art.stamina_cost
 		var about := art_info(art)
 		if battle.art_block_reason(c, art) != "":
 			if enabled and active_id == "":
@@ -218,6 +236,7 @@ func show_companion(c: CompanionUnit, battle: Battle, active_id: String, enabled
 ## `active_id` is the spell waiting for a target ("" for none).
 func show_spells(c: CompanionUnit, battle: Battle, active_id: String, enabled: bool, page: int) -> void:
 	visible = true
+	_sheet_title = "SPELLS"
 	_show_art(c, Color.WHITE)
 	_show_weapon_lines(c)
 	var spells := c.spells()
@@ -242,15 +261,15 @@ func show_spells(c: CompanionUnit, battle: Battle, active_id: String, enabled: b
 		var sp := spells[i]
 		var id := spell_id(i)
 		var b: ActionButton = _buttons[id]
-		b.title = sp.display_name.to_upper()
+		b.title = sp.display_name
 		b.accent = UiTheme.school_color(sp.school)
 		var left := c.progress.uses_left(sp)
-		b.detail = "%s %s  ·  %d/%d" % ["BLACK" if sp.school == SpellData.School.BLACK else "WHITE",
+		b.detail = "%s %s  ·  %d/%d" % ["black" if sp.school == SpellData.School.BLACK else "white",
 			CombatArtData.tier_numeral(sp.tier), left, sp.uses]
 		var about := spell_info(sp, c, battle)
 		var why := battle.spell_block_reason(c, sp)
 		if why != "":
-			b.detail = "NO USES  ·  0/%d" % sp.uses
+			b.detail = "spent  ·  0/%d" % sp.uses
 			about = "%s\n%s" % [why, about]
 		_descriptions[id] = about
 	for id in order:
@@ -298,6 +317,7 @@ static func spell_info(sp: SpellData, c: CompanionUnit, battle: Battle) -> Strin
 ## `next_up` is whoever will be ready soonest; their art is shown dimmed.
 func show_wait(enabled: bool, next_up: CompanionUnit) -> void:
 	visible = true
+	_sheet_title = "ORDERS"
 	_art.visible = next_up != null
 	_name.visible = next_up != null
 	_weapon.visible = next_up != null
@@ -306,7 +326,7 @@ func show_wait(enabled: bool, next_up: CompanionUnit) -> void:
 	_grade_bar.visible = false
 	if next_up != null:
 		_show_art(next_up, Color(0.42, 0.44, 0.52))
-		_weapon.text = "Recovering\nReady in %d" % next_up.recovery
+		_weapon.text = "Catching their breath\nReady in %d" % next_up.recovery
 	_arrange([WAIT] as Array[String])
 	var b: ActionButton = _buttons[WAIT]
 	b.disabled = not enabled
@@ -321,8 +341,8 @@ func show_nothing() -> void:
 	_order.clear()
 
 
-## Stacks the given buttons down the lean, numbers them, and hides the rest.
-## Seven entries pack tighter so the info panel stays above the name.
+## Writes the given orders down the sheet, numbers their keys, and hides the rest.
+## Seven entries pack tighter.
 func _arrange(order: Array[String]) -> void:
 	_order = order
 	var tight := order.size() >= 7
@@ -331,12 +351,14 @@ func _arrange(order: Array[String]) -> void:
 		_buttons[id].visible = order.has(id)
 	for i in order.size():
 		var b: ActionButton = _buttons[order[i]]
-		b.h = BUTTON_H_TIGHT if tight else ActionButton.H
-		b.position = Vector2(BUTTON_X - UiTheme.SLANT * step * i, BUTTON_Y + step * i)
+		b.h = BUTTON_H_TIGHT if tight else BUTTON_H
+		b.position = Vector2(BUTTON_X, BUTTON_Y + step * i)
 		b.hotkey = str(i + 1)
 		b.queue_redraw()
-	var below := BUTTON_Y + step * order.size() + 4.0
-	_info.position = Vector2(BUTTON_X - UiTheme.SLANT * (step * order.size() + INFO_H) - 4.0, below)
+	var below := BUTTON_Y + step * order.size()
+	_info.position = Vector2(BUTTON_X, below + 6.0)
+	_sheet.size = Vector2(ActionButton.W + SHEET_PAD * 2.0, below + INFO_H + 22.0 - SHEET_Y)
+	_sheet.queue_redraw()
 
 
 func _show_weapon_lines(c: CompanionUnit) -> void:
@@ -395,9 +417,10 @@ func _show_art(c: CompanionUnit, tint: Color) -> void:
 	_art.visible = true
 	_name.visible = true
 	_weapon.visible = true
-	_art.texture = c.data.portrait
-	_art.focus = c.data.portrait_focus + Vector2(0, 0.24)
-	_art.tint = tint
+	_art_texture = c.data.portrait
+	_art_focus = c.data.portrait_focus + Vector2(0.0, 0.2)
+	_art_tint = tint
+	_art.queue_redraw()
 	_name.text = c.display_name.to_upper()
 
 
@@ -410,6 +433,7 @@ func _spell_button(index: int) -> ActionButton:
 
 func _add_button(id: String) -> ActionButton:
 	var b := ActionButton.new()
+	b.paper = true
 	b.pressed.connect(func() -> void: action_pressed.emit(id))
 	b.hover_changed.connect(func(inside: bool) -> void:
 		if inside:
@@ -431,9 +455,51 @@ func _update_info() -> void:
 	if _hovered_id != "" and _buttons.has(_hovered_id) and _buttons[_hovered_id].visible and _descriptions.has(_hovered_id):
 		text = _descriptions[_hovered_id]
 	_info_label.text = text
-	_info.visible = text != ""
+	var font_size := 16
+	var font := UiTheme.italic_font()
+	while font_size > 12 and font.get_multiline_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, INFO_W - 8.0, font_size).y > INFO_H - 14.0:
+		font_size -= 1
+	_info_label.add_theme_font_size_override("font_size", font_size)
 
 
-## Left edge of the leaning art panel at height `y`.
-func _edge_x(y: float) -> float:
-	return UiTheme.SLANT * (ART_SIZE.y - y)
+## The companion's art, cropped to the column without stretching, fading out to the right and at the
+## top so it sits in the scene rather than in a frame, with shadow under the name.
+func _draw_art() -> void:
+	if _art_texture == null:
+		return
+	var tex_size := _art_texture.get_size()
+	var tex_aspect := tex_size.x / maxf(1.0, tex_size.y)
+	var aspect := ART_SIZE.x / ART_SIZE.y
+	var region := Vector2(1.0, tex_aspect / aspect) if aspect >= tex_aspect else Vector2(aspect / tex_aspect, 1.0)
+	var origin := _art_focus - region * 0.5
+	origin.x = clampf(origin.x, 0.0, 1.0 - region.x)
+	origin.y = clampf(origin.y, 0.0, 1.0 - region.y)
+	var xs: Array[float] = [0.0, 0.5, 0.74, 1.0]
+	var x_alpha: Array[float] = [1.0, 1.0, 0.6, 0.0]
+	var ys: Array[float] = [0.0, 0.07, 1.0]
+	var y_alpha: Array[float] = [0.0, 1.0, 1.0]
+	for iy in ys.size() - 1:
+		for ix in xs.size() - 1:
+			var pts := PackedVector2Array()
+			var uvs := PackedVector2Array()
+			var cols := PackedColorArray()
+			for corner: Vector2i in [Vector2i(ix, iy), Vector2i(ix + 1, iy), Vector2i(ix + 1, iy + 1), Vector2i(ix, iy + 1)]:
+				var f := Vector2(xs[corner.x], ys[corner.y])
+				pts.append(f * ART_SIZE)
+				uvs.append(origin + f * region)
+				cols.append(Color(_art_tint, minf(x_alpha[corner.x], y_alpha[corner.y])))
+			_art.draw_polygon(pts, cols, uvs, _art_texture)
+	var clear := Color(UiTheme.INK, 0.0)
+	var dark := Color(UiTheme.INK, 0.9)
+	_art.draw_polygon(PackedVector2Array([Vector2(0, NAME_Y - 150.0), Vector2(ART_SIZE.x * 0.8, NAME_Y - 150.0),
+		Vector2(ART_SIZE.x * 0.8, NAME_Y + 60.0), Vector2(0, NAME_Y + 60.0)]), PackedColorArray([clear, clear, clear, dark]))
+	_art.draw_polygon(PackedVector2Array([Vector2(0, NAME_Y + 60.0), Vector2(ART_SIZE.x * 0.8, NAME_Y + 60.0),
+		Vector2(ART_SIZE.x * 0.8, ART_SIZE.y), Vector2(0, ART_SIZE.y)]), PackedColorArray([dark, clear, clear, dark]))
+
+
+func _draw_sheet() -> void:
+	var r := Rect2(Vector2.ZERO, _sheet.size)
+	UiTheme.draw_parchment(_sheet, r, 0.45)
+	var font := UiTheme.display_font()
+	UiTheme.draw_text(_sheet, font, Vector2(0, 14.0), _sheet_title, 16, UiTheme.PARCHMENT_MUTED, 0, r.size.x, HORIZONTAL_ALIGNMENT_CENTER)
+	UiTheme.draw_rule(_sheet, Vector2(r.size.x * 0.5, 42.0), r.size.x - 70.0, Color(UiTheme.PARCHMENT_INK, 0.5))

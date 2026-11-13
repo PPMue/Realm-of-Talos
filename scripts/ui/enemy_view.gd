@@ -427,11 +427,13 @@ func _draw_plate() -> void:
 
 	var color: Color = UiTheme.INTENT_COLORS[_intent]
 	var chip := Rect2(x, mid - chip_h * 0.5, chip_w, chip_h)
-	UiTheme.fill_para(_plate, chip, color)
-	UiTheme.stroke_para(_plate, chip, Color(UiTheme.INK, 0.9), 2.0)
-	UiTheme.draw_intent_icon(_plate, _intent, Vector2(x + 34.0, mid), 22.0, UiTheme.INK)
+	# A dark plate with the kind of action in its own colour, not a bright tag.
+	UiTheme.fill_para(_plate, chip, Color(UiTheme.INK, 0.86))
+	UiTheme.stroke_para(_plate, chip, Color(color, 0.9), 2.0)
+	UiTheme.draw_intent_icon(_plate, _intent, Vector2(x + 34.0, mid), 22.0, color.lightened(0.15))
 	if not _compact:
-		UiTheme.draw_text(_plate, font, Vector2(x + 54.0, mid - font.get_height(word_size) * 0.5), word, word_size, UiTheme.INK)
+		UiTheme.draw_text(_plate, font, Vector2(x + 54.0, mid - font.get_height(word_size) * 0.5), word, word_size,
+			color.lightened(0.3))
 	if marked:
 		var tag := Rect2(x + chip_w + 14.0, mid - 15.0, delay_w - 14.0, 30.0)
 		UiTheme.fill_para(_plate, tag, Color(UiTheme.INK, 0.92))

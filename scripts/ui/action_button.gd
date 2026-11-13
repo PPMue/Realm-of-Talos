@@ -48,6 +48,12 @@ var active := false:
 		active = v
 		queue_redraw()
 
+## Written on parchment instead of standing as a board: ink, a wax seal, no frame.
+var paper := false:
+	set(v):
+		paper = v
+		queue_redraw()
+
 var _hover := false
 
 
@@ -81,6 +87,9 @@ func _get_tooltip(_at_position: Vector2) -> String:
 
 
 func _draw() -> void:
+	if paper:
+		_draw_paper()
+		return
 	var lit := (active or _hover) and not disabled
 	var rect := Rect2(LIFT if lit else 0.0, 0, W, h)
 	var fill := Color(UiTheme.PANEL, 0.95)
@@ -122,5 +131,39 @@ func _draw() -> void:
 			0, right - rect.position.x, HORIZONTAL_ALIGNMENT_RIGHT)
 	var title_size := TITLE_SIZE
 	while title_size > TITLE_MIN_SIZE and display.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size).x > room:
+		title_size -= 1
+	UiTheme.draw_text(self, display, Vector2(x, (h - display.get_height(title_size)) * 0.5), title, title_size, ink)
+
+
+## A line of an order sheet: a wax seal (hollow when it cannot be chosen), the words in ink, and a
+## short cost on the right.
+func _draw_paper() -> void:
+	var lit := (active or _hover) and not disabled
+	var display := UiTheme.display_font()
+	var italic := UiTheme.italic_font()
+	if active and not disabled:
+		draw_rect(Rect2(0, 1, W, h - 2.0), Color(UiTheme.WAX, 0.14))
+	elif lit:
+		draw_rect(Rect2(0, 1, W, h - 2.0), Color(UiTheme.PARCHMENT_INK, 0.09))
+	draw_line(Vector2(0, h - 0.5), Vector2(W, h - 0.5), Color(UiTheme.PARCHMENT_INK, 0.2), 1.0)
+	var seal := Vector2(20.0, h * 0.5)
+	var wax := UiTheme.WAX if accent.a <= 0.0 else accent.darkened(0.35)
+	if disabled:
+		draw_arc(seal, 8.0, 0.0, TAU, 20, Color(UiTheme.PARCHMENT_MUTED, 0.7), 1.5, true)
+	else:
+		draw_circle(seal + Vector2(1, 1.5), 9.0, Color(0, 0, 0, 0.25))
+		draw_circle(seal, 9.0, wax.lightened(0.12) if lit else wax)
+		draw_arc(seal, 5.5, 0.0, TAU, 16, Color(1, 1, 1, 0.22), 1.0, true)
+	var ink := Color(UiTheme.PARCHMENT_MUTED, 0.7) if disabled else (UiTheme.WAX.darkened(0.25) if lit else UiTheme.PARCHMENT_INK)
+	var x := 42.0
+	var right := W - 10.0
+	var room := right - x
+	if detail != "":
+		var dw := italic.get_string_size(detail, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
+		room -= dw + 10.0
+		UiTheme.draw_text(self, italic, Vector2(right - dw, (h - italic.get_height(16)) * 0.5), detail, 16,
+			Color(UiTheme.PARCHMENT_MUTED, 0.7 if disabled else 1.0))
+	var title_size := 23
+	while title_size > 15 and display.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size).x > room:
 		title_size -= 1
 	UiTheme.draw_text(self, display, Vector2(x, (h - display.get_height(title_size)) * 0.5), title, title_size, ink)
