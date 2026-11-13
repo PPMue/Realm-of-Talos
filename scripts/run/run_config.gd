@@ -42,7 +42,7 @@ const BOSS_REWARD_MATERIALS := 3
 # Assumes companions level at the pace below (about level 13 by day 30, roughly +4 to +6 in each
 # main stat), plus better weapons and grades.
 const ENEMY_HP_GROWTH_PER_DAY := 0.05   # max HP x (1 + 0.05 x (day - 1)): day 30 is x2.45
-const ENEMY_STR_EVERY_DAYS := 4         # +1 STR on days 5, 9, 13, ... 29 (+7)
+const ENEMY_STR_EVERY_DAYS := 4         # +1 STR and MAG on days 5, 9, 13, ... 29 (+7)
 const ENEMY_DEF_EVERY_DAYS := 6         # +1 DEF on days 7, 13, 19, 25 (+4)
 const ENEMY_SPD_EVERY_DAYS := 8         # +1 SPD and DEX on days 9, 17, 25
 

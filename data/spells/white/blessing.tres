@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="SpellData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/spell_data.gd" id="1_spell"]
+[ext_resource type="Script" path="res://scripts/data/status_effect_data.gd" id="2_fx"]
+
+[sub_resource type="Resource" id="Resource_fx"]
+script = ExtResource("2_fx")
+display_name = "Blessed"
+stat_mods = {
+"STR": 3,
+"MAG": 3
+}
+duration_ticks = 4
+
+[resource]
+script = ExtResource("1_spell")
+display_name = "Blessing"
+description = "Steadies the hand and the mind: harder blows and stronger spells."
+school = 1
+tier = 1
+targeting = 2
+uses = 6
+recovery = 1
+effect = SubResource("Resource_fx")

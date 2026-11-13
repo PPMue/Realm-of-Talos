@@ -14,6 +14,8 @@ enum Targeting { SINGLE, ALL_COMPANIONS, SELF }
 ## Relative chance of being picked as the next action.
 @export var pick_weight: float = 1.0
 @export var deals_damage: bool = true
+## Physical uses the enemy's STR against DEF; magic its MAG against RES. Guard halves both.
+@export var damage_type: CombatMath.DamageType = CombatMath.DamageType.PHYSICAL
 @export var might: int = 0
 @export var hit: int = 80
 ## Applied to each target the action lands on (or to the enemy itself for SELF).

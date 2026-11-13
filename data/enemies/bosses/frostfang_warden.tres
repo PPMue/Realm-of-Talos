@@ -8,6 +8,7 @@
 [sub_resource type="Resource" id="Resource_pn4i3"]
 script = ExtResource("1_ba34q")
 display_name = "Frost Lance"
+damage_type = 1
 countdown = 3
 pick_weight = 3.0
 might = 10
@@ -25,6 +26,7 @@ duration_ticks = 2
 [sub_resource type="Resource" id="Resource_3gyeq"]
 script = ExtResource("1_ba34q")
 display_name = "Blizzard"
+damage_type = 1
 targeting = 1
 countdown = 5
 pick_weight = 2.0
@@ -53,6 +55,7 @@ portrait = ExtResource("3_yx6yu")
 color = Color(0.3, 0.45, 0.6, 1)
 stage_scale = 1.45
 max_hp = 210
+magic = 16
 strength = 18
 crit = 3
 dexterity = 10

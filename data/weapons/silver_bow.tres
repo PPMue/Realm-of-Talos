@@ -10,3 +10,4 @@ hit = 100
 required_grade = 6
 display_name = "Silver Bow"
 weight = 6
+effective_against = Array[String](["Flying"])

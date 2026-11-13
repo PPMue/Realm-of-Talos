@@ -1,14 +1,15 @@
 class_name ArtsScreen
 extends Control
-## Between battles: each companion's weapon grades and known combat arts, and which (up to three)
-## are equipped. Reached from the party screen. Changes go straight into the party's
-## CompanionProgress, so the next battle uses them.
+## Between battles: each companion's weapon and magic grades, known combat arts, and which (up to
+## three) are equipped, then every known spell with its uses left. Reached from the party screen.
+## Changes go straight into the party's CompanionProgress, so the next battle uses them.
 
 signal closed
 
 const TAB_SIZE := Vector2(400, 150)
 const DETAIL_X := 540.0
-const CELL_SIZE := Vector2(250, 96)
+## Five weapon cells and two magic cells fit across.
+const CELL_SIZE := Vector2(178, 96)
 
 var _party: Array[CompanionProgress] = []
 var _current: CompanionProgress
@@ -78,7 +79,21 @@ func _refresh() -> void:
 		_grades.remove_child(child)
 		child.queue_free()
 	for t: int in WeaponData.WeaponType.values():
-		_grades.add_child(_make_grade_cell(p, t, w != null and w.weapon_type == t))
+		var held := w != null and w.weapon_type == t
+		var step := p.progress_to_next(t)
+		var g := p.grade(t)
+		_grades.add_child(_make_grade_cell(WeaponData.type_name(t).to_upper(), g, step, UiTheme.GOLD if held else Color(0, 0, 0, 0),
+			"%s %s: %d points.%s" % [WeaponData.type_name(t), Proficiency.grade_name(g), p.points_in(t),
+			"" if step.y == 0 else " %d more to reach %s." % [step.y - step.x, Proficiency.grade_name(g + 1)]]))
+	var schools := p.spell_schools()
+	for s: int in SpellData.School.values():
+		var step := p.magic_progress_to_next(s)
+		var g := p.magic_grade(s)
+		var tip := "%s %s: %d points. Every cast gives %d; a grade-up teaches a new spell.%s" % [SpellData.school_name(s),
+			Proficiency.grade_name(g), p.magic_points_in(s), BattleConfig.MAGIC_POINTS_PER_CAST,
+			"" if schools.has(s) else " Only a companion who knows a spell of this school can cast and raise it."]
+		_grades.add_child(_make_grade_cell("BLACK MAGIC" if s == SpellData.School.BLACK else "WHITE MAGIC", g, step,
+			UiTheme.school_color(s) if schools.has(s) else Color(0, 0, 0, 0), tip))
 
 	_slots.text = "EQUIPPED  %d / %d" % [p.equipped_arts.size(), BattleConfig.MAX_EQUIPPED_ARTS]
 	for child in _list.get_children():
@@ -93,6 +108,18 @@ func _refresh() -> void:
 		card.wrong_weapon = w == null or w.weapon_type != art.weapon_type
 		card.pressed.connect(toggle.bind(art))
 		_list.add_child(card)
+	if not p.known_spells.is_empty():
+		var head := UiTheme.label("SPELLS  ·  %d KNOWN  ·  every known spell can be cast; uses come back with Rest" % p.known_spells.size(),
+			26, UiTheme.school_color(p.known_spells[0].school), true, 6)
+		head.custom_minimum_size = Vector2(ArtCard.W, 44)
+		head.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+		_list.add_child(head)
+		for sp in p.known_spells:
+			var card := SpellCard.new()
+			card.spell = sp
+			card.uses_left = p.uses_left(sp)
+			card.signature = sp == p.data.signature_spell
+			_list.add_child(card)
 
 
 ## Known arts in a stable order (so cards do not jump when toggled): the weapon held first, then by tier.
@@ -146,28 +173,31 @@ func _style_tab(tab: Control, p: CompanionProgress) -> void:
 	var grade: Label = tab.get_node("Grade")
 	grade.text = "%s %s   ·   %d ARTS" % [WeaponData.type_name(w.weapon_type).to_upper(), Proficiency.grade_name(p.grade(w.weapon_type)),
 		p.known_arts.size()] if w != null else ""
+	for s in p.spell_schools():
+		grade.text += "   ·   %s %s" % ["BLACK" if s == SpellData.School.BLACK else "WHITE", Proficiency.grade_name(p.magic_grade(s))]
 
 
-func _make_grade_cell(p: CompanionProgress, t: WeaponData.WeaponType, held: bool) -> Control:
+## One grade: a title, the grade letter and a bar toward the next. `lit` (not transparent) marks the
+## weapon held or a school the companion casts in.
+func _make_grade_cell(title: String, g: int, step: Vector2i, lit: Color, tip: String) -> Control:
+	var on := lit.a > 0.0
 	var cell := SlantPanel.new()
 	cell.custom_minimum_size = CELL_SIZE
-	cell.fill = Color(UiTheme.PANEL_HI if held else UiTheme.PANEL, 0.95)
-	cell.border = UiTheme.GOLD if held else UiTheme.EDGE
-	cell.border_width = 3.0 if held else 2.0
+	cell.fill = Color(UiTheme.PANEL_HI if on else UiTheme.PANEL, 0.95)
+	cell.border = lit if on else UiTheme.EDGE
+	cell.border_width = 3.0 if on else 2.0
 	cell.mouse_filter = Control.MOUSE_FILTER_STOP
-	var kind := UiTheme.label(WeaponData.type_name(t).to_upper(), 22, UiTheme.GOLD if held else UiTheme.MUTED, true)
-	kind.position = Vector2(UiTheme.slant_for(CELL_SIZE.y) + 8.0, 8.0)
+	var kind := UiTheme.label(title, 19, lit if on else UiTheme.MUTED, true)
+	kind.position = Vector2(UiTheme.slant_for(CELL_SIZE.y) + 6.0, 8.0)
 	cell.add_child(kind)
-	var g := p.grade(t)
-	var letter := UiTheme.label(Proficiency.grade_name(g), 50, UiTheme.TEXT, true, 6)
-	letter.position = Vector2(UiTheme.slant_for(50.0) + 14.0, 32.0)
+	var letter := UiTheme.label(Proficiency.grade_name(g), 46, UiTheme.TEXT if on or g > 0 else Color(UiTheme.MUTED, 0.8), true, 6)
+	letter.position = Vector2(UiTheme.slant_for(50.0) + 10.0, 34.0)
 	cell.add_child(letter)
 	var bar := SlantBar.new()
-	bar.fill_color = UiTheme.GOLD
-	bar.font_size = 14
-	bar.size = Vector2(124, 22)
-	bar.position = Vector2(96, 54)
-	var step := p.progress_to_next(t)
+	bar.fill_color = lit if on else UiTheme.GOLD
+	bar.font_size = 13
+	bar.size = Vector2(90, 20)
+	bar.position = Vector2(76, 56)
 	if step.y == 0:
 		bar.label_prefix = "MAX  "
 		bar.set_values(1, 1, false)
@@ -175,8 +205,7 @@ func _make_grade_cell(p: CompanionProgress, t: WeaponData.WeaponType, held: bool
 		bar.label_prefix = "%s  " % Proficiency.grade_name(g + 1)
 		bar.set_values(step.x, step.y, false)
 	cell.add_child(bar)
-	cell.tooltip_text = "%s %s: %d points.%s" % [WeaponData.type_name(t), Proficiency.grade_name(g), p.points_in(t),
-		"" if step.y == 0 else " %d more to reach %s." % [step.y - step.x, Proficiency.grade_name(g + 1)]]
+	cell.tooltip_text = tip
 	return cell
 
 
@@ -190,10 +219,10 @@ func _build() -> void:
 	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(dim)
 
-	var title := UiTheme.label("COMBAT ARTS", 60, UiTheme.GOLD, true, 8)
+	var title := UiTheme.label("ARTS AND MAGIC", 60, UiTheme.GOLD, true, 8)
 	title.position = Vector2(60, 28)
 	add_child(title)
-	var hint := UiTheme.label("Every weapon grade a companion reaches teaches a new art of that weapon. Up to %d arts can be equipped; only equipped arts can be used in battle, and only with a weapon of their type." % BattleConfig.MAX_EQUIPPED_ARTS,
+	var hint := UiTheme.label("Every weapon grade reached teaches an art of that weapon; up to %d can be equipped, and only used with that weapon. Every magic grade teaches a spell; all known spells can be cast." % BattleConfig.MAX_EQUIPPED_ARTS,
 		19, UiTheme.MUTED)
 	hint.position = Vector2(64, 104)
 	add_child(hint)
@@ -210,7 +239,7 @@ func _build() -> void:
 	add_child(_weapon)
 
 	_grades.position = Vector2(DETAIL_X, 272)
-	_grades.add_theme_constant_override("separation", 14)
+	_grades.add_theme_constant_override("separation", 8)
 	add_child(_grades)
 
 	_slots = UiTheme.label("", 30, UiTheme.GOLD, true, 6)

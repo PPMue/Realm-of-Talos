@@ -1,7 +1,7 @@
 class_name CompanionProgress
 extends RefCounted
 ## What a companion carries from battle to battle: level and XP, stat gains from levels, weapon
-## proficiency, combat arts and the weapon in hand.
+## proficiency, combat arts, the weapon in hand, magic proficiency, known spells and their uses left.
 ## Plain data plus its rules, no nodes or UI. Battle reads and updates it; HP between battles lives in
 ## RunCompanion, and stamina and injuries are per battle.
 
@@ -18,6 +18,12 @@ var level: int = 1
 var xp: int = 0
 ## Stat key -> points gained from level-ups, added to the companion's base stats in battle.
 var stat_gains: Dictionary = {}
+## SpellData.School -> magic proficiency points in that school (same grades as weapons).
+var magic_points: Dictionary = {}
+## Every spell known, in the order learned. All of them can be cast; there are no slots.
+var known_spells: Array[SpellData] = []
+## SpellData -> uses left. Lasts between battles and days; Run.rest() refills it.
+var spell_uses: Dictionary = {}
 
 
 ## Fresh progress at the start of a run: starting grades, signature art known and equipped.
@@ -29,6 +35,10 @@ static func create(p_data: CompanionData) -> CompanionProgress:
 		p.points[t] = Proficiency.points_for(p_data.starting_grade(t))
 	if p_data.signature_art != null:
 		p.learn(p_data.signature_art)
+	for s: int in SpellData.School.values():
+		p.magic_points[s] = Proficiency.points_for(p_data.starting_magic_grade(s))
+	if p_data.signature_spell != null:
+		p.learn_spell(p_data.signature_spell)
 	return p
 
 
@@ -49,6 +59,9 @@ func copy() -> CompanionProgress:
 	p.level = level
 	p.xp = xp
 	p.stat_gains = stat_gains.duplicate()
+	p.magic_points = magic_points.duplicate()
+	p.known_spells = known_spells.duplicate()
+	p.spell_uses = spell_uses.duplicate()
 	return p
 
 
@@ -132,3 +145,78 @@ func unequip(art: CombatArtData) -> bool:
 		return false
 	equipped_arts.erase(art)
 	return true
+
+
+# ---------------------------------------------------------------- magic
+
+func magic_points_in(s: SpellData.School) -> int:
+	return int(magic_points.get(s, 0))
+
+
+func magic_grade(s: SpellData.School) -> int:
+	return Proficiency.grade_for_points(magic_points_in(s))
+
+
+## Adds points in a school (never past the S threshold) and returns how many were added.
+func add_magic_points(s: SpellData.School, amount: int) -> int:
+	var before := magic_points_in(s)
+	magic_points[s] = clampi(before + amount, 0, Proficiency.points_for(Proficiency.max_grade()))
+	return magic_points_in(s) - before
+
+
+## Like progress_to_next(), for a magic school.
+func magic_progress_to_next(s: SpellData.School) -> Vector2i:
+	var g := magic_grade(s)
+	if g >= Proficiency.max_grade():
+		return Vector2i.ZERO
+	var floor_points := Proficiency.points_for(g)
+	return Vector2i(magic_points_in(s) - floor_points, Proficiency.points_for(g + 1) - floor_points)
+
+
+func knows_spell(spell: SpellData) -> bool:
+	return known_spells.has(spell)
+
+
+## Schools this companion knows at least one spell of, in school order.
+func spell_schools() -> Array[int]:
+	var out: Array[int] = []
+	for s: int in SpellData.School.values():
+		for sp in known_spells:
+			if sp.school == s:
+				out.append(s)
+				break
+	return out
+
+
+## Learns a spell with full uses. Learning a spell already known changes nothing. Returns true if new.
+func learn_spell(spell: SpellData) -> bool:
+	if spell == null or knows_spell(spell):
+		return false
+	known_spells.append(spell)
+	spell_uses[spell] = spell.uses
+	return true
+
+
+func uses_left(spell: SpellData) -> int:
+	return int(spell_uses.get(spell, 0)) if knows_spell(spell) else 0
+
+
+## Spends one use. Returns false (and changes nothing) if none is left.
+func spend_use(spell: SpellData) -> bool:
+	if uses_left(spell) <= 0:
+		return false
+	spell_uses[spell] = uses_left(spell) - 1
+	return true
+
+
+## Every known spell back to full uses (the Rest action).
+func restore_spell_uses() -> void:
+	for sp in known_spells:
+		spell_uses[sp] = sp.uses
+
+
+func has_spent_uses() -> bool:
+	for sp in known_spells:
+		if uses_left(sp) < sp.uses:
+			return true
+	return false

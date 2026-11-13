@@ -5,6 +5,8 @@ extends Combatant
 var data: EnemyData
 var pending_action: EnemyActionData
 var countdown: int = 0
+## True once a spell has delayed the pending action; cleared when the next action is picked.
+var delayed: bool = false
 
 
 func _init(p_data: EnemyData) -> void:
@@ -12,6 +14,10 @@ func _init(p_data: EnemyData) -> void:
 	display_name = p_data.display_name
 	base_stats = p_data.base_stats()
 	hp = max_hp()
+
+
+func traits() -> Array[String]:
+	return data.traits
 
 
 func is_alive() -> bool:

@@ -60,12 +60,22 @@
 [ext_resource type="Resource" path="res://data/run/sites/quarry_path.tres" id="58_v2we7"]
 [ext_resource type="Resource" path="res://data/run/sites/graveyard_hill.tres" id="59_jhpo8"]
 [ext_resource type="Resource" path="res://data/run/sites/farmlands.tres" id="60_hp1g4"]
+[ext_resource type="Resource" path="res://data/companions/aveline.tres" id="mage0"]
+[ext_resource type="Resource" path="res://data/companions/freya.tres" id="mage1"]
+[ext_resource type="Resource" path="res://data/run/groups/bone_flock.tres" id="fly0"]
+[ext_resource type="Resource" path="res://data/run/groups/carrion_wing.tres" id="fly1"]
+[ext_resource type="Resource" path="res://data/run/groups/rotting_skies.tres" id="fly2"]
+[ext_resource type="Resource" path="res://data/run/events/hermit.tres" id="ev0"]
+[ext_resource type="Resource" path="res://data/run/shop/whisper_fang.tres" id="mw0"]
+[ext_resource type="Resource" path="res://data/run/shop/emberglass_sword.tres" id="mw1"]
+[ext_resource type="Resource" path="res://data/run/shop/moonthread_bow.tres" id="mw2"]
+[ext_resource type="Resource" path="res://data/run/shop/stormcall_pike.tres" id="mw3"]
 
 [resource]
 script = ExtResource("36_u1xmb")
-companions = Array[ExtResource("5_6xlu8")]([ExtResource("6_64ssa"), ExtResource("7_7165y"), ExtResource("8_g12j4"), ExtResource("9_i7ch2"), ExtResource("10_vu134")])
+companions = Array[ExtResource("5_6xlu8")]([ExtResource("6_64ssa"), ExtResource("7_7165y"), ExtResource("8_g12j4"), ExtResource("9_i7ch2"), ExtResource("10_vu134"), ExtResource("mage0"), ExtResource("mage1")])
 sites = Array[ExtResource("53_ty18x")]([ExtResource("54_ivjjd"), ExtResource("55_47mqp"), ExtResource("56_phhbp"), ExtResource("57_fdmxj"), ExtResource("58_v2we7"), ExtResource("59_jhpo8"), ExtResource("60_hp1g4")])
-groups = Array[ExtResource("1_ny5wk")]([ExtResource("19_vr6g6"), ExtResource("20_sjhgu"), ExtResource("21_aiqqi"), ExtResource("22_idulu"), ExtResource("23_sh0cw"), ExtResource("24_nmcoe"), ExtResource("25_nsiy6"), ExtResource("26_i0aot"), ExtResource("27_gie27"), ExtResource("28_3pir8"), ExtResource("29_lxoi7"), ExtResource("30_61rpm"), ExtResource("31_tlae4"), ExtResource("32_gkulx"), ExtResource("33_fm5n1"), ExtResource("34_now7c"), ExtResource("35_3j4fk")])
+groups = Array[ExtResource("1_ny5wk")]([ExtResource("19_vr6g6"), ExtResource("20_sjhgu"), ExtResource("21_aiqqi"), ExtResource("22_idulu"), ExtResource("23_sh0cw"), ExtResource("24_nmcoe"), ExtResource("25_nsiy6"), ExtResource("26_i0aot"), ExtResource("27_gie27"), ExtResource("28_3pir8"), ExtResource("29_lxoi7"), ExtResource("30_61rpm"), ExtResource("31_tlae4"), ExtResource("32_gkulx"), ExtResource("33_fm5n1"), ExtResource("34_now7c"), ExtResource("35_3j4fk"), ExtResource("fly0"), ExtResource("fly1"), ExtResource("fly2")])
 bosses = Array[ExtResource("1_ny5wk")]([ExtResource("2_b5hu8"), ExtResource("3_hy1ja"), ExtResource("4_3372o")])
-events = Array[ExtResource("11_rbcmf")]([ExtResource("12_3fc8b"), ExtResource("13_m7gph"), ExtResource("14_3o55s"), ExtResource("15_4wwuc"), ExtResource("16_vx2ae"), ExtResource("17_ei87n"), ExtResource("18_d00s4")])
-shop = Array[ExtResource("37_vraid")]([ExtResource("38_qago4"), ExtResource("39_sjdiq"), ExtResource("40_p047c"), ExtResource("41_483ua"), ExtResource("42_qyg4j"), ExtResource("43_ybdeg"), ExtResource("44_gl5td"), ExtResource("45_20mlb"), ExtResource("46_vnit3"), ExtResource("47_gjj8i"), ExtResource("48_4y7ls"), ExtResource("49_apir0"), ExtResource("50_dboa5"), ExtResource("51_6eykm"), ExtResource("52_7oudm")])
+events = Array[ExtResource("11_rbcmf")]([ExtResource("12_3fc8b"), ExtResource("13_m7gph"), ExtResource("14_3o55s"), ExtResource("15_4wwuc"), ExtResource("16_vx2ae"), ExtResource("17_ei87n"), ExtResource("18_d00s4"), ExtResource("ev0")])
+shop = Array[ExtResource("37_vraid")]([ExtResource("38_qago4"), ExtResource("39_sjdiq"), ExtResource("40_p047c"), ExtResource("41_483ua"), ExtResource("42_qyg4j"), ExtResource("43_ybdeg"), ExtResource("44_gl5td"), ExtResource("45_20mlb"), ExtResource("46_vnit3"), ExtResource("47_gjj8i"), ExtResource("48_4y7ls"), ExtResource("49_apir0"), ExtResource("50_dboa5"), ExtResource("51_6eykm"), ExtResource("52_7oudm"), ExtResource("mw0"), ExtResource("mw1"), ExtResource("mw2"), ExtResource("mw3")])

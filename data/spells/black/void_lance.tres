@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="SpellData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/spell_data.gd" id="1_spell"]
+
+[resource]
+script = ExtResource("1_spell")
+display_name = "Void Lance"
+description = "A needle of nothing that slips past magical wards."
+school = 0
+tier = 1
+targeting = 0
+uses = 6
+recovery = 1
+might = 4
+hit = 85
+ignore_res_percent = 60

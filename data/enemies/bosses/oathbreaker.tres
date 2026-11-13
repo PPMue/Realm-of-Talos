@@ -16,6 +16,7 @@ hit = 85
 [sub_resource type="Resource" id="Resource_nkrvh"]
 script = ExtResource("1_euppf")
 display_name = "Black Tide"
+damage_type = 1
 targeting = 1
 countdown = 4
 pick_weight = 2.0
@@ -32,6 +33,7 @@ stat_mods = {
 [sub_resource type="Resource" id="Resource_0pn8i"]
 script = ExtResource("1_euppf")
 display_name = "Curse of Ruin"
+damage_type = 1
 intent = 3
 targeting = 1
 deals_damage = false
@@ -62,7 +64,7 @@ color = Color(0.3, 0.3, 0.55, 1)
 stage_scale = 1.45
 max_hp = 320
 strength = 23
-magic = 4
+magic = 20
 crit = 6
 dexterity = 14
 speed = 12

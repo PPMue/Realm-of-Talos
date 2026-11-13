@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="SpellData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/spell_data.gd" id="1_spell"]
+
+[resource]
+script = ExtResource("1_spell")
+display_name = "Mend"
+description = "Warm light closes a wound. Aveline's first spell."
+school = 1
+tier = 1
+targeting = 2
+uses = 8
+recovery = 1
+heals = true
+heal_power = 4

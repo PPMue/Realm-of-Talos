@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="SpellData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/spell_data.gd" id="1_spell"]
+[ext_resource type="Script" path="res://scripts/data/status_effect_data.gd" id="2_fx"]
+
+[sub_resource type="Resource" id="Resource_fx"]
+script = ExtResource("2_fx")
+display_name = "Chilled"
+stat_mods = {
+"SPD": -4
+}
+duration_ticks = 3
+
+[resource]
+script = ExtResource("1_spell")
+display_name = "Frost Needle"
+description = "A sliver of ice that numbs the legs: slows a quick foe so blows land."
+school = 0
+tier = 1
+targeting = 0
+uses = 6
+recovery = 1
+might = 3
+hit = 95
+effect = SubResource("Resource_fx")

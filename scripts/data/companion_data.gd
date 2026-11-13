@@ -36,6 +36,11 @@ extends Resource
 @export var start_grade_dagger: Proficiency.Grade = Proficiency.Grade.E
 ## Known and equipped from the start of a run.
 @export var signature_art: CombatArtData
+## Grade in each magic school at the start of a run.
+@export var start_grade_black: Proficiency.Grade = Proficiency.Grade.E
+@export var start_grade_white: Proficiency.Grade = Proficiency.Grade.E
+## Known from the start of a run, with full uses. A companion with one is a mage.
+@export var signature_spell: SpellData
 
 @export_group("Progression")
 ## Not used: every companion starts a run at level 1 (tavern hires at the roster's average level).
@@ -59,6 +64,14 @@ func equipment() -> Array[EquipmentData]:
 		if item != null:
 			items.append(item)
 	return items
+
+
+func is_mage() -> bool:
+	return signature_spell != null
+
+
+func starting_magic_grade(s: SpellData.School) -> int:
+	return start_grade_black if s == SpellData.School.BLACK else start_grade_white
 
 
 func starting_grade(t: WeaponData.WeaponType) -> int:

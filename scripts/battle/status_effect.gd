@@ -16,6 +16,7 @@ static func from_data(data: StatusEffectData) -> StatusEffect:
 	e.display_name = data.display_name
 	e.stat_mods = data.stat_mods.duplicate()
 	e.damage_taken_mult = data.damage_taken_mult
+	e.target_weight_mult = data.target_weight_mult
 	e.ticks_left = maxi(1, data.duration_ticks)
 	return e
 
@@ -29,6 +30,14 @@ static func guard() -> StatusEffect:
 	return e
 
 
+## A debuff: lowers a stat or raises damage taken. White magic can remove these.
+func is_harmful() -> bool:
+	for key: String in stat_mods:
+		if int(stat_mods[key]) < 0:
+			return true
+	return damage_taken_mult > 1.0
+
+
 func describe() -> String:
 	var parts: Array[String] = []
 	for key: String in stat_mods:
@@ -36,5 +45,7 @@ func describe() -> String:
 		parts.append("%s%+d" % [key, v])
 	if damage_taken_mult != 1.0:
 		parts.append("dmg x%s" % str(damage_taken_mult))
+	if target_weight_mult != 1.0:
+		parts.append("aim x%s" % str(target_weight_mult))
 	var detail := (" " + ", ".join(parts)) if not parts.is_empty() else ""
 	return "%s%s (%d)" % [display_name, detail, ticks_left]

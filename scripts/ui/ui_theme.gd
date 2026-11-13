@@ -18,6 +18,11 @@ const RECOVERING := Color("f2a541")
 const INJURED := Color("ff5d5d")
 const DANGER := Color("ff7a45")
 const HEAL := Color("8ff0a4")
+## Magic schools: Black (offence) and White (support).
+const BLACK_MAGIC := Color("a77bff")
+const WHITE_MAGIC := Color("bfe6ff")
+## An effective strike (e.g. a bow against a flying enemy).
+const EFFECTIVE := Color("ffd84a")
 
 const INTENT_COLORS := {
 	EnemyActionData.Intent.ATTACK: Color("f0564a"),
@@ -25,6 +30,10 @@ const INTENT_COLORS := {
 	EnemyActionData.Intent.BUFF: Color("f4c552"),
 	EnemyActionData.Intent.DEBUFF: Color("b678f0"),
 }
+
+static func school_color(school: int) -> Color:
+	return BLACK_MAGIC if school == SpellData.School.BLACK else WHITE_MAGIC
+
 
 ## How far slanted shapes lean: horizontal shift as a fraction of their height.
 const SLANT := 0.24

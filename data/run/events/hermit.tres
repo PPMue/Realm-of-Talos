@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="EventData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/event_choice_data.gd" id="1_c"]
+[ext_resource type="Resource" path="res://data/weapons/emberglass_sword.tres" id="2_w"]
+[ext_resource type="Script" path="res://scripts/data/event_data.gd" id="3_e"]
+
+[sub_resource type="Resource" id="Resource_buy"]
+script = ExtResource("1_c")
+label = "Buy the glowing blade (50 gold)"
+result_text = "She wraps an Emberglass Sword in old cloth. It strikes with the wielder's magic, not their arm."
+gold = -50
+weapon = ExtResource("2_w")
+
+[sub_resource type="Resource" id="Resource_bless"]
+script = ExtResource("1_c")
+label = "Ask for her blessing"
+result_text = "She lays a hand on each of your companions. Old aches fade."
+companion_hp = 6
+hp_target = 0
+
+[sub_resource type="Resource" id="Resource_leave"]
+script = ExtResource("1_c")
+label = "Send her on her way"
+result_text = "The hermit shrugs and walks back into the fog."
+
+[resource]
+script = ExtResource("3_e")
+title = "The Hermit at the Gate"
+text = "A hooded woman asks to trade at the gate. Among her wares is a sword whose edge glows like coals; she says it answers to the mind, not the arm."
+choices = Array[ExtResource("1_c")]([SubResource("Resource_buy"), SubResource("Resource_bless"), SubResource("Resource_leave")])

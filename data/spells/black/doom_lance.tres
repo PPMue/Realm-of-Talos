@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="SpellData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/spell_data.gd" id="1_spell"]
+[ext_resource type="Script" path="res://scripts/data/status_effect_data.gd" id="2_fx"]
+
+[sub_resource type="Resource" id="Resource_fx"]
+script = ExtResource("2_fx")
+display_name = "Doomed"
+damage_taken_mult = 1.25
+duration_ticks = 3
+
+[resource]
+script = ExtResource("1_spell")
+display_name = "Doom Lance"
+description = "A spear of black fire meant for the biggest foe on the field."
+school = 0
+tier = 3
+targeting = 0
+uses = 2
+recovery = 3
+might = 14
+hit = 85
+crit_bonus = 15
+ignore_res_percent = 50
+effect = SubResource("Resource_fx")

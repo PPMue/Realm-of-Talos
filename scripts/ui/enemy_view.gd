@@ -35,10 +35,14 @@ var _hp := SlantBar.new()
 var _effects: Label
 var _forecast := SlantPanel.new()
 var _forecast_label: Label
+var _forecast_kicker: Label
+## Traits (e.g. FLYING) as small tags above the name; hovering one explains it.
+var _traits := HBoxContainer.new()
 
 var _countdown := 0
 var _intent := EnemyActionData.Intent.ATTACK
 var _has_intent := false
+var _delayed := false
 var _targetable := false
 var _hot := false
 var _defeated := false
@@ -72,6 +76,12 @@ func setup(p_unit: EnemyUnit) -> void:
 	_effects.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_plate.add_child(_effects)
 
+	_traits.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_traits.add_theme_constant_override("separation", 6)
+	_plate.add_child(_traits)
+	for t in unit.traits():
+		_traits.add_child(_trait_tag(t))
+
 	_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_overlay.z_index = 3
 	_overlay.draw.connect(_draw_overlay)
@@ -87,6 +97,10 @@ func setup(p_unit: EnemyUnit) -> void:
 	_forecast_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_forecast_label.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_forecast.add_child(_forecast_label)
+	_forecast_kicker = UiTheme.label("", 20, UiTheme.EFFECTIVE, true, 6)
+	_forecast_kicker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_forecast_kicker.visible = false
+	_overlay.add_child(_forecast_kicker)
 
 	mouse_entered.connect(func() -> void: hover_changed.emit(true))
 	mouse_exited.connect(func() -> void: hover_changed.emit(false))
@@ -117,10 +131,14 @@ func layout(slot: Vector2, side: float, back: bool) -> void:
 	_hp.size = Vector2(bar_w, 28)
 	_effects.position = Vector2(-60, -30)
 	_effects.size = Vector2(slot.x + 120, 24)
+	_traits.position = Vector2((slot.x - bar_w) * 0.5, -60)
+	_traits.size = Vector2(bar_w, 26)
 
 	_overlay.size = slot
 	_forecast.size = Vector2(clampf(slot.x + 40.0, 350.0, 400.0), 62)
-	_forecast.position = Vector2((slot.x - _forecast.size.x) * 0.5, slot.y - PLATE_H - 74.0)
+	_forecast.position = Vector2((slot.x - _forecast.size.x) * 0.5, slot.y - PLATE_H - 128.0)
+	_forecast_kicker.position = Vector2(_forecast.position.x, _forecast.position.y - 30.0)
+	_forecast_kicker.size = Vector2(_forecast.size.x, 28)
 	queue_redraw()
 	_plate.queue_redraw()
 	_overlay.queue_redraw()
@@ -139,6 +157,7 @@ func refresh(targetable: bool, hot: bool, tooltip: String) -> void:
 	if _has_intent:
 		_intent = unit.pending_action.intent
 	_countdown = unit.countdown
+	_delayed = unit.delayed
 	var parts: Array[String] = []
 	for e in unit.effects:
 		parts.append(e.describe())
@@ -156,17 +175,38 @@ func show_countdown(value: int) -> void:
 	_plate.queue_redraw()
 
 
+## A spell pushed the pending action back: new countdown, marked as delayed.
+func show_delay(value: int) -> void:
+	_countdown = value
+	_delayed = true
+	_plate.queue_redraw()
+
+
 func show_hp(hp: int) -> void:
 	_hp.set_values(maxi(hp, 0), unit.max_hp())
 
 
 ## Shows what the pending strike would do; pass null to hide. `strikes` > 1 shows "DMG 8x2".
-func set_forecast(f: AttackForecast, strikes: int = 1) -> void:
+## A kicker above says when the strike is magic and when it is effective (Mt doubled).
+## `note` adds a line of its own (e.g. "DELAYS +2" or "ALREADY DELAYED").
+func set_forecast(f: AttackForecast, strikes: int = 1, note: String = "") -> void:
 	_forecast.visible = f != null
 	_hp.set_preview(f.damage * strikes if f != null else 0)
+	var kicker: Array[String] = []
 	if f != null:
 		var dmg := str(f.damage) if strikes <= 1 else "%dx%d" % [f.damage, strikes]
 		_forecast_label.text = "HIT %d%%    DMG %s    CRIT %d%%" % [f.hit, dmg, f.crit]
+		_forecast.border = UiTheme.EFFECTIVE if f.effective else (UiTheme.BLACK_MAGIC if f.magic else UiTheme.GOLD)
+		if f.effective:
+			kicker.append("EFFECTIVE  ·  MT x%d" % BattleConfig.EFFECTIVE_MIGHT_MULT)
+		if f.magic:
+			kicker.append("MAGIC")
+		if note != "":
+			kicker.append(note)
+	_forecast_kicker.text = "   ·   ".join(kicker)
+	_forecast_kicker.visible = not kicker.is_empty()
+	_forecast_kicker.add_theme_color_override("font_color",
+		UiTheme.EFFECTIVE if f != null and f.effective else (UiTheme.BLACK_MAGIC if f != null and f.magic else UiTheme.GOLD))
 
 
 func popup_anchor() -> Vector2:
@@ -260,11 +300,18 @@ func _draw_plate() -> void:
 	var word_w := font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, word_size).x
 	var chip_w := (word_w + 78.0) if not _compact else 66.0
 	var chip_h := 40.0
-	var total := 34.0 + 10.0 + number_w + 16.0 + chip_w
+	# A delayed action: a "DELAYED" tag after the intent (a short bar in compact slots).
+	var delay_word := "" if _compact else "DELAYED"
+	var delay_w := 0.0
+	if _delayed:
+		delay_w = 14.0 + (font.get_string_size(delay_word, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x + 30.0 if not _compact else 22.0)
+	var total := 34.0 + 10.0 + number_w + 16.0 + chip_w + delay_w
 	var x := (_plate.size.x - total) * 0.5
 	var mid := 100.0
 	var urgent := _countdown <= 1
 	var count_color := UiTheme.DANGER if urgent else UiTheme.GOLD
+	if _delayed:
+		count_color = UiTheme.WHITE_MAGIC
 
 	UiTheme.draw_hourglass(_plate, Vector2(x + 17.0, mid), 34.0, count_color)
 	x += 44.0
@@ -278,6 +325,32 @@ func _draw_plate() -> void:
 	UiTheme.draw_intent_icon(_plate, _intent, Vector2(x + 34.0, mid), 22.0, UiTheme.INK)
 	if not _compact:
 		UiTheme.draw_text(_plate, font, Vector2(x + 54.0, mid - font.get_height(word_size) * 0.5), word, word_size, UiTheme.INK)
+	if _delayed:
+		var tag := Rect2(x + chip_w + 14.0, mid - 15.0, delay_w - 14.0, 30.0)
+		UiTheme.fill_para(_plate, tag, Color(UiTheme.INK, 0.92))
+		UiTheme.stroke_para(_plate, tag, UiTheme.WHITE_MAGIC, 2.0)
+		if not _compact:
+			UiTheme.draw_text(_plate, font, Vector2(tag.position.x, mid - font.get_height(18) * 0.5), delay_word, 18,
+				UiTheme.WHITE_MAGIC, 0, tag.size.x, HORIZONTAL_ALIGNMENT_CENTER)
+
+
+func _trait_tag(t: String) -> Control:
+	var tag := SlantPanel.new()
+	var text := t.to_upper()
+	var w := UiTheme.display_font().get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 17).x + 34.0
+	tag.custom_minimum_size = Vector2(w, 26)
+	tag.fill = Color(UiTheme.INK, 0.92)
+	tag.border = UiTheme.EFFECTIVE
+	tag.border_width = 2.0
+	tag.mouse_filter = Control.MOUSE_FILTER_PASS
+	tag.tooltip_text = EnemyTraits.describe(t)
+	var l := UiTheme.label(text, 17, UiTheme.EFFECTIVE, true, 4)
+	l.set_anchors_preset(Control.PRESET_FULL_RECT)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tag.add_child(l)
+	return tag
 
 
 ## Corner brackets that mark an enemy as a possible, or the current, target.

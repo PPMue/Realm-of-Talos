@@ -139,13 +139,17 @@ func _build_art() -> void:
 ## Stats and action list of an enemy, for tooltips.
 static func enemy_info(e: EnemyData) -> String:
 	var lines: Array[String] = [e.display_name,
-		"HP %d   STR %d   DEF %d   SPD %d   DEX %d   LCK %d" % [e.max_hp, e.strength, e.defense, e.speed, e.dexterity, e.luck], ""]
+		"HP %d   STR %d   MAG %d   DEF %d   RES %d   SPD %d   DEX %d   LCK %d" % [e.max_hp, e.strength, e.magic, e.defense,
+			e.resistance, e.speed, e.dexterity, e.luck]]
+	for t in e.traits:
+		lines.append(EnemyTraits.describe(t))
+	lines.append("")
 	for a in e.actions:
 		var what := EnemyActionData.intent_name(a.intent).capitalize()
 		if a.targeting == EnemyActionData.Targeting.ALL_COMPANIONS:
 			what += ", everyone"
 		if a.deals_damage:
-			what += ", Mt %d" % a.might
+			what += ", %s Mt %d" % ["magic" if a.damage_type == CombatMath.DamageType.MAGIC else "physical", a.might]
 		if a.effect != null:
 			what += ", " + a.effect.summary()
 		lines.append("%s  (countdown %d): %s" % [a.display_name, a.countdown, what])

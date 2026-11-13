@@ -13,6 +13,7 @@ var _max := 1.0
 var _shown := 0.0
 var _trail := 0.0
 var _preview := 0.0
+var _heal_to := -INF
 var _started := false
 var _tween: Tween
 
@@ -45,7 +46,14 @@ func set_values(value: float, maximum: float, animate: bool = true) -> void:
 ## Highlights the last `amount` of the fill, as a preview of damage.
 func set_preview(amount: float) -> void:
 	_preview = maxf(0.0, amount)
-	set_process(_preview > 0.0)
+	set_process(_preview > 0.0 or _heal_to > -INF)
+	queue_redraw()
+
+
+## Shows the fill a heal would reach (`to`); pass -INF to hide.
+func set_heal_preview(to: float) -> void:
+	_heal_to = to
+	set_process(_preview > 0.0 or _heal_to > -INF)
 	queue_redraw()
 
 
@@ -85,6 +93,11 @@ func _draw() -> void:
 		var from := clampf((_shown - _preview) / _max, 0.0, 1.0)
 		var pulse := 0.55 + 0.35 * sin(Time.get_ticks_msec() / 110.0)
 		_segment(from, shown, Color(1, 0.95, 0.7, pulse), s, span)
+	if _heal_to > _shown:
+		var heal_from := clampf(_shown / _max, 0.0, 1.0)
+		var heal_to := clampf(_heal_to / _max, 0.0, 1.0)
+		var glow := 0.55 + 0.35 * sin(Time.get_ticks_msec() / 110.0)
+		_segment(heal_from, heal_to, Color(UiTheme.HEAL, glow), s, span)
 	UiTheme.stroke_para(self, Rect2(Vector2.ZERO, size), Color(UiTheme.INK, 0.9), 2.0)
 	if show_text:
 		var text := "%s%d / %d" % [label_prefix, roundi(_value), roundi(_max)]

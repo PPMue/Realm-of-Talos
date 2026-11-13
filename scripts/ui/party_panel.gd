@@ -4,6 +4,7 @@ extends Control
 ## The row is the battle line: the rightmost panel stands nearest the enemies.
 
 signal clicked
+signal hover_changed(inside: bool)
 
 enum Status { NONE, READY, RECOVERING, INJURED }
 
@@ -24,6 +25,10 @@ var _effects: Label
 var _hp := SlantBar.new()
 var _sta := SlantBar.new()
 var _footer: Label
+var _preview := SlantPanel.new()
+var _preview_label: Label
+var _targetable := false
+var _target_hot := false
 var _selected := false
 var _hover := false
 var _can_pick := false
@@ -87,11 +92,29 @@ func _init() -> void:
 	_footer.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_body.add_child(_footer)
 
+	# What a spell aimed at this companion would do, over the portrait.
+	_preview.size = Vector2(W - 96.0, 40)
+	_preview.position = Vector2(_edge_x(88.0) + 22.0, 48.0)
+	_preview.fill = Color(UiTheme.INK, 0.92)
+	_preview.border = UiTheme.HEAL
+	_preview.border_width = 2.0
+	_preview.visible = false
+	_preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_body.add_child(_preview)
+	_preview_label = UiTheme.label("", 20, UiTheme.HEAL, true, 6)
+	_preview_label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_preview_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_preview_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_preview_label.clip_text = true
+	_preview.add_child(_preview_label)
+
 	mouse_entered.connect(func() -> void:
 		_hover = true
+		hover_changed.emit(true)
 		_restyle())
 	mouse_exited.connect(func() -> void:
 		_hover = false
+		hover_changed.emit(false)
 		_restyle())
 
 
@@ -139,6 +162,23 @@ func set_effects(text: String) -> void:
 
 func set_footer(text: String) -> void:
 	_footer.text = text
+
+
+## While a spell is aimed at companions: `targetable` marks a possible target, `hot` the one (or all)
+## it would reach, with `preview` saying what it would do and `heal_to` the HP it would reach (or -INF).
+func set_spell_target(targetable: bool, hot: bool, preview: String = "", heal_to: float = -INF) -> void:
+	_targetable = targetable
+	_target_hot = hot
+	_preview.visible = hot and preview != ""
+	_preview_label.text = preview
+	var font_size := 20
+	while font_size > 13 and UiTheme.display_font().get_string_size(preview, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x > _preview.size.x - 30.0:
+		font_size -= 1
+	_preview_label.add_theme_font_size_override("font_size", font_size)
+	_hp.set_heal_preview(heal_to if hot else -INF)
+	if targetable:
+		mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	_restyle()
 
 
 ## `can_pick`: clicking would select this companion.
@@ -195,7 +235,11 @@ func _gui_input(event: InputEvent) -> void:
 
 
 func _restyle() -> void:
-	if _selected:
+	if _targetable:
+		_bg.border = UiTheme.HEAL if _target_hot else Color(UiTheme.HEAL, 0.45)
+		_bg.border_width = 5.0 if _target_hot else 3.0
+		_bg.fill = Color(UiTheme.PANEL_HI, 0.98) if _target_hot else Color(UiTheme.PANEL, 0.96)
+	elif _selected:
 		_bg.border = UiTheme.GOLD
 		_bg.border_width = 5.0
 		_bg.fill = Color(UiTheme.PANEL_HI, 0.98)

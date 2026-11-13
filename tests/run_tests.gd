@@ -4,9 +4,11 @@ extends SceneTree
 ## Exit code 0 = all passed, 1 = failures.
 
 const RunRuleTests := preload("res://tests/run_rule_tests.gd")
+const MagicTests := preload("res://tests/magic_tests.gd")
 
 var _failures: Array[String] = []
 var _run_rules: RefCounted   # kept alive: Callables do not hold a reference to their object
+var _magic: RefCounted
 var _checks := 0
 var _current := ""
 
@@ -60,10 +62,15 @@ func _init() -> void:
 	]
 	_run_rules = RunRuleTests.new(self)
 	tests.append_array(_run_rules.tests())
+	_magic = MagicTests.new(self)
+	tests.append_array(_magic.tests())
 	var verbose := OS.get_environment("TEST_VERBOSE") != ""
 	var only := OS.get_environment("TEST_ONLY")
 	if only != "":
 		tests.assign(tests.filter(func(c: Callable) -> bool: return c.get_method().contains(only)))
+	var skip := OS.get_environment("TEST_SKIP")
+	if skip != "":
+		tests.assign(tests.filter(func(c: Callable) -> bool: return not c.get_method().contains(skip)))
 	for t in tests:
 		_current = t.get_method()
 		if verbose:

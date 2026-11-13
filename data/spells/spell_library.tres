@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="SpellLibrary" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/spell_library.gd" id="1_lib"]
+[ext_resource type="Script" path="res://scripts/data/spell_data.gd" id="2_spell"]
+[ext_resource type="Resource" path="res://data/spells/black/frost_needle.tres" id="s0"]
+[ext_resource type="Resource" path="res://data/spells/black/ember_spray.tres" id="s1"]
+[ext_resource type="Resource" path="res://data/spells/black/wind_cutter.tres" id="s2"]
+[ext_resource type="Resource" path="res://data/spells/black/void_lance.tres" id="s3"]
+[ext_resource type="Resource" path="res://data/spells/black/stasis.tres" id="s4"]
+[ext_resource type="Resource" path="res://data/spells/black/thunderclap.tres" id="s5"]
+[ext_resource type="Resource" path="res://data/spells/black/wither.tres" id="s6"]
+[ext_resource type="Resource" path="res://data/spells/black/starfall.tres" id="s7"]
+[ext_resource type="Resource" path="res://data/spells/black/doom_lance.tres" id="s8"]
+[ext_resource type="Resource" path="res://data/spells/white/purify.tres" id="s9"]
+[ext_resource type="Resource" path="res://data/spells/white/ward.tres" id="s10"]
+[ext_resource type="Resource" path="res://data/spells/white/veil.tres" id="s11"]
+[ext_resource type="Resource" path="res://data/spells/white/blessing.tres" id="s12"]
+[ext_resource type="Resource" path="res://data/spells/white/mending_light.tres" id="s13"]
+[ext_resource type="Resource" path="res://data/spells/white/beacon.tres" id="s14"]
+[ext_resource type="Resource" path="res://data/spells/white/rally.tres" id="s15"]
+[ext_resource type="Resource" path="res://data/spells/white/grace.tres" id="s16"]
+[ext_resource type="Resource" path="res://data/spells/white/aegis.tres" id="s17"]
+
+[resource]
+script = ExtResource("1_lib")
+spells = Array[ExtResource("2_spell")]([ExtResource("s0"), ExtResource("s1"), ExtResource("s2"), ExtResource("s3"), ExtResource("s4"), ExtResource("s5"), ExtResource("s6"), ExtResource("s7"), ExtResource("s8"), ExtResource("s9"), ExtResource("s10"), ExtResource("s11"), ExtResource("s12"), ExtResource("s13"), ExtResource("s14"), ExtResource("s15"), ExtResource("s16"), ExtResource("s17")])

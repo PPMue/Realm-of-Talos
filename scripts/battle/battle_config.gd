@@ -13,6 +13,11 @@ const CRIT_MIN := 0
 const CRIT_MAX := 100
 const CRIT_DAMAGE_MULT := 2
 
+# --- Effectiveness ---
+# A weapon, art or spell effective against one of the target's traits (e.g. a bow against a flying
+# enemy) multiplies its Mt by this before the target's DEF or RES is subtracted. Never stacks.
+const EFFECTIVE_MIGHT_MULT := 2
+
 # --- Equipment weight ---
 const WEIGHT_PENALTY_PER_POINT := 1     # DEX and SPD lost per point of total WT above BLD
 
@@ -66,6 +71,13 @@ const ART_TIER_ODDS := [
 	[25, 50, 25],  # A+
 	[0, 50, 50],   # S
 ]
+
+# --- Magic ---
+# Two schools, Black (offence) and White (support), graded like weapons with the same thresholds.
+const MAGIC_POINTS_PER_CAST := 4
+# Separate from the weapon cap: the most magic points one companion can gain in a single battle.
+const MAGIC_CAP_PER_BATTLE := 12
+# Spells learned on a school grade-up use ART_TIER_ODDS, like combat arts.
 
 # --- Battle end ---
 const VICTORY_INJURED_HP := 1

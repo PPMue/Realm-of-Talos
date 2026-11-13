@@ -17,6 +17,7 @@ const ROSTER_TOP := 846.0
 var run: Run
 
 var _art_pool: Array[CombatArtData] = []
+var _spell_pool: Array[SpellData] = []
 var _day_label: Label
 var _city_bar := SlantBar.new()
 var _gold_label: Label
@@ -44,6 +45,9 @@ func _ready() -> void:
 	var library := ArtLibrary.load_default()
 	if library != null:
 		_art_pool = library.arts
+	var spells := SpellLibrary.load_default()
+	if spells != null:
+		_spell_pool = spells.spells
 	_build()
 	new_run(run_seed)
 
@@ -55,7 +59,7 @@ func new_run(seed_value: int = 0) -> void:
 		rng.seed = seed_value
 	else:
 		rng.randomize()
-	run = Run.create(rng, RunContent.load_default(), _art_pool)
+	run = Run.create(rng, RunContent.load_default(), _art_pool, _spell_pool)
 	_end_screen.visible = false
 	_battle_screen.visible = false
 	_party_screen.visible = false
@@ -108,7 +112,7 @@ func defend(front: Front) -> void:
 
 func rest() -> void:
 	if run.rest():
-		_show_notice("REST", "Everyone recovers to full health.")
+		_show_notice("REST", "Everyone recovers to full health, and every spell's uses come back.")
 		refresh()
 
 
@@ -240,12 +244,18 @@ func _free_day() -> void:
 	_activity.add_child(row)
 	var A := Run.FreeAction
 	var hurt := 0
+	var spent := 0
 	for c in run.roster:
 		if c.hp < c.max_hp():
 			hurt += 1
+		if c.progress.has_spent_uses():
+			spent += 1
+	var rest_status := "%d of %d hurt" % [hurt, run.roster.size()]
+	if spent > 0:
+		rest_status += "  ·  %d low on spells" % spent
 	var specs := [
-		[A.REST, "REST", "Every companion recovers to full health.",
-			"%d of %d hurt" % [hurt, run.roster.size()], "REST", rest, run.free_action_block_reason(A.REST)],
+		[A.REST, "REST", "Every companion recovers to full health and every spell's uses. Nothing else restores spell uses.",
+			rest_status, "REST", rest, run.free_action_block_reason(A.REST)],
 		[A.SHOP, "SHOP", "Buy weapons with gold. Any number of purchases in one visit is one action.",
 			"Spent on the first purchase", "VISIT SHOP", open_shop, run.visit_block_reason(A.SHOP)],
 		[A.TAVERN, "TAVERN", "Hire a companion for %d gold. %d looking for work today." % [RunConfig.HIRE_COST, run.tavern_offers.size()],

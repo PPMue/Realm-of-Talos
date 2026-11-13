@@ -19,6 +19,9 @@ extends Resource
 @export var resistance: int = 1
 @export var luck: int = 2
 
+## Traits such as "Flying" (see EnemyTraits). Some weapons, arts and spells are effective against them.
+@export var traits: Array[String] = []
+
 @export_group("Actions")
 @export var actions: Array[EnemyActionData] = []
 

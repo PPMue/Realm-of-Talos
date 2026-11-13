@@ -9,6 +9,8 @@ var data: CompanionData
 var progress: CompanionProgress
 ## Proficiency points gained this battle, for BattleConfig.PROFICIENCY_CAP_PER_BATTLE.
 var proficiency_gained: int = 0
+## Magic points gained this battle (all schools), for BattleConfig.MAGIC_CAP_PER_BATTLE.
+var magic_gained: int = 0
 var stamina: int = 0
 ## Number of following player actions this companion sits out.
 var recovery: int = 0
@@ -35,6 +37,11 @@ func weapon() -> WeaponData:
 ## Equipped combat arts, in action order.
 func arts() -> Array[CombatArtData]:
 	return progress.equipped_arts
+
+
+## Every known spell, in the order learned. All can be cast while they have uses left.
+func spells() -> Array[SpellData]:
+	return progress.known_spells
 
 
 ## Grade in the type of the weapon held, or -1 without a weapon.

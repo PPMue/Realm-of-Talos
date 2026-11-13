@@ -8,6 +8,7 @@
 [sub_resource type="Resource" id="Resource_nft0s"]
 script = ExtResource("1_af1ub")
 display_name = "Firebolt"
+damage_type = 1
 countdown = 3
 pick_weight = 3.0
 might = 8
@@ -16,6 +17,7 @@ hit = 95
 [sub_resource type="Resource" id="Resource_2o7ts"]
 script = ExtResource("1_af1ub")
 display_name = "Arcane Burst"
+damage_type = 1
 targeting = 1
 countdown = 5
 pick_weight = 2.0
@@ -32,6 +34,7 @@ stat_mods = {
 [sub_resource type="Resource" id="Resource_l7uf8"]
 script = ExtResource("1_af1ub")
 display_name = "Hex"
+damage_type = 1
 intent = 3
 targeting = 1
 pick_weight = 2.0

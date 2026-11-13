@@ -12,6 +12,11 @@ extends RefCounted
 ## Attacking and using combat arts raise the actor's proficiency in the weapon type held
 ## (stored in their CompanionProgress, which outlives the battle). Each grade reached teaches
 ## a random art of that type from `art_pool`; see ArtLearning.
+##
+## Casting a spell spends one of its uses (no stamina) and raises the caster's grade in its school,
+## with its own per-battle cap. Each school grade reached teaches a random spell from `spell_pool`;
+## see SpellLearning. Black spells strike enemies with MAG against RES and may delay an enemy's
+## pending action (once per action); white spells heal, buff and cleanse companions and always succeed.
 
 enum Outcome { ONGOING, VICTORY, DEFEAT }
 
@@ -28,7 +33,10 @@ var log_lines: Array[String] = []
 var events: Array[Dictionary] = []
 ## Arts that can be learned on a grade-up (normally ArtLibrary.load_default().arts).
 var art_pool: Array[CombatArtData] = []
-## Every grade reached this battle, in order: {"actor", "weapon_type", "grade", "art", "equipped"}.
+## Spells that can be learned on a school grade-up (normally SpellLibrary.load_default().spells).
+var spell_pool: Array[SpellData] = []
+## Every grade reached this battle, in order. Weapons: {"actor", "magic": false, "weapon_type", "grade",
+## "art", "equipped"}. Magic: {"actor", "magic": true, "school", "grade", "spell"}.
 var grade_ups: Array[Dictionary] = []
 ## Every companion injured at some point this battle, in order (a record only; rules do not read it).
 var injured_ever: Array[CompanionUnit] = []
@@ -38,9 +46,11 @@ var injured_ever: Array[CompanionUnit] = []
 ## updated in place, so pass the same objects to the next battle to carry progress over.
 ## Companions without one start fresh.
 func _init(companion_data: Array[CompanionData], enemy_data: Array[EnemyData], p_rng: RandomNumberGenerator = null,
-		party: Array[CompanionProgress] = [], p_art_pool: Array[CombatArtData] = []) -> void:
+		party: Array[CompanionProgress] = [], p_art_pool: Array[CombatArtData] = [],
+		p_spell_pool: Array[SpellData] = []) -> void:
 	rng = p_rng if p_rng != null else RandomNumberGenerator.new()
 	art_pool = p_art_pool
+	spell_pool = p_spell_pool
 	for i in companion_data.size():
 		roster.append(CompanionUnit.new(companion_data[i], party[i] if i < party.size() else null))
 	for d in enemy_data:
@@ -131,13 +141,82 @@ func focus_amount(c: CompanionUnit) -> int:
 
 
 ## Forecast of one strike by a companion on an enemy: a plain attack, or with `art`'s bonuses.
-## For an art that strikes twice, this is each strike.
+## For an art that strikes twice, this is each strike. A magic weapon uses MAG against RES.
+## Effective (weapon or art against one of the target's traits): the weapon's Mt is doubled, once.
 func forecast(c: CompanionUnit, target: EnemyUnit, art: CombatArtData = null) -> AttackForecast:
 	var w := c.weapon()
+	var effective := is_effective(c, target, art)
+	var might := CombatMath.effective_might(w.might, effective)
+	var f: AttackForecast
 	if art == null:
-		return CombatMath.forecast(c, w.might, w.hit, 0, target)
-	return CombatMath.forecast(c, w.might + art.might_bonus, w.hit + art.hit_bonus, art.crit_bonus, target,
-		art.ignore_def_percent)
+		f = CombatMath.forecast(c, might, w.hit, 0, target, 0, w.damage_type)
+	else:
+		f = CombatMath.forecast(c, might + art.might_bonus, w.hit + art.hit_bonus, art.crit_bonus, target,
+			art.ignore_def_percent, w.damage_type)
+	f.effective = effective
+	return f
+
+
+## Whether `c`'s weapon (or `art`) is effective against one of the target's traits.
+func is_effective(c: CompanionUnit, target: EnemyUnit, art: CombatArtData = null) -> bool:
+	var w := c.weapon()
+	if w != null and CombatMath.is_effective(w.effective_against, target.traits()):
+		return true
+	return art != null and CombatMath.is_effective(art.effective_against, target.traits())
+
+
+## Forecast of one black spell striking an enemy: MAG + Mt (doubled if effective) - RES, the spell's Hit.
+func spell_forecast(c: CompanionUnit, spell: SpellData, target: EnemyUnit) -> AttackForecast:
+	var effective := CombatMath.is_effective(spell.effective_against, target.traits())
+	var f := CombatMath.forecast(c, CombatMath.effective_might(spell.might, effective), spell.hit, spell.crit_bonus,
+		target, spell.ignore_res_percent, CombatMath.DamageType.MAGIC)
+	f.effective = effective
+	return f
+
+
+## HP a white spell restores to each target: caster MAG + the spell's power (0 if it does not heal).
+func heal_amount(c: CompanionUnit, spell: SpellData) -> int:
+	return maxi(0, c.stat(Stat.MAG) + spell.heal_power) if spell.heals else 0
+
+
+## HP `target` would have after `spell` heals it (capped at max HP); its HP now if gone or no heal.
+func hp_after_heal(c: CompanionUnit, spell: SpellData, target: CompanionUnit) -> int:
+	if target.is_gone() or not spell.heals:
+		return target.hp
+	return mini(target.max_hp(), target.hp + heal_amount(c, spell))
+
+
+func can_cast(c: CompanionUnit, spell: SpellData) -> bool:
+	return can_act(c) and spell_block_reason(c, spell) == ""
+
+
+## Why `c` cannot cast `spell` right now (knowledge and uses only), or "" if nothing stops it.
+func spell_block_reason(c: CompanionUnit, spell: SpellData) -> String:
+	if c == null or spell == null:
+		return "No spell chosen."
+	if not c.progress.knows_spell(spell):
+		return "%s does not know %s." % [c.display_name, spell.display_name]
+	if c.progress.uses_left(spell) <= 0:
+		return "No uses left. Rest on a free day restores every spell's uses."
+	return ""
+
+
+## The units `spell` would affect when aimed at `target` (ignored by spells that affect everyone).
+## Empty if the target is not a valid one for this spell.
+func spell_targets(spell: SpellData, target: Combatant = null) -> Array[Combatant]:
+	var out: Array[Combatant] = []
+	match spell.targeting:
+		SpellData.Targeting.ONE_ENEMY:
+			if target is EnemyUnit and _is_valid_target(target):
+				out.append(target)
+		SpellData.Targeting.ALL_ENEMIES:
+			out.append_array(living_enemies())
+		SpellData.Targeting.ONE_ALLY:
+			if target is CompanionUnit and line().has(target):
+				out.append(target)
+		SpellData.Targeting.ALL_ALLIES:
+			out.append_array(line())
+	return out
 
 
 ## Single-target weights for line(), left to right.
@@ -205,6 +284,38 @@ func use_art(c: CompanionUnit, art: CombatArtData, target: EnemyUnit = null) -> 
 	return true
 
 
+## Casts a known spell with uses left. `target` is an enemy for ONE_ENEMY, a companion still in the
+## line (injured ones included) for ONE_ALLY, and ignored by spells that affect everyone.
+func cast(c: CompanionUnit, spell: SpellData, target: Combatant = null) -> bool:
+	if not can_cast(c, spell):
+		return false
+	var targets := spell_targets(spell, target)
+	if targets.is_empty():
+		return false
+	_begin_tick()
+	c.progress.spend_use(spell)
+	var aim := ""
+	match spell.targeting:
+		SpellData.Targeting.ALL_ENEMIES:
+			aim = "every enemy"
+		SpellData.Targeting.ALL_ALLIES:
+			aim = "every ally"
+		_:
+			aim = "themself" if targets[0] == c else targets[0].display_name
+	_log("%s casts %s on %s (%d/%d uses left)." % [c.display_name, spell.display_name, aim,
+		c.progress.uses_left(spell), spell.uses])
+	_emit({"type": "cast", "actor": c, "spell": spell, "name": spell.display_name,
+		"target": null if spell.targets_all() else targets[0]})
+	for t in targets:
+		if spell.deals_damage():
+			_spell_strike(c, spell, t as EnemyUnit)
+		else:
+			_white_magic(c, spell, t as CompanionUnit)
+	_gain_magic(c, spell.school)
+	_end_player_action(c, spell.recovery)
+	return true
+
+
 func guard(c: CompanionUnit) -> bool:
 	if not can_act(c):
 		return false
@@ -238,12 +349,15 @@ func wait() -> bool:
 	return true
 
 
-## Heals a companion. Healing an injured companion above 0 HP clears the injury.
-## (No healing exists in the prototype yet; this is the rule for when it does.)
+## Heals a companion. Healing an injured companion above 0 HP clears the injury. Gone companions
+## cannot be healed.
 func heal(c: CompanionUnit, amount: int) -> void:
 	if c.is_gone() or amount <= 0:
 		return
+	var before := c.hp
 	c.hp = mini(c.max_hp(), c.hp + amount)
+	_log("  %s recovers %d HP (%d/%d HP)." % [c.display_name, c.hp - before, c.hp, c.max_hp()])
+	_emit({"type": "heal", "target": c, "amount": c.hp - before, "hp": c.hp})
 	if c.is_injured() and c.hp > 0:
 		c.state = CompanionUnit.State.ACTIVE
 		_log("%s is back on their feet (%d HP)." % [c.display_name, c.hp])
@@ -264,6 +378,7 @@ func pick_next_action(e: EnemyUnit) -> void:
 	var action := actions[_weighted_index(weights)]
 	e.pending_action = action
 	e.countdown = maxi(BattleConfig.MIN_ACTION_COUNTDOWN, action.countdown)
+	e.delayed = false
 	_emit({"type": "intent", "enemy": e})
 
 
@@ -344,12 +459,77 @@ func _companion_strike(c: CompanionUnit, target: EnemyUnit, art: CombatArtData) 
 	var crit := _roll(f.crit)
 	var dmg := f.crit_damage if crit else f.damage
 	target.hp -= dmg
-	_log("  %s%s takes %d damage (%d/%d HP)." % ["CRITICAL! " if crit else "", target.display_name, dmg, maxi(target.hp, 0), target.max_hp()])
-	_emit({"type": "damage", "target": target, "amount": dmg, "crit": crit, "hp": target.hp})
+	_log("  %s%s takes %d %sdamage%s (%d/%d HP)." % ["CRITICAL! " if crit else "", target.display_name, dmg,
+		"magic " if f.magic else "", ", effective" if f.effective else "", maxi(target.hp, 0), target.max_hp()])
+	_emit({"type": "damage", "target": target, "amount": dmg, "crit": crit, "hp": target.hp,
+		"effective": f.effective, "magic": f.magic})
 	if not target.is_alive():
 		_log("  %s is defeated!" % target.display_name)
 		_emit({"type": "defeated", "target": target})
 	return true
+
+
+## A black spell striking one enemy: hit roll, damage, then a countdown delay and a debuff if it landed.
+func _spell_strike(c: CompanionUnit, spell: SpellData, target: EnemyUnit) -> void:
+	if not target.is_alive():
+		return
+	var f := spell_forecast(c, spell, target)
+	if not _roll(f.hit):
+		_log("  Miss on %s! (%d%% to hit)" % [target.display_name, f.hit])
+		_emit({"type": "miss", "target": target})
+		return
+	var crit := _roll(f.crit)
+	var dmg := f.crit_damage if crit else f.damage
+	target.hp -= dmg
+	_log("  %s%s takes %d magic damage%s (%d/%d HP)." % ["CRITICAL! " if crit else "", target.display_name, dmg,
+		", effective" if f.effective else "", maxi(target.hp, 0), target.max_hp()])
+	_emit({"type": "damage", "target": target, "amount": dmg, "crit": crit, "hp": target.hp,
+		"effective": f.effective, "magic": true})
+	if not target.is_alive():
+		_log("  %s is defeated!" % target.display_name)
+		_emit({"type": "defeated", "target": target})
+		return
+	if spell.delay_ticks > 0:
+		delay_action(target, spell.delay_ticks)
+	if spell.effect != null:
+		_apply_effect(target, spell.effect, false)
+
+
+## Adds `ticks` to an enemy's pending action, unless that action was already delayed. Returns true if
+## it was delayed. Only spells call this; combat arts never touch countdowns.
+func delay_action(target: EnemyUnit, ticks: int) -> bool:
+	if not target.is_alive() or target.pending_action == null or ticks <= 0:
+		return false
+	if target.delayed:
+		_log("  %s's %s has already been delayed once." % [target.display_name, target.pending_action.display_name])
+		_emit({"type": "delay_blocked", "target": target})
+		return false
+	target.countdown += ticks
+	target.delayed = true
+	_log("  %s's %s is delayed by %d (now %d)." % [target.display_name, target.pending_action.display_name, ticks, target.countdown])
+	_emit({"type": "delay", "target": target, "ticks": ticks, "countdown": target.countdown})
+	return true
+
+
+## A white spell on one companion still in the line: heal, then remove debuffs, then the buff.
+func _white_magic(c: CompanionUnit, spell: SpellData, target: CompanionUnit) -> void:
+	if target.is_gone():
+		return
+	if spell.heals:
+		heal(target, heal_amount(c, spell))
+	if spell.cleanse:
+		var removed: Array[String] = []
+		for e in target.effects.duplicate():
+			if e.is_harmful():
+				target.effects.erase(e)
+				removed.append(e.display_name)
+		if removed.is_empty():
+			_log("  %s has no debuffs to remove." % target.display_name)
+		else:
+			_log("  %s is cleansed of %s." % [target.display_name, ", ".join(removed)])
+		_emit({"type": "cleanse", "target": target, "removed": removed})
+	if spell.effect != null:
+		_apply_effect(target, spell.effect, true)
 
 
 ## Proficiency for acting with the weapon held, up to the per-battle cap.
@@ -378,14 +558,41 @@ func _gain_proficiency(c: CompanionUnit, amount: int) -> void:
 		else:
 			_log("  %s learns %s (tier %d)%s." % [c.display_name, art.display_name, art.tier,
 				", equipped" if equipped else "; no free slot, so it is not equipped"])
-		var ev := {"type": "grade_up", "actor": c, "weapon_type": t, "grade": g, "art": art, "equipped": equipped}
+		var ev := {"type": "grade_up", "actor": c, "magic": false, "weapon_type": t, "grade": g, "art": art, "equipped": equipped}
+		grade_ups.append(ev)
+		_emit(ev)
+
+
+## Magic points for casting, up to the per-battle magic cap (separate from the weapon cap).
+## Every school grade reached teaches a random spell of that school (if any is left to learn).
+func _gain_magic(c: CompanionUnit, s: SpellData.School) -> void:
+	var room := maxi(0, BattleConfig.MAGIC_CAP_PER_BATTLE - c.magic_gained)
+	var before := c.progress.magic_grade(s)
+	var gained := c.progress.add_magic_points(s, mini(BattleConfig.MAGIC_POINTS_PER_CAST, room))
+	c.magic_gained += gained
+	if gained <= 0:
+		return
+	var school := SpellData.school_name(s)
+	_emit({"type": "proficiency", "actor": c, "magic": true, "school": s, "gained": gained})
+	if c.magic_gained >= BattleConfig.MAGIC_CAP_PER_BATTLE:
+		_log("  %s has gained all the magic proficiency this battle can give." % c.display_name)
+	for g in range(before + 1, c.progress.magic_grade(s) + 1):
+		var spell := SpellLearning.pick_spell(rng, c.progress, s, g, spell_pool)
+		if spell != null:
+			c.progress.learn_spell(spell)
+		_log("  %s's %s grade rises to %s!" % [c.display_name, school, Proficiency.grade_name(g)])
+		if spell == null:
+			_log("  %s already knows every %s spell." % [c.display_name, school])
+		else:
+			_log("  %s learns %s (tier %d)." % [c.display_name, spell.display_name, spell.tier])
+		var ev := {"type": "grade_up", "actor": c, "magic": true, "school": s, "grade": g, "spell": spell}
 		grade_ups.append(ev)
 		_emit(ev)
 
 
 func _enemy_strike(e: EnemyUnit, action: EnemyActionData, target: CompanionUnit) -> void:
 	if action.deals_damage:
-		var f := CombatMath.forecast(e, action.might, action.hit, 0, target)
+		var f := CombatMath.forecast(e, action.might, action.hit, 0, target, 0, action.damage_type)
 		if not _roll(f.hit):
 			_log("  %s dodges. (%d%% to hit)" % [target.display_name, f.hit])
 			_emit({"type": "miss", "target": target})

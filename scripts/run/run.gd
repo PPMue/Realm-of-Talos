@@ -19,6 +19,7 @@ const FREE_ACTION_NAMES: Array[String] = ["Rest", "Shop", "Tavern", "Repair"]
 var rng: RandomNumberGenerator
 var content: RunContent
 var art_pool: Array[CombatArtData] = []
+var spell_pool: Array[SpellData] = []
 
 ## 1-based. After the run ends it stays on the last day played.
 var day: int = 1
@@ -51,23 +52,35 @@ var event: EventData
 var actions_left: int = 0
 var actions_used: Array[int] = []
 var tavern_offers: Array[CompanionData] = []
+## What the shop sells today (free days): every common item for the day, plus rare ones that rolled in.
+var shop_today: Array[ShopItemData] = []
 ## Events already seen this run, so they do not repeat while unseen ones remain.
 var _seen_events: Array[EventData] = []
 
 
-## A new run. `p_rng` should already be seeded.
-static func create(p_rng: RandomNumberGenerator, p_content: RunContent = null, p_art_pool: Array[CombatArtData] = []) -> Run:
+## A new run. `p_rng` should already be seeded. Of the two starting companions, at least one is not a
+## mage.
+static func create(p_rng: RandomNumberGenerator, p_content: RunContent = null, p_art_pool: Array[CombatArtData] = [],
+		p_spell_pool: Array[SpellData] = []) -> Run:
 	var r := Run.new()
 	r.rng = p_rng
 	r.content = p_content if p_content != null else RunContent.load_default()
 	r.art_pool = p_art_pool
+	r.spell_pool = p_spell_pool
 	r.gold = RunConfig.STARTING_GOLD
 	for m in RunConfig.MATERIAL_ORDER:
 		r.materials[m] = int(RunConfig.STARTING_MATERIALS.get(m, 0))
 	r.calendar = RunCalendar.generate(r.rng)
 	var pool := r.content.companions.duplicate()
-	for i in mini(RunConfig.STARTING_COMPANIONS, pool.size()):
-		var pick: CompanionData = pool[r.rng.randi_range(0, pool.size() - 1)]
+	var count := mini(RunConfig.STARTING_COMPANIONS, pool.size())
+	for i in count:
+		# The last pick is not a mage if every pick so far was one.
+		var options := pool.duplicate()
+		if i == count - 1 and r.roster.all(func(c: RunCompanion) -> bool: return c.data.is_mage()):
+			options = pool.filter(func(d: CompanionData) -> bool: return not d.is_mage())
+			if options.is_empty():
+				options = pool.duplicate()
+		var pick: CompanionData = options[r.rng.randi_range(0, options.size() - 1)]
 		pool.erase(pick)
 		r._join(pick)
 	r._begin_day()
@@ -185,7 +198,7 @@ func start_battle(front: Front) -> Battle:
 	for c in lineup:
 		datas.append(c.data)
 		party.append(c.progress)
-	var battle := Battle.new(datas, front.enemies, battle_rng, party, art_pool)
+	var battle := Battle.new(datas, front.enemies, battle_rng, party, art_pool, spell_pool)
 	for i in lineup.size():
 		battle.roster[i].hp = clampi(lineup[i].hp, 1, lineup[i].max_hp())
 	return battle
@@ -246,8 +259,8 @@ func free_action_block_reason(a: FreeAction) -> String:
 		return "No actions left today."
 	match a:
 		FreeAction.REST:
-			if _everyone_at_full_hp():
-				return "Everyone is at full health."
+			if _everyone_at_full_hp() and not _any_spell_uses_spent():
+				return "Everyone is at full health and every spell use is ready."
 		FreeAction.TAVERN:
 			if tavern_offers.is_empty():
 				return "Nobody is looking for work."
@@ -267,13 +280,14 @@ func visit_block_reason(a: FreeAction) -> String:
 	return free_action_block_reason(a)
 
 
-## Every companion recovers to full HP.
+## Every companion recovers to full HP and every spell's uses. Nothing else restores spell uses.
 func rest() -> bool:
 	if free_action_block_reason(FreeAction.REST) != "":
 		return false
 	_spend(FreeAction.REST)
 	for c in roster:
 		c.hp = c.max_hp()
+		c.progress.restore_spell_uses()
 	return true
 
 
@@ -286,8 +300,9 @@ func repair() -> bool:
 	return true
 
 
+## What the shop sells today. Empty on days that are not free days.
 func shop_stock() -> Array[ShopItemData]:
-	return content.shop_stock(day)
+	return shop_today
 
 
 func buy_block_reason(item: ShopItemData) -> String:
@@ -338,6 +353,56 @@ func hire(data: CompanionData) -> RunCompanion:
 		Levels.level_up(c.progress, rng)
 	c.hp = c.max_hp()
 	return c
+
+
+# ---------------------------------------------------------------- healing between battles
+
+## HP a healing spell restores out of battle: the caster's MAG + the spell's power.
+func heal_amount(caster: RunCompanion, spell: SpellData) -> int:
+	return maxi(0, int(caster.progress.stats().get(Stat.MAG, 0)) + spell.heal_power) if spell != null and spell.heals else 0
+
+
+## Companions a healing spell would reach between battles: one, or the whole roster for every-ally spells.
+func heal_targets(spell: SpellData, target: RunCompanion) -> Array[RunCompanion]:
+	if spell != null and spell.targeting == SpellData.Targeting.ALL_ALLIES:
+		return roster.duplicate()
+	var out: Array[RunCompanion] = []
+	if target != null and roster.has(target):
+		out.append(target)
+	return out
+
+
+## Why `caster` cannot cast `spell` on `target` between battles, or "". Only healing spells can be cast
+## outside battle, while the party can still be changed; it spends a use like in battle.
+func heal_block_reason(caster: RunCompanion, spell: SpellData, target: RunCompanion = null) -> String:
+	if not can_change_party():
+		return "Not now."
+	if caster == null or not roster.has(caster):
+		return "Not in the roster."
+	if spell == null or not caster.progress.knows_spell(spell):
+		return "Not a known spell."
+	if not spell.heals:
+		return "Only healing spells can be cast between battles."
+	if caster.progress.uses_left(spell) <= 0:
+		return "No uses left. Rest restores them."
+	var targets := heal_targets(spell, target)
+	if targets.is_empty():
+		return "Choose who to heal."
+	for c in targets:
+		if c.hp < c.max_hp():
+			return ""
+	return "%s is at full health." % targets[0].display_name() if targets.size() == 1 else "Everyone is at full health."
+
+
+## Casts a healing spell between battles. Returns the HP restored in total, or -1 if not allowed.
+func cast_heal(caster: RunCompanion, spell: SpellData, target: RunCompanion = null) -> int:
+	if heal_block_reason(caster, spell, target) != "":
+		return -1
+	caster.progress.spend_use(spell)
+	var total := 0
+	for c in heal_targets(spell, target):
+		total += c.heal(heal_amount(caster, spell))
+	return total
 
 
 ## Splits a won battle's XP pool evenly (rounded down) among `standing` and applies level-ups.
@@ -439,6 +504,7 @@ func _begin_day() -> void:
 	actions_left = 0
 	actions_used.clear()
 	tavern_offers.clear()
+	shop_today.clear()
 	match day_type():
 		RunCalendar.DayType.BATTLE:
 			_make_fronts()
@@ -447,6 +513,7 @@ func _begin_day() -> void:
 		RunCalendar.DayType.FREE:
 			actions_left = RunConfig.FREE_DAY_ACTIONS
 			_make_tavern_offers()
+			_stock_shop()
 		RunCalendar.DayType.EVENT:
 			event = _pick_event()
 
@@ -532,6 +599,7 @@ static func scaled_enemy(e: EnemyData, on_day: int) -> EnemyData:
 	var d := maxi(0, on_day - 1)
 	s.max_hp = roundi(e.max_hp * (1.0 + RunConfig.ENEMY_HP_GROWTH_PER_DAY * d))
 	s.strength = e.strength + floori(float(d) / RunConfig.ENEMY_STR_EVERY_DAYS)
+	s.magic = e.magic + floori(float(d) / RunConfig.ENEMY_STR_EVERY_DAYS)
 	s.defense = e.defense + floori(float(d) / RunConfig.ENEMY_DEF_EVERY_DAYS)
 	s.speed = e.speed + floori(float(d) / RunConfig.ENEMY_SPD_EVERY_DAYS)
 	s.dexterity = e.dexterity + floori(float(d) / RunConfig.ENEMY_SPD_EVERY_DAYS)
@@ -546,6 +614,12 @@ func _make_tavern_offers() -> void:
 	var count := mini(rng.randi_range(RunConfig.TAVERN_OFFERS_MIN, RunConfig.TAVERN_OFFERS_MAX), pool.size())
 	for i in count:
 		tavern_offers.append(pool.pop_at(rng.randi_range(0, pool.size() - 1)))
+
+
+func _stock_shop() -> void:
+	for item in content.shop_stock(day):
+		if item.chance >= 1.0 or rng.randf() < item.chance:
+			shop_today.append(item)
 
 
 func _pick_event() -> EventData:
@@ -583,6 +657,13 @@ func _remove(c: RunCompanion) -> void:
 func _in_roster(data: CompanionData) -> bool:
 	for c in roster:
 		if c.data == data:
+			return true
+	return false
+
+
+func _any_spell_uses_spent() -> bool:
+	for c in roster:
+		if c.progress.has_spent_uses():
 			return true
 	return false
 

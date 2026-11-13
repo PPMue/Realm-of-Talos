@@ -20,6 +20,10 @@ var _xp := SlantBar.new()
 var _buttons := VBoxContainer.new()
 var _weapons := VBoxContainer.new()
 var _weapons_head: Label
+## A healing spell waiting for its target (clicking a companion casts it), and its caster.
+var _casting: SpellData
+var _caster: RunCompanion
+var _cast_hint: Label
 var _arts_screen := ArtsScreen.new()
 
 
@@ -31,6 +35,9 @@ func _init() -> void:
 
 func open(p_run: Run, select: RunCompanion = null) -> void:
 	run = p_run
+	_casting = null
+	_caster = null
+	_cast_hint.text = ""
 	_selected = select if select != null and run.roster.has(select) else (run.lineup[-1] if not run.lineup.is_empty() else
 		(run.roster[0] if not run.roster.is_empty() else null))
 	visible = true
@@ -43,12 +50,58 @@ func close() -> void:
 	if _arts_screen.visible:
 		_arts_screen.close()
 		return
+	if _casting != null:
+		cancel_cast()
+		return
 	visible = false
 	closed.emit()
 
 
 func select(c: RunCompanion) -> void:
+	if _casting != null:
+		cast_on(c)
+		return
 	_selected = c
+	refresh()
+
+
+## Starts aiming a healing spell of the selected companion; the next companion clicked receives it.
+func begin_cast(spell: SpellData) -> void:
+	if _selected == null or spell == null or not spell.heals or _selected.progress.uses_left(spell) <= 0 or not run.can_change_party():
+		return
+	_casting = spell
+	_caster = _selected
+	_cast_hint.text = "%s: click who %s heals (+%d HP)%s. Esc to cancel." % [spell.display_name.to_upper(), _caster.display_name(),
+		run.heal_amount(_caster, spell), ", or anyone to heal the whole roster" if spell.targeting == SpellData.Targeting.ALL_ALLIES else ""]
+	_cast_hint.add_theme_color_override("font_color", UiTheme.HEAL)
+	refresh()
+
+
+func cancel_cast() -> void:
+	_casting = null
+	_caster = null
+	_cast_hint.text = ""
+	refresh()
+
+
+## Casts the spell being aimed on `target` (or on everyone, for spells that reach every ally).
+func cast_on(target: RunCompanion) -> void:
+	if _casting == null:
+		return
+	var spell := _casting
+	var caster := _caster
+	var why := run.heal_block_reason(caster, spell, target)
+	if why != "":
+		_cast_hint.text = why
+		_cast_hint.add_theme_color_override("font_color", UiTheme.RECOVERING)
+		return
+	var healed := run.cast_heal(caster, spell, target)
+	_casting = null
+	_caster = null
+	var who := "everyone" if spell.targeting == SpellData.Targeting.ALL_ALLIES else target.display_name()
+	_cast_hint.text = "%s casts %s on %s: +%d HP. %d / %d uses left." % [caster.display_name(), spell.display_name, who, healed,
+		caster.progress.uses_left(spell), spell.uses]
+	_cast_hint.add_theme_color_override("font_color", UiTheme.HEAL)
 	refresh()
 
 
@@ -110,6 +163,8 @@ func _chip(c: RunCompanion, slot: int, front: bool) -> CompanionChip:
 	if front:
 		chip.set_tag("FRONT")
 	chip.set_selected(c == _selected)
+	if _casting != null and (_casting.targeting == SpellData.Targeting.ALL_ALLIES or c.hp < c.max_hp()):
+		chip.set_heal_preview(mini(c.max_hp(), c.hp + run.heal_amount(_caster, _casting)))
 	chip.pressed.connect(select.bind(c))
 	return chip
 
@@ -146,7 +201,7 @@ func _refresh_detail() -> void:
 	var heavy := w.weight - c.data.build
 	var st := c.progress.stats()
 	var stat_line: Array[String] = []
-	for key in [Stat.STR, Stat.DEX, Stat.SPD, Stat.DEF, Stat.CRT, Stat.LCK, Stat.STA]:
+	for key in [Stat.STR, Stat.MAG, Stat.DEX, Stat.SPD, Stat.DEF, Stat.RES, Stat.CRT, Stat.LCK, Stat.STA]:
 		stat_line.append("%s %d" % [key, int(st[key])])
 	_info.text = "HP %d / %d     %s\nHolds %s  ·  %s grade %s%s\n%s" % [c.hp, c.max_hp(), place, w.display_name,
 		WeaponData.type_name(t).to_lower(), Proficiency.grade_name(c.progress.grade(t)),
@@ -172,9 +227,15 @@ func _refresh_detail() -> void:
 	f.disabled = not fielded and run.lineup.size() >= RunConfig.MAX_FIELDED
 	if f.disabled:
 		f.detail = "LINE FULL"
-	_button("COMBAT ARTS", "A", "See every companion's grades and arts, and choose which arts are equipped.", open_arts)
+	_button("ARTS AND MAGIC", "A", "See every companion's weapon and magic grades, arts and spells, and choose which arts are equipped.", open_arts)
 
 	_weapons_head.text = "WEAPONS  ·  %d OWNED" % run.inventory.weapons.size()
+	if not c.progress.known_spells.is_empty():
+		_weapons_head.text = "SPELLS AND WEAPONS"
+		_weapons.add_child(_section("SPELLS  ·  uses come back with Rest on a free day; healing spells can be cast here"))
+		for sp in c.progress.known_spells:
+			_weapons.add_child(_spell_row(c, sp))
+		_weapons.add_child(_section("WEAPONS  ·  %d OWNED" % run.inventory.weapons.size()))
 	var items := run.inventory.weapons.duplicate()
 	items.sort_custom(func(a: OwnedWeapon, b: OwnedWeapon) -> bool:
 		var ka := [0 if a.holder == c else 1, 0 if a.data.weapon_type == t else 1, a.data.weapon_type, -a.data.might]
@@ -205,6 +266,44 @@ func _refresh_detail() -> void:
 			row.pressed.connect(equip.bind(item))
 		row.tooltip_text = why if why != "" and item.holder != c else ""
 		_weapons.add_child(row)
+
+
+func _spell_row(c: RunCompanion, sp: SpellData) -> RowButton:
+	var row := RowButton.new(1060.0, 70.0)
+	row.title = sp.display_name.to_upper()
+	row.sub = "%s  ·  tier %s  ·  %s" % [sp.school_text().to_upper(), CombatArtData.tier_numeral(sp.tier), sp.effect_summary()]
+	row.tooltip_text = sp.description + "\n" + sp.effect_summary()
+	var left := c.progress.uses_left(sp)
+	var uses := "%d / %d USES" % [left, sp.uses]
+	if not sp.heals:
+		row.disabled = true
+		row.detail = "%s  ·  IN BATTLE" % uses
+		return row
+	if _casting == sp and _caster == c:
+		row.active = true
+		row.detail = "CHOOSE WHO"
+		row.pressed.connect(cancel_cast)
+		return row
+	var why := run.heal_block_reason(c, sp, c) if sp.targeting == SpellData.Targeting.ALL_ALLIES else ""
+	if why == "" and left <= 0:
+		why = "No uses left"
+	if why == "" and not run.can_change_party():
+		why = "Not now"
+	if why != "":
+		row.disabled = true
+		row.detail = "%s  ·  %s" % [uses, why.trim_suffix(".").to_upper()]
+		return row
+	row.detail = "CAST  ·  %s" % uses
+	row.detail_color = UiTheme.HEAL
+	row.pressed.connect(begin_cast.bind(sp))
+	return row
+
+
+func _section(text: String) -> Label:
+	var l := UiTheme.label(text, 18, UiTheme.GOLD, true, 4)
+	l.custom_minimum_size = Vector2(1000, 30)
+	l.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	return l
 
 
 func _button(title: String, hotkey: String, tip: String, action: Callable) -> ActionButton:
@@ -271,6 +370,10 @@ func _build() -> void:
 		19, UiTheme.MUTED)
 	_reserve_empty.position = Vector2(70, 470)
 	add_child(_reserve_empty)
+	_cast_hint = UiTheme.label("", 20, UiTheme.HEAL, true, 6)
+	_cast_hint.position = Vector2(300, 148)
+	_cast_hint.size = Vector2(1560, 30)
+	add_child(_cast_hint)
 
 	var detail := SlantPanel.new()
 	detail.fill = Color(UiTheme.PANEL, 0.9)
@@ -333,8 +436,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	var handled := true
 	match key.keycode:
-		KEY_ESCAPE, KEY_P:
+		KEY_ESCAPE:
 			close()
+		KEY_P:
+			if _casting != null:
+				cancel_cast()
+			else:
+				close()
 		KEY_LEFT:
 			move(-1)
 		KEY_RIGHT:

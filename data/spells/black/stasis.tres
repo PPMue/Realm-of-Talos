@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="SpellData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/spell_data.gd" id="1_spell"]
+
+[resource]
+script = ExtResource("1_spell")
+display_name = "Stasis"
+description = "Freezes a moment around the target: its coming action is pushed back."
+school = 0
+tier = 2
+targeting = 0
+uses = 3
+recovery = 2
+might = 2
+hit = 95
+delay_ticks = 2

@@ -90,6 +90,10 @@ func _shop_row(item: ShopItemData) -> RowButton:
 	for c in run.roster:
 		if c.progress.can_equip_weapon(w):
 			users.append(c.display_name())
+	if w.is_magic():
+		row.title += "   ·   RARE  ·  MAGIC: STRIKES WITH MAG AGAINST RES"
+	elif not w.effective_against.is_empty():
+		row.title += "   ·   EFFECTIVE AGAINST %s" % ", ".join(w.effective_against).to_upper()
 	row.sub = "%s  ·  Mt %d  ·  Hit %d  ·  Weight %d  ·  needs %s grade %s  ·  %s" % [WeaponData.type_name(w.weapon_type).to_upper(),
 		w.might, w.hit, w.weight, WeaponData.type_name(w.weapon_type).to_lower(), Proficiency.grade_name(w.required_grade),
 		("can be held by " + ", ".join(users)) if not users.is_empty() else "nobody in the party has the grade yet"]
@@ -110,6 +114,12 @@ func _tavern_row(data: CompanionData) -> RowButton:
 	row.sub = "HP %d  ·  STR %d  ·  DEX %d  ·  SPD %d  ·  DEF %d  ·  %s, %s grade %s  ·  signature art %s" % [data.max_hp, data.strength,
 		data.dexterity, data.speed, data.defense, w.display_name, WeaponData.type_name(t).to_lower(),
 		Proficiency.grade_name(data.starting_grade(t)), data.signature_art.display_name if data.signature_art != null else "none"]
+	if data.is_mage():
+		var sp := data.signature_spell
+		row.title += "   ·   %s MAGE" % ("BLACK" if sp.school == SpellData.School.BLACK else "WHITE")
+		row.sub = "HP %d  ·  MAG %d  ·  RES %d  ·  DEF %d  ·  %s grade %s, knows %s  ·  %s, %s grade %s" % [data.max_hp, data.magic,
+			data.resistance, data.defense, sp.school_text(), Proficiency.grade_name(data.starting_magic_grade(sp.school)),
+			sp.display_name, w.display_name, WeaponData.type_name(t).to_lower(), Proficiency.grade_name(data.starting_grade(t))]
 	var why := run.hire_block_reason(data)
 	row.disabled = why != ""
 	row.detail = "%d GOLD" % RunConfig.HIRE_COST if why == "" else "%d GOLD  ·  %s" % [RunConfig.HIRE_COST, why.trim_suffix(".").to_upper()]

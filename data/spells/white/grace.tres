@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="SpellData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/spell_data.gd" id="1_spell"]
+
+[resource]
+script = ExtResource("1_spell")
+display_name = "Grace"
+description = "A great healing that also lifts every curse."
+school = 1
+tier = 3
+targeting = 2
+uses = 2
+recovery = 3
+heals = true
+heal_power = 16
+cleanse = true

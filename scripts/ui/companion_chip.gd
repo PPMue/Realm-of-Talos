@@ -76,6 +76,8 @@ func setup(c: RunCompanion, slot: int, clickable: bool = false) -> void:
 	var w := c.weapon()
 	var t := w.weapon_type
 	_weapon.text = "%s  ·  %s %s" % [w.display_name, WeaponData.type_name(t).to_upper(), Proficiency.grade_name(c.progress.grade(t))]
+	for s in c.progress.spell_schools():
+		_weapon.text += "  ·  %s %s" % ["BLACK" if s == SpellData.School.BLACK else "WHITE", Proficiency.grade_name(c.progress.magic_grade(s))]
 	_hp.fill_color = UiTheme.HP if c.hp * 3 >= c.max_hp() else UiTheme.INJURED
 	_hp.set_values(c.hp, c.max_hp(), false)
 	if slot > 0:
@@ -94,12 +96,31 @@ func setup(c: RunCompanion, slot: int, clickable: bool = false) -> void:
 	tooltip_text = "%s  ·  level %d  ·  HP %d / %d\n%s (Mt %d, Hit %d, weight %d)\n%s grade %s\nArts: %s" % [
 		c.display_name(), c.level(), c.hp, c.max_hp(), w.display_name, w.might, w.hit, w.weight,
 		WeaponData.type_name(t), Proficiency.grade_name(c.progress.grade(t)), ", ".join(arts) if not arts.is_empty() else "none"]
+	if not c.progress.known_spells.is_empty():
+		var spells: Array[String] = []
+		for sp in c.progress.known_spells:
+			spells.append("%s %d/%d" % [sp.display_name, c.progress.uses_left(sp), sp.uses])
+		for s in c.progress.spell_schools():
+			tooltip_text += "\n%s grade %s" % [SpellData.school_name(s), Proficiency.grade_name(c.progress.magic_grade(s))]
+		tooltip_text += "\nSpells: " + ", ".join(spells)
 	_restyle()
 
 
 ## The tag text, e.g. "FRONT" for the rightmost of the line.
 func set_tag(text: String) -> void:
 	_tag_label.text = text
+
+
+## While a heal is being aimed between battles: the HP it would reach, on the tag and the bar.
+func set_heal_preview(hp_after: int) -> void:
+	_tag.fill = UiTheme.HEAL
+	_tag.size.x = 150.0
+	_tag.position.x = W - 170.0
+	_tag_label.add_theme_color_override("font_color", UiTheme.INK)
+	_tag_label.text = "HP %d → %d" % [companion.hp, hp_after]
+	_hp.set_heal_preview(hp_after)
+	_art.border = UiTheme.HEAL
+	_art.border_width = 4.0
 
 
 func set_selected(v: bool) -> void:

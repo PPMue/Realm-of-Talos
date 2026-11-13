@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ShopItemData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/shop_item_data.gd" id="1_s"]
+[ext_resource type="Resource" path="res://data/weapons/moonthread_bow.tres" id="2_w"]
+
+[resource]
+script = ExtResource("1_s")
+weapon = ExtResource("2_w")
+price = 220
+min_day = 8
+chance = 0.15

@@ -1,0 +1,70 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_action_data.gd" id="1_act"]
+[ext_resource type="Script" path="res://scripts/data/status_effect_data.gd" id="2_fx"]
+[ext_resource type="Texture2D" path="res://assets/enemy/winged-zombie.png" id="3_art"]
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="4_enemy"]
+
+[sub_resource type="Resource" id="Resource_festering"]
+script = ExtResource("2_fx")
+display_name = "Festering"
+stat_mods = {
+"DEF": -2
+}
+duration_ticks = 3
+
+[sub_resource type="Resource" id="Resource_gorged"]
+script = ExtResource("2_fx")
+display_name = "Gorged"
+stat_mods = {
+"STR": 3
+}
+duration_ticks = 3
+
+[sub_resource type="Resource" id="Resource_claw"]
+script = ExtResource("1_act")
+display_name = "Rotting Claw"
+countdown = 3
+pick_weight = 3.0
+might = 6
+hit = 85
+effect = SubResource("Resource_festering")
+
+[sub_resource type="Resource" id="Resource_swoop"]
+script = ExtResource("1_act")
+display_name = "Carrion Swoop"
+targeting = 1
+countdown = 4
+pick_weight = 2.0
+might = 3
+hit = 80
+
+[sub_resource type="Resource" id="Resource_hunger"]
+script = ExtResource("1_act")
+display_name = "Hunger"
+intent = 2
+targeting = 2
+countdown = 2
+pick_weight = 1.0
+deals_damage = false
+might = 0
+hit = 0
+effect = SubResource("Resource_gorged")
+
+[resource]
+script = ExtResource("4_enemy")
+display_name = "Winged Zombie"
+portrait = ExtResource("3_art")
+color = Color(0.45, 0.45, 0.65, 1)
+stage_scale = 1.0
+max_hp = 46
+strength = 11
+magic = 0
+crit = 2
+dexterity = 6
+speed = 6
+defense = 4
+resistance = 1
+luck = 1
+traits = Array[String](["Flying"])
+actions = Array[ExtResource("1_act")]([SubResource("Resource_claw"), SubResource("Resource_swoop"), SubResource("Resource_hunger")])

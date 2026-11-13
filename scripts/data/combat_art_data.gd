@@ -5,8 +5,9 @@ extends Resource
 ## BattleConfig.MAX_EQUIPPED_ARTS of them. Using an art costs exactly one tick, like any action.
 ##
 ## Effects are data only and limited to: bonus Mt/Hit/Crit, striking every living enemy,
-## striking twice, ignoring part of the target's DEF, a status effect on each enemy hit
-## (debuff) and a status effect on the user (buff). Nothing here touches enemy countdowns.
+## striking twice, ignoring part of the target's DEF (RES with a magic weapon), effectiveness against
+## enemy traits, a status effect on each enemy hit (debuff) and a status effect on the user (buff).
+## Nothing here touches enemy countdowns: only spells can delay them.
 
 @export var display_name: String = ""
 @export_multiline var description: String = ""
@@ -29,6 +30,9 @@ extends Resource
 @export_range(1, 2) var strikes: int = 1
 ## Share of the target's DEF this art ignores.
 @export_range(0, 100) var ignore_def_percent: int = 0
+## Enemy traits this art is effective against (the weapon's Mt is doubled). Does not stack with the
+## weapon's own list.
+@export var effective_against: Array[String] = []
 
 @export_group("Effects")
 ## Applied to every enemy at least one strike lands on (a debuff).
@@ -65,6 +69,8 @@ func effect_summary() -> String:
 		parts.append("Ignores DEF")
 	elif ignore_def_percent > 0:
 		parts.append("Ignores %d%% of DEF" % ignore_def_percent)
+	if not effective_against.is_empty():
+		parts.append("Effective against %s" % ", ".join(effective_against))
 	if target_effect != null:
 		parts.append("On hit: %s" % target_effect.summary())
 	if self_effect != null:

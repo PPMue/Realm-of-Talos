@@ -58,7 +58,7 @@ func tests() -> Array[Callable]:
 func make_run(seed_value: int = 1) -> Run:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value
-	return Run.create(rng, RunContent.load_default(), ArtLibrary.load_default().arts)
+	return Run.create(rng, RunContent.load_default(), ArtLibrary.load_default().arts, SpellLibrary.load_default().spells)
 
 
 ## Turns today into a day of `type` and prepares it again.
@@ -186,7 +186,7 @@ func test_run_start() -> void:
 			t.eq(c.hp, c.max_hp(), "full HP")
 			t.eq(run.inventory.held_by(c).data, c.data.weapon, "holds their own weapon")
 			seen[c.display_name()] = true
-	t.eq(seen.size(), 5, "every companion can start a run")
+	t.eq(seen.size(), content().companions.size(), "every companion can start a run")
 
 
 # ---------------------------------------------------------------- fronts and enemies
@@ -517,7 +517,8 @@ func test_rest() -> void:
 func test_shop_and_equip_requirement() -> void:
 	var run := make_run(18)
 	force_day(run, RunCalendar.DayType.FREE)
-	var c := run.roster[0]
+	# A fighter: the mages start below D in their weapon.
+	var c := run.roster[0] if not run.roster[0].data.is_mage() else run.roster[1]
 	var kind := c.weapon().weapon_type
 	var steel: ShopItemData = null
 	var silver: ShopItemData = null
@@ -694,7 +695,7 @@ func test_event_choices() -> void:
 
 func test_run_content() -> void:
 	var rc := content()
-	t.eq(rc.companions.size(), 5, "five companions")
+	t.eq(rc.companions.size(), 7, "five fighters and two mages")
 	t.eq(rc.bosses.size(), 3, "three bosses")
 	for d in range(1, RunConfig.DAYS + 1):
 		for danger in [1, 2, 3]:

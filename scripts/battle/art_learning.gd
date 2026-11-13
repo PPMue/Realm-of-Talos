@@ -31,11 +31,18 @@ static func unknown_arts(progress: CompanionProgress, t: WeaponData.WeaponType, 
 
 ## The tier closest to `wanted` that has at least one of `arts`; 0 if `arts` is empty.
 static func nearest_tier(arts: Array[CombatArtData], wanted: int) -> int:
+	var tiers: Array[int] = []
+	for a in arts:
+		tiers.append(a.tier)
+	return nearest_of(tiers, wanted)
+
+
+## The value in `tiers` closest to `wanted` (lower first on a tie); 0 if `tiers` is empty.
+static func nearest_of(tiers: Array[int], wanted: int) -> int:
 	for distance in 3:
 		for t: int in [wanted - distance, wanted + distance]:
-			for a in arts:
-				if a.tier == t:
-					return t
+			if tiers.has(t):
+				return t
 	return 0
 
 

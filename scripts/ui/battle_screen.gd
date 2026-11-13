@@ -13,7 +13,8 @@ extends Control
 signal finished(battle: Battle)
 signal closed
 
-enum Mode { IDLE, TARGET_ATTACK, TARGET_ART }
+## TARGET_SPELL: a black spell waiting for an enemy. TARGET_ALLY: a white spell waiting for a companion.
+enum Mode { IDLE, TARGET_ATTACK, TARGET_ART, TARGET_SPELL, TARGET_ALLY }
 
 ## The part of the screen the enemies stand in (margins from each edge, at 1920x1080).
 const STAGE_LEFT := 670.0
@@ -32,7 +33,13 @@ var _selected: CompanionUnit
 var _mode := Mode.IDLE
 ## The art waiting for a target while in TARGET_ART.
 var _art: CombatArtData
+## The spell waiting for a target while in TARGET_SPELL or TARGET_ALLY.
+var _spell: SpellData
 var _hot_enemy: EnemyUnit
+var _hot_ally: CompanionUnit
+## The action menu shows the selected companion's spells instead of their actions.
+var _spell_menu := false
+var _spell_page := 0
 var _busy := false
 var _skip := false
 var _generation := 0
@@ -58,6 +65,7 @@ var _result_lines := VBoxContainer.new()
 var _result_button: Button
 var _result_bg := SlantPanel.new()
 var _grade_banner := SlantPanel.new()
+var _grade_kicker: Label
 var _grade_title: Label
 var _grade_detail: Label
 var _grade_tween: Tween
@@ -88,6 +96,7 @@ func start(p_battle: Battle, title: String) -> void:
 		panel.setup(c.display_name, c.data.portrait, c.data.portrait_focus)
 		panel.set_level(c.progress.level)
 		panel.clicked.connect(pick_companion.bind(c))
+		panel.hover_changed.connect(_on_ally_hover.bind(c))
 		_party_row.add_child(panel)
 		_party_panels[c] = panel
 	_party_row.add_child(_row_marker("FRONT ›"))
@@ -105,6 +114,11 @@ func start(p_battle: Battle, title: String) -> void:
 	_logged = 0
 	_selected = null
 	_hot_enemy = null
+	_hot_ally = null
+	_spell = null
+	_art = null
+	_spell_menu = false
+	_spell_page = 0
 	_mode = Mode.IDLE
 	_overlay.visible = false
 	_banner.visible = false
@@ -119,13 +133,35 @@ func is_busy() -> bool:
 
 # ---------------------------------------------------------------- input
 
+## Clicking a party panel: picks who acts, or, while a white spell waits for a target, casts it there.
 func pick_companion(c: CompanionUnit) -> void:
-	if _busy or not battle.can_act(c):
+	if _busy:
 		return
+	if _mode == Mode.TARGET_ALLY:
+		cast_on_ally(c)
+		return
+	if not battle.can_act(c):
+		return
+	if c != _selected:
+		_spell_menu = false
 	_selected = c
 	_mode = Mode.IDLE
 	_hot_enemy = null
 	_refresh()
+
+
+## Casts the white spell waiting for a target on `c` (any companion, for spells that reach everyone).
+func cast_on_ally(c: CompanionUnit) -> void:
+	if _busy or _mode != Mode.TARGET_ALLY or _spell == null:
+		return
+	if battle.cast(_selected, _spell, c):
+		_commit(_selected)
+
+
+## Points at a companion while a white spell waits for a target, to see what it would do.
+func point_at_ally(c: CompanionUnit) -> void:
+	_hot_ally = c if (_mode == Mode.TARGET_ALLY and c != null and battle.line().has(c)) else null
+	_refresh_party()
 
 
 func choose_action(id: String) -> void:
@@ -137,6 +173,30 @@ func choose_action(id: String) -> void:
 		return
 	var c := _selected
 	if not battle.can_act(c):
+		return
+	match id:
+		ActionMenu.MAGIC:
+			if not c.spells().is_empty():
+				_spell_menu = true
+				_spell_page = 0
+				_clear_targeting()
+				_refresh()
+			return
+		ActionMenu.BACK:
+			_spell_menu = false
+			_clear_targeting()
+			_refresh()
+			return
+		ActionMenu.MORE:
+			_spell_page = (_spell_page + 1) % ActionMenu.spell_pages(c.spells().size())
+			_clear_targeting()
+			_refresh()
+			return
+	var spell_index := ActionMenu.spell_index(id)
+	if spell_index >= 0:
+		var spells := c.spells()
+		if spell_index < spells.size() and battle.can_cast(c, spells[spell_index]):
+			_toggle_spell(spells[spell_index])
 		return
 	var art_index := ActionMenu.art_index(id)
 	if art_index >= 0:
@@ -157,41 +217,89 @@ func choose_action(id: String) -> void:
 
 ## Points at an enemy while choosing a target, to see the forecast. Pass null to stop pointing.
 func point_at_enemy(e: EnemyUnit) -> void:
-	_hot_enemy = e if (_mode != Mode.IDLE and e != null and e.is_alive()) else null
+	_hot_enemy = e if (_aims_at_enemies() and e != null and e.is_alive()) else null
 	_refresh_enemies()
 
 
 func strike_enemy(e: EnemyUnit) -> void:
-	if _busy or _mode == Mode.IDLE or not e.is_alive():
+	if _busy or not _aims_at_enemies() or not e.is_alive():
 		return
 	var c := _selected
-	var done := battle.use_art(c, _art, e) if _mode == Mode.TARGET_ART else battle.attack(c, e)
+	var done := false
+	match _mode:
+		Mode.TARGET_ART:
+			done = battle.use_art(c, _art, e)
+		Mode.TARGET_SPELL:
+			done = battle.cast(c, _spell, e)
+		_:
+			done = battle.attack(c, e)
 	if done:
 		_commit(c)
 
 
+## Right-click or Esc: stop choosing a target; with no target pending, leave the spell list.
 func cancel_targeting() -> void:
-	if _busy or _mode == Mode.IDLE:
+	if _busy:
 		return
+	if _mode != Mode.IDLE:
+		_clear_targeting()
+	elif _spell_menu:
+		_spell_menu = false
+	else:
+		return
+	_refresh()
+
+
+func _clear_targeting() -> void:
 	_mode = Mode.IDLE
 	_art = null
+	_spell = null
 	_hot_enemy = null
-	_refresh()
+	_hot_ally = null
 
 
 func _toggle_targeting(mode: Mode, art: CombatArtData = null) -> void:
 	var same := _mode == mode and _art == art
+	_clear_targeting()
 	_mode = Mode.IDLE if same else mode
 	_art = null if same else art
-	_hot_enemy = null
 	if _mode != Mode.IDLE and battle.living_enemies().size() == 1:
 		_hot_enemy = battle.living_enemies()[0]
 	_refresh()
 
 
-## True while choosing a target for an art that strikes every enemy: all of them are lit at once.
+func _toggle_spell(sp: SpellData) -> void:
+	var mode := Mode.TARGET_ALLY if sp.targets_allies() else Mode.TARGET_SPELL
+	var same := _mode == mode and _spell == sp
+	_clear_targeting()
+	if not same:
+		_mode = mode
+		_spell = sp
+		if mode == Mode.TARGET_SPELL and battle.living_enemies().size() == 1:
+			_hot_enemy = battle.living_enemies()[0]
+		if mode == Mode.TARGET_ALLY and battle.line().size() == 1:
+			_hot_ally = battle.line()[0]
+	_refresh()
+
+
+func _aims_at_enemies() -> bool:
+	return _mode == Mode.TARGET_ATTACK or _mode == Mode.TARGET_ART or _mode == Mode.TARGET_SPELL
+
+
+## True while choosing a target for an art or spell that strikes every enemy: all of them are lit at once.
 func _targets_all() -> bool:
+	if _mode == Mode.TARGET_SPELL:
+		return _spell != null and _spell.targeting == SpellData.Targeting.ALL_ENEMIES
 	return _mode == Mode.TARGET_ART and _art != null and _art.hits_all_enemies
+
+
+func _on_ally_hover(inside: bool, c: CompanionUnit) -> void:
+	if _busy or _mode != Mode.TARGET_ALLY:
+		return
+	if inside:
+		point_at_ally(c)
+	elif _hot_ally == c and battle.line().size() > 1:
+		point_at_ally(null)
 
 
 func _on_enemy_hover(inside: bool, e: EnemyUnit) -> void:
@@ -240,8 +348,12 @@ func _input(event: InputEvent) -> void:
 				choose_action(ActionMenu.WAIT)
 			elif _targets_all() and not battle.living_enemies().is_empty():
 				strike_enemy(battle.living_enemies()[0])
-			elif _mode != Mode.IDLE and _hot_enemy != null:
+			elif _aims_at_enemies() and _hot_enemy != null:
 				strike_enemy(_hot_enemy)
+			elif _mode == Mode.TARGET_ALLY and _spell != null and _spell.targets_all():
+				cast_on_ally(battle.line()[0])
+			elif _mode == Mode.TARGET_ALLY and _hot_ally != null:
+				cast_on_ally(_hot_ally)
 
 
 ## 1-9 from the top row or the keypad, else 0.
@@ -257,9 +369,8 @@ static func _number_key(code: Key) -> int:
 
 ## A command went through: show what it did, step by step, then hand control back.
 func _commit(actor: CompanionUnit) -> void:
-	_mode = Mode.IDLE
-	_art = null
-	_hot_enemy = null
+	_clear_targeting()
+	_spell_menu = false
 	_busy = true
 	_skip = false
 	_selected = actor
@@ -270,6 +381,7 @@ func _commit(actor: CompanionUnit) -> void:
 	for c: CompanionUnit in _party_panels:
 		var panel: PartyPanel = _party_panels[c]
 		panel.set_selection(false, false)
+		panel.set_spell_target(false, false)
 	if actor != null:
 		var panel: PartyPanel = _party_panels[actor]
 		panel.set_stamina(actor.stamina, actor.max_stamina())
@@ -304,6 +416,40 @@ func _show_event(ev: Dictionary) -> float:
 			_show_banner("%s  -  %s" % [ev.actor.display_name.to_upper(), art.display_name.to_upper()], UiTheme.GOLD)
 			(_party_panels[ev.actor] as PartyPanel).play_pulse(UiTheme.GOLD)
 			return 0.3
+		"cast":
+			var sp: SpellData = ev.spell
+			var color := UiTheme.school_color(sp.school)
+			_show_banner("%s  -  %s" % [ev.actor.display_name.to_upper(), sp.display_name.to_upper()], color)
+			(_party_panels[ev.actor] as PartyPanel).play_pulse(color)
+			return 0.35
+		"heal":
+			var panel: PartyPanel = _party_panels[ev.target]
+			panel.set_hp(ev.hp, (ev.target as CompanionUnit).max_hp())
+			panel.play_pulse(UiTheme.HEAL)
+			_popup(panel.popup_anchor(), "+%d" % ev.amount, UiTheme.HEAL, 64)
+			return 0.32
+		"revived":
+			var panel: PartyPanel = _party_panels[ev.target]
+			panel.set_status(PartyPanel.Status.NONE)
+			_popup(panel.popup_anchor() + Vector2(0, -56), "BACK UP", UiTheme.READY, 46)
+			return 0.4
+		"cleanse":
+			var removed: Array = ev.removed
+			if removed.is_empty():
+				return 0.0
+			var panel: PartyPanel = _party_panels[ev.target]
+			panel.set_effects("")
+			_popup(panel.popup_anchor() + Vector2(0, 40), "CLEANSED", UiTheme.HEAL, 40)
+			return 0.3
+		"delay":
+			var view: EnemyView = _enemy_views[ev.target]
+			view.show_delay(ev.countdown)
+			_popup(view.popup_anchor() + Vector2(0, 60), "DELAYED +%d" % ev.ticks, UiTheme.WHITE_MAGIC, 46)
+			return 0.42
+		"delay_blocked":
+			var view: EnemyView = _enemy_views[ev.target]
+			_popup(view.popup_anchor() + Vector2(0, 60), "ALREADY DELAYED", UiTheme.MUTED, 34)
+			return 0.3
 		"proficiency":
 			return 0.0
 		"grade_up":
@@ -326,7 +472,9 @@ func _show_event(ev: Dictionary) -> float:
 			return 0.32
 		"damage":
 			_show_damage(ev)
-			return 0.36 if ev.crit else 0.3
+			if ev.get("effective", false):
+				_popup(_anchor_of(ev.target) + Vector2(0, -74), "EFFECTIVE!", UiTheme.EFFECTIVE, 38)
+			return 0.36 if ev.crit or ev.get("effective", false) else 0.3
 		"defeated":
 			var view: EnemyView = _enemy_views[ev.target]
 			view.play_defeat()
@@ -425,21 +573,38 @@ func _show_banner(text: String, color: Color) -> void:
 	_banner_tween.tween_property(_banner, "modulate:a", 0.0, 0.2)
 
 
-## A weapon grade went up: a banner over the stage naming the companion, the grade and the art learned.
+## A weapon or magic grade went up: a banner over the stage naming the companion, the grade and the
+## art or spell learned.
 func _show_grade_up(ev: Dictionary) -> void:
 	var c: CompanionUnit = ev.actor
-	var kind := WeaponData.type_name(ev.weapon_type).to_upper()
 	var grade := Proficiency.grade_name(ev.grade)
-	var art: CombatArtData = ev.art
-	_grade_title.text = "%s  ·  %s  %s" % [c.display_name.to_upper(), kind, grade]
-	if art == null:
-		_grade_detail.text = "EVERY %s ART ALREADY KNOWN" % kind
+	var kind := ""
+	var color := UiTheme.GOLD
+	if ev.get("magic", false):
+		kind = SpellData.school_name(ev.school).to_upper()
+		color = UiTheme.school_color(ev.school)
+		_grade_kicker.text = "MAGIC GRADE UP"
+		var spell: SpellData = ev.spell
+		if spell == null:
+			_grade_detail.text = "EVERY %s SPELL ALREADY KNOWN" % kind
+		else:
+			_grade_detail.text = "LEARNED  %s  (TIER %s)  ·  %d USES" % [spell.display_name.to_upper(),
+				CombatArtData.tier_numeral(spell.tier), spell.uses]
 	else:
-		_grade_detail.text = "LEARNED  %s  (TIER %s)%s" % [art.display_name.to_upper(), CombatArtData.tier_numeral(art.tier),
-			"  ·  EQUIPPED" if ev.equipped else "  ·  SLOTS FULL"]
+		kind = WeaponData.type_name(ev.weapon_type).to_upper()
+		_grade_kicker.text = "GRADE UP"
+		var art: CombatArtData = ev.art
+		if art == null:
+			_grade_detail.text = "EVERY %s ART ALREADY KNOWN" % kind
+		else:
+			_grade_detail.text = "LEARNED  %s  (TIER %s)%s" % [art.display_name.to_upper(), CombatArtData.tier_numeral(art.tier),
+				"  ·  EQUIPPED" if ev.equipped else "  ·  SLOTS FULL"]
+	_grade_title.text = "%s  ·  %s  %s" % [c.display_name.to_upper(), kind, grade]
+	_grade_title.add_theme_color_override("font_color", color)
+	_grade_banner.border = color
 	var panel: PartyPanel = _party_panels[c]
-	panel.play_pulse(UiTheme.GOLD)
-	_popup(panel.popup_anchor() + Vector2(0, -60), "%s %s" % [kind, grade], UiTheme.GOLD, 46)
+	panel.play_pulse(color)
+	_popup(panel.popup_anchor() + Vector2(0, -60), "%s %s" % [kind, grade], color, 46)
 	if _grade_tween != null:
 		_grade_tween.kill()
 	# Takes the place of the art-name banner, which shows in the same spot.
@@ -485,7 +650,6 @@ func show_report(report: BattleReport) -> void:
 		if c.is_gone() or c.weapon() == null:
 			continue
 		var t := c.weapon().weapon_type
-		var step := c.progress.progress_to_next(t)
 		# Level-ups this battle, merged: "Lv 6 -> 8: HP +2, STR +1   ·   ".
 		var level_text := "Lv %d" % c.progress.level
 		var first := 0
@@ -498,15 +662,23 @@ func show_report(report: BattleReport) -> void:
 					gains[key] = int(gains.get(key, 0)) + int(up.gains[key])
 		if first > 0:
 			level_text = "LEVEL UP  Lv %d -> %d: %s" % [first - 1, c.progress.level, Levels.gains_text(gains)]
-		var text := "%s   ·   %s %s   +%d   (%s)" % [level_text, WeaponData.type_name(t), Proficiency.grade_name(c.progress.grade(t)), c.proficiency_gained,
-			"max grade" if step.y == 0 else "%d / %d to %s" % [step.x, step.y, Proficiency.grade_name(c.progress.grade(t) + 1)]]
+		# Weapon grade, and each magic school for anyone who knows spells (the weapon is left out for a
+		# caster who did not fight with it, to keep the line short).
+		var parts: Array[String] = [level_text]
+		if c.spells().is_empty() or c.proficiency_gained > 0 or c.magic_gained == 0:
+			parts.append(_grade_text(WeaponData.type_name(t), c.progress.grade(t), c.proficiency_gained, c.progress.progress_to_next(t)))
+		for s in c.progress.spell_schools():
+			parts.append(_grade_text(SpellData.school_name(s), c.progress.magic_grade(s), c.magic_gained, c.progress.magic_progress_to_next(s)))
+		var text := "   ·   ".join(parts)
 		var learned: Array[String] = []
 		var rose := first > 0
 		for g in report.grade_ups:
 			if g.actor == c:
 				rose = true
-				if g.art != null:
+				if g.get("art") != null:
 					learned.append((g.art as CombatArtData).display_name)
+				if g.get("spell") != null:
+					learned.append((g.spell as SpellData).display_name)
 		if not learned.is_empty():
 			text += "   learned " + ", ".join(learned)
 		_add_result_line(c.display_name.to_upper(), text, UiTheme.READY if first > 0 else (UiTheme.GOLD if rose else UiTheme.TEXT))
@@ -526,6 +698,12 @@ func show_report(report: BattleReport) -> void:
 	_overlay.visible = true
 	_overlay.modulate.a = 0.0
 	create_tween().tween_property(_overlay, "modulate:a", 1.0, 0.35)
+
+
+## "Sword D+   +3   (2 / 8 to C)" for the result screen.
+static func _grade_text(kind: String, grade: int, gained: int, step: Vector2i) -> String:
+	return "%s %s   +%d   (%s)" % [kind, Proficiency.grade_name(grade), gained,
+		"max grade" if step.y == 0 else "%d / %d to %s" % [step.x, step.y, Proficiency.grade_name(grade + 1)]]
 
 
 ## Result screen button: back to whoever started the battle.
@@ -558,8 +736,8 @@ func _after_change() -> void:
 	if not battle.can_act(_selected):
 		var ready := battle.ready_companions()
 		_selected = ready[0] if not ready.is_empty() else null
-		_mode = Mode.IDLE
-		_hot_enemy = null
+		_clear_targeting()
+		_spell_menu = false
 	_refresh()
 
 
@@ -607,25 +785,72 @@ func _refresh_party() -> void:
 		var arts: Array[String] = []
 		for a in c.arts():
 			arts.append(a.display_name)
-		panel.tooltip_text = "%s  ·  level %d\n%s\n\n%s %s%s\nArts: %s\n\nEnemies aim at this spot %d%% of the time." % [
+		var magic := ""
+		for s in c.progress.spell_schools():
+			magic += "\n%s %s" % [SpellData.school_name(s), Proficiency.grade_name(c.progress.magic_grade(s))]
+		if not c.spells().is_empty():
+			var spells: Array[String] = []
+			for sp in c.spells():
+				spells.append("%s %d/%d" % [sp.display_name, c.progress.uses_left(sp), sp.uses])
+			magic += "\nSpells: " + ", ".join(spells)
+		panel.tooltip_text = "%s  ·  level %d\n%s\n\n%s %s%s\nArts: %s%s\n\nEnemies aim at this spot %d%% of the time." % [
 			c.display_name, c.progress.level, _stat_sheet(c, Stat.COMPANION_KEYS), WeaponData.type_name(kind),
 			Proficiency.grade_name(c.progress.grade(kind)),
 			"" if step.y == 0 else "  (%d / %d to %s)" % [step.x, step.y, Proficiency.grade_name(c.progress.grade(kind) + 1)],
-			", ".join(arts) if not arts.is_empty() else "none", share]
+			", ".join(arts) if not arts.is_empty() else "none", magic, share]
 		panel.set_selection(c == _selected, not _busy and battle.can_act(c))
+		if _mode == Mode.TARGET_ALLY and not _busy and _spell != null and line.has(c):
+			var hot := _spell.targets_all() or c == _hot_ally
+			panel.set_spell_target(true, hot, _ally_preview(c),
+				float(battle.hp_after_heal(_selected, _spell, c)) if _spell.heals else -INF)
+		else:
+			panel.set_spell_target(false, false)
+
+
+## What the white spell waiting for a target would do to `c`, for the panel preview.
+func _ally_preview(c: CompanionUnit) -> String:
+	var parts: Array[String] = []
+	if _spell.heals:
+		var after := battle.hp_after_heal(_selected, _spell, c)
+		parts.append("HP %d → %d" % [c.hp, after])
+		if c.is_injured() and after > 0:
+			parts.append("BACK UP")
+	if _spell.cleanse:
+		var harmful: Array[String] = []
+		for e in c.effects:
+			if e.is_harmful():
+				harmful.append(e.display_name.to_upper())
+		parts.append("CLEARS " + ", ".join(harmful) if not harmful.is_empty() else "NO DEBUFFS")
+	if _spell.effect != null:
+		parts.append("+ " + _spell.effect.display_name.to_upper())
+	return "  ·  ".join(parts)
 
 
 func _refresh_enemies() -> void:
-	var targeting := _mode != Mode.IDLE and not _busy
+	var targeting := _aims_at_enemies() and not _busy
 	for e: EnemyUnit in _enemy_views:
 		var view: EnemyView = _enemy_views[e]
 		var hot := targeting and (e == _hot_enemy or (_targets_all() and e.is_alive()))
-		view.refresh(targeting, hot, "%s\n%s" % [e.display_name, _stat_sheet(e, Stat.ENEMY_KEYS)])
-		if hot and _selected != null:
+		view.refresh(targeting, hot, _enemy_tooltip(e))
+		if hot and _selected != null and _mode == Mode.TARGET_SPELL:
+			var note := ""
+			if _spell.delay_ticks > 0:
+				note = "ALREADY DELAYED" if e.delayed else "DELAYS +%d" % _spell.delay_ticks
+			view.set_forecast(battle.spell_forecast(_selected, _spell, e), 1, note)
+		elif hot and _selected != null:
 			var art := _art if _mode == Mode.TARGET_ART else null
 			view.set_forecast(battle.forecast(_selected, e, art), art.strikes if art != null else 1)
 		else:
 			view.set_forecast(null)
+
+
+func _enemy_tooltip(e: EnemyUnit) -> String:
+	var tip := "%s\n%s" % [e.display_name, _stat_sheet(e, Stat.ENEMY_KEYS)]
+	for t in e.traits():
+		tip += "\n\n" + EnemyTraits.describe(t)
+	if e.delayed and e.is_alive():
+		tip += "\n\nIts coming action has already been delayed once. Spells cannot delay it again until it acts."
+	return tip
 
 
 func _refresh_menu() -> void:
@@ -637,7 +862,12 @@ func _refresh_menu() -> void:
 			active = ActionMenu.ATTACK
 		elif _mode == Mode.TARGET_ART:
 			active = ActionMenu.art_id(_selected.arts().find(_art))
-		_menu.show_companion(_selected, battle, active, not _busy)
+		elif _mode == Mode.TARGET_SPELL or _mode == Mode.TARGET_ALLY:
+			active = ActionMenu.spell_id(_selected.spells().find(_spell))
+		if _spell_menu and not _selected.spells().is_empty():
+			_menu.show_spells(_selected, battle, active, not _busy, _spell_page)
+		else:
+			_menu.show_companion(_selected, battle, active, not _busy)
 	elif battle.can_wait() or _busy:
 		_menu.show_wait(not _busy, _next_ready())
 	else:
@@ -666,6 +896,12 @@ func _draw_log() -> void:
 			color = "#ff9a45"
 		elif line.contains("grade rises") or line.contains(" learns ") or line.contains("already knows every"):
 			color = "#f4c552"
+		elif line.contains(" recovers ") or line.contains("back on their feet") or line.contains("cleansed of"):
+			color = "#8ff0a4"
+		elif line.contains("delayed"):
+			color = "#bfe6ff"
+		elif line.contains(", effective"):
+			color = "#ffd84a"
 		elif line.contains("defeated") or line.begins_with("Victory"):
 			color = "#86e27a"
 		elif line.contains("Miss") or line.contains("dodges"):
@@ -821,11 +1057,11 @@ func _build_ui() -> void:
 	_grade_banner.visible = false
 	_grade_banner.z_index = 6
 	add_child(_grade_banner)
-	var kicker := UiTheme.label("GRADE UP", 20, UiTheme.GOLD_DEEP, true)
-	kicker.position = Vector2(80, 10)
-	kicker.size = Vector2(700, 24)
-	kicker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_grade_banner.add_child(kicker)
+	_grade_kicker = UiTheme.label("GRADE UP", 20, UiTheme.GOLD_DEEP, true)
+	_grade_kicker.position = Vector2(80, 10)
+	_grade_kicker.size = Vector2(700, 24)
+	_grade_kicker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_grade_banner.add_child(_grade_kicker)
 	_grade_title = UiTheme.label("", 48, UiTheme.GOLD, true, 8)
 	_grade_title.position = Vector2(60, 30)
 	_grade_title.size = Vector2(740, 56)
