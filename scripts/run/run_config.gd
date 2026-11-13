@@ -24,7 +24,7 @@ const DAILY_HEAL_FRACTION := 0.2
 ## Everyone injured in a battle (won or lost) goes to the infirmary: injured on day D, they are away
 ## days D+1 .. D+INFIRMARY_DAYS and come out at the start of day D+INFIRMARY_DAYS+1 at full HP.
 const INFIRMARY_DAYS := 4
-## Curing someone at once (the Cure free-day action) costs, in gold, the days still to serve x
+## Curing someone at once (the Cure free-day errand: gold only, never the day's action) costs, in gold, the days still to serve x
 ## (BASE + PER_LEVEL x their level): level 1 with 4 days left 24, level 10 with 4 days 96.
 const CURE_GOLD_PER_DAY_BASE := 4
 const CURE_GOLD_PER_DAY_PER_LEVEL := 2

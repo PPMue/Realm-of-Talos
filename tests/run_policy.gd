@@ -105,10 +105,11 @@ func pick_front(run: Run) -> Front:
 	return best
 
 
-## One action a day, so the first that applies: rest before a boss if anything is spent, mend badly
-## damaged walls, cure (see cure_best), fill the line, rest a hurt company, buy upgrades, rest a lightly hurt one, mend
-## the walls, train (see train). Every command after the first that succeeds is refused (except further purchases), so trying
-## them in order is enough.
+## One action a day (rest, repair or train), so the first that applies: rest before a boss if anything
+## is spent, mend badly damaged walls, rest a hurt company, rest a lightly hurt one, mend the walls,
+## train (see train). Every one after the first that succeeds is refused, so trying them in order is
+## enough. Between them, the errands that cost gold but never the action: cure (see cure_best), fill
+## the line at the tavern, buy upgrades; they are done whether or not the action is spent.
 func free_day(run: Run) -> void:
 	if run.is_over():
 		return
@@ -200,12 +201,17 @@ func _hybrid_wants(run: Run, c: RunCompanion, drill: Drill) -> bool:
 	return false
 
 
-## Cures one companion from the infirmary when the line is short, the gold is there and they are one
-## of the company's best (among the four highest levels) who would otherwise miss a battle or boss day
+## While the line is short, cures companions from the infirmary when the gold is there and they are
+## among the company's best (the four highest levels) and would otherwise miss a battle or boss day
 ## before coming out by themselves. The highest level first.
 func cure_best(run: Run) -> void:
+	while _cure_one(run):
+		pass
+
+
+func _cure_one(run: Run) -> bool:
 	if run.free_action_block_reason(Run.FreeAction.CURE) != "" or run.available().size() >= RunConfig.MAX_FIELDED:
-		return
+		return false
 	var by_level := run.roster.duplicate()
 	by_level.sort_custom(func(a: RunCompanion, b: RunCompanion) -> bool: return a.level() > b.level())
 	var best := by_level.slice(0, RunConfig.MAX_FIELDED)
@@ -222,6 +228,8 @@ func cure_best(run: Run) -> void:
 			pick = c
 	if pick != null and run.cure(pick):
 		cured += 1
+		return true
+	return false
 
 
 func pick_choice(run: Run) -> EventChoiceData:

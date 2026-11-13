@@ -588,29 +588,32 @@ func test_free_day_action_limits() -> void:
 	t.check(run.free_action_block_reason(Run.FreeAction.REPAIR).contains("Already"), "says why")
 	t.check(not run.rest(), "no time left to rest")
 	t.check(run.free_action_block_reason(Run.FreeAction.REST).contains("No actions"), "says why")
+	# Buying and hiring cost gold, never the action: still open after it is spent.
 	var item := run.shop_stock()[0]
-	t.check(run.buy(item) == null, "no action left for the shop")
-	t.check(run.buy_block_reason(item).contains("No actions"), "says why")
-	t.check(run.hire_block_reason(run.tavern_offers[0]).contains("No actions") if not run.tavern_offers.is_empty() else true, "no tavern either")
+	t.eq(run.buy_block_reason(item), "", "the smithy is open after the action")
+	t.check(run.buy(item) != null, "bought after the action")
+	if run.tavern_offers.is_empty():
+		run._make_tavern_offers()
+	t.check(run.hire(run.tavern_offers[0]) != null, "hired after the action")
+	t.eq(run.actions_left, 0, "neither gives the action back or takes another")
+	t.eq(run.actions_used, [Run.FreeAction.REPAIR] as Array[int], "only the repair is recorded as the action")
 	t.check(run.end_free_day(), "end the day")
 	t.eq(run.day, 2, "next day")
-	# Each of rest, shop and tavern also uses the one action.
-	for a in [Run.FreeAction.REST, Run.FreeAction.SHOP, Run.FreeAction.TAVERN]:
-		force_day(run, RunCalendar.DayType.FREE)
-		run.gold = 1000
-		run.roster[0].hp = 1
-		run.city_health = 50
-		match a:
-			Run.FreeAction.REST:
-				t.check(run.rest(), "rest")
-			Run.FreeAction.SHOP:
-				t.check(run.buy(run.shop_stock()[0]) != null, "buy")
-			Run.FreeAction.TAVERN:
-				if run.tavern_offers.is_empty():
-					run._make_tavern_offers()
-				t.check(run.hire(run.tavern_offers[0]) != null, "hire")
-		t.eq(run.actions_left, 0, "%s uses the day's action" % Run.FREE_ACTION_NAMES[a])
-		t.check(not run.repair(), "and nothing else after %s" % Run.FREE_ACTION_NAMES[a])
+	# Shop and tavern first: the action is still there for rest, repair or train.
+	force_day(run, RunCalendar.DayType.FREE)
+	run.gold = 1000
+	run.roster[0].hp = 1
+	run.city_health = 50
+	t.check(run.buy(run.shop_stock()[0]) != null, "buy")
+	t.check(run.buy(run.shop_stock()[0]) != null, "buy again")
+	if run.tavern_offers.is_empty():
+		run._make_tavern_offers()
+	t.check(run.hire(run.tavern_offers[0]) != null, "hire")
+	t.eq(run.actions_left, 1, "the day's action is untouched")
+	t.eq(run.errand_block_reason(), "", "errands are open")
+	t.check(run.rest(), "and the day's action: rest")
+	t.eq(run.actions_left, 0, "rest uses it")
+	t.check(not run.repair(), "and nothing else after it")
 	# Unused actions are lost.
 	force_day(run, RunCalendar.DayType.FREE)
 	t.eq(run.actions_left, 1, "a fresh free day has one again")
@@ -621,6 +624,14 @@ func test_free_day_action_limits() -> void:
 	# Not on other days.
 	force_day(run, RunCalendar.DayType.BATTLE)
 	t.check(not run.rest(), "no rest on a battle day")
+	t.eq(run.errand_block_reason(), "Only on free days.", "no errands on a battle day")
+	run.gold = 1000
+	t.check(run.buy(run.shop_stock()[0]) == null, "no buying on a battle day")
+	t.eq(run.buy_block_reason(run.shop_stock()[0]), "Only on free days.", "says why")
+	if run.tavern_offers.is_empty():
+		run._make_tavern_offers()
+	t.check(run.hire(run.tavern_offers[0]) == null, "no hiring on a battle day")
+	t.eq(run.hire_block_reason(run.tavern_offers[0]), "Only on free days.", "says why")
 	t.check(not run.end_free_day(), "no ending a battle day without the battle")
 
 
@@ -640,11 +651,16 @@ func test_event_opens_free_day() -> void:
 	run.city_health = 50
 	run.materials = {RunConfig.IRON_ORE: 5, RunConfig.TIMBER: 5}
 	run.roster[0].hp = 1
-	for a in [Run.FreeAction.REST, Run.FreeAction.REPAIR, Run.FreeAction.SHOP, Run.FreeAction.TAVERN]:
+	for a in [Run.FreeAction.REST, Run.FreeAction.REPAIR, Run.FreeAction.SHOP, Run.FreeAction.TAVERN, Run.FreeAction.CURE]:
 		t.eq(run.free_action_block_reason(a), Run.EVENT_FIRST, "%s waits for the event" % Run.FREE_ACTION_NAMES[a])
 		t.eq(run.visit_block_reason(a), Run.EVENT_FIRST, "%s cannot be visited yet" % Run.FREE_ACTION_NAMES[a])
+	t.eq(run.errand_block_reason(), Run.EVENT_FIRST, "errands wait for the event too")
 	t.check(not run.rest() and not run.repair(), "nothing done yet")
 	t.check(run.buy(run.shop_stock()[0]) == null, "nothing bought yet")
+	if run.tavern_offers.is_empty():
+		run._make_tavern_offers()
+	t.check(run.hire(run.tavern_offers[0]) == null, "nobody hired yet")
+	t.eq(run.hire_block_reason(run.tavern_offers[0]), Run.EVENT_FIRST, "says why")
 	t.check(not run.end_free_day(), "the day cannot end before the event is answered")
 	t.eq(run.day, first, "still the same day")
 	t.check(run.can_change_party(), "the party can still be changed")
@@ -745,18 +761,18 @@ func test_shop_and_equip_requirement() -> void:
 	run.gold = steel.price - 1
 	t.check(run.buy(steel) == null, "cannot afford")
 	t.check(run.buy_block_reason(steel).contains("gold"), "says gold")
-	t.eq(run.actions_left, 1, "no action spent on a failed purchase")
+	t.eq(run.actions_left, 1, "no action spent")
 	run.gold = 1000
 	var owned := run.buy(steel)
 	t.check(owned != null, "bought")
 	t.eq(run.gold, 1000 - steel.price, "paid")
-	t.eq(run.actions_left, 0, "the shop uses the day's action")
+	t.eq(run.actions_left, 1, "the shop never uses the day's action")
 	t.check(owned.holder == null, "goes to the armory")
 	t.check(not run.shop_stock().has(steel), "one of each: the iron weapon is gone for the week")
 	t.check(run.buy(steel) == null and run.buy_block_reason(steel).contains("this week"), "and cannot be bought again")
 	var other := run.shop_stock()[0]
 	t.check(run.buy(other) != null, "a second purchase the same visit")
-	t.eq(run.actions_left, 0, "is free")
+	t.eq(run.actions_left, 1, "still no action used")
 	# Equip requirement: companions start at D, iron needs C.
 	t.eq(c.progress.grade(kind), Proficiency.Grade.D, "starts at D")
 	var old := run.inventory.held_by(c)
@@ -813,7 +829,7 @@ func test_tavern_hiring() -> void:
 	t.eq(c.hp, c.max_hp(), "full HP")
 	t.eq(run.inventory.held_by(c).data, pick.weapon, "brings their weapon")
 	t.check(not run.tavern_offers.has(pick), "no longer offered")
-	t.eq(run.actions_left, 0, "the tavern uses the day's action")
+	t.eq(run.actions_left, 1, "the tavern never uses the day's action")
 
 
 func test_repair() -> void:

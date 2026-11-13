@@ -9,7 +9,7 @@ extends RefCounted
 ##      event); on the first day of a week the tavern and the smithy restock and drills are posted
 ##   2. the player may change the party freely (who is fielded, their order, weapons, arts)
 ##   3. the player commits to the activity: a battle, or on a free day the event's choice first (if the
-##      day has one), then the free-day action, then End day
+##      day has one), then the free-day action and any errands (smithy, tavern, infirmary), then End day
 ##   4. ends: every companion not in the infirmary heals 20% of max HP, the run checks for its end, the
 ##      next day begins (and whoever's infirmary stay is over comes out)
 ##
@@ -408,14 +408,31 @@ const EVENT_FIRST := "First answer the matter at the gate."
 const NO_USEFUL_DRILL := "Nobody can learn anything from this week's drills."
 
 
-func free_action_block_reason(a: FreeAction) -> String:
+## Why the smithy, the tavern and the infirmary cannot be used now, or "": only on free days, once
+## the day's event is answered. Buying, hiring and curing cost gold, never the day's action, and can
+## be done any number of times, before or after it.
+func errand_block_reason() -> String:
 	if is_over() or day_type() != RunCalendar.DayType.FREE:
 		return "Only on free days."
 	if event_pending():
 		return EVENT_FIRST
-	if actions_used.has(a):
+	return ""
+
+
+## True for the free-day errands that cost gold but not the day's action (shop, tavern, cure).
+static func is_errand(a: FreeAction) -> bool:
+	return a == FreeAction.SHOP or a == FreeAction.TAVERN or a == FreeAction.CURE
+
+
+## Why `a` cannot be done now, or "". Rest, repair and train share the day's one action; shop,
+## tavern and cure are errands (see errand_block_reason) and never use it.
+func free_action_block_reason(a: FreeAction) -> String:
+	var why := errand_block_reason()
+	if why != "":
+		return why
+	if not is_errand(a) and actions_used.has(a):
 		return "Already done today."
-	if actions_left <= 0:
+	if not is_errand(a) and actions_left <= 0:
 		return "No actions left today."
 	match a:
 		FreeAction.REST:
@@ -440,11 +457,10 @@ func free_action_block_reason(a: FreeAction) -> String:
 	return ""
 
 
-## Shop and tavern can be visited without spending anything; the action is spent on the first
-## purchase or hire, and further ones the same day are free.
+## Why the smithy (SHOP), tavern (TAVERN) or infirmary (CURE) cannot be used now, or "". The same as
+## free_action_block_reason for them: free days, the event first, and their own checks (someone to
+## hire, someone to cure). They never use the day's action.
 func visit_block_reason(a: FreeAction) -> String:
-	if actions_used.has(a) and not is_over() and day_type() == RunCalendar.DayType.FREE and not event_pending():
-		return ""
 	return free_action_block_reason(a)
 
 
@@ -470,7 +486,8 @@ func cure_cost(c: RunCompanion) -> int:
 	return c.days_left(day) * (RunConfig.CURE_GOLD_PER_DAY_BASE + RunConfig.CURE_GOLD_PER_DAY_PER_LEVEL * c.level())
 
 
-## Why `c` cannot be cured now, or "". Cure is a free-day action (FreeAction.CURE).
+## Why `c` cannot be cured now, or "". Curing is a free-day errand (FreeAction.CURE): gold only, never
+## the day's action.
 func cure_block_reason(c: RunCompanion) -> String:
 	var why := free_action_block_reason(FreeAction.CURE)
 	if why != "" and why != "Nobody is in the infirmary.":
@@ -482,13 +499,12 @@ func cure_block_reason(c: RunCompanion) -> String:
 	return ""
 
 
-## Spends the day's action and cure_cost(c) gold: `c` comes out of the infirmary at once, at full HP,
-## onto the bench (and can be fielded the same day).
+## Pays cure_cost(c) gold: `c` comes out of the infirmary at once, at full HP, onto the bench (and can
+## be fielded the same day). Does not use the day's action; any number a day.
 func cure(c: RunCompanion) -> bool:
 	if cure_block_reason(c) != "":
 		return false
 	gold -= cure_cost(c)
-	_spend(FreeAction.CURE)
 	_release(c)
 	return true
 
@@ -553,12 +569,10 @@ func choice_weapon(choice: EventChoiceData) -> WeaponData:
 
 
 ## Buys a weapon into the armory. Returns it, or null. The item is gone from the smithy until the
-## next week.
+## next week. Costs gold only, never the day's action.
 func buy(item: ShopItemData) -> OwnedWeapon:
 	if buy_block_reason(item) != "":
 		return null
-	if not actions_used.has(FreeAction.SHOP):
-		_spend(FreeAction.SHOP)
 	gold -= item.price
 	shop_week.erase(item)
 	return inventory.add(item.weapon)
@@ -577,12 +591,10 @@ func hire_block_reason(data: CompanionData) -> String:
 
 ## Hires a companion offered at the tavern. They join at the roster's average level (rounded down)
 ## with the stat gains for those levels rolled now, at full HP, with their own weapon, and are fielded
-## if the line has room.
+## if the line has room. Costs gold only, never the day's action.
 func hire(data: CompanionData) -> RunCompanion:
 	if hire_block_reason(data) != "":
 		return null
-	if not actions_used.has(FreeAction.TAVERN):
-		_spend(FreeAction.TAVERN)
 	gold -= RunConfig.HIRE_COST
 	tavern_offers.erase(data)
 	var level := hire_level()

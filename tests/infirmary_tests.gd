@@ -265,19 +265,34 @@ func test_cure_action() -> void:
 	t.eq(run.free_action_block_reason(Run.FreeAction.CURE), "", "the building is open")
 	t.check(run.cure(c), "cured")
 	t.eq(run.gold, 5, "paid")
-	t.eq(run.actions_left, 0, "the day's action is spent")
-	t.check(run.actions_used.has(Run.FreeAction.CURE), "as Cure")
+	t.eq(run.actions_left, 1, "the day's action is untouched")
+	t.check(not run.actions_used.has(Run.FreeAction.CURE), "a cure is never the day's action")
 	t.check(not c.injured and run.infirmary().is_empty(), "out of the infirmary")
 	t.eq(c.hp, c.max_hp(), "at full HP")
 	t.check(run.reserve().has(c) or run.lineup.has(c), "on the bench")
 	run.bench(c)
 	t.eq(run.field_block_reason(c), "", "can be fielded the same day")
 	t.check(run.field(c), "fielded")
-	# Action used: another cure is blocked.
+	# Another cure the same day, and after the day's action too.
 	var other := run.roster[1]
 	run._to_infirmary(other)
 	run.gold = 10000
-	t.eq(run.cure_block_reason(other), "Already done today.", "the action is used")
+	run.roster[0].hp = 1
+	t.check(run.rest(), "the day's action: rest")
+	t.eq(run.cure_block_reason(other), "", "curing is still open after it")
+	t.check(run.cure(other), "a second cure the same day")
+	t.eq(run.actions_left, 0, "the cure takes no action of its own")
+	t.eq(run.actions_used, [Run.FreeAction.REST] as Array[int], "only the rest is recorded as the action")
+	# Two cures in a row, both before the action.
+	run.end_free_day()
+	force_day(run, RunCalendar.DayType.FREE)
+	run._to_infirmary(run.roster[0])
+	run._to_infirmary(other)
+	run.gold = 10000
+	t.check(run.cure(run.roster[0]) and run.cure(other), "two cures the same day")
+	t.eq(run.actions_left, 1, "and the day's action is still there")
+	t.check(run.infirmary().is_empty(), "both out")
+	run._to_infirmary(other)
 	# Not on a battle day; not before the event.
 	force_day(run, RunCalendar.DayType.BATTLE)
 	t.eq(run.cure_block_reason(other), "Only on free days.", "not on a battle day")
