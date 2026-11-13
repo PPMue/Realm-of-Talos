@@ -1,7 +1,7 @@
 class_name ArtsScreen
 extends Control
 ## Between battles: each companion's weapon grades and known combat arts, and which (up to three)
-## are equipped. Reached from the result screen only. Changes go straight into the party's
+## are equipped. Reached from the party screen. Changes go straight into the party's
 ## CompanionProgress, so the next battle uses them.
 
 signal closed
@@ -69,7 +69,7 @@ func _refresh() -> void:
 	for p: CompanionProgress in _tabs:
 		_style_tab(_tabs[p], p)
 	var p := _current
-	var w := p.data.weapon
+	var w := p.weapon
 	_name.text = p.data.display_name.to_upper()
 	_weapon.text = "%s  ·  %s weapon, needs grade %s" % [w.display_name, WeaponData.type_name(w.weapon_type).to_lower(),
 		Proficiency.grade_name(w.required_grade)] if w != null else "No weapon"
@@ -97,7 +97,7 @@ func _refresh() -> void:
 
 ## Known arts in a stable order (so cards do not jump when toggled): the weapon held first, then by tier.
 func _sorted_arts(p: CompanionProgress) -> Array[CombatArtData]:
-	var held := p.data.weapon.weapon_type if p.data.weapon != null else -1
+	var held := p.weapon.weapon_type if p.weapon != null else -1
 	var arts := p.known_arts.duplicate()
 	arts.sort_custom(func(a: CombatArtData, b: CombatArtData) -> bool:
 		var ka := [0 if a.weapon_type == held else 1, a.weapon_type, 0 if a == p.data.signature_art else 1, a.tier, a.display_name]
@@ -142,7 +142,7 @@ func _style_tab(tab: Control, p: CompanionProgress) -> void:
 	art.border = UiTheme.GOLD if selected else UiTheme.EDGE
 	art.border_width = 5.0 if selected else 2.0
 	art.tint = Color.WHITE if selected else Color(0.62, 0.64, 0.72)
-	var w := p.data.weapon
+	var w := p.weapon
 	var grade: Label = tab.get_node("Grade")
 	grade.text = "%s %s   ·   %d ARTS" % [WeaponData.type_name(w.weapon_type).to_upper(), Proficiency.grade_name(p.grade(w.weapon_type)),
 		p.known_arts.size()] if w != null else ""
@@ -229,7 +229,7 @@ func _build() -> void:
 
 	var back := Button.new()
 	back.text = "BACK"
-	back.tooltip_text = "Back to the result screen."
+	back.tooltip_text = "Back to the party."
 	back.focus_mode = Control.FOCUS_NONE
 	back.add_theme_font_size_override("font_size", 32)
 	back.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)

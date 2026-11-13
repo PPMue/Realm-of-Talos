@@ -1,3 +1,4 @@
+class_name BattleScreen
 extends Control
 ## Battle screen. Builds the UI, reads Battle state, sends commands and plays back what happened.
 ## No battle rules live here; see res://scripts/battle/battle.gd.
@@ -5,9 +6,12 @@ extends Control
 ## Layout: the chosen companion's art and actions on the left, enemies standing on the stage,
 ## the party as a row of panels along the bottom (rightmost = nearest the enemies).
 ##
-## The party's progress (weapon grades, known and equipped arts) lives in `party` and is carried
-## from one battle to the next. Fight again keeps it; Start over makes it fresh; the Restart button
-## during a battle throws away what that battle had gained.
+## It plays a battle prepared by the run (Run.start_battle) and does not own the game loop: when the
+## battle is over it emits `finished`; the owner applies the result to the run and hands the report
+## back with show_report(), and the result screen's button emits `closed`.
+
+signal finished(battle: Battle)
+signal closed
 
 enum Mode { IDLE, TARGET_ATTACK, TARGET_ART }
 
@@ -22,14 +26,8 @@ const STAGGER_FROM := 3
 const ART_OVERLAP := 1.1
 const ART_OVERLAP_STAGGERED := 1.45
 
-@export var setup: BattleSetup
-
 var battle: Battle
-## Each companion's run progress, in setup.companions order.
-var party: Array[CompanionProgress] = []
 
-var _party_at_start: Array[CompanionProgress] = []
-var _art_pool: Array[CombatArtData] = []
 var _selected: CompanionUnit
 var _mode := Mode.IDLE
 ## The art waiting for a target while in TARGET_ART.
@@ -39,12 +37,12 @@ var _busy := false
 var _skip := false
 var _generation := 0
 var _logged := 0
-var _seed := 0
 
 var _party_panels: Dictionary = {}   # CompanionUnit -> PartyPanel
 var _enemy_views: Dictionary = {}    # EnemyUnit -> EnemyView
 
 var _tick_label: Label
+var _title: Label
 var _menu := ActionMenu.new()
 var _stage := Control.new()
 var _party_row := HBoxContainer.new()
@@ -56,41 +54,27 @@ var _log_panel := PanelContainer.new()
 var _log := RichTextLabel.new()
 var _overlay := ColorRect.new()
 var _result_label: Label
-var _result_summary: Label
+var _result_lines := VBoxContainer.new()
+var _result_button: Button
+var _result_bg := SlantPanel.new()
 var _grade_banner := SlantPanel.new()
 var _grade_title: Label
 var _grade_detail: Label
 var _grade_tween: Tween
-var _arts_screen := ArtsScreen.new()
 
 
-func _ready() -> void:
-	if setup == null:
-		setup = load("res://data/battles/prototype_battle.tres")
+func _init() -> void:
 	theme = UiTheme.theme()
-	var library := ArtLibrary.load_default()
-	if library != null:
-		_art_pool = library.arts
-	party = CompanionProgress.create_party(setup.companions)
 	_build_ui()
-	start_battle()
 
 
-## Starts a battle with the party's current progress. HP, stamina and removed companions are restored.
-func start_battle() -> void:
-	_party_at_start.clear()
-	for p in party:
-		_party_at_start.append(p.copy())
+## Shows `p_battle` (already set up by the run) from its first tick. `title` names the place.
+func start(p_battle: Battle, title: String) -> void:
 	_generation += 1
 	_busy = false
 	_skip = false
-	var rng := RandomNumberGenerator.new()
-	if setup.rng_seed != 0:
-		rng.seed = setup.rng_seed
-	else:
-		rng.randomize()
-	_seed = rng.seed
-	battle = Battle.new(setup.companions, setup.enemies, rng, party, _art_pool)
+	battle = p_battle
+	_title.text = title.to_upper()
 
 	for child in _party_row.get_children() + _stage.get_children() + _popups.get_children():
 		child.get_parent().remove_child(child)
@@ -124,31 +108,8 @@ func start_battle() -> void:
 	_overlay.visible = false
 	_banner.visible = false
 	_grade_banner.visible = false
-	_arts_screen.visible = false
+	_layout_enemies.call_deferred()
 	_after_change()
-
-
-## Result screen: next battle, keeping grades and arts.
-func fight_again() -> void:
-	start_battle()
-
-
-## Result screen: a fresh party, as at the start of a run.
-func start_over() -> void:
-	party = CompanionProgress.create_party(setup.companions)
-	start_battle()
-
-
-## Top bar: replays this battle from the start, without what it had gained.
-func restart_battle() -> void:
-	party = _party_at_start
-	start_battle()
-
-
-func open_arts_screen() -> void:
-	if not battle.is_over():
-		return
-	_arts_screen.open(party)
 
 
 func is_busy() -> bool:
@@ -243,6 +204,8 @@ func _on_enemy_hover(inside: bool, e: EnemyUnit) -> void:
 
 ## _input rather than _unhandled_input: right-click must cancel even over an enemy or a panel.
 func _input(event: InputEvent) -> void:
+	if not is_visible_in_tree() or battle == null:
+		return
 	var mb := event as InputEventMouseButton
 	if mb != null and mb.pressed:
 		if _busy:
@@ -251,7 +214,11 @@ func _input(event: InputEvent) -> void:
 			cancel_targeting()
 		return
 	var key := event as InputEventKey
-	if key == null or not key.pressed or key.echo or _arts_screen.visible:
+	if key == null or not key.pressed or key.echo:
+		return
+	if _overlay.visible:
+		if key.keycode in [KEY_ENTER, KEY_SPACE, KEY_KP_ENTER]:
+			close()
 		return
 	if _busy:
 		_skip = true
@@ -323,7 +290,7 @@ func _play(events: Array[Dictionary], generation: int) -> void:
 	_busy = false
 	_after_change()
 	if battle.is_over():
-		_show_result()
+		finished.emit(battle)
 
 
 ## Shows one event and returns how long to hold before the next.
@@ -489,36 +456,72 @@ func _show_grade_up(ev: Dictionary) -> void:
 	_grade_tween.tween_callback(func() -> void: _grade_banner.visible = false)
 
 
-func _show_result() -> void:
-	var victory := battle.outcome == Battle.Outcome.VICTORY
-	_result_summary.text = _progress_summary()
-	_result_label.text = "VICTORY" if victory else "DEFEAT"
-	_result_label.add_theme_color_override("font_color", UiTheme.GOLD if victory else UiTheme.INJURED)
+## The result screen: won or lost, what it gave or cost the city, who was hurt, grades gained.
+func show_report(report: BattleReport) -> void:
+	var won := report.won
+	_result_label.text = "VICTORY" if won else "DEFEAT"
+	_result_label.add_theme_color_override("font_color", UiTheme.GOLD if won else UiTheme.INJURED)
+	for child in _result_lines.get_children():
+		_result_lines.remove_child(child)
+		child.queue_free()
+	if won:
+		var gains: Array[String] = ["+%d GOLD" % report.gold]
+		for m in RunConfig.MATERIAL_ORDER:
+			if int(report.materials.get(m, 0)) > 0:
+				gains.append("+%d %s" % [int(report.materials[m]), String(RunConfig.MATERIAL_NAMES[m]).to_upper()])
+		_add_result_line("REWARD", "   ".join(gains), UiTheme.GOLD)
+	elif report.front.is_boss:
+		_add_result_line("THE CITY", "%s breaks through. The city falls." % report.front.group.display_name, UiTheme.INJURED)
+	else:
+		_add_result_line("THE CITY", "loses %d health." % report.city_damage, UiTheme.INJURED)
+	if not report.injured.is_empty():
+		_add_result_line("INJURED", "%s  (back at %d HP)" % [", ".join(report.injured), RunConfig.INJURED_RETURN_HP], UiTheme.RECOVERING)
+	if not report.removed.is_empty():
+		_add_result_line("GONE", "%s  (gone for the rest of the run)" % ", ".join(report.removed), UiTheme.INJURED)
+	for c in battle.roster:
+		if c.is_gone() or c.weapon() == null:
+			continue
+		var t := c.weapon().weapon_type
+		var step := c.progress.progress_to_next(t)
+		var text := "%s %s   +%d   (%s)" % [WeaponData.type_name(t), Proficiency.grade_name(c.progress.grade(t)), c.proficiency_gained,
+			"max grade" if step.y == 0 else "%d / %d to %s" % [step.x, step.y, Proficiency.grade_name(c.progress.grade(t) + 1)]]
+		var learned: Array[String] = []
+		var rose := false
+		for g in report.grade_ups:
+			if g.actor == c:
+				rose = true
+				if g.art != null:
+					learned.append((g.art as CombatArtData).display_name)
+		if not learned.is_empty():
+			text += "   learned " + ", ".join(learned)
+		_add_result_line(c.display_name.to_upper(), text, UiTheme.GOLD if rose else UiTheme.TEXT)
+	# The summary panel and the button follow the number of lines.
+	var bottom := -24.0 + _result_lines.get_child_count() * 36.0 + 26.0
+	_result_bg.offset_bottom = bottom
+	_result_button.offset_top = bottom + 26.0
+	_result_button.offset_bottom = bottom + 94.0
+	_result_button.text = "CONTINUE" if report.run_over else "BACK TO THE CITY"
 	_overlay.visible = true
 	_overlay.modulate.a = 0.0
 	create_tween().tween_property(_overlay, "modulate:a", 1.0, 0.35)
 
 
-## One line per companion: grade in the weapon held, points gained, arts learned this battle.
-func _progress_summary() -> String:
-	var lines: Array[String] = []
-	for c in battle.roster:
-		var w := c.weapon()
-		if w == null:
-			continue
-		var t := w.weapon_type
-		var step := c.progress.progress_to_next(t)
-		var next := "max grade" if step.y == 0 else "%d / %d to %s" % [step.x, step.y, Proficiency.grade_name(c.progress.grade(t) + 1)]
-		var line := "%s   %s %s   +%d   (%s)" % [c.display_name.to_upper(), WeaponData.type_name(t), Proficiency.grade_name(c.progress.grade(t)),
-			c.proficiency_gained, next]
-		var learned: Array[String] = []
-		for g in battle.grade_ups:
-			if g.actor == c and g.art != null:
-				learned.append((g.art as CombatArtData).display_name)
-		if not learned.is_empty():
-			line += "   learned " + ", ".join(learned)
-		lines.append(line)
-	return "\n".join(lines)
+## Result screen button: back to whoever started the battle.
+func close() -> void:
+	if battle != null and battle.is_over() and _overlay.visible:
+		closed.emit()
+
+
+func _add_result_line(head: String, text: String, color: Color) -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 18)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var h := UiTheme.label(head, 24, UiTheme.MUTED, true, 6)
+	h.custom_minimum_size = Vector2(190, 0)
+	h.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	row.add_child(h)
+	row.add_child(UiTheme.label(text, 22, color, false, 6))
+	_result_lines.add_child(row)
 
 
 # ---------------------------------------------------------------- drawing from state
@@ -722,9 +725,9 @@ func _build_ui() -> void:
 	add_child(_party_row)
 
 	# Top bar.
-	var title := UiTheme.label("REALM OF TALOS", 26, Color(UiTheme.GOLD, 0.85), true, 6)
-	title.position = Vector2(38, 26)
-	add_child(title)
+	_title = UiTheme.label("", 26, Color(UiTheme.GOLD, 0.85), true, 6)
+	_title.position = Vector2(38, 26)
+	add_child(_title)
 
 	var pennant := SlantPanel.new()
 	pennant.fill = Color(UiTheme.INK, 0.9)
@@ -758,12 +761,6 @@ func _build_ui() -> void:
 	log_btn.focus_mode = Control.FOCUS_NONE
 	log_btn.pressed.connect(_toggle_log)
 	top_right.add_child(log_btn)
-	var restart := Button.new()
-	restart.text = "RESTART"
-	restart.tooltip_text = "Start this battle again. Proficiency and arts gained in it are lost."
-	restart.focus_mode = Control.FOCUS_NONE
-	restart.pressed.connect(restart_battle)
-	top_right.add_child(restart)
 
 	# Enemy action banner, above the stage.
 	_banner.fill = Color(UiTheme.INK, 0.93)
@@ -839,7 +836,7 @@ func _build_ui() -> void:
 	_log_panel.add_child(_log)
 
 	# Result overlay.
-	_overlay.color = Color(UiTheme.INK, 0.72)
+	_overlay.color = Color(UiTheme.INK, 0.8)
 	_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_overlay.visible = false
 	_overlay.z_index = 9
@@ -851,47 +848,42 @@ func _build_ui() -> void:
 	ribbon.set_anchors_preset(Control.PRESET_CENTER)
 	ribbon.offset_left = -520.0
 	ribbon.offset_right = 520.0
-	ribbon.offset_top = -150.0
-	ribbon.offset_bottom = 60.0
+	ribbon.offset_top = -270.0
+	ribbon.offset_bottom = -70.0
 	_overlay.add_child(ribbon)
 	_result_label = UiTheme.label("", 150, UiTheme.GOLD, true)
 	_result_label.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_result_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_result_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	ribbon.add_child(_result_label)
-	var buttons := HBoxContainer.new()
-	buttons.set_anchors_preset(Control.PRESET_CENTER)
-	buttons.offset_left = -520.0
-	buttons.offset_right = 520.0
-	buttons.offset_top = 96.0
-	buttons.offset_bottom = 160.0
-	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
-	buttons.add_theme_constant_override("separation", 28)
-	_overlay.add_child(buttons)
-	for spec: Array in [
-			["FIGHT AGAIN", fight_again, "Fight the same battle again. Grades and arts are kept; HP, stamina and everyone who fell are restored."],
-			["ARTS", open_arts_screen, "See each companion's weapon grades and arts, and choose which arts to equip."],
-			["START OVER", start_over, "Begin again with a fresh party: starting grades and signature arts only."]]:
-		var b := Button.new()
-		b.text = spec[0]
-		b.tooltip_text = spec[2]
-		b.focus_mode = Control.FOCUS_NONE
-		b.custom_minimum_size = Vector2(300, 64)
-		b.add_theme_font_size_override("font_size", 34)
-		b.pressed.connect(spec[1])
-		buttons.add_child(b)
-	_result_summary = UiTheme.label("", 22, UiTheme.TEXT, false, 6)
-	_result_summary.set_anchors_preset(Control.PRESET_CENTER)
-	_result_summary.offset_left = -520.0
-	_result_summary.offset_right = 520.0
-	_result_summary.offset_top = 190.0
-	_result_summary.offset_bottom = 340.0
-	_result_summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_overlay.add_child(_result_summary)
-
-	_arts_screen.visible = false
-	_arts_screen.z_index = 10
-	add_child(_arts_screen)
+	var lines_bg := _result_bg
+	lines_bg.fill = Color(UiTheme.INK, 0.94)
+	lines_bg.border = UiTheme.EDGE
+	lines_bg.set_anchors_preset(Control.PRESET_CENTER)
+	lines_bg.offset_left = -640.0
+	lines_bg.offset_right = 640.0
+	lines_bg.offset_top = -50.0
+	lines_bg.offset_bottom = 300.0
+	_overlay.add_child(lines_bg)
+	_result_lines.set_anchors_preset(Control.PRESET_CENTER)
+	_result_lines.offset_left = -520.0
+	_result_lines.offset_right = 560.0
+	_result_lines.offset_top = -24.0
+	_result_lines.offset_bottom = 300.0
+	_result_lines.add_theme_constant_override("separation", 6)
+	_result_lines.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_overlay.add_child(_result_lines)
+	_result_button = Button.new()
+	_result_button.text = "BACK TO THE CITY"
+	_result_button.focus_mode = Control.FOCUS_NONE
+	_result_button.set_anchors_preset(Control.PRESET_CENTER)
+	_result_button.offset_left = -230.0
+	_result_button.offset_right = 230.0
+	_result_button.offset_top = 320.0
+	_result_button.offset_bottom = 388.0
+	_result_button.add_theme_font_size_override("font_size", 34)
+	_result_button.pressed.connect(close)
+	_overlay.add_child(_result_button)
 
 
 func _row_marker(text: String) -> Label:
