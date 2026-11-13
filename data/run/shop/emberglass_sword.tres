@@ -6,6 +6,6 @@
 [resource]
 script = ExtResource("1_s")
 weapon = ExtResource("2_w")
-price = 220
+price = 150
 min_day = 8
 chance = 0.15

@@ -41,14 +41,15 @@ might = 7
 
 [resource]
 script = ExtResource("4_q4y1p")
+traits = Array[String](["Large"])
 display_name = "Cursed Dweller"
 portrait = ExtResource("3_e3vvx")
 color = Color(0.55, 0.5, 0.55, 1)
 stage_scale = 1.25
 band = 3
 role = "Slow heavy hitter that works itself into a frenzy."
-max_hp = 105
-strength = 18
+max_hp = 94
+strength = 16
 crit = 3
 dexterity = 8
 defense = 8

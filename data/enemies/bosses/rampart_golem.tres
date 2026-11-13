@@ -40,14 +40,15 @@ effect = SubResource("Resource_4esqo")
 
 [resource]
 script = ExtResource("4_g860h")
+traits = Array[String](["Large"])
 display_name = "Rampart Golem"
 portrait = ExtResource("3_ag6xu")
 color = Color(0.5, 0.45, 0.3, 1)
 stage_scale = 1.5
 band = 0
 role = "Stone hide, slow crushing blows, and a brace that halves damage."
-max_hp = 170
-strength = 17
+max_hp = 109
+strength = 15
 dexterity = 6
 speed = 1
 defense = 11

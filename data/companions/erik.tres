@@ -2,7 +2,7 @@
 
 [ext_resource type="Texture2D" path="res://assets/character/erik.png" id="1_4f0ir"]
 [ext_resource type="Script" path="res://scripts/data/companion_data.gd" id="2_wfi8r"]
-[ext_resource type="Resource" path="res://data/weapons/iron_bow.tres" id="3_ktahn"]
+[ext_resource type="Resource" path="res://data/weapons/wooden_bow.tres" id="3_ktahn"]
 [ext_resource type="Resource" path="res://data/arts/bow/aimed_shot.tres" id="4_sig"]
 
 [resource]
@@ -11,7 +11,8 @@ display_name = "Erik"
 portrait = ExtResource("1_4f0ir")
 color = Color(0.3, 0.45, 0.25, 1)
 portrait_focus = Vector2(0.48, 0.234)
-max_hp = 22
+max_hp = 19
+max_sta = 17
 strength = 7
 magic = 3
 crit = 7

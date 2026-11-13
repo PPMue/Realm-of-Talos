@@ -2,7 +2,7 @@
 
 [ext_resource type="Texture2D" path="res://assets/character/sylas.png" id="1_art"]
 [ext_resource type="Script" path="res://scripts/data/companion_data.gd" id="2_script"]
-[ext_resource type="Resource" path="res://data/weapons/iron_dagger.tres" id="3_weapon"]
+[ext_resource type="Resource" path="res://data/weapons/wooden_dagger.tres" id="3_weapon"]
 [ext_resource type="Resource" path="res://data/spells/black/frost_needle.tres" id="4_spell"]
 
 [resource]
@@ -12,8 +12,8 @@ portrait = ExtResource("1_art")
 color = Color(0.25, 0.6, 0.5, 1)
 portrait_focus = Vector2(0.539, 0.119)
 figure_scale = 1.25
-max_hp = 24
-max_sta = 25
+max_hp = 20
+max_sta = 14
 strength = 4
 magic = 8
 crit = 4

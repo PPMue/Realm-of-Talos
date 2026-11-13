@@ -5,9 +5,11 @@
 [resource]
 script = ExtResource("1_w")
 weapon_type = 2
-might = 7
+tier = 1
+might = 6
 hit = 80
 damage_type = 1
 required_grade = 2
+effective_against = Array[String](["Large"])
 display_name = "Stormcall Pike"
 weight = 7

@@ -1,22 +1,22 @@
 [gd_resource type="Resource" script_class="EventData" format=3]
 
 [ext_resource type="Script" path="res://scripts/data/event_choice_data.gd" id="1_gairs"]
-[ext_resource type="Resource" path="res://data/weapons/steel_bow.tres" id="2_ifcwi"]
 [ext_resource type="Script" path="res://scripts/data/event_data.gd" id="3_m0c1h"]
 
 [sub_resource type="Resource" id="Resource_ko7cx"]
 script = ExtResource("1_gairs")
 label = "Tend to the knight"
-result_text = "The knight recovers and leaves the bow in thanks."
+result_text = "The knight recovers and leaves a {weapon} in thanks."
 gold = -30
-weapon = ExtResource("2_ifcwi")
+random_weapon = true
+random_weapon_type = 3
 
 [sub_resource type="Resource" id="Resource_0f4wr"]
 script = ExtResource("1_gairs")
 label = "Ask the knight to train your fighters"
 result_text = "A hard lesson. Bruised, but nobody forgets it."
 city_health = 4
-companion_hp = -5
+companion_hp = -4
 hp_target = 0
 
 [resource]

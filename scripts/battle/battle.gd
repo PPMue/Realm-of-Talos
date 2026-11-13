@@ -144,24 +144,25 @@ func art_block_reason(c: CompanionUnit, art: CombatArtData) -> String:
 	return ""
 
 
+## Stamina one Focus restores (flat, BattleConfig.FOCUS_RESTORE), never past the companion's max.
 func focus_amount(c: CompanionUnit) -> int:
-	return maxi(1, roundi(c.max_stamina() * BattleConfig.FOCUS_RESTORE_FRACTION))
+	return mini(BattleConfig.FOCUS_RESTORE, c.max_stamina())
 
 
 ## Forecast of one strike by a companion on an enemy: a plain attack, or with `art`'s bonuses.
-## For an art that strikes twice, this is each strike. A magic weapon uses MAG against RES.
-## Effective (weapon or art against one of the target's traits): the weapon's Mt is doubled, once.
+## For an art that strikes twice, this is each strike. Damage = attack power (by weapon type, see
+## CombatMath.attack_power) + Mt (+ the art's bonus) - DEF; a magic weapon uses MAG against RES.
+## Effective (weapon or art against one of the target's traits): half as much again, once.
 func forecast(c: CompanionUnit, target: EnemyUnit, art: CombatArtData = null) -> AttackForecast:
 	var w := c.weapon()
 	var effective := is_effective(c, target, art)
-	var might := CombatMath.effective_might(w.might, effective)
+	var power := CombatMath.attack_power(c, w)
 	var f: AttackForecast
 	if art == null:
-		f = CombatMath.forecast(c, might, w.hit, 0, target, 0, w.damage_type)
+		f = CombatMath.forecast(c, w.might, w.hit, 0, target, 0, w.damage_type, effective, power)
 	else:
-		f = CombatMath.forecast(c, might + art.might_bonus, w.hit + art.hit_bonus, art.crit_bonus, target,
-			art.ignore_def_percent, w.damage_type)
-	f.effective = effective
+		f = CombatMath.forecast(c, w.might + art.might_bonus, w.hit + art.hit_bonus, art.crit_bonus, target,
+			art.ignore_def_percent, w.damage_type, effective, power)
 	f.reflect = reflect_amount(c, target, f.damage)
 	f.reflect_crit = reflect_amount(c, target, f.crit_damage)
 	return f
@@ -186,13 +187,12 @@ func is_effective(c: CompanionUnit, target: EnemyUnit, art: CombatArtData = null
 	return art != null and CombatMath.is_effective(art.effective_against, target.traits())
 
 
-## Forecast of one black spell striking an enemy: MAG + Mt (doubled if effective) - RES, the spell's Hit.
+## Forecast of one black spell striking an enemy: MAG + Mt - RES (half as much again if effective),
+## the spell's Hit.
 func spell_forecast(c: CompanionUnit, spell: SpellData, target: EnemyUnit) -> AttackForecast:
 	var effective := CombatMath.is_effective(spell.effective_against, target.traits())
-	var f := CombatMath.forecast(c, CombatMath.effective_might(spell.might, effective), spell.hit, spell.crit_bonus,
-		target, spell.ignore_res_percent, CombatMath.DamageType.MAGIC)
-	f.effective = effective
-	return f
+	return CombatMath.forecast(c, spell.might, spell.hit, spell.crit_bonus, target, spell.ignore_res_percent,
+		CombatMath.DamageType.MAGIC, effective)
 
 
 ## HP a white spell restores to each target: caster MAG + the spell's power (0 if it does not heal).

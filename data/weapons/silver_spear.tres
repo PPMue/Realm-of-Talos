@@ -1,12 +1,14 @@
 [gd_resource type="Resource" script_class="WeaponData" format=3]
 
-[ext_resource type="Script" path="res://scripts/data/weapon_data.gd" id="1_bfn1e"]
+[ext_resource type="Script" path="res://scripts/data/weapon_data.gd" id="1_0gbou"]
 
 [resource]
-script = ExtResource("1_bfn1e")
+script = ExtResource("1_0gbou")
 weapon_type = 2
+tier = 4
 might = 13
 hit = 85
-required_grade = 6
+effective_against = Array[String](["Large"])
+required_grade = 8
 display_name = "Silver Spear"
 weight = 9

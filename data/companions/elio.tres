@@ -2,7 +2,7 @@
 
 [ext_resource type="Texture2D" path="res://assets/character/elio.png" id="1_art"]
 [ext_resource type="Script" path="res://scripts/data/companion_data.gd" id="2_script"]
-[ext_resource type="Resource" path="res://data/weapons/iron_dagger.tres" id="3_weapon"]
+[ext_resource type="Resource" path="res://data/weapons/wooden_dagger.tres" id="3_weapon"]
 [ext_resource type="Resource" path="res://data/spells/white/ward.tres" id="4_spell"]
 
 [resource]
@@ -12,8 +12,8 @@ portrait = ExtResource("1_art")
 color = Color(0.9, 0.8, 0.5, 1)
 portrait_focus = Vector2(0.478, 0.209)
 figure_scale = 0.8
-max_hp = 17
-max_sta = 25
+max_hp = 16
+max_sta = 12
 strength = 2
 magic = 9
 crit = 3

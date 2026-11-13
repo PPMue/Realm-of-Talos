@@ -58,9 +58,13 @@ var actions_left: int = 0
 var actions_used: Array[int] = []
 ## Who the tavern offers this week. Rolled on the first day of each week; a hire leaves the list.
 var tavern_offers: Array[CompanionData] = []
-## What the smithy sells this week: one of every common item for the week, plus rare ones that rolled
-## in. Rolled on the first day of each week; a bought item is gone until the next week.
+## What the smithy sells this week: RunConfig.SHOP_WEAPONS_PER_WEEK ladder weapons whose tiers climb
+## with the week, plus rare magic ones that rolled in (first). Rolled on the first day of each week; a
+## bought item is gone until the next week.
 var shop_week: Array[ShopItemData] = []
+## Today's event: the random weapon each choice that grants one would give (choice -> WeaponData),
+## drawn when the event came up.
+var event_weapons: Dictionary = {}
 ## Events already seen this run, so they do not repeat while unseen ones remain.
 var _seen_events: Array[EventData] = []
 ## The boss group drawn for each boss day when the run began: boss day -> EnemyGroupData.
@@ -279,6 +283,10 @@ func finish_battle(battle: Battle) -> BattleReport:
 		_add_materials(front.reward_materials)
 		if front.is_boss and day >= RunConfig.DAYS:
 			_end(Outcome.VICTORY, "The last boss has fallen. The city stands.")
+		elif front.is_boss:
+			report.weapon_found = _boss_weapon()
+			if report.weapon_found != null:
+				inventory.add(report.weapon_found)
 	else:
 		battles_lost += 1
 		if front.is_boss:
@@ -363,6 +371,40 @@ func buy_block_reason(item: ShopItemData) -> String:
 	if gold < item.price:
 		return "Needs %d gold." % item.price
 	return ""
+
+
+## Tier weights of the smithy's stock in the week of day `d` (RunConfig.SHOP_TIER_WEIGHTS).
+static func shop_tier_weights(d: int) -> Array:
+	var weeks: Array = RunConfig.SHOP_TIER_WEIGHTS
+	return weeks[clampi(RunCalendar.week_of(d) - 1, 0, weeks.size() - 1)]
+
+
+## The best tier the smithy sells in the week of day `d`: the highest with any weight.
+static func smithy_top_tier(d: int) -> int:
+	var weights := shop_tier_weights(d)
+	var top := 0
+	for t in weights.size():
+		if float(weights[t]) > 0.0:
+			top = t
+	return top
+
+
+## The tier of the weapon the boss of day `d` drops when beaten: above what the smithy sells that week
+## (RunConfig.BOSS_WEAPON_TIERS_ABOVE_SHOP), at most platinum. -1 for the last boss, which ends the run.
+static func boss_weapon_tier(d: int) -> int:
+	if d >= RunConfig.DAYS:
+		return -1
+	return mini(smithy_top_tier(d) + RunConfig.BOSS_WEAPON_TIERS_ABOVE_SHOP, WeaponData.top_tier())
+
+
+## The weapon `choice` of today's event would give: its set weapon, or the random one drawn for it
+## when the event came up. Null if it gives none.
+func choice_weapon(choice: EventChoiceData) -> WeaponData:
+	if choice == null:
+		return null
+	if choice.weapon != null:
+		return choice.weapon
+	return event_weapons.get(choice)
 
 
 ## Buys a weapon into the armory. Returns it, or null. The item is gone from the smithy until the
@@ -515,12 +557,15 @@ func choose(choice: EventChoiceData) -> String:
 	if choice.companion_hp != 0:
 		for c in hp_targets(choice):
 			c.heal(choice.companion_hp)
-	if choice.weapon != null:
-		inventory.add(choice.weapon)
+	var gained := choice_weapon(choice)
+	if gained != null:
+		inventory.add(gained)
 	event = null
+	event_weapons.clear()
 	if city_health <= 0:
 		_end(Outcome.DEFEAT, "The city fell on day %d." % day)
-	return choice.result_text if choice.result_text != "" else choice.label
+	var text := choice.result_text if choice.result_text != "" else choice.label
+	return text.replace("{weapon}", gained.display_name if gained != null else "weapon")
 
 
 ## The companions a choice's HP change would apply to.
@@ -553,6 +598,7 @@ func _begin_day() -> void:
 	fronts.clear()
 	committed_front = null
 	event = null
+	event_weapons.clear()
 	actions_left = 0
 	actions_used.clear()
 	if RunCalendar.is_week_start(day):
@@ -566,6 +612,7 @@ func _begin_day() -> void:
 			actions_left = RunConfig.FREE_DAY_ACTIONS
 			if has_event_day():
 				event = _pick_event()
+				_draw_event_weapons()
 
 
 func _end_day() -> void:
@@ -712,16 +759,75 @@ func _make_tavern_offers() -> void:
 		tavern_offers.append(pool.pop_at(rng.randi_range(0, pool.size() - 1)))
 
 
-## The week's stock: every common item sold by today, plus each rare one on a roll of its chance.
-## Rare items come first.
+## The week's stock: each rare item sold by today on a roll of its chance, first; then
+## RunConfig.SHOP_WEAPONS_PER_WEEK different ladder weapons, each of a random type and a tier drawn by
+## the week's weights, priced by tier, in order of tier and type.
 func _stock_shop() -> void:
-	var rare: Array[ShopItemData] = []
 	for item in content.shop_stock(day):
-		if item.chance >= 1.0:
+		if item.chance >= 1.0 or rng.randf() < item.chance:
 			shop_week.append(item)
-		elif rng.randf() < item.chance:
-			rare.append(item)
-	shop_week = rare + shop_week
+	var weights := shop_tier_weights(day)
+	var picked: Array[WeaponData] = []
+	var tries := 0
+	while picked.size() < RunConfig.SHOP_WEAPONS_PER_WEEK and tries < 200:
+		tries += 1
+		var w := _random_ladder_weapon(_roll_tier(weights))
+		if w != null and not picked.has(w):
+			picked.append(w)
+	picked.sort_custom(func(a: WeaponData, b: WeaponData) -> bool:
+		return a.tier < b.tier or (a.tier == b.tier and a.weapon_type < b.weapon_type))
+	for w in picked:
+		var item := ShopItemData.new()
+		item.weapon = w
+		item.price = RunConfig.WEAPON_PRICE_BY_TIER[w.tier]
+		item.min_day = day
+		shop_week.append(item)
+
+
+## A tier drawn by `weights` (one per tier).
+func _roll_tier(weights: Array) -> int:
+	var total := 0.0
+	for x in weights:
+		total += float(x)
+	var r := rng.randf() * total
+	for t in weights.size():
+		r -= float(weights[t])
+		if r < 0.0 and float(weights[t]) > 0.0:
+			return t
+	return smithy_top_tier(day)
+
+
+## A random ladder weapon of tier `tier` (of type `type`, or any with -1), or null.
+func _random_ladder_weapon(tier: int, type: int = -1) -> WeaponData:
+	var options := content.ladder_tier(tier, type)
+	if options.is_empty():
+		return null
+	return options[rng.randi_range(0, options.size() - 1)]
+
+
+## Draws the random weapon of every choice of today's event that grants one: a tier drawn like the
+## week's stock, or with RunConfig.EVENT_WEAPON_TIER_UP_CHANCE one above the best the smithy sells.
+func _draw_event_weapons() -> void:
+	event_weapons.clear()
+	if event == null:
+		return
+	for choice in event.choices:
+		if not choice.random_weapon:
+			continue
+		var tier := _roll_tier(shop_tier_weights(day))
+		if rng.randf() < RunConfig.EVENT_WEAPON_TIER_UP_CHANCE:
+			tier = mini(smithy_top_tier(day) + 1, WeaponData.top_tier())
+		var w := _random_ladder_weapon(tier, choice.random_weapon_type)
+		if w != null:
+			event_weapons[choice] = w
+
+
+## The weapon a beaten boss drops (see boss_weapon_tier): any type, at random. Null for the last boss.
+func _boss_weapon() -> WeaponData:
+	var tier := boss_weapon_tier(day)
+	if tier < 0:
+		return null
+	return _random_ladder_weapon(tier)
 
 
 func _pick_event() -> EventData:

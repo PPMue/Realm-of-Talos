@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="WeaponData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_data.gd" id="1_0gbou"]
+
+[resource]
+script = ExtResource("1_0gbou")
+weapon_type = 4
+tier = 1
+might = 1
+hit = 95
+required_grade = 2
+display_name = "Bronze Dagger"
+weight = 2

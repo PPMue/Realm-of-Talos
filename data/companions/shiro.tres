@@ -2,7 +2,7 @@
 
 [ext_resource type="Texture2D" path="res://assets/character/shiro.png" id="1_art"]
 [ext_resource type="Script" path="res://scripts/data/companion_data.gd" id="2_script"]
-[ext_resource type="Resource" path="res://data/weapons/iron_dagger.tres" id="3_weapon"]
+[ext_resource type="Resource" path="res://data/weapons/wooden_dagger.tres" id="3_weapon"]
 [ext_resource type="Resource" path="res://data/arts/dagger/venom_edge.tres" id="4_sig"]
 
 [resource]
@@ -12,8 +12,8 @@ portrait = ExtResource("1_art")
 color = Color(0.5, 0.3, 0.65, 1)
 portrait_focus = Vector2(0.358, 0.146)
 figure_scale = 1.05
-max_hp = 25
-max_sta = 30
+max_hp = 21
+max_sta = 18
 strength = 8
 magic = 2
 crit = 6

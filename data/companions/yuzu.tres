@@ -2,7 +2,7 @@
 
 [ext_resource type="Texture2D" path="res://assets/character/yuzu.png" id="1_0lfd4"]
 [ext_resource type="Script" path="res://scripts/data/companion_data.gd" id="2_q5iwk"]
-[ext_resource type="Resource" path="res://data/weapons/iron_dagger.tres" id="3_jecx5"]
+[ext_resource type="Resource" path="res://data/weapons/wooden_dagger.tres" id="3_jecx5"]
 [ext_resource type="Resource" path="res://data/arts/dagger/backstab.tres" id="4_sig"]
 
 [resource]
@@ -12,8 +12,8 @@ portrait = ExtResource("1_0lfd4")
 color = Color(0.85, 0.45, 0.15, 1)
 portrait_focus = Vector2(0.515, 0.16)
 figure_scale = 0.9
-max_hp = 21
-max_sta = 25
+max_hp = 18
+max_sta = 16
 strength = 6
 magic = 2
 crit = 10

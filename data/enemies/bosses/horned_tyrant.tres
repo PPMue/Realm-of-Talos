@@ -50,13 +50,14 @@ effect = SubResource("Resource_1bo41")
 
 [resource]
 script = ExtResource("4_7ffoc")
+traits = Array[String](["Large"])
 band = 0
 display_name = "The Horned Tyrant"
 portrait = ExtResource("3_t7cxe")
 color = Color(0.5, 0.25, 0.2, 1)
 stage_scale = 1.45
-max_hp = 190
-strength = 16
+max_hp = 142
+strength = 14
 crit = 3
 dexterity = 8
 speed = 6

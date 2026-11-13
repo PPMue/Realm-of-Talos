@@ -30,7 +30,7 @@ enum PhaseTrigger { NONE, HP_BELOW, LAST_STANDING }
 @export var resistance: int = 1
 @export var luck: int = 2
 
-## Traits such as "Flying" (see EnemyTraits). Some weapons, arts and spells are effective against them.
+## Traits such as "Flying" and "Large" (see EnemyTraits). Some weapons, arts and spells are effective against them.
 @export var traits: Array[String] = []
 ## Every single-target action aims with the position weights mirrored: the leftmost companion most.
 @export var reversed_targeting: bool = false

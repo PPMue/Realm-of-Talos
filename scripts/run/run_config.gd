@@ -74,6 +74,30 @@ const TIMBER := "timber"
 const MATERIAL_NAMES := {IRON_ORE: "Iron Ore", TIMBER: "Timber"}
 const MATERIAL_ORDER: Array[String] = [IRON_ORE, TIMBER]
 
+# --- Weapons: the smithy, events and bosses ---
+# The smithy's stock is rolled on the first day of each week: this many weapons from the ladder
+# (WeaponData.Tier), each of a random type and a tier drawn by the week's weights below, no two the
+# same; plus each rare magic weapon (RunContent.shop) on a roll of its own chance.
+const SHOP_WEAPONS_PER_WEEK := 5
+## By week (1-6), the weight of each tier: wooden, bronze, iron, steel, silver, platinum. The highest
+## tier with any weight is what the smithy is selling that week (Run.smithy_top_tier).
+const SHOP_TIER_WEIGHTS := [
+	[35, 65, 0, 0, 0, 0],    # week 1: wooden and bronze
+	[10, 50, 40, 0, 0, 0],   # week 2: iron
+	[0, 25, 50, 25, 0, 0],   # week 3: steel
+	[0, 10, 42, 40, 8, 0],   # week 4: silver, rare
+	[0, 0, 30, 50, 20, 0],   # week 5
+	[0, 0, 20, 52, 28, 0],   # week 6: never platinum
+]
+## Price of a ladder weapon, by tier.
+const WEAPON_PRICE_BY_TIER: Array[int] = [20, 50, 110, 200, 320, 480]
+## An event that grants a weapon draws its tier like the week's stock, but with this chance it is one
+## tier above the best the smithy is selling.
+const EVENT_WEAPON_TIER_UP_CHANCE := 0.25
+## Beating a boss that does not end the run drops one random weapon (any type), this many tiers above
+## the best the smithy is selling that week, into the armory.
+const BOSS_WEAPON_TIERS_ABOVE_SHOP := 1
+
 # --- Free days ---
 const FREE_DAY_ACTIONS := 1
 const HIRE_COST := 100

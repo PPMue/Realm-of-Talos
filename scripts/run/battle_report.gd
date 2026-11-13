@@ -18,5 +18,7 @@ var xp_each: int = 0
 var xp_to: Array[String] = []
 ## One entry per level reached: {"name", "level", "gains"} (gains: stat key -> amount).
 var level_ups: Array[Dictionary] = []
+## The weapon a beaten boss dropped into the armory (Run.boss_weapon_tier), or null.
+var weapon_found: WeaponData
 ## True if this battle ended the run (won or lost).
 var run_over: bool = false

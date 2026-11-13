@@ -14,7 +14,12 @@ const DEFAULT_PATH := "res://data/run/run_content.tres"
 ## normal enemies.
 @export var bosses: Array[EnemyGroupData] = []
 @export var events: Array[EventData] = []
+## The rare magic weapons the smithy may stock (each on its own chance, from its own first day).
+## The ladder weapons it sells are rolled from `weapons` instead.
 @export var shop: Array[ShopItemData] = []
+## The weapon ladder: one of every type in every tier (WeaponData.Tier), 30 in all. The smithy's
+## weekly stock, events that grant a weapon and the bosses' drops are drawn from it.
+@export var weapons: Array[WeaponData] = []
 
 
 static func load_default() -> RunContent:
@@ -38,6 +43,24 @@ func bosses_for(day: int) -> Array[EnemyGroupData]:
 	return out
 
 
+## The ladder weapon of tier `tier` and type `type`, or null.
+func ladder_weapon(tier: int, type: WeaponData.WeaponType) -> WeaponData:
+	for w in weapons:
+		if w.tier == tier and w.weapon_type == type and not w.is_magic():
+			return w
+	return null
+
+
+## The ladder weapons of tier `tier`, optionally of one type only (-1: every type).
+func ladder_tier(tier: int, type: int = -1) -> Array[WeaponData]:
+	var out: Array[WeaponData] = []
+	for w in weapons:
+		if w.tier == tier and not w.is_magic() and (type < 0 or w.weapon_type == type):
+			out.append(w)
+	return out
+
+
+## The rare items that may be stocked on `day` (each still rolls its chance).
 func shop_stock(day: int) -> Array[ShopItemData]:
 	var out: Array[ShopItemData] = []
 	for s in shop:

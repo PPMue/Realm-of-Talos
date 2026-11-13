@@ -1,12 +1,13 @@
 [gd_resource type="Resource" script_class="WeaponData" format=3]
 
-[ext_resource type="Script" path="res://scripts/data/weapon_data.gd" id="1_b2ot8"]
+[ext_resource type="Script" path="res://scripts/data/weapon_data.gd" id="1_0gbou"]
 
 [resource]
-script = ExtResource("1_b2ot8")
+script = ExtResource("1_0gbou")
 weapon_type = 4
-might = 8
+tier = 4
+might = 10
 hit = 95
-required_grade = 6
+required_grade = 8
 display_name = "Silver Dagger"
 weight = 3

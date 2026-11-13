@@ -13,7 +13,7 @@ gold = -45
 script = ExtResource("1_2etgq")
 label = "Let it run its course"
 result_text = "Everyone is weaker for a day or two."
-companion_hp = -7
+companion_hp = -6
 hp_target = 0
 
 [sub_resource type="Resource" id="Resource_1ldfc"]

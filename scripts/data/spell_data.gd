@@ -34,7 +34,7 @@ const SCHOOL_NAMES: Array[String] = ["Black Magic", "White Magic"]
 @export_range(0, 100) var ignore_res_percent: int = 0
 ## Ticks added to a hit enemy's pending action. A pending action can be delayed only once.
 @export var delay_ticks: int = 0
-## Enemy traits (e.g. "Flying") this spell is effective against: its Mt is doubled.
+## Enemy traits (e.g. "Flying") this spell is effective against: it deals half as much damage again.
 @export var effective_against: Array[String] = []
 
 @export_group("White Magic")
@@ -86,7 +86,7 @@ func effect_summary() -> String:
 		elif ignore_res_percent > 0:
 			parts.append("Ignores %d%% of RES" % ignore_res_percent)
 		if not effective_against.is_empty():
-			parts.append("Effective against %s (Mt x%d)" % [", ".join(effective_against), BattleConfig.EFFECTIVE_MIGHT_MULT])
+			parts.append("Effective against %s (+%d%% damage)" % [", ".join(effective_against), BattleConfig.EFFECTIVE_DAMAGE_BONUS_PERCENT])
 		if delay_ticks > 0:
 			parts.append("Delays the target's action by %d turn%s (once per action)" % [delay_ticks, "" if delay_ticks == 1 else "s"])
 		if effect != null:

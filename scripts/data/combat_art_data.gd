@@ -30,7 +30,7 @@ extends Resource
 @export_range(1, 2) var strikes: int = 1
 ## Share of the target's DEF this art ignores.
 @export_range(0, 100) var ignore_def_percent: int = 0
-## Enemy traits this art is effective against (the weapon's Mt is doubled). Does not stack with the
+## Enemy traits this art is effective against (half as much damage again). Does not stack with the
 ## weapon's own list.
 @export var effective_against: Array[String] = []
 

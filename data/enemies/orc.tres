@@ -37,11 +37,12 @@ effect = SubResource("Resource_n4wgk")
 
 [resource]
 script = ExtResource("4_ty5vs")
+traits = Array[String](["Large"])
 display_name = "Orc"
 portrait = ExtResource("3_j4qx0")
 color = Color(0.3, 0.45, 0.2, 1)
-max_hp = 60
-strength = 13
+max_hp = 42
+strength = 11
 crit = 1
 dexterity = 4
 speed = 4

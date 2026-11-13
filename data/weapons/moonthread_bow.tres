@@ -5,7 +5,8 @@
 [resource]
 script = ExtResource("1_w")
 weapon_type = 3
-might = 5
+tier = 1
+might = 4
 hit = 95
 damage_type = 1
 required_grade = 2

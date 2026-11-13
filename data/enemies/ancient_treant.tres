@@ -61,15 +61,16 @@ might = 11
 
 [resource]
 script = ExtResource("4_bn18s")
+traits = Array[String](["Large"])
 display_name = "Ancient Treant"
 portrait = ExtResource("3_f4sqa")
 color = Color(0.35, 0.4, 0.25, 1)
 stage_scale = 1.25
 band = 2
 role = "Slow protector: hardens and mends the other enemies."
-max_hp = 88
-strength = 13
-magic = 4
+max_hp = 70
+strength = 11
+magic = 2
 speed = 2
 defense = 8
 resistance = 3

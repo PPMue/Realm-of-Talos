@@ -2,7 +2,7 @@
 
 [ext_resource type="Texture2D" path="res://assets/character/aveline.png" id="1_art"]
 [ext_resource type="Script" path="res://scripts/data/companion_data.gd" id="2_script"]
-[ext_resource type="Resource" path="res://data/weapons/iron_sword.tres" id="3_weapon"]
+[ext_resource type="Resource" path="res://data/weapons/wooden_sword.tres" id="3_weapon"]
 [ext_resource type="Resource" path="res://data/spells/white/mend.tres" id="4_spell"]
 
 [resource]
@@ -12,8 +12,8 @@ portrait = ExtResource("1_art")
 color = Color(0.85, 0.82, 0.95, 1)
 portrait_focus = Vector2(0.5, 0.2)
 figure_scale = 0.95
-max_hp = 22
-max_sta = 25
+max_hp = 19
+max_sta = 13
 strength = 4
 magic = 8
 crit = 3

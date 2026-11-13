@@ -302,10 +302,9 @@ func cast_spell(b: Battle, c: CompanionUnit) -> bool:
 	return false
 
 
-## How hard `c` hits with `w`: MAG + Mt for a magic weapon, STR + Mt otherwise.
+## How hard `c` hits with `w`: attack power by weapon type + Mt (RunCompanion.attack).
 func _power(c: RunCompanion, w: WeaponData) -> int:
-	var st := c.progress.stats()
-	return int(st[Stat.MAG if w.is_magic() else Stat.STR]) + w.might
+	return c.attack(w)
 
 
 func _equip_best(run: Run, c: RunCompanion) -> void:

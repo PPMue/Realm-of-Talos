@@ -2,7 +2,7 @@
 
 [ext_resource type="Texture2D" path="res://assets/character/kaito.png" id="1_art"]
 [ext_resource type="Script" path="res://scripts/data/companion_data.gd" id="2_script"]
-[ext_resource type="Resource" path="res://data/weapons/iron_sword.tres" id="3_weapon"]
+[ext_resource type="Resource" path="res://data/weapons/wooden_sword.tres" id="3_weapon"]
 [ext_resource type="Resource" path="res://data/arts/sword/feint.tres" id="4_sig"]
 
 [resource]
@@ -12,8 +12,8 @@ portrait = ExtResource("1_art")
 color = Color(0.7, 0.15, 0.2, 1)
 portrait_focus = Vector2(0.438, 0.279)
 figure_scale = 1.25
-max_hp = 22
-max_sta = 30
+max_hp = 19
+max_sta = 17
 strength = 10
 magic = 1
 crit = 12

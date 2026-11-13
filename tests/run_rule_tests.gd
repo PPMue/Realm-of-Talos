@@ -78,6 +78,7 @@ func force_event(run: Run, ev: EventData = null) -> void:
 	run._begin_day()
 	if ev != null:
 		run.event = ev
+		run._draw_event_weapons()
 
 
 ## Plays today the plainest way: a battle is won on the first front; a free day answers its event
@@ -321,17 +322,17 @@ func test_enemy_scaling() -> void:
 	t.eq(d1.strength, orc.strength, "day 1 unchanged STR")
 	t.check(d1 != orc, "a copy, not the data itself")
 	var d42 := Run.scaled_enemy(orc, 42)
-	t.eq(d42.max_hp, roundi(60 * (1.0 + RunConfig.ENEMY_HP_GROWTH_PER_DAY * 41)), "day 42 HP")
+	t.eq(d42.max_hp, roundi(42 * (1.0 + RunConfig.ENEMY_HP_GROWTH_PER_DAY * 41)), "day 42 HP")
 	t.eq(d42.strength, orc.strength + floori(41.0 / RunConfig.ENEMY_STR_EVERY_DAYS), "day 42 STR")
 	t.eq(d42.defense, orc.defense + floori(41.0 / RunConfig.ENEMY_DEF_EVERY_DAYS), "day 42 DEF")
 	t.eq(d42.speed, orc.speed + floori(41.0 / RunConfig.ENEMY_SPD_EVERY_DAYS), "day 42 SPD")
 	t.check(d42.strength > orc.strength and d42.defense > orc.defense, "day 42 enemies are stronger")
 	# Fitted so day 42 is about what day 30 was with the old 30-day growth (HP x2.45, +7 STR, +4 DEF, +3 SPD).
-	t.check(absf(d42.max_hp / 60.0 - 2.45) < 0.05, "day 42 HP is about x2.45 (%d)" % d42.max_hp)
+	t.check(absf(d42.max_hp / 42.0 - 2.45) < 0.05, "day 42 HP is about x2.45 (%d)" % d42.max_hp)
 	t.eq(d42.strength - orc.strength, 7, "day 42: +7 STR")
 	t.eq(d42.defense - orc.defense, 4, "day 42: +4 DEF")
 	t.eq(d42.speed - orc.speed, 3, "day 42: +3 SPD")
-	t.eq(orc.max_hp, 60, "the data is not changed")
+	t.eq(orc.max_hp, 42, "the data is not changed")
 	var run := make_run(5)
 	run.day = 15
 	force_day(run, RunCalendar.DayType.BATTLE)
@@ -694,8 +695,11 @@ func test_weekly_refresh() -> void:
 		t.check(bought != null, "seed %d: something was bought in week 1" % s)
 		# Day 8: a new week, a new roll.
 		t.eq(run.day, 8, "seed %d: week 2" % s)
-		if bought.chance >= 1.0:
-			t.check(run.shop_stock().has(bought), "seed %d: the bought item is back in the new week" % s)
+		# A new stock is rolled: none of last week's ladder items is left over.
+		var ladder := run.shop_stock().filter(func(i: ShopItemData) -> bool: return not i.weapon.is_magic())
+		t.eq(ladder.size(), RunConfig.SHOP_WEAPONS_PER_WEEK, "seed %d: a new week's ladder weapons" % s)
+		for item: ShopItemData in ladder:
+			t.check(not stock.has(item) and item != bought and item.min_day == 8, "seed %d: rolled for week 2" % s)
 		for d in run.tavern_offers:
 			t.check(not run._in_roster(d) and not run.gone.has(d), "seed %d: only companions who can join" % s)
 		if hired != null:
@@ -726,16 +730,13 @@ func test_shop_and_equip_requirement() -> void:
 	# A fighter: the mages start below D in their weapon.
 	var c := run.roster[0] if not run.roster[0].data.is_mage() else run.roster[1]
 	var kind := c.weapon().weapon_type
-	var steel: ShopItemData = null
-	var silver: ShopItemData = null
-	for item in content().shop:
-		if item.weapon.weapon_type == kind and item.weapon.required_grade == Proficiency.Grade.C:
-			steel = item
-		if item.weapon.weapon_type == kind and item.weapon.required_grade == Proficiency.Grade.B:
-			silver = item
-	t.check(steel != null and silver != null, "steel and silver of every type")
-	t.check(run.shop_stock().has(steel), "steel sold from day 1")
-	t.check(not run.shop_stock().has(silver), "silver not sold on day 1")
+	t.eq(c.weapon().tier, WeaponData.Tier.WOODEN, "starts with a wooden weapon")
+	# An iron weapon of their type, put into this week's stock for the test (week 1 never rolls iron).
+	var steel := ShopItemData.new()
+	steel.weapon = content().ladder_weapon(WeaponData.Tier.IRON, kind)
+	steel.price = RunConfig.WEAPON_PRICE_BY_TIER[WeaponData.Tier.IRON]
+	run.shop_week.append(steel)
+	t.check(steel.weapon != null and steel.weapon.required_grade == Proficiency.Grade.C, "iron needs C")
 	run.gold = steel.price - 1
 	t.check(run.buy(steel) == null, "cannot afford")
 	t.check(run.buy_block_reason(steel).contains("gold"), "says gold")
@@ -746,12 +747,12 @@ func test_shop_and_equip_requirement() -> void:
 	t.eq(run.gold, 1000 - steel.price, "paid")
 	t.eq(run.actions_left, 0, "the shop uses the day's action")
 	t.check(owned.holder == null, "goes to the armory")
-	t.check(not run.shop_stock().has(steel), "one of each: the steel is gone for the week")
+	t.check(not run.shop_stock().has(steel), "one of each: the iron weapon is gone for the week")
 	t.check(run.buy(steel) == null and run.buy_block_reason(steel).contains("this week"), "and cannot be bought again")
 	var other := run.shop_stock()[0]
 	t.check(run.buy(other) != null, "a second purchase the same visit")
 	t.eq(run.actions_left, 0, "is free")
-	# Equip requirement: companions start at D, steel needs C.
+	# Equip requirement: companions start at D, iron needs C.
 	t.eq(c.progress.grade(kind), Proficiency.Grade.D, "starts at D")
 	var old := run.inventory.held_by(c)
 	t.check(not run.equip_weapon(c, owned), "C weapon refused at D")
@@ -760,13 +761,6 @@ func test_shop_and_equip_requirement() -> void:
 	t.check(run.equip_weapon(c, owned), "allowed at C")
 	t.eq(c.weapon(), steel.weapon, "now holds it")
 	t.check(old.holder == null, "the old weapon goes back to the armory")
-	run.day = 8
-	run._begin_day()
-	t.check(not run.shop_stock().has(silver), "no silver in week 2")
-	run.day = 15
-	run._begin_day()
-	t.check(run.shop_stock().has(silver), "silver sold from week 3 (day 15)")
-	t.check(run.shop_stock().has(steel), "the steel is back in a new week")
 
 
 func test_weapon_held_by_one() -> void:
@@ -862,6 +856,7 @@ func test_event_choices() -> void:
 			for c in run.roster:
 				hp_before[c] = c.hp
 			var weapons := run.inventory.weapons.size()
+			var gives := run.choice_weapon(ch)
 			var text := run.choose(ch)
 			t.check(text != "", "%s / %s: chosen" % [ev.title, ch.label])
 			t.eq(run.gold, 500 + ch.gold, "%s / %s: gold" % [ev.title, ch.label])
@@ -873,9 +868,11 @@ func test_event_choices() -> void:
 				if targets.has(c):
 					expected = clampi(expected + ch.companion_hp, 1, c.max_hp())
 				t.eq(c.hp, expected, "%s / %s: %s HP" % [ev.title, ch.label, c.display_name()])
-			t.eq(run.inventory.weapons.size(), weapons + (1 if ch.weapon != null else 0), "%s / %s: weapon" % [ev.title, ch.label])
-			if ch.weapon != null:
-				t.eq(run.inventory.weapons[-1].data, ch.weapon, "the weapon is in the armory")
+			t.eq(gives != null, ch.weapon != null or ch.random_weapon, "%s / %s: says what weapon it gives" % [ev.title, ch.label])
+			t.eq(run.inventory.weapons.size(), weapons + (1 if gives != null else 0), "%s / %s: weapon" % [ev.title, ch.label])
+			if gives != null:
+				t.eq(run.inventory.weapons[-1].data, gives, "the weapon is in the armory")
+				t.check(not text.contains("{weapon}") and (text.contains(gives.display_name) or not ch.result_text.contains("{weapon}")), "the result names it")
 			t.eq(run.day, 2, "the free day goes on after the event")
 			t.check(run.event == null and not run.event_pending(), "the event is answered")
 			t.eq(run.actions_left, 1, "the day's action is still there")
@@ -937,15 +934,23 @@ func test_run_content() -> void:
 		t.check(e.portrait != null, "%s has art" % e.display_name)
 	for b in rc.bosses:
 		t.check(b.enemies[0].portrait != null and b.enemies[0].stage_scale > 1.3, "%s is a big boss" % b.display_name)
-	# Every weapon type has stronger tiers that need a higher grade.
+	# Every weapon type has six tiers, each needing a higher grade and (from bronze on) giving more Mt.
 	for t_kind: int in WeaponData.WeaponType.values():
-		var grades := {}
-		for item in rc.shop:
-			if item.weapon.weapon_type == t_kind:
-				grades[item.weapon.required_grade] = item.weapon.might
-		t.check(grades.size() >= 3, "%s: three tiers" % WeaponData.type_name(t_kind))
-		t.check(grades[Proficiency.Grade.C] > grades[Proficiency.Grade.E] and grades[Proficiency.Grade.B] > grades[Proficiency.Grade.C],
-			"%s: higher grade, more might" % WeaponData.type_name(t_kind))
+		var last_grade := -1
+		var last_might := -1
+		for tier: int in WeaponData.Tier.values():
+			var w := rc.ladder_weapon(tier, t_kind)
+			t.check(w != null, "%s: a %s one" % [WeaponData.type_name(t_kind), WeaponData.tier_name(tier)])
+			if w == null:
+				continue
+			t.check(w.required_grade > last_grade, "%s %s: a higher grade" % [WeaponData.type_name(t_kind), WeaponData.tier_name(tier)])
+			t.check(w.might > last_might or (tier == WeaponData.Tier.BRONZE and w.might >= last_might),
+				"%s %s: more might" % [WeaponData.type_name(t_kind), WeaponData.tier_name(tier)])
+			last_grade = w.required_grade
+			last_might = w.might
+	# The rare items in the smithy are the magic weapons.
+	for item in rc.shop:
+		t.check(item.weapon.is_magic() and item.chance < 1.0, "%s is a rare magic weapon" % item.weapon.display_name)
 
 
 # ---------------------------------------------------------------- levels

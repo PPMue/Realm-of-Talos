@@ -49,6 +49,12 @@ func weapon_grade() -> int:
 	return progress.grade(weapon().weapon_type) if weapon() != null else -1
 
 
+## The attacker's part of this companion's weapon damage with the weapon held, from their current
+## stats (see CombatMath.attack_power).
+func attack_power() -> int:
+	return CombatMath.attack_power(self, weapon())
+
+
 func total_weight() -> int:
 	var total := 0
 	for item: EquipmentData in [weapon(), data.armor, data.accessory]:

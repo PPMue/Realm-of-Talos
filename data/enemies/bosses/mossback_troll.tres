@@ -45,14 +45,15 @@ heal_percent = 18
 
 [resource]
 script = ExtResource("4_14q2y")
+traits = Array[String](["Large"])
 display_name = "Mossback Troll"
 portrait = ExtResource("3_5rq6y")
 color = Color(0.3, 0.4, 0.2, 1)
 stage_scale = 1.45
 band = 0
 role = "Regenerates: every Buff it shows is a large heal."
-max_hp = 220
-strength = 15
+max_hp = 165
+strength = 13
 crit = 2
 dexterity = 7
 speed = 4

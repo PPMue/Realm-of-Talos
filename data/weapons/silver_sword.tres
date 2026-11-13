@@ -1,11 +1,12 @@
 [gd_resource type="Resource" script_class="WeaponData" format=3]
 
-[ext_resource type="Script" path="res://scripts/data/weapon_data.gd" id="1_uc468"]
+[ext_resource type="Script" path="res://scripts/data/weapon_data.gd" id="1_0gbou"]
 
 [resource]
-script = ExtResource("1_uc468")
+script = ExtResource("1_0gbou")
+tier = 4
 might = 12
 hit = 90
-required_grade = 6
+required_grade = 8
 display_name = "Silver Sword"
 weight = 7

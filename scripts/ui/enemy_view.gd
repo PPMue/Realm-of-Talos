@@ -266,7 +266,7 @@ func show_hp(hp: int) -> void:
 
 
 ## Shows what the pending strike would do; pass null to hide. `strikes` > 1 shows "DMG 8x2".
-## A kicker above says when the strike is magic and when it is effective (Mt doubled).
+## A kicker above says when the strike is magic and when it is effective (+50% damage).
 ## `note` adds a line of its own (e.g. "DELAYS +2" or "ALREADY DELAYED").
 ## A strike into a reflecting stance turns the forecast to the warning colour and says what it costs.
 func set_forecast(f: AttackForecast, strikes: int = 1, note: String = "") -> void:
@@ -283,7 +283,7 @@ func set_forecast(f: AttackForecast, strikes: int = 1, note: String = "") -> voi
 			kicker.append("REFLECTED: STRIKING COSTS YOU %d HP" % cost if strikes > 1
 				else "REFLECTED: STRIKING COSTS YOU %d HP (CRIT %d)" % [f.reflect, f.reflect_crit])
 		if f.effective:
-			kicker.append("EFFECTIVE  ·  MT x%d" % BattleConfig.EFFECTIVE_MIGHT_MULT)
+			kicker.append("EFFECTIVE  ·  +%d%%" % BattleConfig.EFFECTIVE_DAMAGE_BONUS_PERCENT)
 		if f.magic and not warn:
 			kicker.append("MAGIC")
 		if note != "":

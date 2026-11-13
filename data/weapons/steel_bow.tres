@@ -1,13 +1,14 @@
 [gd_resource type="Resource" script_class="WeaponData" format=3]
 
-[ext_resource type="Script" path="res://scripts/data/weapon_data.gd" id="1_6ayy0"]
+[ext_resource type="Script" path="res://scripts/data/weapon_data.gd" id="1_0gbou"]
 
 [resource]
-script = ExtResource("1_6ayy0")
+script = ExtResource("1_0gbou")
 weapon_type = 3
+tier = 3
 might = 8
 hit = 95
-required_grade = 4
+effective_against = Array[String](["Flying"])
+required_grade = 6
 display_name = "Steel Bow"
 weight = 7
-effective_against = Array[String](["Flying"])

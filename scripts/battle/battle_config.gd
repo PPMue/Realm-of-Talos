@@ -14,9 +14,10 @@ const CRIT_MAX := 100
 const CRIT_DAMAGE_MULT := 2
 
 # --- Effectiveness ---
-# A weapon, art or spell effective against one of the target's traits (e.g. a bow against a flying
-# enemy) multiplies its Mt by this before the target's DEF or RES is subtracted. Never stacks.
-const EFFECTIVE_MIGHT_MULT := 2
+# A weapon, art or spell effective against one of the target's traits (a bow against a flying enemy,
+# a spear against a large one) deals this much more damage, in percent of the damage left after DEF or
+# RES, rounded down. Added before a critical doubles the damage. Never stacks.
+const EFFECTIVE_DAMAGE_BONUS_PERCENT := 50
 
 # --- Equipment weight ---
 const WEIGHT_PENALTY_PER_POINT := 1     # DEX and SPD lost per point of total WT above BLD
@@ -33,7 +34,7 @@ const GUARD_TARGET_WEIGHT_MULT := 4.0
 const GUARD_DURATION_TICKS := 1
 
 # --- Focus ---
-const FOCUS_RESTORE_FRACTION := 0.1     # of max stamina, rounded, at least 1
+const FOCUS_RESTORE := 5               # stamina, flat: about the cost of a tier 1 art
 
 # --- Enemy single-target selection ---
 const TARGET_WEIGHT_BASE := 1.0         # leftmost companion
@@ -42,6 +43,22 @@ const INJURED_TARGET_WEIGHT_MULT := 0.25
 
 # --- Enemy countdowns ---
 const MIN_ACTION_COUNTDOWN := 1
+
+# --- The weapon ladder ---
+# Six tiers: wooden, bronze, iron, steel, silver, platinum (WeaponData.Tier). Every weapon type exists
+# in every tier. Mt = the tier's base + the type's offset in that tier, never below 0. The axe has no
+# edge in Mt early: its heft comes from BLD (see CombatMath.attack_power) and it pulls ahead late.
+const WEAPON_TIER_BASE_MIGHT: Array[int] = [0, 3, 6, 9, 12, 15]
+# By WeaponData.WeaponType (sword, axe, spear, bow, dagger), then by tier.
+const WEAPON_TYPE_MIGHT_OFFSET := [
+	[0, 0, 0, 0, 0, 0],      # sword
+	[0, 0, 1, 1, 2, 3],      # axe
+	[1, 1, 1, 1, 1, 1],      # spear
+	[-1, -1, -1, -1, -1, -1], # bow
+	[-2, -2, -2, -2, -2, -2], # dagger
+]
+# Grade (Proficiency.Grade) needed to hold each tier: E, D, C, B, A, S.
+const WEAPON_TIER_GRADE: Array[int] = [0, 2, 4, 6, 8, 10]
 
 # --- Weapon proficiency ---
 # Grades in order: E, E+, D, D+, C, C+, B, B+, A, A+, S (see Proficiency.Grade).

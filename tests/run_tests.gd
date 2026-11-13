@@ -6,11 +6,13 @@ extends SceneTree
 const RunRuleTests := preload("res://tests/run_rule_tests.gd")
 const MagicTests := preload("res://tests/magic_tests.gd")
 const BestiaryTests := preload("res://tests/bestiary_tests.gd")
+const WeaponTests := preload("res://tests/weapon_tests.gd")
 
 var _failures: Array[String] = []
 var _run_rules: RefCounted   # kept alive: Callables do not hold a reference to their object
 var _magic: RefCounted
 var _bestiary: RefCounted
+var _weapons: RefCounted
 var _checks := 0
 var _current := ""
 
@@ -74,6 +76,8 @@ func _init() -> void:
 	tests.append_array(_magic.tests())
 	_bestiary = BestiaryTests.new(self)
 	tests.append_array(_bestiary.tests())
+	_weapons = WeaponTests.new(self)
+	tests.append_array(_weapons.tests())
 	var verbose := OS.get_environment("TEST_VERBOSE") != ""
 	var only := OS.get_environment("TEST_ONLY")
 	if only != "":
@@ -621,9 +625,10 @@ func test_art_costs_stamina_and_focus_restores() -> void:
 	check(not b.can_use_art(c, art), "not enough stamina")
 	check(b.art_block_reason(c, art).contains("stamina"), "the reason given is stamina")
 	check(not b.use_art(c, art, e), "art refused without stamina")
-	eq(b.focus_amount(c), 3, "focus restores 10% of 30")
+	eq(b.focus_amount(c), BattleConfig.FOCUS_RESTORE, "focus restores a flat amount")
+	eq(BattleConfig.FOCUS_RESTORE, 5, "about the cost of a tier 1 art")
 	b.focus(c)
-	eq(c.stamina, 8, "stamina after focus")
+	eq(c.stamina, 10, "stamina after focus")
 	c.stamina = 29
 	b.roster[1].recovery = 0
 	b.roster[2].recovery = 0
@@ -1125,6 +1130,7 @@ func test_art_reflecting_stance() -> void:
 func test_art_bleed_kills_enemy() -> void:
 	var cut := load_art("dagger/bleeding_cut")
 	var cs: Array[CompanionData] = [make_companion("A", 100, 0, make_weapon(5, 999, 0, WeaponData.WeaponType.DAGGER))]
+	cs[0].speed = 10   # a dagger's attack power is (STR + SPD) / 2: 10
 	var b := make_battle(cs, one_enemy(idle_enemy(20)))
 	var c := b.roster[0]
 	var e := b.enemies[0]

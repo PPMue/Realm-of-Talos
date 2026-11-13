@@ -1,11 +1,13 @@
 [gd_resource type="Resource" script_class="WeaponData" format=3]
 
-[ext_resource type="Script" path="res://scripts/data/weapon_data.gd" id="1_baudn"]
+[ext_resource type="Script" path="res://scripts/data/weapon_data.gd" id="1_0gbou"]
 
 [resource]
-script = ExtResource("1_baudn")
+script = ExtResource("1_0gbou")
 weapon_type = 1
-might = 9
+tier = 2
+might = 7
 hit = 75
+required_grade = 4
 display_name = "Iron Axe"
 weight = 11

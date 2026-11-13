@@ -38,13 +38,14 @@ hit = 75
 
 [resource]
 script = ExtResource("4_hrr7b")
+traits = Array[String](["Large"])
 band = 2
 display_name = "Armored Beast"
 portrait = ExtResource("3_31c6e")
 color = Color(0.25, 0.35, 0.5, 1)
 stage_scale = 1.1
-max_hp = 80
-strength = 13
+max_hp = 64
+strength = 11
 crit = 1
 speed = 3
 defense = 11

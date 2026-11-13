@@ -31,7 +31,7 @@ func tests() -> Array[Callable]:
 		test_no_art_can_delay,
 		test_enemy_magic_uses_res_and_guard_halves,
 		test_magic_weapon_uses_mag_and_res,
-		test_effective_weapon_doubles_might,
+		test_effective_weapon_adds_half,
 		test_effective_art_and_no_stacking,
 		test_effective_spell,
 		test_no_effectiveness_without_trait,
@@ -643,7 +643,7 @@ func flyer(res: int = 0) -> EnemyData:
 	return e
 
 
-func test_effective_weapon_doubles_might() -> void:
+func test_effective_weapon_adds_half() -> void:
 	var bow: WeaponData = t.make_weapon(5, 999, 0, WeaponData.WeaponType.BOW)
 	bow.effective_against = ["Flying"] as Array[String]
 	var d: CompanionData = t.make_companion("Archer", 50, 0, bow)
@@ -651,11 +651,13 @@ func test_effective_weapon_doubles_might() -> void:
 	var b: Battle = t.make_battle(cs1(d), one(flyer()))
 	var f := b.forecast(b.roster[0], b.enemies[0])
 	t.check(f.effective, "effective")
-	t.eq(f.damage, 7 + 5 * BattleConfig.EFFECTIVE_MIGHT_MULT - 3, "Mt doubled before DEF")
+	# Bow: (STR 7 + DEX 10) / 2 = 8; 8 + Mt 5 - DEF 3 = 10; effective: + 10 / 2 = 15.
+	t.eq(f.damage, 15, "half as much again after DEF")
+	t.eq(f.crit_damage, 30, "a critical doubles the effective damage")
 	t.check(b.attack(b.roster[0], b.enemies[0]), "attack")
-	t.eq(b.enemies[0].hp, 500 - 14, "dealt 14")
+	t.eq(b.enemies[0].hp, 500 - 15, "dealt 15")
 	t.check(b.events.any(func(ev: Dictionary) -> bool: return ev.type == "damage" and ev.get("effective", false)), "the damage event says effective")
-	for path: String in ["iron_bow", "steel_bow", "silver_bow", "moonthread_bow"]:
+	for path: String in ["wooden_bow", "bronze_bow", "iron_bow", "steel_bow", "silver_bow", "platinum_bow", "moonthread_bow"]:
 		var w: WeaponData = load("res://data/weapons/%s.tres" % path)
 		t.check(w.effective_against.has(EnemyTraits.FLYING), "%s is effective against flying" % w.display_name)
 
@@ -671,11 +673,12 @@ func test_effective_art_and_no_stacking() -> void:
 	t.give_art(c, art)
 	var f := b.forecast(c, b.enemies[0], art)
 	t.check(f.effective, "an art can be effective")
-	t.eq(f.damage, 10 + 6 * 2 + 2 - 3, "the weapon's Mt doubles; the art's bonus does not")
-	# Both the weapon and the art effective: still doubled once.
+	# 10 + 6 + 2 - 3 = 15, and half of it (7, rounded down) again.
+	t.eq(f.damage, 15 + 7, "the art's strike deals half as much again")
+	# Both the weapon and the art effective: still only once.
 	sword.effective_against = ["Flying"] as Array[String]
-	t.eq(b.forecast(c, b.enemies[0], art).damage, 10 + 6 * 2 + 2 - 3, "does not stack")
-	t.eq(b.forecast(c, b.enemies[0]).damage, 10 + 6 * 2 - 3, "attack with the effective weapon")
+	t.eq(b.forecast(c, b.enemies[0], art).damage, 15 + 7, "does not stack")
+	t.eq(b.forecast(c, b.enemies[0]).damage, 13 + 6, "attack with the effective weapon")
 
 
 func test_effective_spell() -> void:
@@ -685,7 +688,8 @@ func test_effective_spell() -> void:
 	var b := battle_with(cs1(d), one(flyer(2)))
 	var f := b.spell_forecast(b.roster[0], cutter, b.enemies[0])
 	t.check(f.effective, "effective")
-	t.eq(f.damage, 10 + 3 * 2 - 2, "the spell's Mt doubled before RES")
+	t.eq(f.damage, 11 + 5, "the spell deals half as much again after RES (11 + 5)")
+	t.eq(f.crit_damage, 32, "then a critical doubles it")
 
 
 func test_no_effectiveness_without_trait() -> void:
@@ -698,7 +702,7 @@ func test_no_effectiveness_without_trait() -> void:
 	var b: Battle = t.make_battle(cs1(d), one(ground))
 	var f := b.forecast(b.roster[0], b.enemies[0])
 	t.check(not f.effective, "not effective on the ground")
-	t.eq(f.damage, 7 + 5 - 3, "plain Mt")
+	t.eq(f.damage, (7 + 10) / 2 + 5 - 3, "a bow: (STR + DEX) / 2 + Mt - DEF, nothing added")
 	var plain: WeaponData = t.make_weapon(5, 999)
 	var d2: CompanionData = t.make_companion("Blade", 50, 0, plain)
 	d2.strength = 7

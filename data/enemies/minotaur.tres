@@ -49,13 +49,14 @@ effect = SubResource("Resource_gnxbi")
 
 [resource]
 script = ExtResource("4_iay6x")
+traits = Array[String](["Large"])
 band = 2
 display_name = "Minotaur"
 portrait = ExtResource("3_pvrpf")
 color = Color(0.45, 0.3, 0.25, 1)
 stage_scale = 1.2
-max_hp = 95
-strength = 16
+max_hp = 76
+strength = 14
 crit = 3
 dexterity = 6
 defense = 6

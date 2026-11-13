@@ -6,7 +6,7 @@ extends Resource
 enum HpTarget { ALL, HEALTHIEST }
 
 @export var label: String = ""
-## What happens, shown after choosing.
+## What happens, shown after choosing. "{weapon}" is replaced by the weapon's name.
 @export_multiline var result_text: String = ""
 
 @export var gold: int = 0
@@ -18,3 +18,8 @@ enum HpTarget { ALL, HEALTHIEST }
 @export var hp_target: HpTarget = HpTarget.HEALTHIEST
 ## A weapon added to the run inventory.
 @export var weapon: WeaponData
+## Instead of a set weapon: a random one from the ladder, its tier fitting the week (see
+## RunConfig.EVENT_WEAPON_TIER_UP_CHANCE), drawn when the event comes up (Run.choice_weapon).
+@export var random_weapon: bool = false
+## The random weapon's type (WeaponData.WeaponType), or -1 for any.
+@export var random_weapon_type: int = -1
