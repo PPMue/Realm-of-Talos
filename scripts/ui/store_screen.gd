@@ -5,8 +5,10 @@ extends Control
 ## are, their stats and how they grow, what they bring, and the price. The seal on the paper hires them.
 ## Smithy: the smith's price list on the right, and the company down the left. Pointing at a weapon
 ## shows, beside each companion, whether they could hold it and what their Attack would become
-## (attack power for that kind of weapon plus its might; see RunCompanion.attack).
-## The first hire or purchase of a day spends the day's free action; the rules decide (see Run).
+## (attack power for that kind of weapon plus its might; see RunCompanion.attack). A weapon just
+## bought lies on the counter over the company: click whoever should take it (what they held goes
+## back to the armory), or send it to the armory.
+## Hiring and buying cost gold only, never the day's action; the rules decide (see Run).
 
 signal closed
 
@@ -32,6 +34,8 @@ const CREW_X := 60.0
 const CREW_Y := 156.0
 const CREW_W := 660.0
 const CREW_ROW := 84.0
+## The slip over the company for a weapon just bought.
+const COUNTER := Vector2(660, 96)
 
 var run: Run
 var mode := Mode.SHOP
@@ -49,6 +53,10 @@ var _crew := Control.new()
 var _stock_head: Label
 ## The weapon under the pointer on the price list, if any.
 var _pointed: WeaponData
+## The weapon just bought, on the counter until someone takes it or it is sent to the armory. It is
+## in the armory by the rules all along; this only says what the company is being offered.
+var _bought: OwnedWeapon
+var _counter := Control.new()
 
 
 func _init() -> void:
@@ -73,8 +81,39 @@ func close() -> void:
 func buy(item: ShopItemData) -> void:
 	var w := run.buy(item)
 	if w != null:
-		_note.text = "Bought %s. It waits in the armory: hand it out at the barracks." % w.data.display_name
+		_bought = w
+		_pointed = null
+		_note.text = ""
 		refresh()
+
+
+## Hands the weapon just bought to `c`; what they held goes back to the armory.
+func give(c: RunCompanion) -> void:
+	if _bought == null:
+		return
+	var w := _bought
+	var old := c.weapon()
+	if run.equip_weapon(c, w):
+		_bought = null
+		_note.text = "%s takes the %s.%s" % [c.display_name(), w.data.display_name.to_lower(),
+			"  The %s goes to the armory." % old.display_name.to_lower() if old != null else ""]
+		refresh()
+
+
+## Sends the weapon just bought to the armory, to be handed out at the barracks.
+func put_away() -> void:
+	if _bought == null:
+		return
+	_note.text = "The %s waits in the armory." % _bought.data.display_name.to_lower()
+	_bought = null
+	refresh()
+
+
+## The weapon the company is shown against: the one pointed at on the racks, else the one just bought.
+func _shown() -> WeaponData:
+	if _pointed != null:
+		return _pointed
+	return _bought.data if _bought != null else null
 
 
 func hire(data: CompanionData) -> void:
@@ -89,6 +128,7 @@ func _open(p_run: Run, p_mode: Mode) -> void:
 	mode = p_mode
 	_note.text = ""
 	_pointed = null
+	_bought = null
 	visible = true
 	modulate.a = 0.0
 	create_tween().tween_property(self, "modulate:a", 1.0, 0.15)
@@ -97,21 +137,17 @@ func _open(p_run: Run, p_mode: Mode) -> void:
 
 func refresh() -> void:
 	_purse.queue_redraw()
-	var key := Run.FreeAction.SHOP if mode == Mode.SHOP else Run.FreeAction.TAVERN
-	var spent := run.actions_used.has(key)
 	_tavern.visible = mode == Mode.TAVERN
 	_smithy.visible = mode == Mode.SHOP
 	if mode == Mode.SHOP:
 		_title.text = "THE SMITHY"
 		_backdrop.kind = InteriorBackdrop.Kind.SMITHY
-		_hint.text = "\"Mind the grade, Commander: a blade is no use to a hand that cannot hold it.\"   " + (
-			"You have already spent the time here today; anything more costs only gold." if spent else "The first purchase takes part of the day.")
+		_hint.text = "\"Mind the grade, Commander: a blade is no use to a hand that cannot hold it.\""
 		_refresh_smithy()
 	else:
 		_title.text = "THE TAVERN"
 		_backdrop.kind = InteriorBackdrop.Kind.TAVERN
-		_hint.text = "\"These are the ones looking for work. They bring their own steel.\"   " + (
-			"You have already spent the time here today; anyone more costs only gold." if spent else "The first hire takes part of the day.")
+		_hint.text = "\"These are the ones looking for work. They bring their own steel.\""
 		_refresh_tavern()
 
 
@@ -315,7 +351,11 @@ func _refresh_crew() -> void:
 		_crew.remove_child(child)
 		child.queue_free()
 	var n := run.roster.size()
-	var step := minf(CREW_ROW, 880.0 / maxi(1, n))
+	var drop := COUNTER.y + 14.0 if _bought != null else 0.0
+	_counter.visible = _bought != null
+	_counter.queue_redraw()
+	_crew.position.y = CREW_Y + drop
+	var step := minf(CREW_ROW, (880.0 - drop) / maxi(1, n))
 	for i in n:
 		var row := _crew_row(run.roster[i], step - 8.0)
 		row.position = Vector2(0, i * step)
@@ -327,41 +367,84 @@ func _crew_row(c: RunCompanion, h: float) -> Control:
 	row.size = Vector2(CREW_W, h)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var held := c.weapon()
-	var able := _pointed != null and c.progress.can_equip_weapon(_pointed)
+	var shown := _shown()
+	# Offered: the weapon just bought is on the counter, and nothing on the racks is pointed at.
+	var offered := _pointed == null and _bought != null
+	var able := shown != null and c.progress.can_equip_weapon(shown)
 	var line := ""
 	var ink := UiTheme.TEXT.lerp(UiTheme.MUTED, 0.45)
-	if _pointed == null:
+	if shown == null:
 		line = "%s  ·  Attack %d  ·  %s %s" % [held.display_name, c.attack(), WeaponData.type_name(held.weapon_type).to_lower(),
 			Proficiency.grade_name(c.progress.grade(held.weapon_type))]
 	elif able:
-		var heavy := _pointed.weight - c.data.build
-		line = "can hold it  ·  Attack %d → %d%s" % [c.attack(), c.attack(_pointed), "  ·  too heavy: -%d DEX and SPD" % heavy if heavy > 0 else ""]
+		var heavy := shown.weight - c.data.build
+		line = "%s  ·  Attack %d → %d%s" % ["hand it over" if offered else "can hold it", c.attack(), c.attack(shown),
+			"  ·  too heavy: -%d DEX and SPD" % heavy if heavy > 0 else ""]
 		ink = UiTheme.GOLD
 	else:
 		# The rules name the grade that is missing: "Needs axe D; Elena is E."
-		var why := c.progress.weapon_block_reason(_pointed).trim_suffix(".")
+		var why := c.progress.weapon_block_reason(shown).trim_suffix(".")
 		line = "cannot: " + why.left(1).to_lower() + why.substr(1)
 		ink = Color(UiTheme.MUTED, 0.75)
-	var dim := _pointed != null and not able
+	var dim := shown != null and not able
+	# Someone who can take the weapon on the counter is a button.
+	var takes := offered and run.equip_block_reason(c, _bought) == ""
+	var over := [false]
+	if takes:
+		row.mouse_filter = Control.MOUSE_FILTER_STOP
+		row.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		row.tooltip_text = "%s takes the %s; the %s goes back to the armory." % [c.display_name(), shown.display_name.to_lower(),
+			held.display_name.to_lower()]
+		row.mouse_entered.connect(func() -> void:
+			over[0] = true
+			row.queue_redraw())
+		row.mouse_exited.connect(func() -> void:
+			over[0] = false
+			row.queue_redraw())
+		row.gui_input.connect(func(event: InputEvent) -> void:
+			var mb := event as InputEventMouseButton
+			if mb != null and mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+				row.accept_event()
+				give.call_deferred(c))
 	row.draw.connect(func() -> void:
 		var display := UiTheme.display_font()
 		var body := UiTheme.body_font()
 		var r := minf(32.0, h * 0.5 - 4.0)
 		var center := Vector2(r + 10.0, h * 0.5)
 		if able:
-			var clear := Color(UiTheme.GOLD, 0.0)
+			var glow := 0.38 if over[0] else 0.2
+			var clear := Color(UiTheme.GOLD, 0.08 if over[0] else 0.0)
 			row.draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(CREW_W, 0), Vector2(CREW_W, h), Vector2(0, h)]),
-				PackedColorArray([Color(UiTheme.GOLD, 0.2), clear, clear, Color(UiTheme.GOLD, 0.2)]))
-			row.draw_rect(Rect2(0, 0, 3, h), UiTheme.GOLD)
+				PackedColorArray([Color(UiTheme.GOLD, glow), clear, clear, Color(UiTheme.GOLD, glow)]))
+			row.draw_rect(Rect2(0, 0, 5 if over[0] else 3, h), UiTheme.GOLD)
 		row.draw_circle(center + Vector2(0, 2), r + 4.0, Color(0, 0, 0, 0.5))
 		row.draw_circle(center, r + 3.0, UiTheme.INK)
 		UiIcons.portrait(row, center, r, c.data.portrait, c.data.portrait_focus + Vector2(0.0, 0.02), 0.3 / c.data.figure_scale,
 			Color(0.5, 0.49, 0.48) if dim else Color.WHITE)
 		row.draw_arc(center, r + 1.5, 0.0, TAU, 40, UiTheme.GOLD if able else UiTheme.GOLD_DEEP, 2.0, true)
 		var x := center.x + r + 18.0
-		UiTheme.draw_text(row, display, Vector2(x, h * 0.5 - 27.0), c.display_name(), 25, Color(UiTheme.MUTED, 0.8) if dim else UiTheme.TEXT, 4)
-		UiTheme.draw_text(row, body, Vector2(x, h * 0.5 + 5.0), line, 17, ink, 4))
+		UiTheme.draw_text(row, display, Vector2(x, h * 0.5 - 27.0), c.display_name(), 25,
+			Color(UiTheme.MUTED, 0.8) if dim else (ActionButton.LIT_INK if over[0] else UiTheme.TEXT), 4)
+		UiTheme.draw_text(row, body, Vector2(x, h * 0.5 + 5.0), line, 17, ActionButton.LIT_INK if over[0] else ink, 4))
 	return row
+
+
+## The slip over the company: the weapon just bought, and the question.
+func _draw_counter() -> void:
+	if _bought == null:
+		return
+	var w := _bought.data
+	_counter.draw_rect(Rect2(Vector2(5, 5), COUNTER), Color(0, 0, 0, 0.3))
+	UiTheme.draw_parchment(_counter, Rect2(Vector2.ZERO, COUNTER), 0.4)
+	var display := UiTheme.display_font()
+	var italic := UiTheme.italic_font()
+	var x := 22.0
+	UiTheme.draw_text(_counter, display, Vector2(x, 10.0), "BOUGHT", 15, UiTheme.PARCHMENT_MUTED)
+	if w.is_rare():
+		UiIcons.diamond(_counter, Vector2(x + 7.0, 47.0), 6.0, UiTheme.WAX)
+		x += 20.0
+	UiTheme.draw_text(_counter, display, Vector2(x, 28.0), w.display_name, 28, UiTheme.PARCHMENT_INK, 0, COUNTER.x - 250.0 - x)
+	UiTheme.draw_text(_counter, italic, Vector2(22.0, 64.0), "Who takes it?", 18, UiTheme.PARCHMENT_MUTED)
 
 
 func _draw_page() -> void:
@@ -399,6 +482,21 @@ func _build() -> void:
 	_smithy.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_smithy.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_smithy)
+	_counter.position = Vector2(CREW_X, CREW_Y - 6.0)
+	_counter.size = COUNTER
+	_counter.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_counter.visible = false
+	_counter.draw.connect(_draw_counter)
+	_smithy.add_child(_counter)
+	var away := Button.new()
+	away.text = "To the armory"
+	away.tooltip_text = "Nobody takes it now. It waits in the armory and can be handed out at the barracks."
+	away.focus_mode = Control.FOCUS_NONE
+	away.add_theme_font_size_override("font_size", 20)
+	away.position = Vector2(COUNTER.x - 222.0, 26.0)
+	away.size = Vector2(200, 44)
+	away.pressed.connect(put_away)
+	_counter.add_child(away)
 	_crew.position = Vector2(CREW_X, CREW_Y)
 	_crew.size = Vector2(CREW_W, 880)
 	_crew.mouse_filter = Control.MOUSE_FILTER_IGNORE

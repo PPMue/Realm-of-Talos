@@ -431,7 +431,7 @@ func _mood() -> String:
 		return "A matter awaits your answer"
 	var left := run.actions_left
 	if left <= 0:
-		return "The day is spent"
+		return "The day's work is done"
 	if left >= RunConfig.FREE_DAY_ACTIONS:
 		return "A quiet day: time for %s" % _things(left)
 	return "Time for %s more thing%s" % [NUMBER_WORDS[mini(left, 5)], "" if left == 1 else "s"]
@@ -461,7 +461,8 @@ func _day_text() -> String:
 			return "It has come to the gate itself. If the company falls today, the city falls with it."
 	if run.event_pending():
 		return "No horns this morning, but someone is asking for you at the gate."
-	return "No horns this morning. There is time for %s in the city before the gates close." % _things(RunConfig.FREE_DAY_ACTIONS)
+	return "No horns this morning. There is time for %s in the city before the gates close. The smith, the tavern and the healer take only coin." % _things(
+		RunConfig.FREE_DAY_ACTIONS)
 
 
 func _boss_name() -> String:
@@ -500,7 +501,7 @@ func _in_world(reason: String) -> String:
 		"Already done today.":
 			return "You have already been here today."
 		"No actions left today.":
-			return "The day is spent. Close the gates for the night."
+			return "There is no time left for this today. The smith, the tavern and the healer still take coin."
 		"Nobody is looking for work.":
 			return "Nobody is looking for work today."
 		"The city is at full health.":
@@ -610,7 +611,7 @@ func _short(reason: String) -> String:
 		"Already done today.":
 			return "Already visited today"
 		"No actions left today.":
-			return "The day is spent"
+			return "No time left today"
 		"The city is at full health.":
 			return "The walls are whole"
 		"Everyone is at full health and every spell use is ready.":

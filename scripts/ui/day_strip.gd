@@ -29,7 +29,7 @@ const TYPE_WORDS := {
 }
 const TYPE_HINTS := {
 	RunCalendar.DayType.BATTLE: "The enemy attacks in two or three places. You choose one to defend.",
-	RunCalendar.DayType.FREE: "Time for one thing in the city: rest, buy, hire or mend the walls.",
+	RunCalendar.DayType.FREE: "Time for one thing in the city: rest, drill or mend the walls. Buying, hiring and healing take only coin.",
 	RunCalendar.DayType.BOSS: "One fight, no choice of where. If it is lost, the city falls.",
 }
 

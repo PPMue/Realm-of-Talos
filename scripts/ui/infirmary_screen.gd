@@ -3,7 +3,7 @@ extends Control
 ## The infirmary: a bed for everyone injured in battle. Each bed shows who lies in it, the days of
 ## their stay (RunConfig.INFIRMARY_DAYS) as marks (those behind them filled in), the day they will be up again, and a slip
 ## for paying the healer to have them on their feet today: the price falls with every day already
-## served and rises with their level, and it is the day's one thing. Rest at the inn does nothing for
+## served and rises with their level; it costs gold only, never the day's action. Rest at the inn does nothing for
 ## them. Can be entered on any day, to look. Only reads the run and calls Run.cure.
 
 signal closed
@@ -126,7 +126,7 @@ func _bed(c: RunCompanion, h: float) -> Control:
 	var cost := run.cure_cost(c)
 	pay.disabled = why != ""
 	pay.detail = "%d gold" % cost
-	pay.tooltip_text = ("%s\n" % why if why != "" else "") + "%s is up today at full health and waits on the bench. It costs %d gold and is the one thing done today. The price falls by %d for every day they have lain here." % [
+	pay.tooltip_text = ("%s\n" % why if why != "" else "") + "%s is up today at full health and waits on the bench. It costs %d gold and takes no time from the day. The price falls by %d for every day they have lain here." % [
 		c.display_name(), cost, cost / maxi(1, left)]
 	pay.pressed.connect(cure.bind(c))
 	bed.add_child(pay)
