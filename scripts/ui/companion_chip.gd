@@ -13,6 +13,7 @@ var _art := SlantPanel.new()
 var _tag := SlantPanel.new()
 var _tag_label: Label
 var _name: Label
+var _level: Label
 var _weapon: Label
 var _hp := SlantBar.new()
 var _selected := false
@@ -43,6 +44,9 @@ func _init() -> void:
 	_name = UiTheme.label("", 34, UiTheme.TEXT, true, 8)
 	_name.position = Vector2(_edge_x(102.0) + 16.0, 56.0)
 	add_child(_name)
+	_level = UiTheme.label("", 20, UiTheme.GOLD, true, 6)
+	_level.position = Vector2(_edge_x(36.0) + 16.0, 10.0)
+	add_child(_level)
 	_weapon = UiTheme.label("", 16, UiTheme.GOLD, false, 5)
 	_weapon.position = Vector2(_edge_x(122.0) + 18.0, 98.0)
 	add_child(_weapon)
@@ -68,6 +72,7 @@ func setup(c: RunCompanion, slot: int, clickable: bool = false) -> void:
 	_art.texture = c.data.portrait
 	_art.focus = c.data.portrait_focus + Vector2(0.08, 0.04)
 	_name.text = c.display_name().to_upper()
+	_level.text = "LV %d" % c.level()
 	var w := c.weapon()
 	var t := w.weapon_type
 	_weapon.text = "%s  ·  %s %s" % [w.display_name, WeaponData.type_name(t).to_upper(), Proficiency.grade_name(c.progress.grade(t))]
@@ -86,8 +91,8 @@ func setup(c: RunCompanion, slot: int, clickable: bool = false) -> void:
 	var arts: Array[String] = []
 	for a in c.progress.equipped_arts:
 		arts.append(a.display_name)
-	tooltip_text = "%s  ·  HP %d / %d\n%s (Mt %d, Hit %d, weight %d)\n%s grade %s\nArts: %s" % [
-		c.display_name(), c.hp, c.max_hp(), w.display_name, w.might, w.hit, w.weight,
+	tooltip_text = "%s  ·  level %d  ·  HP %d / %d\n%s (Mt %d, Hit %d, weight %d)\n%s grade %s\nArts: %s" % [
+		c.display_name(), c.level(), c.hp, c.max_hp(), w.display_name, w.might, w.hit, w.weight,
 		WeaponData.type_name(t), Proficiency.grade_name(c.progress.grade(t)), ", ".join(arts) if not arts.is_empty() else "none"]
 	_restyle()
 

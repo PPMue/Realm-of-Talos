@@ -37,9 +37,11 @@ extends Resource
 ## Known and equipped from the start of a run.
 @export var signature_art: CombatArtData
 
-@export_group("Progression (not used yet)")
+@export_group("Progression")
+## Not used: every companion starts a run at level 1 (tavern hires at the roster's average level).
 @export var level: int = 1
-## Stat key -> growth percent.
+## Stat key -> growth percent: the chance that stat rises by 1 on each level-up. BLD never grows.
+## See Levels.
 @export var growths: Dictionary = {}
 
 

@@ -13,5 +13,10 @@ var injured: Array[String] = []
 var removed: Array[String] = []
 ## Battle.grade_ups entries: {"actor", "weapon_type", "grade", "art", "equipped"}.
 var grade_ups: Array[Dictionary] = []
+## XP each companion in `xp_to` received (0 on a loss).
+var xp_each: int = 0
+var xp_to: Array[String] = []
+## One entry per level reached: {"name", "level", "gains"} (gains: stat key -> amount).
+var level_ups: Array[Dictionary] = []
 ## True if this battle ended the run (won or lost).
 var run_over: bool = false

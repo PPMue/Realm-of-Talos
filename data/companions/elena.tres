@@ -22,3 +22,15 @@ build = 9
 weapon = ExtResource("3_1mcxf")
 start_grade_axe = 2
 signature_art = ExtResource("4_sig")
+growths = {
+"HP": 75,
+"STA": 45,
+"STR": 65,
+"MAG": 5,
+"CRT": 30,
+"DEX": 35,
+"SPD": 30,
+"DEF": 55,
+"RES": 25,
+"LCK": 30
+}

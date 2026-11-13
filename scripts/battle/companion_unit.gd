@@ -19,7 +19,7 @@ func _init(p_data: CompanionData, p_progress: CompanionProgress = null) -> void:
 	data = p_data
 	progress = p_progress if p_progress != null else CompanionProgress.create(p_data)
 	display_name = p_data.display_name
-	base_stats = p_data.base_stats()
+	base_stats = progress.stats()
 	hp = max_hp()
 	stamina = max_stamina()
 

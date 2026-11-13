@@ -39,9 +39,26 @@ const BOSS_REWARD_GOLD: Array[int] = [150, 250, 0]
 const BOSS_REWARD_MATERIALS := 3
 
 # --- Enemy scaling with the day (normal fronts only; bosses are built for their day) ---
-const ENEMY_HP_GROWTH_PER_DAY := 0.03   # max HP x (1 + 0.03 x (day - 1)): day 30 is x1.87
-const ENEMY_STR_EVERY_DAYS := 6         # +1 STR on days 7, 13, 19, 25
-const ENEMY_DEF_EVERY_DAYS := 10        # +1 DEF on days 11, 21
+# Assumes companions level at the pace below (about level 13 by day 30, roughly +4 to +6 in each
+# main stat), plus better weapons and grades.
+const ENEMY_HP_GROWTH_PER_DAY := 0.05   # max HP x (1 + 0.05 x (day - 1)): day 30 is x2.45
+const ENEMY_STR_EVERY_DAYS := 4         # +1 STR on days 5, 9, 13, ... 29 (+7)
+const ENEMY_DEF_EVERY_DAYS := 6         # +1 DEF on days 7, 13, 19, 25 (+4)
+const ENEMY_SPD_EVERY_DAYS := 8         # +1 SPD and DEX on days 9, 17, 25
+
+# --- Levels and XP ---
+# A won battle grants an XP pool, split evenly (rounded down) among the fielded companions still in
+# the run at its end. Pace target: fielded in every battle in a party of about four, a companion ends
+# the run around level 12-15. Measured by the level pace test.
+const XP_POOL_BY_DANGER: Array[int] = [60, 90, 125]
+const XP_POOL_GROWTH_PER_DAY := 0.04    # pool x (1 + 0.04 x (day - 1))
+const BOSS_XP_POOL: Array[int] = [220, 320, 420]
+## XP to go from level L to L + 1: BASE + STEP x (L - 1).
+const XP_PER_LEVEL_BASE := 30
+const XP_PER_LEVEL_STEP := 5
+const MAX_LEVEL := 20
+## At least this many stats rise on every level-up.
+const MIN_STAT_GAINS := 2
 
 # --- Materials ---
 const IRON_ORE := "iron_ore"

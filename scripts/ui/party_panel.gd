@@ -17,6 +17,7 @@ var _body := Control.new()
 var _bg := SlantPanel.new()
 var _portrait := SlantPanel.new()
 var _name: Label
+var _level: Label
 var _tag := SlantPanel.new()
 var _tag_label: Label
 var _effects: Label
@@ -52,6 +53,9 @@ func _init() -> void:
 	_name.position = Vector2(_edge_x(PAD + PORTRAIT_H) + 18.0, PAD + PORTRAIT_H - 40.0)
 	_name.size = Vector2(W - 60.0, 44)
 	_body.add_child(_name)
+	_level = UiTheme.label("", 18, UiTheme.GOLD, true, 6)
+	_level.position = Vector2(_edge_x(PAD + PORTRAIT_H - 40.0) + 20.0, PAD + PORTRAIT_H - 60.0)
+	_body.add_child(_level)
 
 	_tag.size = Vector2(150, 32)
 	_tag.position = Vector2(W - PAD - 10.0 - _tag.size.x, PAD + 8.0)
@@ -96,6 +100,10 @@ func setup(display_name: String, portrait: Texture2D, focus: Vector2) -> void:
 	_portrait.texture = portrait
 	# Nudged so the face sits right of centre, clear of the name.
 	_portrait.focus = focus + Vector2(-0.07, 0.0)
+
+
+func set_level(level: int) -> void:
+	_level.text = "LV %d" % level
 
 
 func set_hp(current: int, maximum: int) -> void:

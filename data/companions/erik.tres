@@ -22,3 +22,15 @@ luck = 5
 weapon = ExtResource("3_ktahn")
 start_grade_bow = 2
 signature_art = ExtResource("4_sig")
+growths = {
+"HP": 45,
+"STA": 40,
+"STR": 40,
+"MAG": 20,
+"CRT": 40,
+"DEX": 70,
+"SPD": 45,
+"DEF": 25,
+"RES": 35,
+"LCK": 35
+}

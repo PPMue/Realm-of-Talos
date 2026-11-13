@@ -201,6 +201,7 @@ func finish_battle(battle: Battle) -> BattleReport:
 	report.won = battle.outcome == Battle.Outcome.VICTORY
 	report.grade_ups = battle.grade_ups.duplicate()
 	var fielded := lineup.duplicate()
+	var standing: Array[RunCompanion] = []
 	for i in fielded.size():
 		var c: RunCompanion = fielded[i]
 		var unit := battle.roster[i]
@@ -211,8 +212,10 @@ func finish_battle(battle: Battle) -> BattleReport:
 		if unit.is_injured() or battle.injured_ever.has(unit):
 			report.injured.append(c.display_name())
 		c.hp = RunConfig.INJURED_RETURN_HP if unit.is_injured() or unit.hp <= 0 else mini(unit.hp, c.max_hp())
+		standing.append(c)
 	if report.won:
 		battles_won += 1
+		_grant_xp(report, front.xp_pool, standing)
 		report.gold = front.reward_gold
 		report.materials = front.reward_materials.duplicate()
 		gold += front.reward_gold
@@ -319,8 +322,9 @@ func hire_block_reason(data: CompanionData) -> String:
 	return ""
 
 
-## Hires a companion offered at the tavern. They join at full HP with their own weapon and are
-## fielded if the line has room.
+## Hires a companion offered at the tavern. They join at the roster's average level (rounded down)
+## with the stat gains for those levels rolled now, at full HP, with their own weapon, and are fielded
+## if the line has room.
 func hire(data: CompanionData) -> RunCompanion:
 	if hire_block_reason(data) != "":
 		return null
@@ -328,7 +332,35 @@ func hire(data: CompanionData) -> RunCompanion:
 		_spend(FreeAction.TAVERN)
 	gold -= RunConfig.HIRE_COST
 	tavern_offers.erase(data)
-	return _join(data)
+	var level := hire_level()
+	var c := _join(data)
+	while c.level() < level:
+		Levels.level_up(c.progress, rng)
+	c.hp = c.max_hp()
+	return c
+
+
+## Splits a won battle's XP pool evenly (rounded down) among `standing` and applies level-ups.
+## Max HP gained from a level also raises current HP by the same amount.
+func _grant_xp(report: BattleReport, pool: int, standing: Array[RunCompanion]) -> void:
+	if standing.is_empty() or pool <= 0:
+		return
+	report.xp_each = floori(float(pool) / standing.size())
+	for c in standing:
+		report.xp_to.append(c.display_name())
+		for up in Levels.add_xp(c.progress, report.xp_each, rng):
+			c.hp += int(up.gains.get(Stat.HP, 0))
+			report.level_ups.append({"name": c.display_name(), "level": up.level, "gains": up.gains})
+
+
+## Level a companion hired today joins at: the roster's average level, rounded down.
+func hire_level() -> int:
+	if roster.is_empty():
+		return 1
+	var total := 0
+	for c in roster:
+		total += c.level()
+	return maxi(1, floori(float(total) / roster.size()))
 
 
 ## Ends a free day; unused actions are lost.
@@ -471,6 +503,7 @@ func _make_fronts() -> void:
 			var m: String = RunConfig.MATERIAL_ORDER[rng.randi_range(0, RunConfig.MATERIAL_ORDER.size() - 1)]
 			f.reward_materials[m] = RunConfig.REWARD_MATERIAL_AMOUNT[danger - 1]
 		f.city_damage = RunConfig.CITY_DAMAGE_BY_DANGER[danger - 1]
+		f.xp_pool = roundi(RunConfig.XP_POOL_BY_DANGER[danger - 1] * (1.0 + RunConfig.XP_POOL_GROWTH_PER_DAY * (day - 1)))
 		fronts.append(f)
 
 
@@ -489,6 +522,7 @@ func _make_boss_front() -> Front:
 		for m in RunConfig.MATERIAL_ORDER:
 			f.reward_materials[m] = RunConfig.BOSS_REWARD_MATERIALS
 	f.city_damage = 0
+	f.xp_pool = RunConfig.BOSS_XP_POOL[clampi(index, 0, RunConfig.BOSS_XP_POOL.size() - 1)]
 	return f
 
 
@@ -499,6 +533,8 @@ static func scaled_enemy(e: EnemyData, on_day: int) -> EnemyData:
 	s.max_hp = roundi(e.max_hp * (1.0 + RunConfig.ENEMY_HP_GROWTH_PER_DAY * d))
 	s.strength = e.strength + floori(float(d) / RunConfig.ENEMY_STR_EVERY_DAYS)
 	s.defense = e.defense + floori(float(d) / RunConfig.ENEMY_DEF_EVERY_DAYS)
+	s.speed = e.speed + floori(float(d) / RunConfig.ENEMY_SPD_EVERY_DAYS)
+	s.dexterity = e.dexterity + floori(float(d) / RunConfig.ENEMY_SPD_EVERY_DAYS)
 	return s
 
 

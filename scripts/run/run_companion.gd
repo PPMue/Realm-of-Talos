@@ -21,7 +21,11 @@ func display_name() -> String:
 
 
 func max_hp() -> int:
-	return data.max_hp
+	return data.max_hp + progress.stat_gain(Stat.HP)
+
+
+func level() -> int:
+	return progress.level
 
 
 func weapon() -> WeaponData:

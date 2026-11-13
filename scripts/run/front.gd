@@ -13,6 +13,8 @@ var reward_gold: int = 0
 ## Material id -> amount.
 var reward_materials: Dictionary = {}
 var city_damage: int = 0
+## XP shared by the fielded companions still standing if the battle is won.
+var xp_pool: int = 0
 
 
 func title() -> String:

@@ -10,7 +10,7 @@ script = ExtResource("1_ba34q")
 display_name = "Frost Lance"
 countdown = 3
 pick_weight = 3.0
-might = 8
+might = 10
 hit = 85
 
 [sub_resource type="Resource" id="Resource_b7nos"]
@@ -52,11 +52,12 @@ display_name = "Frostfang Warden"
 portrait = ExtResource("3_yx6yu")
 color = Color(0.3, 0.45, 0.6, 1)
 stage_scale = 1.45
-max_hp = 150
-strength = 15
+max_hp = 210
+strength = 18
 crit = 3
-dexterity = 9
-defense = 7
+dexterity = 10
+speed = 6
+defense = 9
 resistance = 6
 luck = 4
 actions = Array[ExtResource("1_ba34q")]([SubResource("Resource_pn4i3"), SubResource("Resource_3gyeq"), SubResource("Resource_hvu7u")])

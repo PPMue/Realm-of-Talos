@@ -15,6 +15,8 @@ var _reserve_row := HBoxContainer.new()
 var _reserve_empty: Label
 var _name: Label
 var _info: Label
+var _level: Label
+var _xp := SlantBar.new()
 var _buttons := VBoxContainer.new()
 var _weapons := VBoxContainer.new()
 var _weapons_head: Label
@@ -132,6 +134,7 @@ func _refresh_detail() -> void:
 	if c == null:
 		_name.text = ""
 		_info.text = "Nobody left in the roster."
+		_level.text = ""
 		return
 	var fielded := run.is_fielded(c)
 	var index := run.lineup.find(c)
@@ -141,9 +144,22 @@ func _refresh_detail() -> void:
 	var place := "Reserve: does not fight." if not fielded else ("Line %d of %d%s" % [index + 1, run.lineup.size(),
 		", the front: nearest the enemies, aimed at most." if index == run.lineup.size() - 1 else "."])
 	var heavy := w.weight - c.data.build
-	_info.text = "HP %d / %d     %s\nHolds %s  ·  %s grade %s%s" % [c.hp, c.max_hp(), place, w.display_name,
+	var st := c.progress.stats()
+	var stat_line: Array[String] = []
+	for key in [Stat.STR, Stat.DEX, Stat.SPD, Stat.DEF, Stat.CRT, Stat.LCK, Stat.STA]:
+		stat_line.append("%s %d" % [key, int(st[key])])
+	_info.text = "HP %d / %d     %s\nHolds %s  ·  %s grade %s%s\n%s" % [c.hp, c.max_hp(), place, w.display_name,
 		WeaponData.type_name(t).to_lower(), Proficiency.grade_name(c.progress.grade(t)),
-		"  ·  too heavy: -%d DEX, -%d SPD" % [heavy, heavy] if heavy > 0 else ""]
+		"  ·  too heavy: -%d DEX, -%d SPD" % [heavy, heavy] if heavy > 0 else "", "   ".join(stat_line)]
+	var gains: Array[String] = []
+	for key in Levels.GROWTH_STATS:
+		gains.append("%s %d%%%s" % [key, Levels.growth_rate(c.data, key),
+			" (+%d)" % c.progress.stat_gain(key) if c.progress.stat_gain(key) > 0 else ""])
+	_info.tooltip_text = "Growth rates: the chance each stat rises on a level-up (gained so far in brackets).\n" + ", ".join(gains)
+	_level.text = "LV %d" % c.level()
+	var need := Levels.xp_to_next(c.level())
+	_xp.label_prefix = "XP " if need > 0 else "MAX LEVEL  "
+	_xp.set_values(c.progress.xp if need > 0 else 1, need if need > 0 else 1, false)
 
 	var left := _button("MOVE BACK", "←", "Move one place to the left, away from the enemies.", move.bind(-1))
 	left.disabled = not fielded or index <= 0
@@ -265,12 +281,21 @@ func _build() -> void:
 	_name.position = Vector2(190, DETAIL_TOP + 16.0)
 	add_child(_name)
 	_info = UiTheme.label("", 19, UiTheme.TEXT, false, 4)
-	_info.position = Vector2(176, DETAIL_TOP + 92.0)
-	_info.size = Vector2(560, 60)
+	_info.position = Vector2(176, DETAIL_TOP + 86.0)
+	_info.size = Vector2(560, 84)
 	_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_info.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(_info)
-	_buttons.position = Vector2(130, DETAIL_TOP + 176.0)
-	_buttons.add_theme_constant_override("separation", 6)
+	_level = UiTheme.label("", 30, UiTheme.GOLD, true, 6)
+	_level.position = Vector2(470, DETAIL_TOP + 22.0)
+	add_child(_level)
+	_xp.fill_color = UiTheme.READY
+	_xp.font_size = 15
+	_xp.position = Vector2(470, DETAIL_TOP + 60.0)
+	_xp.size = Vector2(230, 22)
+	add_child(_xp)
+	_buttons.position = Vector2(130, DETAIL_TOP + 184.0)
+	_buttons.add_theme_constant_override("separation", 2)
 	add_child(_buttons)
 
 	_weapons_head = UiTheme.label("WEAPONS", 24, UiTheme.GOLD, true, 6)

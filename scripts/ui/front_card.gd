@@ -94,6 +94,8 @@ func _reward_text() -> String:
 	for m in RunConfig.MATERIAL_ORDER:
 		if int(front.reward_materials.get(m, 0)) > 0:
 			parts.append("%d %s" % [int(front.reward_materials[m]), String(RunConfig.MATERIAL_NAMES[m]).to_upper()])
+	if front.xp_pool > 0:
+		parts.append("%d XP" % front.xp_pool)
 	if parts.is_empty():
 		return "THE CITY IS SAVED"
 	return "  ·  ".join(parts)

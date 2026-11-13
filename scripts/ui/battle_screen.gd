@@ -86,6 +86,7 @@ func start(p_battle: Battle, title: String) -> void:
 	for c in battle.roster:
 		var panel := PartyPanel.new()
 		panel.setup(c.display_name, c.data.portrait, c.data.portrait_focus)
+		panel.set_level(c.progress.level)
 		panel.clicked.connect(pick_companion.bind(c))
 		_party_row.add_child(panel)
 		_party_panels[c] = panel
@@ -474,6 +475,8 @@ func show_report(report: BattleReport) -> void:
 		_add_result_line("THE CITY", "%s breaks through. The city falls." % report.front.group.display_name, UiTheme.INJURED)
 	else:
 		_add_result_line("THE CITY", "loses %d health." % report.city_damage, UiTheme.INJURED)
+	if report.xp_each > 0:
+		_add_result_line("XP", "+%d each  ·  %s" % [report.xp_each, ", ".join(report.xp_to)], UiTheme.TEXT)
 	if not report.injured.is_empty():
 		_add_result_line("INJURED", "%s  (back at %d HP)" % [", ".join(report.injured), RunConfig.INJURED_RETURN_HP], UiTheme.RECOVERING)
 	if not report.removed.is_empty():
@@ -483,10 +486,22 @@ func show_report(report: BattleReport) -> void:
 			continue
 		var t := c.weapon().weapon_type
 		var step := c.progress.progress_to_next(t)
-		var text := "%s %s   +%d   (%s)" % [WeaponData.type_name(t), Proficiency.grade_name(c.progress.grade(t)), c.proficiency_gained,
+		# Level-ups this battle, merged: "Lv 6 -> 8: HP +2, STR +1   ·   ".
+		var level_text := "Lv %d" % c.progress.level
+		var first := 0
+		var gains := {}
+		for up in report.level_ups:
+			if up.name == c.display_name:
+				if first == 0:
+					first = up.level
+				for key: String in up.gains:
+					gains[key] = int(gains.get(key, 0)) + int(up.gains[key])
+		if first > 0:
+			level_text = "LEVEL UP  Lv %d -> %d: %s" % [first - 1, c.progress.level, Levels.gains_text(gains)]
+		var text := "%s   ·   %s %s   +%d   (%s)" % [level_text, WeaponData.type_name(t), Proficiency.grade_name(c.progress.grade(t)), c.proficiency_gained,
 			"max grade" if step.y == 0 else "%d / %d to %s" % [step.x, step.y, Proficiency.grade_name(c.progress.grade(t) + 1)]]
 		var learned: Array[String] = []
-		var rose := false
+		var rose := first > 0
 		for g in report.grade_ups:
 			if g.actor == c:
 				rose = true
@@ -494,9 +509,16 @@ func show_report(report: BattleReport) -> void:
 					learned.append((g.art as CombatArtData).display_name)
 		if not learned.is_empty():
 			text += "   learned " + ", ".join(learned)
-		_add_result_line(c.display_name.to_upper(), text, UiTheme.GOLD if rose else UiTheme.TEXT)
+		_add_result_line(c.display_name.to_upper(), text, UiTheme.READY if first > 0 else (UiTheme.GOLD if rose else UiTheme.TEXT))
 	# The summary panel and the button follow the number of lines.
-	var bottom := -24.0 + _result_lines.get_child_count() * 36.0 + 26.0
+	# Many lines (level-ups for a full party) move the whole block up and pack the lines tighter.
+	var count := _result_lines.get_child_count()
+	var step := 36.0 if count <= 9 else 31.0
+	_result_lines.add_theme_constant_override("separation", 6 if count <= 9 else 1)
+	var lift := maxf(0.0, (count - 9) * step)
+	_result_lines.offset_top = -24.0 - lift
+	_result_bg.offset_top = -50.0 - lift
+	var bottom := -24.0 - lift + count * step + 26.0
 	_result_bg.offset_bottom = bottom
 	_result_button.offset_top = bottom + 26.0
 	_result_button.offset_bottom = bottom + 94.0
@@ -520,7 +542,12 @@ func _add_result_line(head: String, text: String, color: Color) -> void:
 	h.custom_minimum_size = Vector2(190, 0)
 	h.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	row.add_child(h)
-	row.add_child(UiTheme.label(text, 22, color, false, 6))
+	var body := UiTheme.label(text, 22, color, false, 6)
+	var font_size := 22
+	while font_size > 16 and UiTheme.body_font().get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x > 880.0:
+		font_size -= 1
+	body.add_theme_font_size_override("font_size", font_size)
+	row.add_child(body)
 	_result_lines.add_child(row)
 
 
@@ -580,8 +607,8 @@ func _refresh_party() -> void:
 		var arts: Array[String] = []
 		for a in c.arts():
 			arts.append(a.display_name)
-		panel.tooltip_text = "%s\n%s\n\n%s %s%s\nArts: %s\n\nEnemies aim at this spot %d%% of the time." % [
-			c.display_name, _stat_sheet(c, Stat.COMPANION_KEYS), WeaponData.type_name(kind),
+		panel.tooltip_text = "%s  ·  level %d\n%s\n\n%s %s%s\nArts: %s\n\nEnemies aim at this spot %d%% of the time." % [
+			c.display_name, c.progress.level, _stat_sheet(c, Stat.COMPANION_KEYS), WeaponData.type_name(kind),
 			Proficiency.grade_name(c.progress.grade(kind)),
 			"" if step.y == 0 else "  (%d / %d to %s)" % [step.x, step.y, Proficiency.grade_name(c.progress.grade(kind) + 1)],
 			", ".join(arts) if not arts.is_empty() else "none", share]

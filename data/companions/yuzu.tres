@@ -25,3 +25,15 @@ weapon = ExtResource("3_jecx5")
 start_grade_bow = 1
 start_grade_dagger = 2
 signature_art = ExtResource("4_sig")
+growths = {
+"HP": 40,
+"STA": 40,
+"STR": 30,
+"MAG": 15,
+"CRT": 65,
+"DEX": 55,
+"SPD": 70,
+"DEF": 20,
+"RES": 30,
+"LCK": 55
+}

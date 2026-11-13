@@ -1,6 +1,7 @@
 class_name CompanionProgress
 extends RefCounted
-## What a companion carries from battle to battle: weapon proficiency, combat arts and the weapon in hand.
+## What a companion carries from battle to battle: level and XP, stat gains from levels, weapon
+## proficiency, combat arts and the weapon in hand.
 ## Plain data plus its rules, no nodes or UI. Battle reads and updates it; HP between battles lives in
 ## RunCompanion, and stamina and injuries are per battle.
 
@@ -12,6 +13,11 @@ var known_arts: Array[CombatArtData] = []
 var equipped_arts: Array[CombatArtData] = []
 ## The weapon in hand; starts as CompanionData.weapon. In a run, RunInventory changes it.
 var weapon: WeaponData
+## Character level (starts at 1) and XP toward the next one. See Levels.
+var level: int = 1
+var xp: int = 0
+## Stat key -> points gained from level-ups, added to the companion's base stats in battle.
+var stat_gains: Dictionary = {}
 
 
 ## Fresh progress at the start of a run: starting grades, signature art known and equipped.
@@ -40,7 +46,24 @@ func copy() -> CompanionProgress:
 	p.known_arts = known_arts.duplicate()
 	p.equipped_arts = equipped_arts.duplicate()
 	p.weapon = weapon
+	p.level = level
+	p.xp = xp
+	p.stat_gains = stat_gains.duplicate()
 	return p
+
+
+# ---------------------------------------------------------------- stats
+
+## Base stats plus level-up gains.
+func stats() -> Dictionary:
+	var s := data.base_stats()
+	for key: String in stat_gains:
+		s[key] = int(s.get(key, 0)) + int(stat_gains[key])
+	return s
+
+
+func stat_gain(key: String) -> int:
+	return int(stat_gains.get(key, 0))
 
 
 # ---------------------------------------------------------------- proficiency

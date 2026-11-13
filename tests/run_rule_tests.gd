@@ -39,6 +39,16 @@ func tests() -> Array[Callable]:
 		test_repair,
 		test_event_choices,
 		test_run_content,
+		test_level_thresholds,
+		test_growth_rates,
+		test_bld_never_rises,
+		test_minimum_stat_gains,
+		test_level_gains_reach_battle,
+		test_xp_split_among_fielded,
+		test_no_xp_on_loss,
+		test_max_hp_gain_raises_hp,
+		test_tavern_hire_level,
+		test_level_pace,
 		test_playthrough,
 	]
 
@@ -236,9 +246,11 @@ func test_enemy_scaling() -> void:
 	t.eq(d1.strength, orc.strength, "day 1 unchanged STR")
 	t.check(d1 != orc, "a copy, not the data itself")
 	var d30 := Run.scaled_enemy(orc, 30)
-	t.eq(d30.max_hp, roundi(60 * (1.0 + 0.03 * 29)), "day 30 HP")
-	t.eq(d30.strength, orc.strength + 4, "day 30 STR +4")
-	t.eq(d30.defense, orc.defense + 2, "day 30 DEF +2")
+	t.eq(d30.max_hp, roundi(60 * (1.0 + RunConfig.ENEMY_HP_GROWTH_PER_DAY * 29)), "day 30 HP")
+	t.eq(d30.strength, orc.strength + floori(29.0 / RunConfig.ENEMY_STR_EVERY_DAYS), "day 30 STR")
+	t.eq(d30.defense, orc.defense + floori(29.0 / RunConfig.ENEMY_DEF_EVERY_DAYS), "day 30 DEF")
+	t.eq(d30.speed, orc.speed + floori(29.0 / RunConfig.ENEMY_SPD_EVERY_DAYS), "day 30 SPD")
+	t.check(d30.strength > orc.strength and d30.defense > orc.defense, "day 30 enemies are stronger")
 	t.eq(orc.max_hp, 60, "the data is not changed")
 	var run := make_run(5)
 	run.day = 15
@@ -710,6 +722,265 @@ func test_run_content() -> void:
 			"%s: higher grade, more might" % WeaponData.type_name(t_kind))
 
 
+# ---------------------------------------------------------------- levels
+
+func growth_companion(rates: Dictionary) -> CompanionData:
+	var c := companion("aina").duplicate() as CompanionData
+	c.growths = rates
+	return c
+
+
+func test_level_thresholds() -> void:
+	t.eq(Levels.xp_to_next(1), RunConfig.XP_PER_LEVEL_BASE, "level 1 -> 2")
+	t.eq(Levels.xp_to_next(5), RunConfig.XP_PER_LEVEL_BASE + 4 * RunConfig.XP_PER_LEVEL_STEP, "level 5 -> 6")
+	t.eq(Levels.xp_to_next(RunConfig.MAX_LEVEL), 0, "nothing past the top level")
+	var p := CompanionProgress.create(companion("erik"))
+	var rng := _seeded(1)
+	t.eq(p.level, 1, "starts at level 1")
+	t.eq(p.xp, 0, "with no XP")
+	t.check(Levels.add_xp(p, Levels.xp_to_next(1) - 1, rng).is_empty(), "one short: no level")
+	t.eq(p.level, 1, "still 1")
+	var ups := Levels.add_xp(p, 1, rng)
+	t.eq(ups.size(), 1, "exactly the threshold: one level")
+	t.eq(p.level, 2, "level 2")
+	t.eq(p.xp, 0, "XP starts over")
+	ups = Levels.add_xp(p, Levels.xp_to_next(2) + Levels.xp_to_next(3) + 7, rng)
+	t.eq(ups.size(), 2, "a big gain can give two levels")
+	t.eq(p.level, 4, "level 4")
+	t.eq(p.xp, 7, "the rest carries over")
+	t.eq(ups[0].level, 3, "levels reported in order")
+	Levels.add_xp(p, 100000, rng)
+	t.eq(p.level, RunConfig.MAX_LEVEL, "stops at the top level")
+	t.eq(p.xp, 0, "no XP kept at the top")
+	t.eq(Levels.total_xp_for(3), Levels.xp_to_next(1) + Levels.xp_to_next(2), "total XP to a level")
+
+
+func test_growth_rates() -> void:
+	# Raw rolls match each rate.
+	for n in ["elena", "aina", "erik", "ingrid", "yuzu"]:
+		var d := companion(n)
+		var rng := _seeded(n.hash())
+		var counts := {}
+		var rolls := 4000
+		for i in rolls:
+			for key: String in Levels.roll_raw(d, rng):
+				counts[key] = counts.get(key, 0) + 1
+		var sum := 0.0
+		for key in Levels.GROWTH_STATS:
+			var rate := Levels.growth_rate(d, key)
+			sum += rate
+			var seen: float = 100.0 * int(counts.get(key, 0)) / rolls
+			t.check(absf(seen - rate) < 3.0, "%s %s: rolled %.1f%% against a %d%% rate" % [n, key, seen, rate])
+		var avg := sum / Levels.GROWTH_STATS.size()
+		t.check(avg >= 35.0 and avg <= 45.0, "%s averages about 40%% (%.1f)" % [n, avg])
+		t.eq(d.growths.size(), Levels.GROWTH_STATS.size(), "%s has a rate for every stat but BLD" % n)
+	# Character: the axe user is high in HP and STR, the archer in DEX.
+	var elena := companion("elena")
+	var erik := companion("erik")
+	t.check(Levels.growth_rate(elena, Stat.HP) >= 70 and Levels.growth_rate(elena, Stat.STR) >= 60, "Elena: HP and STR")
+	t.check(Levels.growth_rate(erik, Stat.DEX) >= 70, "Erik: DEX")
+	# The same seed gives the same level-ups.
+	var a := CompanionProgress.create(elena)
+	var b := CompanionProgress.create(elena)
+	Levels.add_xp(a, 2000, _seeded(9))
+	Levels.add_xp(b, 2000, _seeded(9))
+	t.eq(a.stat_gains, b.stat_gains, "seeded level-ups repeat")
+
+
+func test_bld_never_rises() -> void:
+	var d := growth_companion({"BLD": 100, "HP": 100, "STR": 100})
+	t.eq(Levels.growth_rate(d, Stat.BLD), 0, "BLD has no growth rate")
+	var p := CompanionProgress.create(d)
+	var rng := _seeded(3)
+	for i in 200:
+		Levels.level_up(p, rng)
+	t.eq(p.stat_gain(Stat.BLD), 0, "BLD never rises")
+	t.eq(p.stats()[Stat.BLD], d.build, "BLD stays at its base")
+
+
+func test_minimum_stat_gains() -> void:
+	var none := growth_companion({})
+	var rng := _seeded(4)
+	var picked := {}
+	for i in 500:
+		var g := Levels.roll_gains(none, rng)
+		t.eq(g.size(), RunConfig.MIN_STAT_GAINS, "with no growth rates, exactly the minimum rises")
+		for key: String in g:
+			t.check(key != Stat.BLD, "never BLD")
+			picked[key] = true
+	t.eq(picked.size(), Levels.GROWTH_STATS.size(), "any stat can be picked when rates are all 0")
+	var weighted := growth_companion({"STR": 50, "DEF": 1})
+	var str_rose := 0
+	for i in 2000:
+		var g := Levels.roll_gains(weighted, rng)
+		t.check(g.size() >= RunConfig.MIN_STAT_GAINS, "at least the minimum")
+		if g.has(Stat.STR):
+			str_rose += 1
+	t.check(str_rose > 1900, "extra gains are weighted by rate (STR rose %d / 2000)" % str_rose)
+	var all := growth_companion({"HP": 100, "STA": 100, "STR": 100, "MAG": 100, "CRT": 100, "DEX": 100, "SPD": 100,
+		"DEF": 100, "RES": 100, "LCK": 100})
+	t.eq(Levels.roll_gains(all, rng).size(), 10, "all at 100%: every stat but BLD rises")
+	for n in ["elena", "aina", "erik", "ingrid", "yuzu"]:
+		for i in 300:
+			t.check(Levels.roll_gains(companion(n), rng).size() >= RunConfig.MIN_STAT_GAINS, "%s: minimum gains" % n)
+
+
+func test_level_gains_reach_battle() -> void:
+	var p := CompanionProgress.create(companion("aina"))
+	p.stat_gains = {Stat.STR: 3, Stat.HP: 4, Stat.STA: 2}
+	var unit := CompanionUnit.new(p.data, p)
+	t.eq(unit.stat(Stat.STR), p.data.strength + 3, "STR gains count in battle")
+	t.eq(unit.max_hp(), p.data.max_hp + 4, "max HP gains count in battle")
+	t.eq(unit.max_stamina(), p.data.max_sta + 2, "STA gains count in battle")
+	var run := make_run(40)
+	var c := run.roster[0]
+	c.progress.stat_gains = {Stat.HP: 5}
+	c.hp = c.max_hp()
+	var b := run.start_battle(run.fronts[0])
+	t.eq(b.roster[0].max_hp(), c.data.max_hp + 5, "a run battle uses the gains")
+	t.eq(b.roster[0].hp, c.max_hp(), "at the run HP")
+
+
+func total_xp(c: RunCompanion) -> int:
+	return Levels.total_xp_for(c.level()) + c.progress.xp
+
+
+func test_xp_split_among_fielded() -> void:
+	var run := make_run(41)
+	run.gold = 10000
+	force_day(run, RunCalendar.DayType.FREE)
+	while run.roster.size() < 4:
+		run.actions_left = 2
+		run.actions_used.clear()
+		run.tavern_offers.clear()
+		run._make_tavern_offers()
+		run.hire(run.tavern_offers[0])
+	var benched := run.lineup[0]
+	run.bench(benched)
+	t.eq(run.lineup.size(), 3, "three fielded, one in reserve")
+	var gone := run.lineup[0]
+	var injured := run.lineup[1]
+	var fine := run.lineup[2]
+	run.day = 3
+	force_day(run, RunCalendar.DayType.BATTLE)
+	var f := run.fronts[0]
+	var before := {}
+	for c in run.roster:
+		before[c] = total_xp(c)
+	var r := fight(run, true, f, func(b: Battle) -> void:
+		b._damage_companion(b.roster[0], 999, false)
+		b._damage_companion(b.roster[0], 1, false)
+		b._damage_companion(b.roster[1], 999, false))
+	t.check(r.removed.has(gone.display_name()), "one removed")
+	t.eq(r.xp_each, floori(float(f.xp_pool) / 2), "the pool is split between the two left standing")
+	t.eq(r.xp_to.size(), 2, "two shares")
+	for c: RunCompanion in [injured, fine]:
+		t.eq(total_xp(c) - int(before[c]), r.xp_each, "%s gets a share (injured or not)" % c.display_name())
+	t.eq(total_xp(benched), int(before[benched]), "reserve gets nothing")
+	t.check(not r.xp_to.has(gone.display_name()) and not r.xp_to.has(benched.display_name()), "no share for gone or reserve")
+	t.check(f.xp_pool > 0, "fronts carry an XP pool")
+	t.check(RunConfig.XP_POOL_BY_DANGER[0] < RunConfig.XP_POOL_BY_DANGER[1] and RunConfig.XP_POOL_BY_DANGER[1] < RunConfig.XP_POOL_BY_DANGER[2],
+		"higher danger, more XP")
+	run.day = 25
+	force_day(run, RunCalendar.DayType.BATTLE)
+	for fr in run.fronts:
+		t.check(fr.xp_pool > RunConfig.XP_POOL_BY_DANGER[fr.danger - 1], "the pool grows with the day")
+
+
+func test_no_xp_on_loss() -> void:
+	var run := make_run(42)
+	var c := run.lineup[0]
+	var kind := c.weapon().weapon_type
+	var points := c.progress.points_in(kind)
+	var r := fight(run, false, null, func(b: Battle) -> void:
+		b._gain_proficiency(b.roster[0], 3))
+	t.eq(r.xp_each, 0, "no XP on a loss")
+	t.check(r.level_ups.is_empty(), "no level-ups")
+	for x in run.roster:
+		t.eq(x.progress.xp, 0, "no XP for %s" % x.display_name())
+		t.eq(x.level(), 1, "still level 1")
+	t.eq(c.progress.points_in(kind), points + 3, "proficiency from the lost battle is kept")
+
+
+func test_max_hp_gain_raises_hp() -> void:
+	var run := make_run(43)
+	for c in run.roster:
+		c.data = growth_companion({"HP": 100})
+		c.progress.data = c.data
+		c.hp = 10
+	var f := run.fronts[0]
+	f.xp_pool = Levels.xp_to_next(1) * run.lineup.size()
+	var r := fight(run, true, f)
+	t.eq(r.level_ups.size(), run.lineup.size(), "everyone levels once")
+	for c in run.roster:
+		t.eq(c.progress.stat_gain(Stat.HP), 1, "max HP +1")
+		t.eq(c.max_hp(), c.data.max_hp + 1, "max HP raised")
+		t.eq(c.hp, mini(c.max_hp(), 10 + 1 + heal_amount(c)), "current HP raised by the same, then the daily heal")
+	t.check(Levels.gains_text(r.level_ups[0].gains).contains("HP +1"), "the report lists the stats that rose")
+
+
+func test_tavern_hire_level() -> void:
+	var run := make_run(44)
+	run.roster[0].progress.level = 3
+	run.roster[1].progress.level = 6
+	t.eq(run.hire_level(), 4, "average 4.5 rounds down to 4")
+	run.gold = 1000
+	force_day(run, RunCalendar.DayType.FREE)
+	var c := run.hire(run.tavern_offers[0])
+	t.eq(c.level(), 4, "joins at level 4")
+	var total := 0
+	for key: String in c.progress.stat_gains:
+		total += int(c.progress.stat_gains[key])
+	t.check(total >= 3 * RunConfig.MIN_STAT_GAINS, "with the gains of 3 level-ups rolled (%d)" % total)
+	t.eq(c.hp, c.max_hp(), "at full HP, max HP included")
+	t.eq(c.progress.xp, 0, "no XP toward the next level")
+	var fresh := make_run(45)
+	force_day(fresh, RunCalendar.DayType.FREE)
+	fresh.gold = 1000
+	t.eq(fresh.hire(fresh.tavern_offers[0]).level(), 1, "a level 1 roster hires at level 1")
+
+
+## The pace target: fielded in every battle in a party of four, a companion ends around level 12-15.
+## Battles are won outright (this measures XP, not survival) on the front nearest danger 2.
+func test_level_pace() -> void:
+	var levels: Array[int] = []
+	var runs := 40
+	for s in runs:
+		var run := make_run(2000 + s)
+		var extra: Array[CompanionData] = []
+		for d in content().companions:
+			if not run._in_roster(d):
+				extra.append(d)
+		for i in 2:
+			run._join(extra[i])
+		while not run.is_over():
+			match run.day_type():
+				RunCalendar.DayType.BATTLE, RunCalendar.DayType.BOSS:
+					var best: Front = run.fronts[0]
+					for f in run.fronts:
+						if absi(f.danger - 2) < absi(best.danger - 2):
+							best = f
+					fight(run, true, best)
+				RunCalendar.DayType.FREE:
+					run.end_free_day()
+				RunCalendar.DayType.EVENT:
+					for ch in run.event.choices:
+						if run.choice_block_reason(ch) == "":
+							run.choose(ch)
+							break
+		t.eq(run.outcome, Run.Outcome.VICTORY, "seed %d: every battle won reaches the end" % s)
+		for c in run.roster:
+			levels.append(c.level())
+	var total := 0
+	for l in levels:
+		total += l
+	var avg := float(total) / levels.size()
+	levels.sort()
+	print("  level pace (party of 4, every battle won, front nearest danger 2): average final level %.1f, range %d-%d" % [
+		avg, levels[0], levels[-1]])
+	t.check(avg >= 12.0 and avg <= 15.0, "average final level %.1f is within 12-15" % avg)
+
+
 # ---------------------------------------------------------------- playthrough
 
 ## A simple policy plays whole runs through the rule classes. Proves a run can be completed and
@@ -725,6 +996,8 @@ func test_playthrough() -> void:
 	var city_left := 0
 	var gold_left := 0
 	var reached := [0, 0, 0]   # boss 1, 2, 3 reached
+	var final_levels := 0
+	var final_count := 0
 	for s in runs:
 		var run := make_run(1000 + s)
 		var policy := RunPolicy.new(_seeded(5000 + s))
@@ -742,6 +1015,9 @@ func test_playthrough() -> void:
 		total_won += run.battles_won
 		total_lost += run.battles_lost
 		roster_sizes += run.roster.size()
+		for c in run.roster:
+			final_levels += c.level()
+			final_count += 1
 		city_left += run.city_health
 		gold_left += run.gold
 		for i in 3:
@@ -763,5 +1039,6 @@ func test_playthrough() -> void:
 	print("    reached boss 1 / 2 / 3: %d / %d / %d" % reached)
 	print("    ended by: %s" % str(causes))
 	print("    end day counts: %s" % ", ".join(spread))
+	print("    average final level of the companions still in the run: %.1f" % (float(final_levels) / maxf(1, final_count)))
 	print("    per run: %.1f battles won, %.1f lost; %.1f companions, %.0f city health, %.0f gold at the end" % [
 		float(total_won) / runs, float(total_lost) / runs, float(roster_sizes) / runs, float(city_left) / runs, float(gold_left) / runs])
