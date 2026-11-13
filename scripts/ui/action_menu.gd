@@ -63,6 +63,10 @@ var _sheet_title := "ORDERS"
 var _name: Label
 var _weapon: Label
 var _grade: Label
+var _grade_seal := Control.new()
+var _grade_weapon := -1
+var _grade_school := -1
+var _grade_ink := UiTheme.GOLD
 var _grade_bar := SlantBar.new()
 var _penalty: Label
 var _buttons: Dictionary = {}       # id -> ActionButton
@@ -136,10 +140,18 @@ func _init() -> void:
 	_weapon = UiTheme.label("", 17, UiTheme.TEXT, false, 6)
 	_weapon.position = Vector2(38, NAME_Y + 72.0)
 	add_child(_weapon)
-	# Weapon grade: "SWORD D", and a bar of progress toward the next grade under it.
-	_grade = UiTheme.label("", 22, UiTheme.GOLD, true, 6)
-	_grade.position = Vector2(38, NAME_Y + 126.0)
-	_grade.size = Vector2(300, 30)
+	# Weapon grade: the seal of the weapon's kind (or of the school, in the spell list) and the letter,
+	# and a bar of progress toward the next grade under them.
+	_grade_seal.position = Vector2(38, NAME_Y + 124.0)
+	_grade_seal.size = Vector2(34, 34)
+	_grade_seal.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_grade_seal.draw.connect(func() -> void:
+		_grade_seal.draw_circle(Vector2(17, 18.5), 18.0, Color(0, 0, 0, 0.55))
+		UiIcons.seal(_grade_seal, Vector2(17, 17), 32.0, _grade_weapon, _grade_school, _grade_ink))
+	add_child(_grade_seal)
+	_grade = UiTheme.label("", 26, UiTheme.GOLD, true, 6)
+	_grade.position = Vector2(38 + 42.0, NAME_Y + 122.0)
+	_grade.size = Vector2(258, 34)
 	_grade.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(_grade)
 	_grade_bar.fill_color = UiTheme.GOLD
@@ -370,6 +382,7 @@ func show_wait(enabled: bool, next_up: CompanionUnit) -> void:
 	_weapon.visible = next_up != null
 	_penalty.text = ""
 	_grade.visible = false
+	_grade_seal.visible = false
 	_grade_bar.visible = false
 	if next_up != null:
 		_show_art(next_up, Color(0.42, 0.44, 0.52))
@@ -423,13 +436,18 @@ func _show_weapon_lines(c: CompanionUnit) -> void:
 func _show_grade(c: CompanionUnit) -> void:
 	var w := c.weapon()
 	_grade.visible = w != null
+	_grade_seal.visible = w != null
 	_grade_bar.visible = w != null
 	if w == null:
 		return
 	var t := w.weapon_type
 	var g := c.progress.grade(t)
-	_grade.text = "%s  %s" % [WeaponData.type_name(t).to_upper(), Proficiency.grade_name(g)]
+	_grade.text = Proficiency.grade_name(g)
 	_grade.add_theme_color_override("font_color", UiTheme.GOLD)
+	_grade_weapon = t
+	_grade_school = -1
+	_grade_ink = UiTheme.GOLD
+	_grade_seal.queue_redraw()
 	var step := c.progress.progress_to_next(t)
 	var capped := c.proficiency_gained >= BattleConfig.PROFICIENCY_CAP_PER_BATTLE
 	_set_bar(step, g, capped, UiTheme.GOLD)
@@ -442,11 +460,16 @@ func _show_grade(c: CompanionUnit) -> void:
 ## In the spell list, the grade line shows the school instead of the weapon.
 func _show_magic_grade(c: CompanionUnit, school: SpellData.School) -> void:
 	_grade.visible = true
+	_grade_seal.visible = true
 	_grade_bar.visible = true
 	var g := c.progress.magic_grade(school)
 	var color := UiTheme.school_color(school)
-	_grade.text = "%s  %s" % [SpellData.school_name(school).to_upper(), Proficiency.grade_name(g)]
+	_grade.text = Proficiency.grade_name(g)
 	_grade.add_theme_color_override("font_color", color)
+	_grade_weapon = -1
+	_grade_school = school
+	_grade_ink = color
+	_grade_seal.queue_redraw()
 	var capped := c.magic_gained >= BattleConfig.MAGIC_CAP_PER_BATTLE
 	_set_bar(c.progress.magic_progress_to_next(school), g, capped, color)
 	_grade.tooltip_text = "%s %s. Every cast gives %d points; a grade-up teaches a new spell.\n%s gained %d of the %d magic points one battle can give%s." % [

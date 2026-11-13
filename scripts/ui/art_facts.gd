@@ -39,6 +39,20 @@ static func art_tag(art: CombatArtData) -> String:
 	return "%s  ·  TIER %s" % [art.type_name().to_upper(), CombatArtData.tier_numeral(art.tier)]
 
 
+## The same at a glance: the seal of the art's weapon type (or the spell's school) and "TIER I".
+## `at` is the top left of a line `size` tall; with `right` at or above 0 the tag ends there instead.
+## Returns the width used.
+static func draw_tag(ci: CanvasItem, at: Vector2, weapon_type: int, of_school: int, tier: int, size: int, ink: Color, outline: int = 0,
+		right: float = -1.0) -> float:
+	var font := UiTheme.display_font()
+	var word := "TIER %s" % CombatArtData.tier_numeral(tier)
+	var wide := UiIcons.proficiency_width("", size) + 8.0 + font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+	var x := at.x if right < 0.0 else right - wide
+	var seal_w := UiIcons.proficiency(ci, Vector2(x, at.y), weapon_type, of_school, "", size, ink, ink, outline)
+	UiTheme.draw_text(ci, font, Vector2(x + seal_w + 8.0, at.y), word, size, ink, outline)
+	return wide
+
+
 static func spell_tag(sp: SpellData) -> String:
 	return "%s  ·  TIER %s" % [sp.school_text().to_upper(), CombatArtData.tier_numeral(sp.tier)]
 

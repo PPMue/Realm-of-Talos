@@ -389,8 +389,9 @@ func _art_row(p: CompanionProgress, art: CombatArtData) -> RowButton:
 	var row := RowButton.new(C3_W - 14.0, 56.0)
 	row.paper = true
 	row.title = art.display_name
-	row.sub = "%s  ·  tier %s  ·  %d stamina%s" % [art.type_name().to_lower(), CombatArtData.tier_numeral(art.tier),
-		p.art_cost(art), "  ·  signature" if art == p.data.signature_art else ""]
+	row.type_icon = art.weapon_type
+	row.sub = "tier %s  ·  %d stamina%s" % [CombatArtData.tier_numeral(art.tier), p.art_cost(art),
+		"  ·  signature" if art == p.data.signature_art else ""]
 	var slot := p.equipped_arts.find(art) + 1
 	var wrong := p.weapon == null or p.weapon.weapon_type != art.weapon_type
 	if slot > 0:
@@ -413,8 +414,8 @@ func _spell_row(p: CompanionProgress, sp: SpellData) -> RowButton:
 	row.paper = true
 	row.mouse_default_cursor_shape = Control.CURSOR_ARROW
 	row.title = sp.display_name
-	row.sub = "%s  ·  tier %s%s" % [sp.school_text().to_lower(), CombatArtData.tier_numeral(sp.tier),
-		"  ·  signature" if sp == p.data.signature_spell else ""]
+	row.school_icon = sp.school
+	row.sub = "tier %s%s" % [CombatArtData.tier_numeral(sp.tier), "  ·  signature" if sp == p.data.signature_spell else ""]
 	row.detail = "%d of %d uses" % [p.uses_left(sp), p.max_uses(sp)]
 	_read_on_hover(row, {"figures": ArtFacts.spell_figures(sp, p.uses_left(sp), p.max_uses(sp)), "lines": ArtFacts.spell_lines(sp)})
 	return row

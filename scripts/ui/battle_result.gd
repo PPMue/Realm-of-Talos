@@ -269,13 +269,17 @@ func _card_for(c: CompanionUnit, report: BattleReport, kills: int, foremost: boo
 			var rose := false
 			for g in report.grade_ups:
 				rose = rose or (g.actor == c and not g.get("magic", false) and g.get("weapon_type") == t)
-			lines.append(_line(WeaponData.type_name(t), c.progress.grade(t), c.proficiency_gained, c.progress.progress_to_next(t), rose, tips))
+			var line := _line(WeaponData.type_name(t), c.progress.grade(t), c.proficiency_gained, c.progress.progress_to_next(t), rose, tips)
+			line["weapon"] = t
+			lines.append(line)
 		for s in c.progress.spell_schools():
 			var rose := false
 			for g in report.grade_ups:
 				rose = rose or (g.actor == c and g.get("magic", false) and g.get("school") == s)
-			lines.append(_line(SpellData.school_name(s), c.progress.magic_grade(s), c.magic_gained, c.progress.magic_progress_to_next(s),
-				rose, tips))
+			var line := _line(SpellData.school_name(s), c.progress.magic_grade(s), c.magic_gained, c.progress.magic_progress_to_next(s),
+				rose, tips)
+			line["school"] = s
+			lines.append(line)
 	var learned: Array[String] = []
 	for g in report.grade_ups:
 		if g.actor == c:
@@ -319,7 +323,7 @@ Did the most in this fight."
 static func _line(kind: String, grade: int, gained: int, step: Vector2i, rose: bool, tips: Array[String]) -> Dictionary:
 	tips.append("%s %s: +%d this battle, %s." % [kind, Proficiency.grade_name(grade), gained,
 		"top grade" if step.y == 0 else "%d of %d to %s" % [step.x, step.y, Proficiency.grade_name(grade + 1)]])
-	return {"text": "%s %s" % [kind, Proficiency.grade_name(grade)], "gained": gained,
+	return {"text": "%s %s" % [kind, Proficiency.grade_name(grade)], "grade": Proficiency.grade_name(grade), "gained": gained,
 		"frac": 1.0 if step.y == 0 else float(step.x) / step.y, "rose": rose}
 
 

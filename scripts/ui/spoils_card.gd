@@ -145,7 +145,12 @@ func _draw() -> void:
 	# Grades: the name, what the battle added, and a thin line of the way to the next grade.
 	for line: Dictionary in _lines:
 		var ink := UiTheme.GOLD if line.rose else UiTheme.TEXT.lerp(UiTheme.MUTED, 0.3)
-		UiTheme.draw_text(self, body, Vector2(20.0, y), String(line.text), 17, ink)
+		if line.has("weapon") or line.has("school"):
+			# The seal of the weapon type or school, and the grade.
+			UiIcons.proficiency(self, Vector2(20.0, y + 1.0), int(line.get("weapon", -1)), int(line.get("school", -1)), String(line.grade), 17,
+				ink, ink, 3)
+		else:
+			UiTheme.draw_text(self, body, Vector2(20.0, y), String(line.text), 17, ink)
 		if int(line.gained) > 0:
 			UiTheme.draw_text(self, body, Vector2(20.0, y), "+%d" % int(line.gained), 17, UiTheme.GOLD, 0, W - 40.0, HORIZONTAL_ALIGNMENT_RIGHT)
 		var track := Rect2(20.0, y + 23.0, W - 40.0, 3.0)

@@ -64,6 +64,11 @@ var type_icon := -1:
 	set(v):
 		type_icon = v
 		queue_redraw()
+## Paper rows only. The seal of a school of magic before the title (-1: none), where type_icon is not set.
+var school_icon := -1:
+	set(v):
+		school_icon = v
+		queue_redraw()
 ## Paper rows only. Proficiencies set after the small print as a sign and a grade each, after the
 ## word "needs": [{"weapon": type} or {"school": school}, "grade": "D", "short": bool], `short` when
 ## whoever the row is read for does not have it (drawn in red).
@@ -209,9 +214,9 @@ func _draw_paper() -> void:
 		UiIcons.diamond(self, Vector2(x + 6.0, (h * 0.5 - 10.0) if notes.is_empty() else 21.0), 6.0, Color(UiTheme.WAX, 0.6 if disabled else 1.0))
 		x += 20.0
 		room -= 20.0
-	if type_icon >= 0:
+	if type_icon >= 0 or school_icon >= 0:
 		UiIcons.seal(self, Vector2(x + 15.0, (h * 0.5 - 9.0) if notes.is_empty() and sub != "" else (21.0 if not notes.is_empty() else h * 0.5)),
-			30.0, type_icon, -1, Color(UiTheme.PARCHMENT_INK, 0.4 if disabled else 0.82))
+			30.0, type_icon, school_icon, Color(UiTheme.PARCHMENT_INK, 0.4 if disabled else 0.82))
 		x += 40.0
 		room -= 40.0
 	var title_size := 21

@@ -196,7 +196,7 @@ func _draw_card(card: Control, index: int, hover: bool) -> void:
 	while name_size > 22 and display.get_string_size(art.display_name, HORIZONTAL_ALIGNMENT_LEFT, -1, name_size).x > inner:
 		name_size -= 1
 	UiTheme.draw_text(card, display, Vector2(pad, 36.0), art.display_name, name_size, Color(UiTheme.TEXT, a), 6)
-	UiTheme.draw_text(card, display, Vector2(pad, 80.0), ArtFacts.art_tag(art), 15, Color(UiTheme.MUTED, a), 4)
+	ArtFacts.draw_tag(card, Vector2(pad, 79.0), art.weapon_type, -1, art.tier, 15, Color(UiTheme.TEXT.lerp(UiTheme.MUTED, 0.5), a), 4)
 	var held := _progress.weapon.weapon_type if _progress.weapon != null else -1
 	ArtFacts.draw(card, Vector2(pad, 106.0), inner, ArtFacts.art_figures(art, _progress.art_cost(art)), ArtFacts.art_lines(art, held),
 		Color(tone if is_new else UiTheme.GOLD, a), Color(UiTheme.TEXT, a), Color(UiTheme.TEXT.lerp(UiTheme.MUTED, 0.3), a), 0.6,
@@ -258,23 +258,23 @@ func _draw() -> void:
 	_draw_figure()
 	var title := ""
 	var kicker := ""
-	var tag := ""
 	var figures: Array = []
 	var lines: Array[String] = []
 	if _art != null:
 		kicker = "%s LEARNS A COMBAT ART" % _name.to_upper()
 		title = _art.display_name
-		tag = ArtFacts.art_tag(_art)
 		figures = ArtFacts.art_figures(_art, p.art_cost(_art))
 		lines = ArtFacts.art_lines(_art, p.weapon.weapon_type if p.weapon != null else -1)
 	else:
 		kicker = "%s LEARNS A SPELL" % _name.to_upper()
 		title = _spell.display_name
-		tag = ArtFacts.spell_tag(_spell)
 		figures = ArtFacts.spell_figures(_spell, -1, p.max_uses(_spell))
 		lines = ArtFacts.spell_lines(_spell)
 	UiTheme.draw_text(self, display, Vector2(X, 30.0), kicker, 24, school_ink, 4)
-	UiTheme.draw_text(self, display, Vector2(X, 34.0), tag, 19, UiTheme.MUTED, 4, W, HORIZONTAL_ALIGNMENT_RIGHT)
+	if _art != null:
+		ArtFacts.draw_tag(self, Vector2(X, 32.0), _art.weapon_type, -1, _art.tier, 19, UiTheme.TEXT.lerp(UiTheme.MUTED, 0.5), 4, X + W)
+	else:
+		ArtFacts.draw_tag(self, Vector2(X, 32.0), -1, _spell.school, _spell.tier, 19, UiTheme.TEXT.lerp(UiTheme.MUTED, 0.5), 4, X + W)
 	var title_size := 68
 	while title_size > 40 and display.get_string_size(title.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, title_size).x > W:
 		title_size -= 2
