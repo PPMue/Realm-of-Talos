@@ -46,6 +46,7 @@ var _store_screen := StoreScreen.new()
 var _training_screen := TrainingScreen.new()
 var _infirmary_screen := InfirmaryScreen.new()
 var _scavenge_screen := ScavengeScreen.new()
+var _mason_screen := MasonScreen.new()
 var _battle_screen := BattleScreen.new()
 var _end_screen := RunEndScreen.new()
 
@@ -70,7 +71,7 @@ func new_run(seed_value: int = 0, opening: bool = true) -> void:
 		rng.randomize()
 	run = Run.create(rng, RunContent.load_default(), _art_pool, _spell_pool)
 	for screen: Control in [_end_screen, _battle_screen, _party_screen, _store_screen, _training_screen, _infirmary_screen, _scavenge_screen,
-			_war_table, _letter]:
+			_mason_screen, _war_table, _letter]:
 		screen.visible = false
 	_begin_day(_day_title(), _day_text())
 	if opening:
@@ -87,7 +88,7 @@ func refresh(animate: bool = true) -> void:
 		return
 	_day_label.text = "DAY %d" % run.day
 	_mood_label.text = "of %d   ·   %s" % [RunConfig.DAYS, _mood()]
-	_city_bar.set_values(run.city_health, RunConfig.CITY_MAX_HEALTH)
+	_city_bar.set_values(run.city_health, run.max_city_health())
 	_city_bar.fill_color = UiTheme.HP if run.city_health > 30 else UiTheme.INJURED
 	_gold_label.text = str(run.gold)
 	_iron_label.text = str(run.material(RunConfig.IRON_ORE))
@@ -165,7 +166,7 @@ func rest() -> void:
 func repair() -> void:
 	if run.repair():
 		refresh()
-		_say("Mason's Yard", "The masons go up on the scaffolds. The walls are stronger by %d." % RunConfig.REPAIR_AMOUNT)
+		_say("Mason's Yard", "The masons go up on the scaffolds. The walls are stronger by %d." % run.repair_amount())
 
 
 func end_day() -> void:
@@ -234,19 +235,8 @@ func visit(kind: CityBuilding.Kind) -> void:
 				"leave": "Not now",
 			})
 		CityBuilding.Kind.MASON:
-			var why := run.free_action_block_reason(A.REPAIR)
-			if why != "":
-				_say("Mason's Yard", _in_world(why))
-				return
-			_letter.open({
-				"kicker": "Mason's Yard",
-				"title": "Mend the Walls",
-				"body": "\"Give us timber and iron and we will have the breaches closed by nightfall.\"",
-				"facts": "Costs %s. The city's walls gain %d (now %d of %d).\n%s" % [Run.cost_text(RunConfig.REPAIR_COST),
-					RunConfig.REPAIR_AMOUNT, run.city_health, RunConfig.CITY_MAX_HEALTH, _time_cost()],
-				"choices": [{"label": "Set the masons to work", "action": repair}],
-				"leave": "Not now",
-			})
+			# Open on any day: the plan of the city's works can always be read.
+			_mason_screen.open(run)
 
 
 # ---------------------------------------------------------------- the gate, the watch, events, the opening
@@ -332,11 +322,26 @@ func _open_watch() -> void:
 			what = "%s comes" % run.boss_on(d).display_name
 		lines.append("%s:  %s." % [when, what])
 	var bosses := _strip.bosses_ahead_text()
+	var more := ""
+	var ahead := run.tomorrow_fronts()
+	if not ahead.is_empty():
+		# The tower at its full height sees tomorrow's fronts a day early.
+		var seen: Array[String] = []
+		for fr in ahead:
+			var who: Array[String] = []
+			for e in fr.enemies:
+				who.append(e.display_name)
+			seen.append("%s: %s (%s)" % [fr.title(), ", ".join(who), "the boss" if fr.is_boss else "danger %d" % fr.danger])
+		more += "\n\nTomorrow they come at:\n" + "\n".join(seen)
+	if not run.boss_days_known():
+		more += "\n\nThe tower is too low to see when the worst of them will come, or who. The masons could raise it."
+	elif bosses != "":
+		more += "\n\nStill to come:\n" + bosses
 	_letter.open({
 		"kicker": "The Watchtower",
 		"title": "The Watch's Report",
 		"body": "\"This is what we can see from up here, Commander.\"",
-		"facts": "\n".join(lines) + ("\n\nStill to come:\n" + bosses if bosses != "" else ""),
+		"facts": "\n".join(lines) + more,
 		"leave": "Climb back down",
 		"width": 980.0,
 	})
@@ -603,7 +608,7 @@ func _refresh_buildings() -> void:
 			CityBuilding.Kind.TAVERN:
 				var why := run.visit_block_reason(A.TAVERN)
 				b.open = why == ""
-				b.status = ("%d looking for work  ·  %d gold each" % [run.tavern_offers.size(), RunConfig.HIRE_COST]) if why == "" \
+				b.status = ("%d looking for work  ·  %d gold each" % [run.tavern_offers.size(), run.hire_cost()]) if why == "" \
 					else _short(why)
 			CityBuilding.Kind.SMITHY:
 				var why := run.visit_block_reason(A.SHOP)
@@ -634,9 +639,8 @@ func _refresh_buildings() -> void:
 				b.open = why == ""
 				b.status = ("Rest the company  ·  %s" % _hurt_text().split(".")[0]) if why == "" else _short(why)
 			CityBuilding.Kind.MASON:
-				var why := run.free_action_block_reason(A.REPAIR)
-				b.open = why == ""
-				b.status = ("Mend the walls  ·  %s" % Run.cost_text(RunConfig.REPAIR_COST)) if why == "" else _short(why)
+				b.open = true
+				b.status = "Mend the walls, trade, build up the city"
 
 
 ## A building's reason for being shut, short enough for its board.
@@ -723,7 +727,7 @@ func _hide_news() -> void:
 
 func _overlay_open() -> bool:
 	return _battle_screen.visible or _party_screen.visible or _store_screen.visible or _training_screen.visible or _infirmary_screen.visible \
-		or _scavenge_screen.visible \
+		or _scavenge_screen.visible or _mason_screen.visible \
 		or _end_screen.visible \
 		or _letter.visible or _war_table.visible
 
@@ -813,8 +817,8 @@ func _build() -> void:
 	_news.add_child(_news_text)
 
 	# Screens that open over the city.
-	for screen: Control in [_war_table, _party_screen, _store_screen, _training_screen, _infirmary_screen, _scavenge_screen, _letter,
-			_battle_screen, _end_screen]:
+	for screen: Control in [_war_table, _party_screen, _store_screen, _training_screen, _infirmary_screen, _scavenge_screen, _mason_screen,
+			_letter, _battle_screen, _end_screen]:
 		screen.visible = false
 		screen.z_index = 10
 		add_child(screen)
@@ -826,6 +830,7 @@ func _build() -> void:
 	_training_screen.closed.connect(refresh)
 	_infirmary_screen.closed.connect(refresh)
 	_scavenge_screen.closed.connect(refresh)
+	_mason_screen.closed.connect(refresh)
 	_battle_screen.finished.connect(_on_battle_finished)
 	_battle_screen.closed.connect(_on_battle_closed)
 	_end_screen.closed.connect(func() -> void: left_run.emit())

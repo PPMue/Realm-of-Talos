@@ -8,7 +8,10 @@ extends Control
 ## shows, beside each companion, whether they could hold it and what their Attack would become
 ## (attack power for that kind of weapon plus its might; see RunCompanion.attack). A weapon just
 ## bought lies on the counter over the company: click whoever should take it (what they held goes
-## back to the armory), or send it to the armory.
+## back to the armory), or send it to the armory. Under the racks, on the same sheet, is the anvil
+## (once the Smithy is built up): every weapon the company owns with its enchantment, the price of
+## the next attempt, and for an enchanted one the way to move its enchantment to a plain weapon of
+## the same kind.
 ## Hiring and buying cost gold only, never the day's action; the rules decide (see Run).
 
 signal closed
@@ -61,6 +64,9 @@ var _pointed: WeaponData
 ## The weapon just bought, on the counter until someone takes it or it is sent to the armory. It is
 ## in the armory by the rules all along; this only says what the company is being offered.
 var _bought: OwnedWeapon
+## The enchanted weapon whose enchantment is being moved: the next click on a plain weapon of its
+## kind takes it.
+var _moving: OwnedWeapon
 var _counter := Control.new()
 
 
@@ -134,6 +140,7 @@ func _open(p_run: Run, p_mode: Mode) -> void:
 	_note.text = ""
 	_pointed = null
 	_bought = null
+	_moving = null
 	visible = true
 	modulate.a = 0.0
 	create_tween().tween_property(self, "modulate:a", 1.0, 0.15)
@@ -284,9 +291,9 @@ func _paper_for(data: CompanionData, x: float) -> Control:
 	seal.position = Vector2(PAPER_PAD - 6.0, _paper_stats_end() + 12.0)
 	var why := run.hire_block_reason(data)
 	seal.disabled = why != ""
-	seal.detail = "%d gold" % RunConfig.HIRE_COST if why == "" else why.trim_suffix(".").to_lower()
+	seal.detail = "%d gold" % run.hire_cost() if why == "" else why.trim_suffix(".").to_lower()
 	seal.tooltip_text = why if why != "" else "%s joins the company for %d gold, in the line if there is room, else on the bench." % [
-		data.display_name, RunConfig.HIRE_COST]
+		data.display_name, run.hire_cost()]
 	seal.pressed.connect(hire.bind(data))
 	paper.add_child(seal)
 	return paper
@@ -340,7 +347,130 @@ func _refresh_smithy() -> void:
 		var none := UiTheme.label("Nothing on the racks today.", 18, UiTheme.PARCHMENT_MUTED)
 		none.add_theme_font_override("font", UiTheme.italic_font())
 		_list.add_child(none)
+	_refresh_anvil()
 	_refresh_crew()
+
+
+# ---------------------------------------------------------------- the anvil
+
+## Tries to enchant `w` once more.
+func enchant(w: OwnedWeapon) -> void:
+	var r := run.enchant(w)
+	if r == null:
+		return
+	_note.text = "%s%s comes out %s: %s." % ["A fine piece of work! " if r.double and r.levels_gained > 1 else "", w.data.display_name,
+		w.title().trim_prefix(w.data.display_name).strip_edges(), ", ".join(r.lines())]
+	refresh()
+
+
+## Picks `w` up to move its enchantment, or puts it down again.
+func start_move(w: OwnedWeapon) -> void:
+	_moving = null if _moving == w else w
+	_note.text = ""
+	refresh()
+
+
+func move_to(target: OwnedWeapon) -> void:
+	if _moving == null:
+		return
+	var from := _moving
+	if run.move_enchant(from, target):
+		_moving = null
+		_note.text = "The enchantment passes from the %s to the %s." % [from.data.display_name.to_lower(), target.title()]
+		refresh()
+
+
+## The rows under the racks: a heading, then every weapon the company owns.
+func _refresh_anvil() -> void:
+	var w := PAGE.size.x - PAGE_PAD * 2.0 - 14.0
+	var head := Control.new()
+	head.custom_minimum_size = Vector2(w, 74.0)
+	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var open := run.facility_level(Run.Facility.SMITHY) >= 1
+	head.draw.connect(func() -> void:
+		StatTable.head(head, Vector2(0, 38.0), w, "AT THE ANVIL", "each level is +1 to a stat, as it comes" if open else ""))
+	_list.add_child(head)
+	if not open:
+		var shut := UiTheme.label("\"I have no anvil fit for that work, Commander. Have the masons build the smithy up.\"", 18, UiTheme.PARCHMENT_MUTED)
+		shut.add_theme_font_override("font", UiTheme.italic_font())
+		_list.add_child(shut)
+		return
+	var owned: Array[OwnedWeapon] = []
+	for item in run.inventory.weapons:
+		if item.holder != null:
+			owned.append(item)
+	for item in run.inventory.weapons:
+		if item.holder == null:
+			owned.append(item)
+	for item in owned:
+		_list.add_child(_anvil_row(item, w))
+		if item.enchant_level > 0 and (_moving == item or (_moving == null and _can_move(item))):
+			_list.add_child(_move_row(item, w))
+
+
+## A weapon on the anvil: what it has, and the price of the next attempt (click to make it). While an
+## enchantment is being moved, a plain weapon of the same kind takes it with a click.
+func _anvil_row(item: OwnedWeapon, w: float) -> RowButton:
+	var lines := item.enchant_lines()
+	var row := RowButton.new(w, RowButton.height_with(58.0, 1 if not lines.is_empty() else 0))
+	row.paper = true
+	row.type_icon = item.data.weapon_type
+	row.title = item.title()
+	row.marked = item.data.is_rare()
+	var cap := Run.enchant_cap(item)
+	row.sub = "%s  ·  %s" % ["held by %s" % item.holder.display_name() if item.holder != null else "in the armory",
+		"plain, to +%d" % cap if item.enchant_level == 0 else "+%d of +%d" % [item.enchant_level, cap]]
+	if not lines.is_empty():
+		var notes: Array[String] = [",  ".join(lines)]
+		row.notes = notes
+	if _moving != null:
+		if item == _moving:
+			row.active = true
+			row.detail = "being moved"
+			row.mouse_default_cursor_shape = Control.CURSOR_ARROW
+			return row
+		var move_why := run.move_enchant_block_reason(_moving, item)
+		row.disabled = move_why != ""
+		row.detail = "takes it  ·  %s" % Run.cost_text(run.move_enchant_cost()).to_lower() if move_why == "" else ""
+		row.tooltip_text = move_why if move_why != "" else "The whole enchantment passes to this one. Levels above +%d are lost." % cap
+		row.pressed.connect(move_to.bind(item))
+		return row
+	var why := run.enchant_block_reason(item)
+	var cost := run.enchant_cost(item)
+	var price: Array[String] = []
+	for m in RunConfig.MATERIAL_ORDER:
+		if int(cost.get(m, 0)) > 0:
+			price.append("%d %s" % [int(cost[m]), String(RunConfig.MATERIAL_NAMES[m]).to_lower()])
+	if int(cost.get("gold", 0)) > 0:
+		price.append("%d gold" % int(cost["gold"]))
+	row.disabled = why != ""
+	row.detail = "  ·  ".join(price) if why == "" else ("as fine as it can be made" if item.enchant_level >= cap else why.trim_suffix(".").to_lower())
+	row.tooltip_text = why if why != "" else "One attempt: +1, or +2 when it goes very well. Each level is +1 to a stat, as it comes."
+	row.pressed.connect(enchant.bind(item))
+	return row
+
+
+## Whether some other weapon the company owns could take `item`'s enchantment (gold and ore aside).
+func _can_move(item: OwnedWeapon) -> bool:
+	for other in run.inventory.weapons:
+		if other != item and other.data.weapon_type == item.data.weapon_type and other.enchant_level == 0:
+			return true
+	return false
+
+
+## Under an enchanted weapon: the way to move its enchantment (or to stop moving it).
+func _move_row(item: OwnedWeapon, w: float) -> RowButton:
+	var row := RowButton.new(w, 34.0)
+	row.paper = true
+	if _moving == item:
+		row.title = "      leave it where it is"
+	else:
+		row.title = "      move its enchantment to another %s" % WeaponData.type_name(item.data.weapon_type).to_lower()
+		row.detail = Run.cost_text(run.move_enchant_cost()).to_lower()
+	row.tooltip_text = "Then click a plain %s under the anvil. Levels above what that weapon can hold are lost." % WeaponData.type_name(
+		item.data.weapon_type).to_lower()
+	row.pressed.connect(start_move.bind(item))
+	return row
 
 
 func _shop_row(item: ShopItemData) -> RowButton:
@@ -430,7 +560,8 @@ func _crew_row(c: RunCompanion, h: float) -> Control:
 	var line := ""
 	var ink := UiTheme.TEXT.lerp(UiTheme.MUTED, 0.45)
 	if shown == null:
-		line = "%s  ·  Attack %d  ·  " % [held.display_name, c.attack()]
+		var in_hand := run.inventory.held_by(c)
+		line = "%s  ·  Attack %d  ·  " % [in_hand.title() if in_hand != null else held.display_name, c.attack()]
 	elif able:
 		var heavy := shown.weight - c.data.build
 		line = "%s  ·  Attack %d → %d%s" % ["hand it over" if offered else "can hold it", c.attack(), c.attack(shown),

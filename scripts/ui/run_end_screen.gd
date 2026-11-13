@@ -30,7 +30,7 @@ func open(run: Run) -> void:
 	for c in run.infirmary():
 		beds.append(c.display_name())
 	_stats.text = "DAY REACHED   %d / %d\nBATTLES   %d won, %d lost\nCITY HEALTH   %d / %d\nGOLD   %d\nSTILL STANDING   %s\nIN THE INFIRMARY   %s" % [
-		run.day, RunConfig.DAYS, run.battles_won, run.battles_lost, run.city_health, RunConfig.CITY_MAX_HEALTH, run.gold,
+		run.day, RunConfig.DAYS, run.battles_won, run.battles_lost, run.city_health, run.max_city_health(), run.gold,
 		", ".join(standing) if not standing.is_empty() else "nobody", ", ".join(beds) if not beds.is_empty() else "nobody"]
 	visible = true
 	modulate.a = 0.0

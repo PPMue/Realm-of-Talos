@@ -355,9 +355,11 @@ func _weapon_row(c: RunCompanion, item: OwnedWeapon) -> RowButton:
 	var too_heavy := d.weight - c.data.build
 	if too_heavy > 0:
 		notes.append("Too heavy for %s: -%d Dexterity and Speed" % [c.display_name(), too_heavy])
+	if item.enchant_level > 0:
+		notes.insert(0, "Enchanted: " + ",  ".join(item.enchant_lines()))
 	var row := RowButton.new(C2_W - 14.0, RowButton.height_with(56.0, notes.size()))
 	row.paper = true
-	row.title = d.display_name
+	row.title = item.title()
 	row.marked = d.is_rare()
 	row.notes = notes
 	# Might as it would be in this companion's hand (a rare blade's may follow their grade).
@@ -582,10 +584,10 @@ func _draw_sheet() -> void:
 	values[Stat.BLD] = c.data.build
 	StatTable.head(_sheet, Vector2(C1_X, STATS_Y), C1_W, "STATS")
 	# Health here is the most they can have; what they have now is on the card above.
-	# What their traits add to a number is written small before it.
+	# What their traits and the held weapon's enchantment add to a number is written small before it.
 	var from_traits := {}
 	for key: String in values:
-		from_traits[key] = p.trait_stat_bonus(key)
+		from_traits[key] = p.trait_stat_bonus(key) + p.enchant_stat_bonus(key)
 	StatTable.draw_values(_sheet, Vector2(C1_X, STATS_Y + StatTable.HEAD_H), C1_W, 2, values, "", STAT_ROW, from_traits)
 	StatTable.head(_sheet, Vector2(C1_X, GROWTH_Y), C1_W, "GROWTH", "the chance to rise with a level")
 	StatTable.draw_growth(_sheet, Vector2(C1_X, GROWTH_Y + StatTable.HEAD_H), C1_W, 2, c.data, GROWTH_ROW, Levels.rates(c.data, p))
