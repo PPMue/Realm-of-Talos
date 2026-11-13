@@ -4,7 +4,7 @@ extends RefCounted
 ## what it costs as large figures with one word each ("5 STAMINA", "1 RECOVERY"; a spell's uses in
 ## place of stamina), then what it does, one thing to a line. Recovery is how many of their next
 ## actions the user sits out. The same drawing serves the panel for something just learned, the
-## orders in a battle and the drill book; `k` scales it and the inks suit the ground it is drawn on.
+## orders in a battle and the barracks sheet; `k` scales it and the inks suit the ground it is drawn on.
 
 
 ## The figures of an art: [[number, word], ...].
