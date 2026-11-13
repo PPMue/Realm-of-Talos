@@ -16,6 +16,16 @@ extends Control
 
 signal closed
 
+## How far the shade takes to fade out toward the window.
+const WINDOW_FADE := 70.0
+
+## A part of the screen the letter does not shade (see _draw): what the reader needs to keep an eye on
+## while answering, such as the purse. An empty rect shades everything.
+var window := Rect2():
+	set(v):
+		window = v
+		queue_redraw()
+
 const PAD := 56.0
 
 ## A line that can be chosen: a wax seal, the words, and small print under them.
@@ -231,8 +241,28 @@ func _paragraph(text: String, font: Font, font_size: int, color: Color, y: float
 	return y + h + gap
 
 
+## The shade over whatever lies behind the letter. With a `window` set, that part of the screen (it
+## must reach the top and the right edge) is left as it is, the shade fading out toward it.
 func _draw() -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0.02, 0.015, 0.01, 0.6))
+	var shade := Color(0.02, 0.015, 0.01, 0.6)
+	if window.size.x <= 0.0 or window.size.y <= 0.0:
+		draw_rect(Rect2(Vector2.ZERO, size), shade)
+		return
+	var clear := Color(shade, 0.0)
+	var x0 := window.position.x
+	var y1 := window.end.y
+	var right := maxf(size.x, window.end.x)
+	draw_rect(Rect2(0, 0, x0 - WINDOW_FADE, y1 + WINDOW_FADE), shade)
+	draw_rect(Rect2(0, y1 + WINDOW_FADE, right, size.y - y1 - WINDOW_FADE), shade)
+	_shade_quad(Rect2(x0 - WINDOW_FADE, 0, WINDOW_FADE, y1), [shade, clear, clear, shade])
+	_shade_quad(Rect2(x0, y1, right - x0, WINDOW_FADE), [clear, clear, shade, shade])
+	_shade_quad(Rect2(x0 - WINDOW_FADE, y1, WINDOW_FADE, WINDOW_FADE), [shade, clear, shade, shade])
+
+
+## A rectangle whose corners are coloured: top left, top right, bottom right, bottom left.
+func _shade_quad(r: Rect2, colors: Array) -> void:
+	draw_polygon(PackedVector2Array([r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)]),
+		PackedColorArray(colors))
 
 
 func _draw_sheet() -> void:

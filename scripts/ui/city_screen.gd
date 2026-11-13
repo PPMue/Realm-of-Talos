@@ -818,6 +818,8 @@ func _build() -> void:
 		screen.visible = false
 		screen.z_index = 10
 		add_child(screen)
+	# A letter leaves the walls, the gold and the materials unshaded: its choices are paid in them.
+	_letter.window = Rect2(1336, 0, 584, 64)
 	_war_table.chosen.connect(defend)
 	_party_screen.closed.connect(refresh)
 	_store_screen.closed.connect(refresh)
