@@ -45,6 +45,7 @@ var _party_screen := PartyScreen.new()
 var _store_screen := StoreScreen.new()
 var _training_screen := TrainingScreen.new()
 var _infirmary_screen := InfirmaryScreen.new()
+var _scavenge_screen := ScavengeScreen.new()
 var _battle_screen := BattleScreen.new()
 var _end_screen := RunEndScreen.new()
 
@@ -68,8 +69,8 @@ func new_run(seed_value: int = 0, opening: bool = true) -> void:
 	else:
 		rng.randomize()
 	run = Run.create(rng, RunContent.load_default(), _art_pool, _spell_pool)
-	for screen: Control in [_end_screen, _battle_screen, _party_screen, _store_screen, _training_screen, _infirmary_screen, _war_table,
-			_letter]:
+	for screen: Control in [_end_screen, _battle_screen, _party_screen, _store_screen, _training_screen, _infirmary_screen, _scavenge_screen,
+			_war_table, _letter]:
 		screen.visible = false
 	_begin_day(_day_title(), _day_text())
 	if opening:
@@ -130,6 +131,12 @@ func open_training() -> void:
 func _yard_block_reason() -> String:
 	var why := run.free_action_block_reason(Run.FreeAction.TRAIN)
 	return "" if why == Run.NO_USEFUL_DRILL or why.begins_with("Needs ") else why
+
+
+## Opens the map table where a party is sent beyond the walls (free days, the day's one thing).
+func open_scavenge() -> void:
+	if run.free_action_block_reason(Run.FreeAction.SCAVENGE) == "" and not run.scavenge_sites().is_empty():
+		_scavenge_screen.open(run)
 
 
 func open_war_table() -> void:
@@ -256,16 +263,39 @@ func _visit_gate() -> void:
 				_open_event()
 				return
 			var left := run.actions_left
+			var end_facts := "Ends the day and moves on to day %d.%s" % [run.day + 1,
+				"" if left <= 0 else "  There is still time for %s more thing%s today; it is lost if you end the day now." % [
+					NUMBER_WORDS[mini(left, 5)], "" if left == 1 else "s"]]
+			if _can_scavenge():
+				# With the day's action still in hand, the gate is also the way out.
+				var names: Array[String] = []
+				for s in run.scavenge_sites():
+					names.append(s.display_name)
+				_letter.open({
+					"kicker": "The Gate",
+					"title": "Out, or Bar the Gate?",
+					"body": "\"The scouts have marked %s, Commander. A party could be out and back by dusk. Or shall we bar the gate?\"" % " and ".join(names),
+					"choices": [
+						{"label": "Send a party beyond the walls", "sub": "Gold, materials and a little experience, at a risk.  %s" % _time_cost(),
+							"action": open_scavenge},
+						{"label": "End the day", "sub": end_facts, "action": end_day},
+					],
+					"leave": "Not yet",
+					"width": 1040.0,
+				})
+				return
 			_letter.open({
 				"kicker": "The Gate",
 				"title": "Close the Gates for the Night",
 				"body": "\"Shall we bar the gate, Commander?\"",
-				"facts": "Ends the day and moves on to day %d.%s" % [run.day + 1,
-					"" if left <= 0 else "  There is still time for %s more thing%s in the city today; it is lost if you end the day now." % [
-						NUMBER_WORDS[mini(left, 5)], "" if left == 1 else "s"]],
+				"facts": end_facts,
 				"choices": [{"label": "End the day", "action": end_day}],
 				"leave": "Not yet",
 			})
+
+
+func _can_scavenge() -> bool:
+	return run.free_action_block_reason(Run.FreeAction.SCAVENGE) == "" and not run.scavenge_sites().is_empty()
 
 
 ## Everyone is in the infirmary on a day the enemy comes: there is nothing to do but give the day up.
@@ -461,7 +491,7 @@ func _day_text() -> String:
 			return "It has come to the gate itself. If the company falls today, the city falls with it."
 	if run.event_pending():
 		return "No horns this morning, but someone is asking for you at the gate."
-	return "No horns this morning. There is time for %s in the city before the gates close. The smith, the tavern and the healer take only coin." % _things(
+	return "No horns this morning. There is time for %s, in the city or beyond the walls, before the gates close. The smith, the tavern and the healer take only coin." % _things(
 		RunConfig.FREE_DAY_ACTIONS)
 
 
@@ -473,6 +503,8 @@ func _boss_name() -> String:
 ## A free-day action's cost in time, in the city's words.
 func _time_cost() -> String:
 	var after := run.actions_left - 1
+	if after <= 0:
+		return "This takes the rest of the day's time."
 	return "This takes part of the day: afterwards there is time for %s more thing%s." % [NUMBER_WORDS[clampi(after, 0, 5)],
 		"" if after == 1 else "s"]
 
@@ -561,7 +593,8 @@ func _refresh_buildings() -> void:
 					RunCalendar.DayType.BOSS:
 						b.status = "%s is here" % _boss_name()
 					_:
-						b.status = "Someone is asking for you" if run.event_pending() else "Close the gates for the night"
+						b.status = "Someone is asking for you" if run.event_pending() else (
+							"Send a party out, or close the gates" if _can_scavenge() else "Close the gates for the night")
 			CityBuilding.Kind.TAVERN:
 				var why := run.visit_block_reason(A.TAVERN)
 				b.open = why == ""
@@ -685,6 +718,7 @@ func _hide_news() -> void:
 
 func _overlay_open() -> bool:
 	return _battle_screen.visible or _party_screen.visible or _store_screen.visible or _training_screen.visible or _infirmary_screen.visible \
+		or _scavenge_screen.visible \
 		or _end_screen.visible \
 		or _letter.visible or _war_table.visible
 
@@ -774,8 +808,8 @@ func _build() -> void:
 	_news.add_child(_news_text)
 
 	# Screens that open over the city.
-	for screen: Control in [_war_table, _party_screen, _store_screen, _training_screen, _infirmary_screen, _letter, _battle_screen,
-			_end_screen]:
+	for screen: Control in [_war_table, _party_screen, _store_screen, _training_screen, _infirmary_screen, _scavenge_screen, _letter,
+			_battle_screen, _end_screen]:
 		screen.visible = false
 		screen.z_index = 10
 		add_child(screen)
@@ -784,6 +818,7 @@ func _build() -> void:
 	_store_screen.closed.connect(refresh)
 	_training_screen.closed.connect(refresh)
 	_infirmary_screen.closed.connect(refresh)
+	_scavenge_screen.closed.connect(refresh)
 	_battle_screen.finished.connect(_on_battle_finished)
 	_battle_screen.closed.connect(_on_battle_closed)
 	_end_screen.closed.connect(func() -> void: left_run.emit())
