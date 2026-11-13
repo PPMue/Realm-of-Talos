@@ -11,5 +11,5 @@
 script = ExtResource("6_umk4k")
 display_name = "Tempest"
 danger = 3
-min_day = 22
+min_day = 31
 enemies = Array[ExtResource("1_13l83")]([ExtResource("2_bha7h"), ExtResource("3_y2j51"), ExtResource("4_1jy2d"), ExtResource("5_2mxrc")])

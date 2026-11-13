@@ -7,6 +7,6 @@
 [resource]
 script = ExtResource("2_g")
 display_name = "Carrion Wing"
-min_day = 2
-max_day = 15
+min_day = 3
+max_day = 21
 enemies = Array[ExtResource("1_e")]([ExtResource("e0")])

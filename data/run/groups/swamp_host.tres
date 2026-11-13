@@ -10,5 +10,5 @@
 script = ExtResource("5_co7n6")
 display_name = "Swamp Host"
 danger = 3
-min_day = 5
+min_day = 7
 enemies = Array[ExtResource("1_1mlc2")]([ExtResource("2_3ax67"), ExtResource("3_hpcjg"), ExtResource("4_6sdc4")])

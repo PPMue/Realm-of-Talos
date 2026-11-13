@@ -7,5 +7,5 @@
 [resource]
 script = ExtResource("3_ra46l")
 display_name = "Lone Orc"
-max_day = 15
+max_day = 21
 enemies = Array[ExtResource("1_v62jm")]([ExtResource("2_e8bja")])

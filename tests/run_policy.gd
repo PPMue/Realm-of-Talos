@@ -22,9 +22,9 @@ func play(run: Run) -> int:
 				play_battle(battle)
 				run.finish_battle(battle)
 			RunCalendar.DayType.FREE:
+				if run.event_pending():
+					run.choose(pick_choice(run))
 				free_day(run)
-			RunCalendar.DayType.EVENT:
-				run.choose(pick_choice(run))
 	return run.day
 
 
@@ -95,15 +95,27 @@ func pick_front(run: Run) -> Front:
 	return best
 
 
+## One action a day, so the first that applies: rest before a boss if anything is spent, mend badly
+## damaged walls, fill the line, rest a hurt company, buy upgrades, rest a lightly hurt one, mend the
+## walls. Every command after the first that succeeds is refused (except further purchases), so trying
+## them in order is enough.
 func free_day(run: Run) -> void:
-	if hp_fraction(run) < 0.8 or spell_fraction(run) < 0.5:
+	if run.is_over():
+		return
+	if run.day_type(run.day + 1) == RunCalendar.DayType.BOSS and (hp_fraction(run) < 1.0 or spell_fraction(run) < 1.0):
 		run.rest()
+	if run.city_health <= 40:
+		run.repair()
 	if run.roster.size() < RunConfig.MAX_FIELDED and not run.tavern_offers.is_empty():
 		run.hire(run.tavern_offers[0])
+	if hp_fraction(run) < 0.6 or spell_fraction(run) < 0.5:
+		run.rest()
 	for c in run.roster:
 		var item := _upgrade_for(run, c)
 		if item != null and run.buy(item) != null:
 			_equip_best(run, c)
+	if hp_fraction(run) < 0.8:
+		run.rest()
 	run.repair()
 	run.end_free_day()
 

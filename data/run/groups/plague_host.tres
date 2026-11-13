@@ -9,5 +9,5 @@
 script = ExtResource("4_joh0y")
 display_name = "Plague Host"
 danger = 2
-min_day = 11
+min_day = 15
 enemies = Array[ExtResource("1_sfehi")]([ExtResource("2_s6n8t"), ExtResource("3_r1y1o")])

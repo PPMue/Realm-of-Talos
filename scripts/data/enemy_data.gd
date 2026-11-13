@@ -12,7 +12,8 @@ enum PhaseTrigger { NONE, HP_BELOW, LAST_STANDING }
 @export var color: Color = Color.DARK_RED
 ## How large the art stands on the battle stage relative to a normal-sized enemy.
 @export var stage_scale: float = 1.0
-## Which days' fronts it belongs to: 1 early (days 1-9), 2 middle (11-19), 3 late (21-29); 0 a boss.
+## Which days' fronts it belongs to: 1 early (weeks 1-2), 2 middle (weeks 3-4), 3 late (weeks 5-6);
+## 0 a boss.
 ## See RunConfig.BAND_FIRST_DAY. Groups never field an enemy before its band begins.
 @export_range(0, 3) var band: int = 1
 ## A few words on how it fights, for tooltips.

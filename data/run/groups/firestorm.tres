@@ -9,5 +9,5 @@
 script = ExtResource("4_2srtf")
 display_name = "Firestorm"
 danger = 2
-min_day = 11
+min_day = 15
 enemies = Array[ExtResource("1_jrpgd")]([ExtResource("2_xmua5"), ExtResource("3_isy73")])

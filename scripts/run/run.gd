@@ -1,12 +1,15 @@
 class_name Run
 extends RefCounted
-## A run: thirty days of defending the last city. Plain class, no nodes or UI; every random choice
-## comes from the injected generator, so the same seed and the same choices give the same run.
+## A run: forty-two days (six weeks) of defending the last city. Plain class, no nodes or UI; every
+## random choice comes from the injected generator, so the same seed and the same choices give the
+## same run.
 ##
 ## A day:
-##   1. begins: the day's activity is prepared (fronts, the boss, the free-day actions, or an event)
+##   1. begins: the day's activity is prepared (fronts, the boss, or the free-day action and maybe an
+##      event); on the first day of a week the tavern and the smithy restock
 ##   2. the player may change the party freely (who is fielded, their order, weapons, arts)
-##   3. the player commits to the activity: a battle, free-day actions then End day, or an event choice
+##   3. the player commits to the activity: a battle, or on a free day the event's choice first (if the
+##      day has one), then the free-day action, then End day
 ##   4. ends: every surviving companion heals 20% of max HP, the run checks for its end, the next day begins
 ##
 ## Commands return false (or "") and change nothing when not allowed; the *_block_reason queries say why.
@@ -25,6 +28,8 @@ var spell_pool: Array[SpellData] = []
 var day: int = 1
 ## Day types (RunCalendar.DayType) for days 1..RunConfig.DAYS; index 0 is day 1.
 var calendar: Array[int] = []
+## The free days that begin with an event, drawn when the run began (RunCalendar.pick_event_days).
+var event_days: Array[int] = []
 var city_health: int = RunConfig.CITY_MAX_HEALTH
 var gold: int = 0
 ## Material id -> amount.
@@ -46,14 +51,16 @@ var battles_lost: int = 0
 var fronts: Array[Front] = []
 ## The front chosen today; set while its battle is being fought.
 var committed_front: Front
-## Event days.
+## Free days that begin with an event: the event waiting for an answer. Null once it is answered.
 var event: EventData
 ## Free days.
 var actions_left: int = 0
 var actions_used: Array[int] = []
+## Who the tavern offers this week. Rolled on the first day of each week; a hire leaves the list.
 var tavern_offers: Array[CompanionData] = []
-## What the shop sells today (free days): every common item for the day, plus rare ones that rolled in.
-var shop_today: Array[ShopItemData] = []
+## What the smithy sells this week: one of every common item for the week, plus rare ones that rolled
+## in. Rolled on the first day of each week; a bought item is gone until the next week.
+var shop_week: Array[ShopItemData] = []
 ## Events already seen this run, so they do not repeat while unseen ones remain.
 var _seen_events: Array[EventData] = []
 ## The boss group drawn for each boss day when the run began: boss day -> EnemyGroupData.
@@ -72,7 +79,8 @@ static func create(p_rng: RandomNumberGenerator, p_content: RunContent = null, p
 	r.gold = RunConfig.STARTING_GOLD
 	for m in RunConfig.MATERIAL_ORDER:
 		r.materials[m] = int(RunConfig.STARTING_MATERIALS.get(m, 0))
-	r.calendar = RunCalendar.generate(r.rng)
+	r.calendar = RunCalendar.generate()
+	r.event_days = RunCalendar.pick_event_days(r.calendar, r.rng)
 	var pool := r.content.companions.duplicate()
 	var count := mini(RunConfig.STARTING_COMPANIONS, pool.size())
 	for i in count:
@@ -96,6 +104,16 @@ func is_over() -> bool:
 	return outcome != Outcome.ONGOING
 
 
+## True if free day `d` (default today) begins with an event.
+func has_event_day(d: int = -1) -> bool:
+	return event_days.has(day if d < 0 else d)
+
+
+## True while today's event waits for an answer; nothing else can be done in the city until then.
+func event_pending() -> bool:
+	return event != null and not is_over()
+
+
 func day_type(d: int = -1) -> int:
 	var at := day if d < 0 else d
 	if at < 1 or at > calendar.size():
@@ -117,7 +135,7 @@ func boss_days_ahead() -> Array[int]:
 	return out
 
 
-## The bestiary band of `d`: 1 for days 1-10, 2 for 11-20, 3 from 21 (RunConfig.BAND_FIRST_DAY).
+## The bestiary band of `d`: 1 for days 1-14, 2 for 15-28, 3 from 29 (RunConfig.BAND_FIRST_DAY).
 static func band_of_day(d: int) -> int:
 	var b := 1
 	for i in RunConfig.BAND_FIRST_DAY.size():
@@ -276,9 +294,14 @@ func finish_battle(battle: Battle) -> BattleReport:
 
 # ---------------------------------------------------------------- free days
 
+const EVENT_FIRST := "First answer the matter at the gate."
+
+
 func free_action_block_reason(a: FreeAction) -> String:
 	if is_over() or day_type() != RunCalendar.DayType.FREE:
 		return "Only on free days."
+	if event_pending():
+		return EVENT_FIRST
 	if actions_used.has(a):
 		return "Already done today."
 	if actions_left <= 0:
@@ -301,7 +324,7 @@ func free_action_block_reason(a: FreeAction) -> String:
 ## Shop and tavern can be visited without spending anything; the action is spent on the first
 ## purchase or hire, and further ones the same day are free.
 func visit_block_reason(a: FreeAction) -> String:
-	if actions_used.has(a) and not is_over() and day_type() == RunCalendar.DayType.FREE:
+	if actions_used.has(a) and not is_over() and day_type() == RunCalendar.DayType.FREE and not event_pending():
 		return ""
 	return free_action_block_reason(a)
 
@@ -326,9 +349,9 @@ func repair() -> bool:
 	return true
 
 
-## What the shop sells today. Empty on days that are not free days.
+## What the smithy sells this week (it can only be bought on free days).
 func shop_stock() -> Array[ShopItemData]:
-	return shop_today
+	return shop_week
 
 
 func buy_block_reason(item: ShopItemData) -> String:
@@ -336,19 +359,21 @@ func buy_block_reason(item: ShopItemData) -> String:
 	if why != "":
 		return why
 	if item == null or not shop_stock().has(item):
-		return "Not for sale today."
+		return "Not for sale this week."
 	if gold < item.price:
 		return "Needs %d gold." % item.price
 	return ""
 
 
-## Buys a weapon into the armory. Returns it, or null.
+## Buys a weapon into the armory. Returns it, or null. The item is gone from the smithy until the
+## next week.
 func buy(item: ShopItemData) -> OwnedWeapon:
 	if buy_block_reason(item) != "":
 		return null
 	if not actions_used.has(FreeAction.SHOP):
 		_spend(FreeAction.SHOP)
 	gold -= item.price
+	shop_week.erase(item)
 	return inventory.add(item.weapon)
 
 
@@ -357,7 +382,7 @@ func hire_block_reason(data: CompanionData) -> String:
 	if why != "":
 		return why
 	if not tavern_offers.has(data):
-		return "Not at the tavern today."
+		return "Not at the tavern this week."
 	if gold < RunConfig.HIRE_COST:
 		return "Needs %d gold." % RunConfig.HIRE_COST
 	return ""
@@ -454,18 +479,18 @@ func hire_level() -> int:
 	return maxi(1, floori(float(total) / roster.size()))
 
 
-## Ends a free day; unused actions are lost.
+## Ends a free day; unused actions are lost. Not while the day's event waits for an answer.
 func end_free_day() -> bool:
-	if is_over() or day_type() != RunCalendar.DayType.FREE:
+	if is_over() or day_type() != RunCalendar.DayType.FREE or event_pending():
 		return false
 	_end_day()
 	return true
 
 
-# ---------------------------------------------------------------- event days
+# ---------------------------------------------------------------- events (at the start of some free days)
 
 func choice_block_reason(choice: EventChoiceData) -> String:
-	if is_over() or day_type() != RunCalendar.DayType.EVENT or event == null or not event.choices.has(choice):
+	if not event_pending() or day_type() != RunCalendar.DayType.FREE or not event.choices.has(choice):
 		return "Not available."
 	if choice.gold < 0 and gold < -choice.gold:
 		return "Needs %d gold." % -choice.gold
@@ -480,7 +505,7 @@ func choice_block_reason(choice: EventChoiceData) -> String:
 	return ""
 
 
-## Applies an event choice and ends the day. Returns the result text, or "" if not allowed.
+## Applies an event choice; the free day then goes on. Returns the result text, or "" if not allowed.
 func choose(choice: EventChoiceData) -> String:
 	if choice_block_reason(choice) != "":
 		return ""
@@ -492,9 +517,10 @@ func choose(choice: EventChoiceData) -> String:
 			c.heal(choice.companion_hp)
 	if choice.weapon != null:
 		inventory.add(choice.weapon)
-	var text := choice.result_text
-	_end_day()
-	return text if text != "" else choice.label
+	event = null
+	if city_health <= 0:
+		_end(Outcome.DEFEAT, "The city fell on day %d." % day)
+	return choice.result_text if choice.result_text != "" else choice.label
 
 
 ## The companions a choice's HP change would apply to.
@@ -529,8 +555,8 @@ func _begin_day() -> void:
 	event = null
 	actions_left = 0
 	actions_used.clear()
-	tavern_offers.clear()
-	shop_today.clear()
+	if RunCalendar.is_week_start(day):
+		_restock_week()
 	match day_type():
 		RunCalendar.DayType.BATTLE:
 			_make_fronts()
@@ -538,10 +564,8 @@ func _begin_day() -> void:
 			fronts.append(_make_boss_front())
 		RunCalendar.DayType.FREE:
 			actions_left = RunConfig.FREE_DAY_ACTIONS
-			_make_tavern_offers()
-			_stock_shop()
-		RunCalendar.DayType.EVENT:
-			event = _pick_event()
+			if has_event_day():
+				event = _pick_event()
 
 
 func _end_day() -> void:
@@ -670,6 +694,14 @@ static func scaled_enemy(e: EnemyData, on_day: int) -> EnemyData:
 	return s
 
 
+## The weekly refresh: the tavern's offers and the smithy's stock for the week that begins today.
+func _restock_week() -> void:
+	tavern_offers.clear()
+	shop_week.clear()
+	_make_tavern_offers()
+	_stock_shop()
+
+
 func _make_tavern_offers() -> void:
 	var pool: Array[CompanionData] = []
 	for d in content.companions:
@@ -680,15 +712,16 @@ func _make_tavern_offers() -> void:
 		tavern_offers.append(pool.pop_at(rng.randi_range(0, pool.size() - 1)))
 
 
-## Today's stock: every common item, plus each rare one on a roll of its chance. Rare items come first.
+## The week's stock: every common item sold by today, plus each rare one on a roll of its chance.
+## Rare items come first.
 func _stock_shop() -> void:
 	var rare: Array[ShopItemData] = []
 	for item in content.shop_stock(day):
 		if item.chance >= 1.0:
-			shop_today.append(item)
+			shop_week.append(item)
 		elif rng.randf() < item.chance:
 			rare.append(item)
-	shop_today = rare + shop_today
+	shop_week = rare + shop_week
 
 
 func _pick_event() -> EventData:

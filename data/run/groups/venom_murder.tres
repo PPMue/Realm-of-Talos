@@ -7,5 +7,5 @@
 [resource]
 script = ExtResource("3_mrc4g")
 display_name = "Venom Murder"
-min_day = 11
+min_day = 15
 enemies = Array[ExtResource("1_7gytp")]([ExtResource("2_t81ke")])

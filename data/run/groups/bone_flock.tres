@@ -7,5 +7,5 @@
 [resource]
 script = ExtResource("2_g")
 display_name = "Bone Flock"
-max_day = 14
+max_day = 20
 enemies = Array[ExtResource("1_e")]([ExtResource("e0")])

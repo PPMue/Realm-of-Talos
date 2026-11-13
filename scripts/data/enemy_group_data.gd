@@ -12,7 +12,7 @@ extends Resource
 @export_range(1, 3) var danger: int = 1
 ## Days this group can appear on (inclusive).
 @export var min_day: int = 1
-@export var max_day: int = 30
+@export var max_day: int = 42
 ## Left to right on the stage.
 @export var enemies: Array[EnemyData] = []
 

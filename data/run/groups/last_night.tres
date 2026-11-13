@@ -10,5 +10,5 @@
 script = ExtResource("5_65u4l")
 display_name = "Last Night"
 danger = 3
-min_day = 21
+min_day = 29
 enemies = Array[ExtResource("1_uo4ji")]([ExtResource("2_esq86"), ExtResource("3_xbwl4"), ExtResource("4_xldp2")])

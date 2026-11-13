@@ -6,7 +6,7 @@ extends RefCounted
 
 var t   # the runner (run_tests.gd)
 
-const BOSS_DAYS: Array[int] = [10, 20, 30]
+const BOSS_DAYS: Array[int] = [14, 28, 42]
 
 
 func _init(runner: Object) -> void:
@@ -556,9 +556,9 @@ func test_boss_fallen_commander() -> void:
 	t.check(press != null, "orders the escorts to act sooner")
 	t.eq(cmd.phase_trigger, EnemyData.PhaseTrigger.LAST_STANDING, "changes when alone")
 	var run := make_run(9)
-	run.day = 20
-	run.boss_draw[20] = group
-	run.calendar[19] = RunCalendar.DayType.BOSS
+	run.day = 28
+	run.boss_draw[28] = group
+	run.calendar[27] = RunCalendar.DayType.BOSS
 	run._begin_day()
 	var f := run.fronts[0]
 	t.eq(f.enemies.size(), 3, "the front fields the boss and its escorts")
@@ -654,11 +654,11 @@ func test_boss_draw() -> void:
 	t.eq(seen.size(), 9, "all nine bosses are reachable")
 	# The boss front fights the boss that was drawn.
 	var run := make_run(31)
-	run.day = 10
-	run.calendar[9] = RunCalendar.DayType.BOSS
+	run.day = 14
+	run.calendar[13] = RunCalendar.DayType.BOSS
 	run._begin_day()
-	t.eq(run.fronts[0].group, run.boss_on(10), "the day 10 front is the drawn boss")
-	t.eq(run.boss_days_ahead(), [10, 20, 30] as Array[int], "boss days ahead")
+	t.eq(run.fronts[0].group, run.boss_on(14), "the day 14 front is the drawn boss")
+	t.eq(run.boss_days_ahead(), [14, 28, 42] as Array[int], "boss days ahead")
 	t.check(not rc.bosses.any(func(g: EnemyGroupData) -> bool: return g.display_name == "Frostfang Warden"),
 		"the Frostfang Warden is retired")
 	for g in rc.bosses:
@@ -686,10 +686,11 @@ func test_bands_by_day() -> void:
 	for n in LATE:
 		t.check(all.has(n) and all[n].band == 3, "%s is late" % n)
 	t.eq(Run.band_of_day(1), 1, "day 1 early")
-	t.eq(Run.band_of_day(9), 1, "day 9 early")
-	t.eq(Run.band_of_day(11), 2, "day 11 middle")
-	t.eq(Run.band_of_day(19), 2, "day 19 middle")
-	t.eq(Run.band_of_day(21), 3, "day 21 late")
+	t.eq(Run.band_of_day(14), 1, "day 14 (end of week 2) early")
+	t.eq(Run.band_of_day(15), 2, "day 15 (week 3) middle")
+	t.eq(Run.band_of_day(28), 2, "day 28 (end of week 4) middle")
+	t.eq(Run.band_of_day(29), 3, "day 29 (week 5) late")
+	t.eq(Run.band_of_day(42), 3, "day 42 late")
 	# No group fields an enemy before its band begins.
 	for g in rc.groups:
 		t.check(g.min_day >= RunConfig.BAND_FIRST_DAY[maxi(1, g.band()) - 1], "%s waits for its band" % g.display_name)
@@ -698,8 +699,8 @@ func test_bands_by_day() -> void:
 	var four := 0
 	for s in 40:
 		var run := make_run(9000 + s)
-		for d in range(1, 30):
-			if d % 10 == 0:
+		for d in range(1, RunConfig.DAYS):
+			if RunCalendar.is_boss_day(d):
 				continue
 			run.day = d
 			run.calendar[d - 1] = RunCalendar.DayType.BATTLE
@@ -707,16 +708,16 @@ func test_bands_by_day() -> void:
 			for f in run.fronts:
 				if f.enemies.size() >= 4:
 					four += 1
-					t.check(d > 10, "four enemies only from the middle band on (day %d)" % d)
+					t.check(d >= RunConfig.BAND_FIRST_DAY[1], "four enemies only from the middle band on (day %d)" % d)
 				for e in f.group.enemies:
 					t.check(e.band <= Run.band_of_day(d), "day %d: %s is not from a later band" % [d, e.display_name])
 					seen_by_band[Run.band_of_day(d) - 1][e.display_name] = true
 	for n in EARLY:
-		t.check(seen_by_band[0].has(n), "%s fights in days 1-9" % n)
+		t.check(seen_by_band[0].has(n), "%s fights in weeks 1-2" % n)
 	for n in MIDDLE:
-		t.check(seen_by_band[1].has(n), "%s fights in days 11-19" % n)
+		t.check(seen_by_band[1].has(n), "%s fights in weeks 3-4" % n)
 	for n in LATE:
-		t.check(seen_by_band[2].has(n), "%s fights in days 21-29" % n)
+		t.check(seen_by_band[2].has(n), "%s fights in weeks 5-6" % n)
 	t.check(seen_by_band[2].has("Orc") or seen_by_band[2].has("Goblin Thief"), "early enemies still turn up late")
 	t.check(four > 0, "four-enemy fronts appear")
 

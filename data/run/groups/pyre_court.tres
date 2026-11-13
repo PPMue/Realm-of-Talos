@@ -9,5 +9,5 @@
 script = ExtResource("4_fcx00")
 display_name = "Pyre Court"
 danger = 2
-min_day = 21
+min_day = 29
 enemies = Array[ExtResource("1_b0bad")]([ExtResource("2_45fxa"), ExtResource("3_5pfep")])

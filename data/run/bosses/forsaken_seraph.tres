@@ -9,5 +9,5 @@ script = ExtResource("3_mq7fp")
 display_name = "The Forsaken Seraph"
 description = "Flies, and charges Judgement on every companion. Delay it, outpace it, and trust RES."
 danger = 3
-min_day = 30
+min_day = 42
 enemies = Array[ExtResource("1_cd6it")]([ExtResource("2_yyf4h")])

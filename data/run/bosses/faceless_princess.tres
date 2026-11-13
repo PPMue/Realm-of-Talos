@@ -9,5 +9,5 @@ script = ExtResource("3_by2gk")
 display_name = "The Faceless Princess"
 description = "Aims at the far left of your line, not the front, and poisons. Put your sturdiest on the left."
 danger = 3
-min_day = 30
+min_day = 42
 enemies = Array[ExtResource("1_qbthf")]([ExtResource("2_o8rb1")])

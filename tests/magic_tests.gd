@@ -197,6 +197,7 @@ func test_spell_uses_persist_block_and_rest() -> void:
 	run._end_day()
 	t.eq(mage.progress.uses_left(mend), mend.uses - 2, "the end of a day does not restore uses")
 	run.calendar[run.day - 1] = RunCalendar.DayType.FREE
+	run.event_days.erase(run.day)
 	run._begin_day()
 	for rc in run.roster:
 		rc.hp = rc.max_hp()
@@ -205,7 +206,7 @@ func test_spell_uses_persist_block_and_rest() -> void:
 	t.eq(mage.progress.uses_left(mend), mend.uses, "Rest restores every use")
 	run.calendar[run.day - 1] = RunCalendar.DayType.FREE
 	run.actions_used.clear()
-	run.actions_left = 2
+	run.actions_left = RunConfig.FREE_DAY_ACTIONS
 	t.check(run.free_action_block_reason(Run.FreeAction.REST) != "", "nothing to rest from once HP and uses are full")
 
 
@@ -604,7 +605,8 @@ func test_enemy_magic_uses_res_and_guard_halves() -> void:
 	for act in oath.actions:
 		if act.display_name == "Black Tide":
 			t.eq(act.damage_type, CombatMath.DamageType.MAGIC, "Black Tide is magic")
-	t.eq(Run.scaled_enemy(wiz, 9).magic, wiz.magic + 2, "MAG grows with the day like STR")
+	t.eq(Run.scaled_enemy(wiz, 12).magic, wiz.magic + 2, "MAG grows with the day like STR")
+	t.eq(Run.scaled_enemy(wiz, 12).magic - wiz.magic, Run.scaled_enemy(wiz, 12).strength - wiz.strength, "by the same amount")
 
 
 func test_magic_weapon_uses_mag_and_res() -> void:
@@ -799,30 +801,28 @@ func test_run_heal_rules() -> void:
 
 func test_rare_shop_stock() -> void:
 	var rare := 0
-	var free_days := 0
+	var weeks := 0
 	var early_rare := 0
 	for s in 300:
 		var run := make_run(2000 + s)
-		run.day = 12
-		run.calendar[11] = RunCalendar.DayType.FREE
-		run._begin_day()
-		free_days += 1
-		for item in run.shop_stock():
-			if item.weapon.is_magic():
-				rare += 1
-		run.day = 3
-		run.calendar[2] = RunCalendar.DayType.FREE
-		run._begin_day()
+		# Week 1's stock was rolled on day 1.
 		for item in run.shop_stock():
 			if item.weapon.is_magic():
 				early_rare += 1
-	t.eq(early_rare, 0, "no magic weapons in the early shop")
-	var per_day := float(rare) / free_days
-	t.check(per_day > 0.2 and per_day < 1.2, "rare in the later shop: %.2f magic weapons per free day" % per_day)
+		run.day = 8
+		run._begin_day()
+		weeks += 1
+		for item in run.shop_stock():
+			if item.weapon.is_magic():
+				rare += 1
+	t.eq(early_rare, 0, "no magic weapons in the first week's smithy")
+	var per_week := float(rare) / weeks
+	t.check(per_week > 0.2 and per_week < 1.2, "rare from week 2: %.2f magic weapons per week" % per_week)
 	var run2 := make_run(4)
-	run2.calendar[0] = RunCalendar.DayType.BATTLE
-	run2._begin_day()
-	t.check(run2.shop_stock().is_empty(), "no stock on a battle day")
+	t.eq(run2.day_type(), RunCalendar.DayType.BATTLE, "day 1 is a battle")
+	t.check(not run2.shop_stock().is_empty(), "the week's stock is there on a battle day")
+	run2.gold = 1000
+	t.eq(run2.buy_block_reason(run2.shop_stock()[0]), "Only on free days.", "but it is only sold on free days")
 	var hermit_has_weapon := false
 	for ev in RunContent.load_default().events:
 		for ch in ev.choices:

@@ -7,5 +7,5 @@
 [resource]
 script = ExtResource("3_7idmj")
 display_name = "Storm Front"
-min_day = 21
+min_day = 29
 enemies = Array[ExtResource("1_iwads")]([ExtResource("2_4jex0")])

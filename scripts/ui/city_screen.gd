@@ -1,7 +1,7 @@
 class_name CityScreen
 extends Control
 ## The city: the hub of a run. The screen is the place itself, and its buildings are the buttons:
-##   the Gate        march out on battle and boss days, hear what waits on event days, end a free day
+##   the Gate        march out on battle and boss days, hear the morning's matter, end a free day
 ##   the Tavern      hire companions            the Smithy     buy weapons
 ##   the Inn         rest                       Mason's Yard   mend the walls
 ##   the Barracks    the party (always open)    the Watchtower the days ahead (always open)
@@ -91,7 +91,7 @@ func refresh(animate: bool = true) -> void:
 	var bosses := {}
 	for d in run.boss_days_ahead():
 		bosses[d] = run.boss_on(d)
-	_strip.set_days(run.day, run.upcoming(), bosses)
+	_strip.set_days(run.day, run.upcoming(), bosses, run.event_days)
 	_strip.position = Vector2((1920.0 - _strip.size.x) * 0.5, 8.0)
 	_city.set_phase(_phase(), animate)
 	_refresh_buildings()
@@ -151,12 +151,17 @@ func end_day() -> void:
 		_after_day()
 
 
+## Answers the morning's event; the free day then goes on.
 func choose(choice: EventChoiceData) -> void:
 	var title := run.event.title
 	var text := run.choose(choice)
 	if text == "":
 		return
-	_after_day(title, "%s  (%s)" % [text, choice_effects(run, choice, false)])
+	if run.is_over():
+		_after_day()
+		return
+	refresh()
+	_say(title, "%s  (%s)" % [text, choice_effects(run, choice, false)])
 
 
 ## Clicks a building.
@@ -219,9 +224,10 @@ func _visit_gate() -> void:
 	match run.day_type():
 		RunCalendar.DayType.BATTLE, RunCalendar.DayType.BOSS:
 			open_war_table()
-		RunCalendar.DayType.EVENT:
-			_open_event()
 		RunCalendar.DayType.FREE:
+			if run.event_pending():
+				_open_event()
+				return
 			var left := run.actions_left
 			_letter.open({
 				"kicker": "The Gate",
@@ -242,6 +248,8 @@ func _open_watch() -> void:
 		var d := run.day + i
 		var when := "Today" if i == 0 else ("Tomorrow" if i == 1 else "Day %d" % d)
 		var what := String(DayStrip.TYPE_WORDS.get(types[i], "")).to_lower()
+		if types[i] == RunCalendar.DayType.FREE and run.has_event_day(d):
+			what += ", and someone will be asking for you at the gate"
 		if types[i] == RunCalendar.DayType.BOSS and run.boss_on(d) != null:
 			what = "%s comes" % run.boss_on(d).display_name
 		lines.append("%s:  %s." % [when, what])
@@ -257,7 +265,7 @@ func _open_watch() -> void:
 
 
 func _open_event() -> void:
-	if run.event == null or run.day_type() != RunCalendar.DayType.EVENT:
+	if not run.event_pending():
 		return
 	var choices: Array = []
 	for ch in run.event.choices:
@@ -323,11 +331,12 @@ func _begin_day(news_title: String, news_text: String) -> void:
 		_busy = false)
 
 
-## What the day opens with: an event is put in front of the commander at once.
+## What the day opens with: a free day's event is put in front of the commander at once, before the
+## buildings open.
 func _announce_day() -> void:
 	if run.is_over():
 		return
-	if run.day_type() == RunCalendar.DayType.EVENT and not _letter.is_open():
+	if run.event_pending() and not _letter.is_open():
 		_open_event()
 
 
@@ -367,14 +376,19 @@ func _mood() -> String:
 			return "The horns are sounding"
 		RunCalendar.DayType.BOSS:
 			return "%s is at the gates" % _boss_name()
-		RunCalendar.DayType.EVENT:
-			return "A matter awaits your answer"
+	if run.event_pending():
+		return "A matter awaits your answer"
 	var left := run.actions_left
 	if left <= 0:
 		return "The day is spent"
 	if left >= RunConfig.FREE_DAY_ACTIONS:
-		return "A quiet day: time for %s things" % NUMBER_WORDS[mini(left, 5)]
+		return "A quiet day: time for %s" % _things(left)
 	return "Time for %s more thing%s" % [NUMBER_WORDS[mini(left, 5)], "" if left == 1 else "s"]
+
+
+## "one thing", "two things".
+func _things(n: int) -> String:
+	return "%s thing%s" % [NUMBER_WORDS[clampi(n, 0, 5)], "" if n == 1 else "s"]
 
 
 func _day_title() -> String:
@@ -383,8 +397,8 @@ func _day_title() -> String:
 			return "The horns are sounding"
 		RunCalendar.DayType.BOSS:
 			return _boss_name()
-		RunCalendar.DayType.EVENT:
-			return "A matter for the commander"
+	if run.event_pending():
+		return "A matter for the commander"
 	return "A quiet day"
 
 
@@ -394,10 +408,9 @@ func _day_text() -> String:
 			return "The enemy is moving on the walls. Go to the gate when the company is ready."
 		RunCalendar.DayType.BOSS:
 			return "It has come to the gate itself. If the company falls today, the city falls with it."
-		RunCalendar.DayType.EVENT:
-			return "Someone is asking for you at the gate."
-	return "No horns this morning. There is time for %s things in the city before the gates close." % NUMBER_WORDS[
-		mini(RunConfig.FREE_DAY_ACTIONS, 5)]
+	if run.event_pending():
+		return "No horns this morning, but someone is asking for you at the gate."
+	return "No horns this morning. There is time for %s in the city before the gates close." % _things(RunConfig.FREE_DAY_ACTIONS)
 
 
 func _boss_name() -> String:
@@ -430,10 +443,9 @@ func _hurt_text() -> String:
 func _in_world(reason: String) -> String:
 	match reason:
 		"Only on free days.":
-			var t := run.day_type()
-			if t == RunCalendar.DayType.EVENT:
-				return "There is no time for it today. A matter is waiting for your answer at the gate."
 			return "Shut and barred while the horns are sounding. Come back on a quiet day."
+		Run.EVENT_FIRST:
+			return "Not yet. A matter is waiting for your answer at the gate."
 		"Already done today.":
 			return "You have already been here today."
 		"No actions left today.":
@@ -490,16 +502,14 @@ func _refresh_buildings() -> void:
 				b.status = "See the days ahead"
 			CityBuilding.Kind.GATE:
 				b.open = true
-				b.attention = not over and (not free or run.actions_left <= 0)
+				b.attention = not over and (not free or run.actions_left <= 0 or run.event_pending())
 				match t:
 					RunCalendar.DayType.BATTLE:
 						b.status = "The horns are sounding"
 					RunCalendar.DayType.BOSS:
 						b.status = "%s is here" % _boss_name()
-					RunCalendar.DayType.EVENT:
-						b.status = "Someone is asking for you"
 					_:
-						b.status = "Close the gates for the night"
+						b.status = "Someone is asking for you" if run.event_pending() else "Close the gates for the night"
 			CityBuilding.Kind.TAVERN:
 				var why := run.visit_block_reason(A.TAVERN)
 				b.open = why == ""
@@ -524,6 +534,8 @@ func _short(reason: String) -> String:
 	match reason:
 		"Only on free days.":
 			return "Shut today"
+		Run.EVENT_FIRST:
+			return "Opens after the matter at the gate"
 		"Already done today.":
 			return "Already visited today"
 		"No actions left today.":

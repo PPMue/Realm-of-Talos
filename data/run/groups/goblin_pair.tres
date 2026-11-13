@@ -7,5 +7,5 @@
 [resource]
 script = ExtResource("3_v3dav")
 display_name = "Goblin Pair"
-min_day = 16
+min_day = 22
 enemies = Array[ExtResource("1_putq7")]([ExtResource("2_ogilg"), ExtResource("2_ogilg")])

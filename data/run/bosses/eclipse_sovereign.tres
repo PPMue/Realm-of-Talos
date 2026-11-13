@@ -9,5 +9,5 @@ script = ExtResource("3_u6gey")
 display_name = "The Eclipse Sovereign"
 description = "Bends time: your companions recover slowly. At half health it turns faster and harsher."
 danger = 3
-min_day = 30
+min_day = 42
 enemies = Array[ExtResource("1_33hcq")]([ExtResource("2_05j41")])

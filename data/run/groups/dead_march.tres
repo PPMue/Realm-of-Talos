@@ -9,5 +9,5 @@
 script = ExtResource("4_a471m")
 display_name = "Dead March"
 danger = 3
-min_day = 14
+min_day = 20
 enemies = Array[ExtResource("1_3y7gl")]([ExtResource("2_ojyxh"), ExtResource("3_05rdc"), ExtResource("3_05rdc")])

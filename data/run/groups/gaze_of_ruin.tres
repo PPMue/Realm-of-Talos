@@ -10,5 +10,5 @@
 script = ExtResource("5_n1pmp")
 display_name = "Gaze of Ruin"
 danger = 3
-min_day = 11
+min_day = 15
 enemies = Array[ExtResource("1_0p2rf")]([ExtResource("2_2665y"), ExtResource("3_5p6c7"), ExtResource("4_cl2td")])

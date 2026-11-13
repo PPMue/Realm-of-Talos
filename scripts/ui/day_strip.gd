@@ -1,7 +1,8 @@
 class_name DayStrip
 extends Control
 ## The days ahead, as a row of small medallions at the top of the city: today, larger, then the next
-## days, each with a picture of what it holds (swords, sun, letter, horned skull). When the next boss
+## days, each with a picture of what it holds (swords, sun, horned skull; a free day that begins with
+## an event shows a letter in the sun's place). When the next boss
 ## lies beyond the days shown, one more medallion after a gap marks it. Hovering one says what the day
 ## is; a boss day also names every boss still ahead.
 
@@ -15,24 +16,27 @@ const BOSS_GAP := 34.0
 const TYPE_COLORS := {
 	RunCalendar.DayType.BATTLE: Color("c9503f"),
 	RunCalendar.DayType.FREE: Color("e6c878"),
-	RunCalendar.DayType.EVENT: Color("cdbb96"),
 	RunCalendar.DayType.BOSS: Color("e0914a"),
 }
+## A free day that begins with an event.
+const EVENT_COLOR := Color("cdbb96")
+const EVENT_WORDS := "A free day, and someone will ask for you"
+const EVENT_HINT := "The day begins with a matter to answer at the gate; then the day is yours as usual."
 const TYPE_WORDS := {
 	RunCalendar.DayType.BATTLE: "A battle",
 	RunCalendar.DayType.FREE: "A free day",
-	RunCalendar.DayType.EVENT: "Something happens in the city",
 	RunCalendar.DayType.BOSS: "A boss",
 }
 const TYPE_HINTS := {
 	RunCalendar.DayType.BATTLE: "The enemy attacks in two or three places. You choose one to defend.",
-	RunCalendar.DayType.FREE: "Time for %d things in the city: rest, buy, hire or mend the walls." % RunConfig.FREE_DAY_ACTIONS,
-	RunCalendar.DayType.EVENT: "Something comes up, and you choose how to answer.",
+	RunCalendar.DayType.FREE: "Time for one thing in the city: rest, buy, hire or mend the walls.",
 	RunCalendar.DayType.BOSS: "One fight, no choice of where. If it is lost, the city falls.",
 }
 
 var _first_day := 1
 var _types: Array[int] = []
+## Days (by number) whose free day begins with an event.
+var _event_days: Array[int] = []
 ## Boss day -> EnemyGroupData, for every boss day still ahead.
 var _bosses: Dictionary = {}
 ## The next boss day when it lies beyond the days shown, else 0.
@@ -53,16 +57,16 @@ static func draw_type_icon(ci: CanvasItem, t: int, c: Vector2, size: float, colo
 			UiIcons.swords(ci, c, size, color)
 		RunCalendar.DayType.FREE:
 			UiIcons.sun(ci, c, size, color)
-		RunCalendar.DayType.EVENT:
-			UiIcons.scroll(ci, c, size, color)
 		_:
 			UiIcons.skull(ci, c, size, color)
 
 
 ## `types[0]` is today (day `first_day`). `bosses`: boss day -> boss group, for the days still ahead.
-func set_days(first_day: int, types: Array[int], bosses: Dictionary = {}) -> void:
+## `event_days`: the free days that begin with an event.
+func set_days(first_day: int, types: Array[int], bosses: Dictionary = {}, event_days: Array[int] = []) -> void:
 	_first_day = first_day
 	_types = types
+	_event_days = event_days
 	_bosses = bosses
 	_next_boss = 0
 	var last_shown := first_day + types.size() - 1
@@ -100,7 +104,9 @@ func _get_tooltip(at_position: Vector2) -> String:
 			var ahead := d - _first_day
 			var when := "Today" if ahead == 0 else ("Tomorrow" if ahead == 1 else "In %d days" % ahead)
 			var t: int = _types[i] if i < _types.size() else RunCalendar.DayType.BOSS
-			var text := "%s, day %d: %s\n%s" % [when, d, String(TYPE_WORDS.get(t, "")).to_lower(), TYPE_HINTS.get(t, "")]
+			var event := t == RunCalendar.DayType.FREE and _event_days.has(d)
+			var text := "%s, day %d: %s\n%s" % [when, d, (EVENT_WORDS if event else String(TYPE_WORDS.get(t, ""))).to_lower(),
+				EVENT_HINT if event else TYPE_HINTS.get(t, "")]
 			if t == RunCalendar.DayType.BOSS:
 				text += "\n\n" + bosses_ahead_text(d)
 			return text
@@ -136,12 +142,17 @@ func _draw() -> void:
 		var c := _center(i)
 		var today := i == 0
 		var r := TODAY_R if today else DAY_R
-		var color := type_color(t)
+		var event := t == RunCalendar.DayType.FREE and _event_days.has(d)
+		var color := EVENT_COLOR if event else type_color(t)
 		var boss := t == RunCalendar.DayType.BOSS
 		draw_circle(c + Vector2(0, 2), r + 2.0, Color(0, 0, 0, 0.45))
 		draw_circle(c, r, UiTheme.PANEL_HI if today else Color(UiTheme.INK, 0.92))
 		draw_arc(c, r, 0.0, TAU, 40, UiTheme.GOLD if today else (color if boss else UiTheme.GOLD_DEEP), 3.0 if today else 2.0, true)
-		draw_type_icon(self, t, c, r * 1.15, color if today or boss else color.lerp(UiTheme.MUTED, 0.25))
+		var icon_color := color if today or boss else color.lerp(UiTheme.MUTED, 0.25)
+		if event:
+			UiIcons.scroll(self, c, r * 1.15, icon_color)
+		else:
+			draw_type_icon(self, t, c, r * 1.15, icon_color)
 		var label := "today" if today else str(d)
 		UiTheme.draw_text(self, font, Vector2(c.x - 40.0, c.y + r + 3.0), label, 13, UiTheme.GOLD if today else UiTheme.MUTED, 3, 80.0,
 			HORIZONTAL_ALIGNMENT_CENTER)

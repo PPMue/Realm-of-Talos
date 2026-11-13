@@ -9,5 +9,5 @@
 script = ExtResource("4_bsncn")
 display_name = "Frozen Vigil"
 danger = 2
-min_day = 21
+min_day = 29
 enemies = Array[ExtResource("1_e38xx")]([ExtResource("2_5fhhs"), ExtResource("3_qyawl")])

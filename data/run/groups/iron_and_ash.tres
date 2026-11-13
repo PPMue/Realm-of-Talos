@@ -11,5 +11,5 @@
 script = ExtResource("6_03ymy")
 display_name = "Iron and Ash"
 danger = 3
-min_day = 13
+min_day = 18
 enemies = Array[ExtResource("1_ol3qy")]([ExtResource("2_7vnpg"), ExtResource("3_w3os0"), ExtResource("4_vr2jx"), ExtResource("5_se3cu")])

@@ -8,5 +8,5 @@
 script = ExtResource("3_6rpgv")
 display_name = "Twin Horns"
 danger = 3
-min_day = 22
+min_day = 31
 enemies = Array[ExtResource("1_rydme")]([ExtResource("2_682d4"), ExtResource("2_682d4")])

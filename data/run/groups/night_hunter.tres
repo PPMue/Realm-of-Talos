@@ -7,5 +7,5 @@
 [resource]
 script = ExtResource("3_oj17l")
 display_name = "Night Hunter"
-min_day = 21
+min_day = 29
 enemies = Array[ExtResource("1_0ej01")]([ExtResource("2_st17i")])

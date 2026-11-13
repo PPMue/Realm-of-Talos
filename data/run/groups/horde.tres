@@ -11,5 +11,5 @@
 script = ExtResource("6_w32qn")
 display_name = "Goblin Horde"
 danger = 3
-min_day = 18
+min_day = 25
 enemies = Array[ExtResource("1_m30hd")]([ExtResource("2_j1j0g"), ExtResource("3_tlwly"), ExtResource("4_8dawu"), ExtResource("5_6sk14")])

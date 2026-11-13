@@ -11,5 +11,5 @@
 script = ExtResource("6_qydvy")
 display_name = "Grove Wardens"
 danger = 3
-min_day = 12
+min_day = 17
 enemies = Array[ExtResource("1_gl2iv")]([ExtResource("2_pe5om"), ExtResource("3_ajm00"), ExtResource("4_8qex4"), ExtResource("5_w61a1")])

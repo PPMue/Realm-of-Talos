@@ -8,5 +8,5 @@
 script = ExtResource("3_xng8p")
 display_name = "Stalker Pack"
 danger = 2
-min_day = 4
+min_day = 6
 enemies = Array[ExtResource("1_f6frf")]([ExtResource("2_7dr0l"), ExtResource("2_7dr0l")])

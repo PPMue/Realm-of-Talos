@@ -7,5 +7,5 @@
 [resource]
 script = ExtResource("3_bwbfc")
 display_name = "Prowler"
-min_day = 3
+min_day = 4
 enemies = Array[ExtResource("1_hja6y")]([ExtResource("2_exphv")])

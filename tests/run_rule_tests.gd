@@ -13,7 +13,8 @@ func _init(runner: Object) -> void:
 
 func tests() -> Array[Callable]:
 	return [
-		test_calendar_guarantees,
+		test_calendar_shape,
+		test_event_days,
 		test_same_seed_same_run,
 		test_upcoming_days,
 		test_run_start,
@@ -23,7 +24,7 @@ func tests() -> Array[Callable]:
 		test_win_grants_reward,
 		test_loss_costs_city_and_run_continues,
 		test_lost_boss_ends_run,
-		test_day_30_win,
+		test_day_42_win,
 		test_city_health_zero_ends_run,
 		test_empty_roster_ends_run,
 		test_daily_heal,
@@ -32,6 +33,8 @@ func tests() -> Array[Callable]:
 		test_fielded_limit_and_order,
 		test_party_locked_after_commit,
 		test_free_day_action_limits,
+		test_event_opens_free_day,
+		test_weekly_refresh,
 		test_rest,
 		test_shop_and_equip_requirement,
 		test_weapon_held_by_one,
@@ -65,6 +68,31 @@ func make_run(seed_value: int = 1) -> Run:
 func force_day(run: Run, type: int) -> void:
 	run.calendar[run.day - 1] = type
 	run._begin_day()
+
+
+## Turns today into a free day that begins with an event (`ev`, or one drawn as the run would).
+func force_event(run: Run, ev: EventData = null) -> void:
+	run.calendar[run.day - 1] = RunCalendar.DayType.FREE
+	if not run.event_days.has(run.day):
+		run.event_days.append(run.day)
+	run._begin_day()
+	if ev != null:
+		run.event = ev
+
+
+## Plays today the plainest way: a battle is won on the first front; a free day answers its event
+## with the first choice it can afford and then ends.
+func advance(run: Run) -> void:
+	match run.day_type():
+		RunCalendar.DayType.BATTLE, RunCalendar.DayType.BOSS:
+			fight(run, true)
+		RunCalendar.DayType.FREE:
+			if run.event_pending():
+				for ch in run.event.choices:
+					if run.choice_block_reason(ch) == "":
+						run.choose(ch)
+						break
+			run.end_free_day()
 
 
 func content() -> RunContent:
@@ -107,27 +135,74 @@ func names(cs: Array[RunCompanion]) -> Array[String]:
 
 # ---------------------------------------------------------------- calendar
 
-func test_calendar_guarantees() -> void:
+## Six weeks of seven days. Every week: battle, free, battle, free, battle, free, then a free day in
+## odd weeks and the boss in even weeks (days 14, 28, 42).
+func test_calendar_shape() -> void:
 	var D := RunCalendar.DayType
-	for s in 500:
+	var cal := RunCalendar.generate()
+	t.eq(cal.size(), 42, "42 days")
+	t.eq(RunConfig.DAYS, 42, "a run is 42 days")
+	t.eq(cal.size() % RunConfig.WEEK_DAYS, 0, "whole weeks")
+	t.eq(cal[0], D.BATTLE, "day 1 is a battle")
+	var counts := [0, 0, 0]
+	for d in range(1, cal.size() + 1):
+		counts[cal[d - 1]] += 1
+		var boss := d == 14 or d == 28 or d == 42
+		t.check((cal[d - 1] == D.BOSS) == boss, "boss only on days 14, 28, 42 (day %d)" % d)
+		t.eq(RunCalendar.is_boss_day(d), boss, "is_boss_day(%d)" % d)
+		if boss:
+			t.eq(cal[d - 2], D.FREE, "day %d before a boss is free" % (d - 1))
+			t.eq(RunCalendar.boss_index(d), d / 14 - 1, "boss index on day %d" % d)
+		var in_week := (d - 1) % 7 + 1
+		var week := (d - 1) / 7 + 1
+		var want: int = D.BATTLE if in_week % 2 == 1 else D.FREE
+		if in_week == 7:
+			want = D.FREE if week % 2 == 1 else D.BOSS
+		t.eq(cal[d - 1], want, "day %d (week %d, day %d of the week)" % [d, week, in_week])
+		# Alternation: a fight is never followed by another fight, except a boss by the next week's
+		# first battle; two free days in a row only at the end of an odd week.
+		if d < cal.size():
+			var fight_today: bool = cal[d - 1] != D.FREE
+			var fight_next: bool = cal[d] != D.FREE
+			if fight_today and fight_next:
+				t.check(cal[d - 1] == D.BOSS, "two fights in a row only after a boss (day %d)" % d)
+			if not fight_today and not fight_next:
+				t.check(in_week == 6 and week % 2 == 1, "two free days in a row only at the end of an odd week (day %d)" % d)
+	t.eq(counts[D.BATTLE], 18, "18 battles besides the bosses")
+	t.eq(counts[D.FREE], 21, "21 free days")
+	t.eq(counts[D.BOSS], 3, "3 bosses")
+	t.eq(RunCalendar.week_of(1), 1, "day 1 is week 1")
+	t.eq(RunCalendar.week_of(7), 1, "day 7 is week 1")
+	t.eq(RunCalendar.week_of(8), 2, "day 8 is week 2")
+	t.eq(RunCalendar.week_of(42), 6, "day 42 is week 6")
+	for d in range(1, 43):
+		t.eq(RunCalendar.is_week_start(d), [1, 8, 15, 22, 29, 36].has(d), "week start on day %d" % d)
+
+
+## One event in every week, on a free day that is not the day before a boss.
+func test_event_days() -> void:
+	var D := RunCalendar.DayType
+	var cal := RunCalendar.generate()
+	var used := {}
+	for s in 300:
 		var rng := RandomNumberGenerator.new()
 		rng.seed = s
-		var cal := RunCalendar.generate(rng)
-		t.eq(cal.size(), RunConfig.DAYS, "seed %d: 30 days" % s)
-		t.eq(cal[0], D.BATTLE, "seed %d: day 1 is a battle" % s)
-		for d in range(1, cal.size() + 1):
-			var boss := d % 10 == 0
-			t.check((cal[d - 1] == D.BOSS) == boss, "seed %d: boss only on days 10, 20, 30 (day %d)" % [s, d])
-			if boss:
-				t.eq(cal[d - 2], D.FREE, "seed %d: day %d before a boss is free" % [s, d - 1])
-		for b in 3:
-			var counts := [0, 0, 0, 0]
-			for d in range(b * 10, b * 10 + 10):
-				counts[cal[d]] += 1
-			t.check(counts[D.BATTLE] >= 5 and counts[D.BATTLE] <= 6, "seed %d block %d: 5-6 battles (%d)" % [s, b, counts[D.BATTLE]])
-			t.eq(counts[D.FREE], 2, "seed %d block %d: 2 free days" % [s, b])
-			t.check(counts[D.EVENT] >= 1 and counts[D.EVENT] <= 2, "seed %d block %d: 1-2 events" % [s, b])
-			t.eq(counts[D.BOSS], 1, "seed %d block %d: one boss" % [s, b])
+		var days := RunCalendar.pick_event_days(cal, rng)
+		t.eq(days.size(), 6, "seed %d: six events in a run" % s)
+		var per_week := {}
+		for d in days:
+			t.eq(cal[d - 1], D.FREE, "seed %d: event on a free day (day %d)" % [s, d])
+			t.check(d >= cal.size() or cal[d] != D.BOSS, "seed %d: never the day before a boss (day %d)" % [s, d])
+			per_week[RunCalendar.week_of(d)] = per_week.get(RunCalendar.week_of(d), 0) + 1
+			used[d] = true
+		for w in range(1, 7):
+			t.eq(per_week.get(w, 0), 1, "seed %d: one event in week %d" % [s, w])
+	for d in [13, 27, 41]:
+		t.check(not used.has(d), "day %d (before a boss) never has an event" % d)
+	t.check(used.size() >= 12, "events land on many different free days (%d)" % used.size())
+	var a := make_run(5)
+	var b := make_run(5)
+	t.eq(a.event_days, b.event_days, "same seed, same event days")
 
 
 func test_same_seed_same_run() -> void:
@@ -167,8 +242,8 @@ func test_upcoming_days() -> void:
 	t.eq(up[0], run.day_type(), "starts with today")
 	for i in up.size():
 		t.eq(up[i], run.calendar[i], "day %d type" % (i + 1))
-	run.day = 26
-	t.eq(run.upcoming().size(), 5, "near the end only the days left (26-30)")
+	run.day = 38
+	t.eq(run.upcoming().size(), 5, "near the end only the days left (38-42)")
 
 
 func test_run_start() -> void:
@@ -199,7 +274,7 @@ func test_front_generation_by_danger() -> void:
 	for s in 40:
 		var run := make_run(s)
 		for d in range(1, RunConfig.DAYS + 1):
-			if d % 10 == 0:
+			if RunCalendar.is_boss_day(d):
 				continue
 			run.day = d
 			force_day(run, RunCalendar.DayType.BATTLE)
@@ -245,12 +320,17 @@ func test_enemy_scaling() -> void:
 	t.eq(d1.max_hp, orc.max_hp, "day 1 unchanged HP")
 	t.eq(d1.strength, orc.strength, "day 1 unchanged STR")
 	t.check(d1 != orc, "a copy, not the data itself")
-	var d30 := Run.scaled_enemy(orc, 30)
-	t.eq(d30.max_hp, roundi(60 * (1.0 + RunConfig.ENEMY_HP_GROWTH_PER_DAY * 29)), "day 30 HP")
-	t.eq(d30.strength, orc.strength + floori(29.0 / RunConfig.ENEMY_STR_EVERY_DAYS), "day 30 STR")
-	t.eq(d30.defense, orc.defense + floori(29.0 / RunConfig.ENEMY_DEF_EVERY_DAYS), "day 30 DEF")
-	t.eq(d30.speed, orc.speed + floori(29.0 / RunConfig.ENEMY_SPD_EVERY_DAYS), "day 30 SPD")
-	t.check(d30.strength > orc.strength and d30.defense > orc.defense, "day 30 enemies are stronger")
+	var d42 := Run.scaled_enemy(orc, 42)
+	t.eq(d42.max_hp, roundi(60 * (1.0 + RunConfig.ENEMY_HP_GROWTH_PER_DAY * 41)), "day 42 HP")
+	t.eq(d42.strength, orc.strength + floori(41.0 / RunConfig.ENEMY_STR_EVERY_DAYS), "day 42 STR")
+	t.eq(d42.defense, orc.defense + floori(41.0 / RunConfig.ENEMY_DEF_EVERY_DAYS), "day 42 DEF")
+	t.eq(d42.speed, orc.speed + floori(41.0 / RunConfig.ENEMY_SPD_EVERY_DAYS), "day 42 SPD")
+	t.check(d42.strength > orc.strength and d42.defense > orc.defense, "day 42 enemies are stronger")
+	# Fitted so day 42 is about what day 30 was with the old 30-day growth (HP x2.45, +7 STR, +4 DEF, +3 SPD).
+	t.check(absf(d42.max_hp / 60.0 - 2.45) < 0.05, "day 42 HP is about x2.45 (%d)" % d42.max_hp)
+	t.eq(d42.strength - orc.strength, 7, "day 42: +7 STR")
+	t.eq(d42.defense - orc.defense, 4, "day 42: +4 DEF")
+	t.eq(d42.speed - orc.speed, 3, "day 42: +3 SPD")
 	t.eq(orc.max_hp, 60, "the data is not changed")
 	var run := make_run(5)
 	run.day = 15
@@ -258,7 +338,7 @@ func test_enemy_scaling() -> void:
 	for f in run.fronts:
 		for i in f.enemies.size():
 			t.check(f.enemies[i].max_hp > f.group.enemies[i].max_hp, "day 15 enemies are tougher")
-	run.day = 20
+	run.day = 28
 	force_day(run, RunCalendar.DayType.BOSS)
 	t.eq(run.fronts.size(), 1, "one boss front")
 	var boss := run.fronts[0]
@@ -318,34 +398,49 @@ func test_loss_costs_city_and_run_continues() -> void:
 
 func test_lost_boss_ends_run() -> void:
 	var run := make_run(4)
-	run.day = 10
+	run.day = 14
 	run._begin_day()
-	t.eq(run.day_type(), RunCalendar.DayType.BOSS, "day 10 is the boss")
+	t.eq(run.day_type(), RunCalendar.DayType.BOSS, "day 14 is the boss")
 	t.eq(run.fronts.size(), 1, "one front")
 	var r := fight(run, false)
 	t.eq(run.outcome, Run.Outcome.DEFEAT, "losing a boss ends the run")
 	t.check(r.run_over, "report says so")
-	t.eq(run.day, 10, "stays on the boss day")
+	t.eq(run.day, 14, "stays on the boss day")
 	t.eq(run.city_health, 100, "no separate city damage")
 	t.check(run.start_battle(run.fronts[0] if not run.fronts.is_empty() else null) == null, "nothing more to fight")
 
 	var won := make_run(4)
-	won.day = 10
+	won.day = 14
 	won._begin_day()
 	fight(won, true)
-	t.eq(won.outcome, Run.Outcome.ONGOING, "winning the day 10 boss goes on")
-	t.eq(won.day, 11, "to day 11")
+	t.eq(won.outcome, Run.Outcome.ONGOING, "winning the day 14 boss goes on")
+	t.eq(won.day, 15, "to day 15")
+	won.day = 28
+	won._begin_day()
+	var r28 := fight(won, false)
+	t.eq(won.outcome, Run.Outcome.DEFEAT, "losing the day 28 boss ends the run")
+	t.check(r28.run_over, "report says so")
 
 
-func test_day_30_win() -> void:
+func test_day_42_win() -> void:
 	var run := make_run(6)
-	run.day = 30
+	run.day = 42
 	run._begin_day()
-	t.eq(run.day_type(), RunCalendar.DayType.BOSS, "day 30 is the boss")
+	t.eq(run.day_type(), RunCalendar.DayType.BOSS, "day 42 is the boss")
 	var r := fight(run, true)
-	t.eq(run.outcome, Run.Outcome.VICTORY, "winning day 30 wins the run")
+	t.eq(run.outcome, Run.Outcome.VICTORY, "winning day 42 wins the run")
 	t.check(r.run_over, "report says so")
-	t.eq(run.day, 30, "stays on day 30")
+	t.eq(run.day, 42, "stays on day 42")
+	# Played from day 1, the plainest way, a run that wins every battle ends with that boss.
+	var full := make_run(7)
+	var days := 0
+	while not full.is_over() and days < 100:
+		advance(full)
+		days += 1
+	t.eq(full.outcome, Run.Outcome.VICTORY, "winning every battle wins the run")
+	t.eq(full.day, 42, "on day 42")
+	t.eq(days, 42, "after 42 days")
+	t.eq(full.battles_won, 21, "18 battles and 3 bosses")
 
 
 func test_city_health_zero_ends_run() -> void:
@@ -358,13 +453,14 @@ func test_city_health_zero_ends_run() -> void:
 	t.check(r.run_over, "run over")
 
 	var by_event := make_run(8)
-	force_day(by_event, RunCalendar.DayType.EVENT)
 	var ch := EventChoiceData.new()
+	ch.label = "Open the gates"
 	ch.city_health = -200
-	by_event.event = EventData.new()
+	force_event(by_event, EventData.new())
 	by_event.event.choices.append(ch)
-	by_event.choose(ch)
-	t.eq(by_event.outcome, Run.Outcome.DEFEAT, "an event can also bring the city down")
+	t.check(by_event.choose(ch) != "", "chosen")
+	t.eq(by_event.outcome, Run.Outcome.DEFEAT, "an event can also bring the city down, at once")
+	t.check(not by_event.end_free_day(), "nothing more to do that day")
 
 
 func test_empty_roster_ends_run() -> void:
@@ -414,7 +510,7 @@ func test_removed_stay_gone() -> void:
 	t.check(run.gone.has(lost.data), "remembered as gone")
 	t.check(weapon.holder == null and run.inventory.weapons.has(weapon), "their weapon goes back to the armory")
 	for d in 40:
-		force_day(run, RunCalendar.DayType.FREE)
+		run._restock_week()
 		t.check(not run.tavern_offers.has(lost.data), "never offered at the tavern again")
 
 
@@ -424,7 +520,7 @@ func test_fielded_limit_and_order() -> void:
 	force_day(run, RunCalendar.DayType.FREE)
 	var hired := 0
 	while run.roster.size() < RunConfig.MAX_FIELDED:
-		run.actions_left = 2
+		run.actions_left = RunConfig.FREE_DAY_ACTIONS
 		run.actions_used.clear()
 		run.tavern_offers.clear()
 		run._make_tavern_offers()
@@ -478,30 +574,139 @@ func test_free_day_action_limits() -> void:
 	run.materials = {RunConfig.IRON_ORE: 10, RunConfig.TIMBER: 10}
 	run.city_health = 50
 	run.roster[0].hp = 1
-	t.eq(run.actions_left, 2, "two actions")
+	t.eq(RunConfig.FREE_DAY_ACTIONS, 1, "a free day has one action")
+	t.eq(run.actions_left, 1, "one action")
 	t.check(run.repair(), "repair")
-	t.eq(run.actions_left, 1, "one left")
+	t.eq(run.actions_left, 0, "none left")
 	t.check(not run.repair(), "repair only once a day")
 	t.check(run.free_action_block_reason(Run.FreeAction.REPAIR).contains("Already"), "says why")
-	t.check(run.rest(), "rest")
-	t.eq(run.actions_left, 0, "none left")
+	t.check(not run.rest(), "no time left to rest")
+	t.check(run.free_action_block_reason(Run.FreeAction.REST).contains("No actions"), "says why")
 	var item := run.shop_stock()[0]
 	t.check(run.buy(item) == null, "no action left for the shop")
 	t.check(run.buy_block_reason(item).contains("No actions"), "says why")
 	t.check(run.hire_block_reason(run.tavern_offers[0]).contains("No actions") if not run.tavern_offers.is_empty() else true, "no tavern either")
 	t.check(run.end_free_day(), "end the day")
 	t.eq(run.day, 2, "next day")
+	# Each of rest, shop and tavern also uses the one action.
+	for a in [Run.FreeAction.REST, Run.FreeAction.SHOP, Run.FreeAction.TAVERN]:
+		force_day(run, RunCalendar.DayType.FREE)
+		run.gold = 1000
+		run.roster[0].hp = 1
+		run.city_health = 50
+		match a:
+			Run.FreeAction.REST:
+				t.check(run.rest(), "rest")
+			Run.FreeAction.SHOP:
+				t.check(run.buy(run.shop_stock()[0]) != null, "buy")
+			Run.FreeAction.TAVERN:
+				if run.tavern_offers.is_empty():
+					run._make_tavern_offers()
+				t.check(run.hire(run.tavern_offers[0]) != null, "hire")
+		t.eq(run.actions_left, 0, "%s uses the day's action" % Run.FREE_ACTION_NAMES[a])
+		t.check(not run.repair(), "and nothing else after %s" % Run.FREE_ACTION_NAMES[a])
 	# Unused actions are lost.
 	force_day(run, RunCalendar.DayType.FREE)
-	t.eq(run.actions_left, 2, "a fresh free day has two again")
+	t.eq(run.actions_left, 1, "a fresh free day has one again")
 	run.end_free_day()
 	force_day(run, RunCalendar.DayType.FREE)
-	t.eq(run.actions_left, 2, "never more than two")
+	t.eq(run.actions_left, 1, "never more than one")
 	t.eq(run.actions_used.size(), 0, "nothing used yet")
 	# Not on other days.
 	force_day(run, RunCalendar.DayType.BATTLE)
 	t.check(not run.rest(), "no rest on a battle day")
 	t.check(not run.end_free_day(), "no ending a battle day without the battle")
+
+
+## An event day is a free day that begins with the event: until it is answered nothing else can be
+## done in the city and the day cannot end; afterwards the free day goes on as usual.
+func test_event_opens_free_day() -> void:
+	var run := make_run(40)
+	var first: int = run.event_days[0]
+	while run.day < first:
+		advance(run)
+	t.eq(run.day, first, "reached the first event day")
+	t.eq(run.day_type(), RunCalendar.DayType.FREE, "an event day is a free day")
+	t.check(run.has_event_day(), "today begins with an event")
+	t.check(run.event_pending() and run.event != null, "the event waits")
+	t.eq(run.actions_left, 1, "the day's action is there")
+	run.gold = 1000
+	run.city_health = 50
+	run.materials = {RunConfig.IRON_ORE: 5, RunConfig.TIMBER: 5}
+	run.roster[0].hp = 1
+	for a in [Run.FreeAction.REST, Run.FreeAction.REPAIR, Run.FreeAction.SHOP, Run.FreeAction.TAVERN]:
+		t.eq(run.free_action_block_reason(a), Run.EVENT_FIRST, "%s waits for the event" % Run.FREE_ACTION_NAMES[a])
+		t.eq(run.visit_block_reason(a), Run.EVENT_FIRST, "%s cannot be visited yet" % Run.FREE_ACTION_NAMES[a])
+	t.check(not run.rest() and not run.repair(), "nothing done yet")
+	t.check(run.buy(run.shop_stock()[0]) == null, "nothing bought yet")
+	t.check(not run.end_free_day(), "the day cannot end before the event is answered")
+	t.eq(run.day, first, "still the same day")
+	t.check(run.can_change_party(), "the party can still be changed")
+	var pick: EventChoiceData = null
+	for ch in run.event.choices:
+		if run.choice_block_reason(ch) == "":
+			pick = ch
+			break
+	t.check(run.choose(pick) != "", "answered")
+	t.eq(run.day, first, "the day goes on")
+	t.check(not run.event_pending(), "no event waiting")
+	t.eq(run.choose(pick), "", "an event is answered once")
+	t.check(run.rest(), "then the free day's action")
+	t.eq(run.actions_left, 0, "spent")
+	t.check(run.end_free_day(), "and the day ends")
+	# A free day without an event has none.
+	while run.day_type() != RunCalendar.DayType.FREE or run.has_event_day():
+		advance(run)
+	t.check(run.event == null and not run.event_pending(), "a plain free day has no event")
+	t.eq(run.free_action_block_reason(Run.FreeAction.SHOP), "", "and the city is open at once")
+	# Battle and boss days never carry an event.
+	for d in run.event_days:
+		t.eq(run.day_type(d), RunCalendar.DayType.FREE, "event day %d is a free day" % d)
+
+
+## The tavern and the smithy restock on the first day of each week and keep the same offers and stock
+## all week; what was hired or bought is gone until the next week.
+func test_weekly_refresh() -> void:
+	var changed_offers := 0
+	for s in 20:
+		var run := make_run(500 + s)
+		run.gold = 100000
+		var offers := run.tavern_offers.duplicate()
+		var stock := run.shop_stock().duplicate()
+		t.check(not stock.is_empty(), "seed %d: the smithy has stock in week 1" % s)
+		var bought: ShopItemData = null
+		var hired: CompanionData = null
+		while run.day < 8:
+			t.eq(run.tavern_offers, offers, "seed %d day %d: the same offers all week" % [s, run.day])
+			t.eq(run.shop_stock(), stock, "seed %d day %d: the same stock all week" % [s, run.day])
+			if run.day_type() == RunCalendar.DayType.FREE and not run.has_event_day():
+				if bought == null:
+					bought = stock[0]
+					t.check(run.buy(bought) != null, "seed %d: bought on day %d" % [s, run.day])
+					stock.erase(bought)
+					t.check(not run.shop_stock().has(bought), "seed %d: the bought item leaves the stock" % s)
+				elif hired == null and not offers.is_empty():
+					hired = offers[0]
+					t.check(run.hire(hired) != null, "seed %d: hired on day %d" % [s, run.day])
+					offers.erase(hired)
+					t.check(not run.tavern_offers.has(hired), "seed %d: the hire leaves the tavern" % s)
+			advance(run)
+		t.check(bought != null, "seed %d: something was bought in week 1" % s)
+		# Day 8: a new week, a new roll.
+		t.eq(run.day, 8, "seed %d: week 2" % s)
+		if bought.chance >= 1.0:
+			t.check(run.shop_stock().has(bought), "seed %d: the bought item is back in the new week" % s)
+		for d in run.tavern_offers:
+			t.check(not run._in_roster(d) and not run.gone.has(d), "seed %d: only companions who can join" % s)
+		if hired != null:
+			t.check(not run.tavern_offers.has(hired), "seed %d: someone hired is never offered again" % s)
+		var week2 := run.tavern_offers.duplicate()
+		var full := offers.duplicate()
+		if hired != null:
+			full.append(hired)
+		if week2 != full:
+			changed_offers += 1
+	t.check(changed_offers >= 10, "the tavern's offers change between weeks (%d of 20)" % changed_offers)
 
 
 func test_rest() -> void:
@@ -534,15 +739,18 @@ func test_shop_and_equip_requirement() -> void:
 	run.gold = steel.price - 1
 	t.check(run.buy(steel) == null, "cannot afford")
 	t.check(run.buy_block_reason(steel).contains("gold"), "says gold")
-	t.eq(run.actions_left, 2, "no action spent on a failed purchase")
-	run.gold = steel.price * 3
+	t.eq(run.actions_left, 1, "no action spent on a failed purchase")
+	run.gold = 1000
 	var owned := run.buy(steel)
 	t.check(owned != null, "bought")
-	t.eq(run.gold, steel.price * 2, "paid")
-	t.eq(run.actions_left, 1, "the shop uses one action")
+	t.eq(run.gold, 1000 - steel.price, "paid")
+	t.eq(run.actions_left, 0, "the shop uses the day's action")
 	t.check(owned.holder == null, "goes to the armory")
-	t.check(run.buy(steel) != null, "a second purchase the same visit")
-	t.eq(run.actions_left, 1, "is free")
+	t.check(not run.shop_stock().has(steel), "one of each: the steel is gone for the week")
+	t.check(run.buy(steel) == null and run.buy_block_reason(steel).contains("this week"), "and cannot be bought again")
+	var other := run.shop_stock()[0]
+	t.check(run.buy(other) != null, "a second purchase the same visit")
+	t.eq(run.actions_left, 0, "is free")
 	# Equip requirement: companions start at D, steel needs C.
 	t.eq(c.progress.grade(kind), Proficiency.Grade.D, "starts at D")
 	var old := run.inventory.held_by(c)
@@ -552,10 +760,13 @@ func test_shop_and_equip_requirement() -> void:
 	t.check(run.equip_weapon(c, owned), "allowed at C")
 	t.eq(c.weapon(), steel.weapon, "now holds it")
 	t.check(old.holder == null, "the old weapon goes back to the armory")
-	run.day = 11
-	run.calendar[10] = RunCalendar.DayType.FREE
+	run.day = 8
 	run._begin_day()
-	t.check(run.shop_stock().has(silver), "silver sold from day 11")
+	t.check(not run.shop_stock().has(silver), "no silver in week 2")
+	run.day = 15
+	run._begin_day()
+	t.check(run.shop_stock().has(silver), "silver sold from week 3 (day 15)")
+	t.check(run.shop_stock().has(steel), "the steel is back in a new week")
 
 
 func test_weapon_held_by_one() -> void:
@@ -603,7 +814,7 @@ func test_tavern_hiring() -> void:
 	t.eq(c.hp, c.max_hp(), "full HP")
 	t.eq(run.inventory.held_by(c).data, pick.weapon, "brings their weapon")
 	t.check(not run.tavern_offers.has(pick), "no longer offered")
-	t.eq(run.actions_left, 1, "the tavern uses one action")
+	t.eq(run.actions_left, 0, "the tavern uses the day's action")
 
 
 func test_repair() -> void:
@@ -616,6 +827,7 @@ func test_repair() -> void:
 	t.eq(run.city_health, 100, "capped at 100")
 	t.eq(run.material(RunConfig.TIMBER), 0, "timber spent")
 	t.eq(run.material(RunConfig.IRON_ORE), 0, "iron spent")
+	t.eq(run.actions_left, 0, "the masons use the day's action")
 	force_day(run, RunCalendar.DayType.FREE)
 	run.city_health = 50
 	t.check(not run.repair(), "no materials, no repair")
@@ -638,8 +850,8 @@ func test_event_choices() -> void:
 		t.check(free_choice, "%s: one choice is always affordable" % ev.title)
 		for ch in ev.choices:
 			var run := make_run(31)
-			force_day(run, RunCalendar.DayType.EVENT)
-			run.event = ev
+			fight(run, true)
+			force_event(run, ev)
 			run.gold = 500
 			run.materials = {RunConfig.IRON_ORE: 5, RunConfig.TIMBER: 5}
 			run.city_health = 80
@@ -660,38 +872,50 @@ func test_event_choices() -> void:
 				var expected: int = hp_before[c]
 				if targets.has(c):
 					expected = clampi(expected + ch.companion_hp, 1, c.max_hp())
-				expected = mini(c.max_hp(), expected + heal_amount(c))
 				t.eq(c.hp, expected, "%s / %s: %s HP" % [ev.title, ch.label, c.display_name()])
 			t.eq(run.inventory.weapons.size(), weapons + (1 if ch.weapon != null else 0), "%s / %s: weapon" % [ev.title, ch.label])
 			if ch.weapon != null:
 				t.eq(run.inventory.weapons[-1].data, ch.weapon, "the weapon is in the armory")
-			t.eq(run.day, 2, "the event ends the day")
+			t.eq(run.day, 2, "the free day goes on after the event")
+			t.check(run.event == null and not run.event_pending(), "the event is answered")
+			t.eq(run.actions_left, 1, "the day's action is still there")
 			# Unaffordable choices are refused.
 			if ch.gold < 0:
 				var poor := make_run(31)
-				force_day(poor, RunCalendar.DayType.EVENT)
-				poor.event = ev
+				force_event(poor, ev)
 				poor.gold = -ch.gold - 1
 				t.check(poor.choose(ch) == "", "%s / %s: refused without the gold" % [ev.title, ch.label])
-				t.eq(poor.day, 1, "and the day goes on")
+				t.check(poor.event_pending(), "and the event still waits")
 	# HP losses never take a companion below 1.
 	var run := make_run(32)
-	force_day(run, RunCalendar.DayType.EVENT)
 	var hurt := EventChoiceData.new()
 	hurt.companion_hp = -500
 	hurt.hp_target = EventChoiceData.HpTarget.ALL
-	run.event = EventData.new()
+	force_event(run, EventData.new())
 	run.event.choices.append(hurt)
 	run.choose(hurt)
 	for c in run.roster:
-		t.eq(c.hp, 1 + heal_amount(c), "HP loss stops at 1")
-	# Events do not repeat while unseen ones remain.
+		t.eq(c.hp, 1, "HP loss stops at 1")
+	# Events do not repeat while unseen ones remain; after that they may.
 	var seen := {}
 	var r2 := make_run(33)
 	for i in content().events.size():
-		force_day(r2, RunCalendar.DayType.EVENT)
+		force_event(r2)
+		t.check(r2.event != null, "an event is drawn")
 		t.check(not seen.has(r2.event), "no repeat while unseen events remain")
 		seen[r2.event] = true
+	force_event(r2)
+	t.check(r2.event != null, "with every event seen, one is drawn again")
+	# In a run, the event days each draw a different event (a run has fewer event days than events).
+	t.check(content().events.size() >= RunConfig.EVENTS_PER_WEEK * 6, "enough events for a run without repeats")
+	for s in 20:
+		var r3 := make_run(300 + s)
+		var drawn := {}
+		for d in r3.event_days:
+			r3.day = d
+			r3._begin_day()
+			t.check(r3.event != null and not drawn.has(r3.event), "seed %d: a new event on day %d" % [300 + s, d])
+			drawn[r3.event] = true
 
 
 func test_run_content() -> void:
@@ -964,12 +1188,7 @@ func test_level_pace() -> void:
 							best = f
 					fight(run, true, best)
 				RunCalendar.DayType.FREE:
-					run.end_free_day()
-				RunCalendar.DayType.EVENT:
-					for ch in run.event.choices:
-						if run.choice_block_reason(ch) == "":
-							run.choose(ch)
-							break
+					advance(run)
 		t.eq(run.outcome, Run.Outcome.VICTORY, "seed %d: every battle won reaches the end" % s)
 		for c in run.roster:
 			levels.append(c.level())
@@ -1014,14 +1233,14 @@ func test_playthrough() -> void:
 			if run.day > d or run.outcome == Run.Outcome.VICTORY:
 				beaten[g] = beaten.get(g, 0) + 1
 		t.check(run.is_over(), "seed %d: the run ends" % s)
-		t.check(run.day >= 1 and run.day <= 30, "seed %d: within 30 days" % s)
+		t.check(run.day >= 1 and run.day <= RunConfig.DAYS, "seed %d: within 42 days" % s)
 		if run.outcome == Run.Outcome.VICTORY:
 			wins += 1
-			t.eq(run.day, 30, "a win ends on day 30")
+			t.eq(run.day, RunConfig.DAYS, "a win ends on day 42")
 		end_days[run.day] = end_days.get(run.day, 0) + 1
 		var cause := "won"
 		if run.outcome == Run.Outcome.DEFEAT:
-			cause = "boss" if run.day % 10 == 0 else ("city" if run.city_health <= 0 else "roster")
+			cause = "boss" if RunCalendar.is_boss_day(run.day) else ("city" if run.city_health <= 0 else "roster")
 		causes[cause] = causes.get(cause, 0) + 1
 		total_won += run.battles_won
 		total_lost += run.battles_lost
@@ -1032,7 +1251,7 @@ func test_playthrough() -> void:
 		city_left += run.city_health
 		gold_left += run.gold
 		for i in 3:
-			if run.day >= (i + 1) * 10:
+			if run.day >= (i + 1) * RunConfig.BOSS_EVERY_DAYS:
 				reached[i] += 1
 	var days := end_days.keys()
 	days.sort()

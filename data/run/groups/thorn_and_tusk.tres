@@ -10,5 +10,5 @@
 script = ExtResource("5_yooxg")
 display_name = "Thorn and Tusk"
 danger = 3
-min_day = 4
+min_day = 6
 enemies = Array[ExtResource("1_n4fv8")]([ExtResource("2_f6n16"), ExtResource("3_rwkvb"), ExtResource("4_uyapv")])

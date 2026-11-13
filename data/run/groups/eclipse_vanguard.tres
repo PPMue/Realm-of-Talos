@@ -11,5 +11,5 @@
 script = ExtResource("6_ol7d6")
 display_name = "Eclipse Vanguard"
 danger = 3
-min_day = 21
+min_day = 29
 enemies = Array[ExtResource("1_rq7w5")]([ExtResource("2_gbkd7"), ExtResource("3_xvjf5"), ExtResource("4_0wgwg"), ExtResource("5_kgfv4")])

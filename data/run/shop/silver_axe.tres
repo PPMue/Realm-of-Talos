@@ -7,4 +7,4 @@
 script = ExtResource("1_f4bs4")
 weapon = ExtResource("2_m5m1b")
 price = 300
-min_day = 11
+min_day = 15

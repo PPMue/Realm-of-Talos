@@ -9,5 +9,5 @@
 script = ExtResource("4_pjdf6")
 display_name = "Cursed Patrol"
 danger = 2
-min_day = 11
+min_day = 15
 enemies = Array[ExtResource("1_mu10y")]([ExtResource("2_wx8v7"), ExtResource("3_n10c7")])

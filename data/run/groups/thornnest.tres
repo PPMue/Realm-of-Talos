@@ -7,5 +7,5 @@
 [resource]
 script = ExtResource("3_wj4y6")
 display_name = "Thornnest"
-min_day = 2
+min_day = 3
 enemies = Array[ExtResource("1_txfmd")]([ExtResource("2_lpv7w")])

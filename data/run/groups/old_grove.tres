@@ -9,5 +9,5 @@
 script = ExtResource("4_opkxo")
 display_name = "Old Grove"
 danger = 2
-min_day = 11
+min_day = 15
 enemies = Array[ExtResource("1_yhkfa")]([ExtResource("2_8luqg"), ExtResource("3_8ypfi")])

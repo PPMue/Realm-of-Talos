@@ -7,5 +7,5 @@
 [resource]
 script = ExtResource("3_3jfc6")
 display_name = "Cursed Sentry"
-min_day = 11
+min_day = 15
 enemies = Array[ExtResource("1_3vcyb")]([ExtResource("2_pbhgf")])

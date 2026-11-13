@@ -9,5 +9,5 @@
 script = ExtResource("4_u2prv")
 display_name = "Bog Ambush"
 danger = 2
-min_day = 2
+min_day = 3
 enemies = Array[ExtResource("1_bsjd1")]([ExtResource("2_1ge5f"), ExtResource("3_dlmtp")])
