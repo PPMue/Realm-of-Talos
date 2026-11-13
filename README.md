@@ -180,6 +180,8 @@ Spears are effective against Large and bows against Flying, as every spear and b
 
 Where they come from: each weekly Smithy restock has a 35% chance (`RunConfig.SHOP_RARE_CHANCE`) of one rare weapon, drawn from those whose grade fits the week (`RunConfig.RARE_GRADE_BY_WEEK`: none in week 1, grade D or less in week 2, any from week 3); the day 14 and day 28 bosses (50%) and events that give a weapon (15%), as under Weapons.
 
+On screen a rare weapon carries a small red diamond before its name and the word "rare" before its type, in the Smithy's list and in the Barracks' armory, and each of its properties is written on a line of its own under the usual small print. In the Barracks Mt is what it would be in the chosen companion's hand (Oathkeeper's follows their grade; the Smithy writes "Mt by grade"). In battle the forecast of a plain Attack with a weapon that strikes twice reads "DMG 9x2" as an art's does, the sheet shown while Shift is held lists the held weapon's properties, and pointing at the weapon's line under the companion's name does too. After a won battle the card of whoever holds Magpie says in its hover text what the weapon brought in.
+
 ### Two-proficiency weapons
 
 Six families need a grade in two types. Each **is its main type** (the first named) for everything: the attack power formula, the proficiency gained by using it, which arts can be used with it, effectiveness. The second type is only a requirement: using the weapon never raises it, so it rises only by training (see Training ground; a drill can open a weapon type or school from E) or by fighting with a weapon of that type, or comes from the companion's starting grades.

@@ -302,6 +302,9 @@ Did the most in this fight."
 			for key: String in up.gains:
 				all[key] = int(all.get(key, 0)) + int(up.gains[key])
 		tip += "\nLevel up from %d: %s" % [level_before, Levels.gains_text(all)]
+	var purse := int(report.kill_gold_by.get(who, 0))
+	if purse > 0 and c.weapon() != null:
+		tip += "\n%s brought in %d gold, counted in the gold above." % [c.weapon().display_name, purse]
 	if status == "INJURED":
 		tip += "\nInjured: %d days in the infirmary." % RunConfig.INFIRMARY_DAYS
 	for line in tips:

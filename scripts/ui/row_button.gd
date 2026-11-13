@@ -24,6 +24,18 @@ var detail_color := UiTheme.GOLD:
 	set(v):
 		detail_color = v
 		queue_redraw()
+## Paper rows only. Lines written under the small print, one to a line, in red-brown italics: what a
+## rare weapon does that others do not. The row must be made NOTE_STEP taller for each (see
+## height_with).
+var notes: Array[String] = []:
+	set(v):
+		notes = v
+		queue_redraw()
+## Paper rows only. A small red diamond before the title: something out of the ordinary.
+var marked := false:
+	set(v):
+		marked = v
+		queue_redraw()
 var hotkey := ""
 var texture: Texture2D
 var texture_focus := Vector2(0.5, 0.25)
@@ -47,7 +59,14 @@ var paper := false:
 		paper = v
 		queue_redraw()
 
+const NOTE_STEP := 19.0
+
 var _hover := false
+
+
+## Height of a paper row of `base` height that carries `count` notes.
+static func height_with(base: float, count: int) -> float:
+	return base + (NOTE_STEP * count + 4.0 if count > 0 else 0.0)
 
 
 func _init(width: float = 1100.0, height: float = 76.0) -> void:
@@ -172,10 +191,21 @@ func _draw_paper() -> void:
 			dc = UiTheme.WAX.darkened(0.2)
 		UiTheme.draw_text(self, italic, Vector2(right - dw, (h - italic.get_height(16)) * 0.5), detail, 16, dc, 0, dw,
 			HORIZONTAL_ALIGNMENT_RIGHT)
+	if marked:
+		UiIcons.diamond(self, Vector2(x + 6.0, (h * 0.5 - 10.0) if notes.is_empty() else 21.0), 6.0, Color(UiTheme.WAX, 0.6 if disabled else 1.0))
+		x += 20.0
+		room -= 20.0
 	var title_size := 21
 	while title_size > 15 and display.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size).x > room:
 		title_size -= 1
-	if sub != "":
+	if not notes.is_empty():
+		# Title, small print, then the notes; the tag on the right keeps to the middle.
+		UiTheme.draw_text(self, display, Vector2(x, 7.0), title, title_size, ink, 0, room)
+		UiTheme.draw_text(self, body, Vector2(x + 1.0, 35.0), sub, 14, small, 0, room)
+		var note_ink := Color(UiTheme.WAX.darkened(0.25), 0.7 if disabled else 1.0)
+		for i in notes.size():
+			UiTheme.draw_text(self, italic, Vector2(x + 1.0, 55.0 + i * NOTE_STEP), notes[i], 15, note_ink, 0, room)
+	elif sub != "":
 		UiTheme.draw_text(self, display, Vector2(x, h * 0.5 - display.get_height(title_size) + 3.0), title, title_size, ink, 0, room)
 		UiTheme.draw_text(self, body, Vector2(x + 1.0, h * 0.5 + 3.0), sub, 14, small, 0, room)
 	else:

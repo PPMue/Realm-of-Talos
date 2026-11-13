@@ -881,8 +881,11 @@ func _refresh_party() -> void:
 				spells.append("%s %d/%d" % [sp.display_name, c.progress.uses_left(sp), sp.uses])
 			magic += "\nSpells: " + ", ".join(spells)
 		# Not a tooltip: the battle screen shows it while Shift is held (see inspect).
+		var held := c.weapon().display_name
+		for note in StoreScreen.weapon_notes(c.weapon()):
+			held += "\n  " + note
 		_party_sheets[c] = "%s\nLevel %d  ·  %s\n%s\n\n%s %s%s\nArts: %s%s\n\n%s" % [
-			c.display_name, c.progress.level, c.weapon().display_name, _stat_sheet(c, Stat.COMPANION_KEYS), WeaponData.type_name(kind),
+			c.display_name, c.progress.level, held, _stat_sheet(c, Stat.COMPANION_KEYS), WeaponData.type_name(kind),
 			Proficiency.grade_name(c.progress.grade(kind)),
 			"" if step.y == 0 else "  (%d / %d to %s)" % [step.x, step.y, Proficiency.grade_name(c.progress.grade(kind) + 1)],
 			", ".join(arts) if not arts.is_empty() else "none", magic, aim_tip]
@@ -952,7 +955,9 @@ func _refresh_enemies() -> void:
 			view.set_forecast(battle.spell_forecast(_selected, _spell, e), 1, note)
 		elif hot and _selected != null:
 			var art := _art if _mode == Mode.TARGET_ART else null
-			view.set_forecast(battle.forecast(_selected, e, art), art.strikes if art != null else 1)
+			# The forecast knows how many times it lands: an art's strikes, or a weapon that strikes twice.
+			var f := battle.forecast(_selected, e, art)
+			view.set_forecast(f, f.strikes if f != null else 1)
 		else:
 			view.set_forecast(null)
 

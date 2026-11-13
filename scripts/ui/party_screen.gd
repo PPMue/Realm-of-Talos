@@ -224,11 +224,16 @@ func _refresh_page() -> void:
 		return false)
 	for item: OwnedWeapon in items:
 		var d := item.data
-		var row := _row()
+		var notes := StoreScreen.weapon_notes(d)
+		var row := _row(notes.size())
 		row.title = d.display_name
+		row.marked = d.is_rare()
+		row.notes = notes
 		var too_heavy := d.weight - c.data.build
-		row.sub = "%s  ·  Mt %d  ·  Hit %d  ·  weight %d  ·  needs %s%s" % [WeaponData.type_name(d.weapon_type).to_lower(),
-			d.might, d.hit, d.weight, d.requirement_text().replace(" · ", " and "),
+		# Might as it would be in this companion's hand (a rare blade's may follow their grade).
+		row.sub = "%s%s  ·  Mt %d  ·  Hit %d  ·  weight %d  ·  needs %s%s" % ["rare " if d.is_rare() else "",
+			WeaponData.type_name(d.weapon_type).to_lower(),
+			d.might_for(c.progress), d.hit, d.weight, d.requirement_text().replace(" · ", " and "),
 			"  ·  too heavy: -%d DEX/SPD" % too_heavy if too_heavy > 0 else ""]
 		var why := run.equip_block_reason(c, item)
 		if item.holder == c:
@@ -255,8 +260,9 @@ func _spell_row(c: RunCompanion, sp: SpellData) -> RowButton:
 	return row
 
 
-func _row() -> RowButton:
-	var row := RowButton.new(PAGE.size.x - PAGE_PAD * 2.0 - 14.0, 58.0)
+## A line of the armory list; `notes`: how many lines of its own a rare weapon adds.
+func _row(notes: int = 0) -> RowButton:
+	var row := RowButton.new(PAGE.size.x - PAGE_PAD * 2.0 - 14.0, RowButton.height_with(58.0, notes))
 	row.paper = true
 	return row
 

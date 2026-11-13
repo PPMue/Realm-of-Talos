@@ -272,15 +272,18 @@ func _refresh_smithy() -> void:
 
 func _shop_row(item: ShopItemData) -> RowButton:
 	var w := item.weapon
-	var row := RowButton.new(PAGE.size.x - PAGE_PAD * 2.0 - 14.0, 64.0)
+	var notes := weapon_notes(w)
+	var row := RowButton.new(PAGE.size.x - PAGE_PAD * 2.0 - 14.0, RowButton.height_with(64.0, notes.size()))
 	row.paper = true
 	row.title = w.display_name
+	row.marked = w.is_rare()
+	row.notes = notes
 	var kind := WeaponData.type_name(w.weapon_type).to_lower()
-	row.sub = "%s  ·  Mt %d  ·  Hit %d  ·  weight %d  ·  needs %s" % [kind, w.might, w.hit, w.weight,
+	# A blade whose Might is the wielder's grade has no one number on the rack.
+	var might := "Mt by grade" if w.might_by_grade else "Mt %d" % w.might
+	row.sub = "%s%s  ·  %s  ·  Hit %d  ·  weight %d  ·  needs %s" % ["rare " if w.is_rare() else "", kind, might, w.hit, w.weight,
 		w.requirement_text().replace(" · ", " and ")]
-	if w.is_magic():
-		row.sub += "  ·  strikes with MAG against RES"
-	elif not w.effective_against.is_empty():
+	if not w.effective_against.is_empty():
 		row.sub += "  ·  effective against %s" % ", ".join(w.effective_against).to_lower()
 	var why := run.buy_block_reason(item)
 	row.disabled = why != ""
@@ -294,6 +297,16 @@ func _shop_row(item: ShopItemData) -> RowButton:
 			_pointed = null
 			_refresh_crew())
 	return row
+
+
+## What a weapon does that others of its kind do not, one short line each (WeaponData.trait_lines,
+## with "Mt" written out). Empty for an ordinary weapon. Shared with the barracks.
+static func weapon_notes(w: WeaponData) -> Array[String]:
+	var out: Array[String] = []
+	for line in w.trait_lines():
+		out.append(line.replace("Mt ", "Might ").replace("MAG", "Magic").replace("RES", "Resistance").replace("DEF", "Defence")
+			.replace("SPD", "Speed").replace("STR", "Strength").replace("DEX", "Dexterity"))
+	return out
 
 
 ## The company beside the price list: what each holds, or what the weapon pointed at would mean for them.
