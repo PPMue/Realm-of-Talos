@@ -4,6 +4,9 @@ extends RefCounted
 ## and to give numbers to tune against.
 
 var rng: RandomNumberGenerator
+## Drills taken at the training ground: Sparring, and proficiency drills.
+var sparred := 0
+var drilled := 0
 
 
 func _init(p_rng: RandomNumberGenerator) -> void:
@@ -95,8 +98,8 @@ func pick_front(run: Run) -> Front:
 
 
 ## One action a day, so the first that applies: rest before a boss if anything is spent, mend badly
-## damaged walls, fill the line, rest a hurt company, buy upgrades, rest a lightly hurt one, mend the
-## walls. Every command after the first that succeeds is refused (except further purchases), so trying
+## damaged walls, fill the line, rest a hurt company, buy upgrades, rest a lightly hurt one, mend
+## the walls, train (see train). Every command after the first that succeeds is refused (except further purchases), so trying
 ## them in order is enough.
 func free_day(run: Run) -> void:
 	if run.is_over():
@@ -116,7 +119,39 @@ func free_day(run: Run) -> void:
 	if hp_fraction(run) < 0.8:
 		run.rest()
 	run.repair()
+	train(run)
 	run.end_free_day()
+
+
+## With nothing better to do: a proficiency drill in the type of the weapon held by a fielded
+## companion who can take it (the lowest grade first), else Sparring for the lowest-level fielded one.
+## Refused (and nothing happens) when the day's action is spent or the gold is short.
+func train(run: Run) -> void:
+	if run.free_action_block_reason(Run.FreeAction.TRAIN) != "":
+		return
+	var best_drill: Drill = null
+	var best_c: RunCompanion = null
+	var best_grade := 99
+	for d in run.drills:
+		if d.kind != Drill.Kind.WEAPON:
+			continue
+		for c in run.lineup:
+			if c.weapon() == null or c.weapon().weapon_type != d.weapon_type or run.drill_block_reason(d, c) != "":
+				continue
+			if d.grade_of(c.progress) < best_grade:
+				best_grade = d.grade_of(c.progress)
+				best_drill = d
+				best_c = c
+	if best_drill == null:
+		for c in run.lineup:
+			if run.drill_block_reason(run.drills[0], c) == "" and (best_c == null or c.level() < best_c.level()):
+				best_c = c
+		best_drill = run.drills[0] if best_c != null else null
+	if best_drill != null and run.train(best_drill, best_c) != null:
+		if best_drill.is_proficiency():
+			drilled += 1
+		else:
+			sparred += 1
 
 
 func pick_choice(run: Run) -> EventChoiceData:

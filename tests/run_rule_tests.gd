@@ -1312,11 +1312,15 @@ func test_playthrough() -> void:
 	var spread_runs := 0
 	var spread_widest := 0
 	var faced := {}    # boss group -> times faced
+	var sparred := 0
+	var drilled := 0
 	var beaten := {}   # boss group -> times beaten
 	for s in runs:
 		var run := make_run(1000 + s)
 		var policy := RunPolicy.new(_seeded(5000 + s))
 		policy.play(run)
+		sparred += policy.sparred
+		drilled += policy.drilled
 		for d: int in run.boss_draw:
 			var g: EnemyGroupData = run.boss_draw[d]
 			if run.day < d:
@@ -1374,6 +1378,7 @@ func test_playthrough() -> void:
 		float(spread_total) / maxf(1, spread_runs), spread_widest, spread_runs])
 	print("    per run: %.1f battles won, %.1f lost; %.1f companions, %.0f city health, %.0f gold at the end" % [
 		float(total_won) / runs, float(total_lost) / runs, float(roster_sizes) / runs, float(city_left) / runs, float(gold_left) / runs])
+	print("    training ground per run: %.1f sparring, %.1f proficiency drills" % [float(sparred) / runs, float(drilled) / runs])
 	print("    bosses (faced / beaten / beaten %):")
 	for g in content().bosses:
 		var f: int = faced.get(g, 0)

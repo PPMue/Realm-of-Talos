@@ -6,7 +6,7 @@ extends RefCounted
 ##
 ## A day:
 ##   1. begins: the day's activity is prepared (fronts, the boss, or the free-day action and maybe an
-##      event); on the first day of a week the tavern and the smithy restock
+##      event); on the first day of a week the tavern and the smithy restock and drills are posted
 ##   2. the player may change the party freely (who is fielded, their order, weapons, arts)
 ##   3. the player commits to the activity: a battle, or on a free day the event's choice first (if the
 ##      day has one), then the free-day action, then End day
@@ -15,9 +15,9 @@ extends RefCounted
 ## Commands return false (or "") and change nothing when not allowed; the *_block_reason queries say why.
 
 enum Outcome { ONGOING, VICTORY, DEFEAT }
-enum FreeAction { REST, SHOP, TAVERN, REPAIR }
+enum FreeAction { REST, SHOP, TAVERN, REPAIR, TRAIN }
 
-const FREE_ACTION_NAMES: Array[String] = ["Rest", "Shop", "Tavern", "Repair"]
+const FREE_ACTION_NAMES: Array[String] = ["Rest", "Shop", "Tavern", "Repair", "Train"]
 
 var rng: RandomNumberGenerator
 var content: RunContent
@@ -62,6 +62,10 @@ var tavern_offers: Array[CompanionData] = []
 ## with the week, plus rare magic ones that rolled in (first). Rolled on the first day of each week; a
 ## bought item is gone until the next week.
 var shop_week: Array[ShopItemData] = []
+## The training ground's drills this week: Sparring first, then up to
+## RunConfig.DRILLS_PROFICIENCY_PER_WEEK proficiency drills. Posted on the first day of each week; a
+## drill is not used up (see train).
+var drills: Array[Drill] = []
 ## Today's event: the random weapon each choice that grants one would give (choice -> WeaponData),
 ## drawn when the event came up.
 var event_weapons: Dictionary = {}
@@ -306,6 +310,7 @@ func finish_battle(battle: Battle) -> BattleReport:
 # ---------------------------------------------------------------- free days
 
 const EVENT_FIRST := "First answer the matter at the gate."
+const NO_USEFUL_DRILL := "Nobody can learn anything from this week's drills."
 
 
 func free_action_block_reason(a: FreeAction) -> String:
@@ -329,6 +334,11 @@ func free_action_block_reason(a: FreeAction) -> String:
 				return "The city is at full health."
 			if not _can_pay(RunConfig.REPAIR_COST):
 				return "Needs %s." % cost_text(RunConfig.REPAIR_COST)
+		FreeAction.TRAIN:
+			if gold < RunConfig.DRILL_COST:
+				return "Needs %d gold." % RunConfig.DRILL_COST
+			if not _anyone_can_drill():
+				return NO_USEFUL_DRILL
 	return ""
 
 
@@ -449,6 +459,130 @@ func hire(data: CompanionData) -> RunCompanion:
 		Levels.level_up(c.progress, rng)
 	c.hp = c.max_hp()
 	return c
+
+
+# ---------------------------------------------------------------- the training ground
+
+## Why `c` cannot take `drill` today, or "". A drill uses the day's free action (FreeAction.TRAIN)
+## and RunConfig.DRILL_COST gold. A proficiency drill needs a grade above E in its type or school
+## (training never opens a new one) and below S; Sparring needs a level below the top. Anyone in the
+## roster can train, fielded or not.
+func drill_block_reason(drill: Drill, c: RunCompanion) -> String:
+	var why := free_action_block_reason(FreeAction.TRAIN)
+	if why != "" and why != NO_USEFUL_DRILL:
+		return why
+	if drill == null or not drills.has(drill):
+		return "Not posted this week."
+	if c == null or not roster.has(c):
+		return "Not in the company."
+	return _drill_unfit_reason(drill, c)
+
+
+## Takes `drill` with `c`: spends the free action and RunConfig.DRILL_COST gold and rolls the quality
+## (RunConfig.DRILL_QUALITY_WEIGHTS). A proficiency drill adds RunConfig.DRILL_POINTS[quality] points
+## (every grade reached teaches an art or a spell as in battle); Sparring grants drill_xp(quality) XP
+## (level-ups as in battle). The drill stays posted. Returns what happened, or null if not allowed.
+func train(drill: Drill, c: RunCompanion) -> DrillResult:
+	if drill_block_reason(drill, c) != "":
+		return null
+	_spend(FreeAction.TRAIN)
+	gold -= RunConfig.DRILL_COST
+	var r := DrillResult.new()
+	r.drill = drill
+	r.companion = c
+	r.gold_spent = RunConfig.DRILL_COST
+	r.quality = _roll_drill_quality()
+	r.quality_name = DrillResult.QUALITY_NAMES[r.quality]
+	if drill.is_proficiency():
+		_drill_proficiency(r)
+	else:
+		_drill_sparring(r)
+	return r
+
+
+## XP a Sparring drill of `quality` (DrillResult.Quality) gives on day `d` (default today): good is
+## half an even share of that day's danger-2 battle pool (pool / RunConfig.MAX_FIELDED / 2); poor and
+## great are RunConfig.DRILL_XP_PERCENT of good. Rounded.
+func drill_xp(quality: int, d: int = -1) -> int:
+	var at := day if d < 0 else d
+	var good := float(xp_pool(RunConfig.DRILL_SPARRING_DANGER, at)) / RunConfig.MAX_FIELDED \
+		/ RunConfig.DRILL_SPARRING_SHARE_DIVISOR
+	return roundi(good * RunConfig.DRILL_XP_PERCENT[quality] / 100.0)
+
+
+## The XP pool of a normal front of `danger` on day `d`.
+static func xp_pool(danger: int, d: int) -> int:
+	return roundi(RunConfig.XP_POOL_BY_DANGER[danger - 1] * (1.0 + RunConfig.XP_POOL_GROWTH_PER_DAY * (d - 1)))
+
+
+## Why `c` could not learn from `drill` at all (whatever the day), or "".
+func _drill_unfit_reason(drill: Drill, c: RunCompanion) -> String:
+	if drill.is_proficiency():
+		var g := drill.grade_of(c.progress)
+		if g <= Proficiency.Grade.E:
+			return "%s has no grade in %s to train." % [c.display_name(), drill.subject_name()]
+		if g >= Proficiency.max_grade():
+			return "%s is already at %s in %s." % [c.display_name(), Proficiency.grade_name(g), drill.subject_name()]
+	elif c.level() >= RunConfig.MAX_LEVEL:
+		return "%s is already at the top level." % c.display_name()
+	return ""
+
+
+func _anyone_can_drill() -> bool:
+	for d in drills:
+		for c in roster:
+			if _drill_unfit_reason(d, c) == "":
+				return true
+	return false
+
+
+func _roll_drill_quality() -> DrillResult.Quality:
+	var total := 0
+	for w in RunConfig.DRILL_QUALITY_WEIGHTS:
+		total += w
+	var r := rng.randi_range(1, total)
+	for q in RunConfig.DRILL_QUALITY_WEIGHTS.size():
+		r -= RunConfig.DRILL_QUALITY_WEIGHTS[q]
+		if r <= 0:
+			return q as DrillResult.Quality
+	return DrillResult.Quality.GOOD
+
+
+func _drill_proficiency(r: DrillResult) -> void:
+	var p := r.companion.progress
+	var drill := r.drill
+	r.grade_before = drill.grade_of(p)
+	r.points_gained = drill.add_points(p, RunConfig.DRILL_POINTS[r.quality])
+	r.grade_after = drill.grade_of(p)
+	# Every grade reached teaches as in battle (Battle._gain_proficiency, Battle._gain_magic).
+	for g in range(r.grade_before + 1, r.grade_after + 1):
+		if drill.kind == Drill.Kind.WEAPON:
+			var art := ArtLearning.pick_art(rng, p, drill.weapon_type, g, art_pool)
+			var equipped := p.learn(art) if art != null else false
+			r.grade_ups.append({"actor": r.companion, "magic": false, "weapon_type": drill.weapon_type, "grade": g,
+				"art": art, "equipped": equipped})
+		else:
+			var spell := SpellLearning.pick_spell(rng, p, drill.school, g, spell_pool)
+			if spell != null:
+				p.learn_spell(spell)
+			r.grade_ups.append({"actor": r.companion, "magic": true, "school": drill.school, "grade": g, "spell": spell})
+
+
+## XP and level-ups as a won battle grants them (see _grant_xp).
+func _drill_sparring(r: DrillResult) -> void:
+	var c := r.companion
+	r.level_before = c.level()
+	r.stats_before = c.progress.stats()
+	r.xp_gained = drill_xp(r.quality)
+	var stats := r.stats_before.duplicate()
+	var from := c.level()
+	for up in Levels.add_xp(c.progress, r.xp_gained, rng):
+		c.hp += int(up.gains.get(Stat.HP, 0))
+		r.level_ups.append({"name": c.display_name(), "level": up.level, "gains": up.gains, "level_from": from,
+			"before": stats.duplicate()})
+		for key: String in up.gains:
+			stats[key] = int(stats.get(key, 0)) + int(up.gains[key])
+		from = up.level
 
 
 ## Shares a won battle's XP pool among `standing` by their contribution points (`points`, in the same
@@ -622,7 +756,7 @@ func _make_fronts() -> void:
 			var m: String = RunConfig.MATERIAL_ORDER[rng.randi_range(0, RunConfig.MATERIAL_ORDER.size() - 1)]
 			f.reward_materials[m] = RunConfig.REWARD_MATERIAL_AMOUNT[danger - 1]
 		f.city_damage = RunConfig.CITY_DAMAGE_BY_DANGER[danger - 1]
-		f.xp_pool = roundi(RunConfig.XP_POOL_BY_DANGER[danger - 1] * (1.0 + RunConfig.XP_POOL_GROWTH_PER_DAY * (day - 1)))
+		f.xp_pool = xp_pool(danger, day)
 		fronts.append(f)
 
 
@@ -702,6 +836,34 @@ func _restock_week() -> void:
 	shop_week.clear()
 	_make_tavern_offers()
 	_stock_shop()
+	_post_drills()
+
+
+## The week's drills: Sparring, then RunConfig.DRILLS_PROFICIENCY_PER_WEEK different weapon types or
+## magic schools drawn at random from those someone in the roster could train (a grade above E and
+## below S), fewer if fewer exist. Listed weapon types first, then schools, each in enum order.
+func _post_drills() -> void:
+	drills.clear()
+	drills.append(Drill.sparring())
+	var useful: Array[Drill] = []
+	var options: Array[Drill] = []
+	for wt: int in WeaponData.WeaponType.values():
+		options.append(Drill.weapon(wt))
+	for s: int in SpellData.School.values():
+		options.append(Drill.magic(s))
+	for d in options:
+		for c in roster:
+			if _drill_unfit_reason(d, c) == "":
+				useful.append(d)
+				break
+	var picked: Array[int] = []
+	while picked.size() < RunConfig.DRILLS_PROFICIENCY_PER_WEEK and picked.size() < useful.size():
+		var i := rng.randi_range(0, useful.size() - 1)
+		if not picked.has(i):
+			picked.append(i)
+	picked.sort()
+	for i in picked:
+		drills.append(useful[i])
 
 
 func _make_tavern_offers() -> void:

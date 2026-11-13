@@ -109,6 +109,23 @@ const TAVERN_OFFERS_MAX := 2
 const REPAIR_COST := {TIMBER: 2, IRON_ORE: 1}
 const REPAIR_AMOUNT := 20
 
+# --- The training ground (a free-day action; see Run.train) ---
+# Each week (with the tavern and smithy restock) three drills are posted: Sparring, and two
+# proficiency drills in different weapon types or magic schools that someone in the roster has a
+# grade in (above E) and has not finished (below S).
+const DRILLS_PROFICIENCY_PER_WEEK := 2
+const DRILL_COST := 15                  # gold, on top of the day's free action
+## Chance (percent) of a poor, good and great drill (DrillResult.Quality).
+const DRILL_QUALITY_WEIGHTS: Array[int] = [25, 50, 25]
+## Proficiency points toward the next grade by quality. Good is about one battle's worth with a
+## weapon (the battle pace check: 4.8 points a companion a battle, capped at 8).
+const DRILL_POINTS: Array[int] = [3, 5, 8]
+## Sparring XP: good = the day's danger-2 battle XP pool / MAX_FIELDED / 2 (half an even share);
+## poor and great are these percentages of good. Rounded to the nearest point.
+const DRILL_SPARRING_DANGER := 2
+const DRILL_SPARRING_SHARE_DIVISOR := 2
+const DRILL_XP_PERCENT: Array[int] = [60, 100, 150]
+
 # --- Starting resources ---
 const STARTING_GOLD := 60
 const STARTING_MATERIALS := {IRON_ORE: 0, TIMBER: 1}
