@@ -1,6 +1,6 @@
 class_name SlantBar
 extends Control
-## A leaning HP / stamina bar. The fill glides to new values, a pale trail shows what was just lost,
+## An HP / stamina bar set into a trough. The fill glides to new values, a pale trail shows what was just lost,
 ## and a pulsing segment can preview damage about to be dealt.
 
 var fill_color := UiTheme.HP
@@ -72,43 +72,40 @@ func _set_trail(v: float) -> void:
 
 
 func _draw() -> void:
-	var s := UiTheme.slant_for(size.y)
-	var span := size.x - s
+	var span := size.x
 	if span <= 2.0:
 		return
-	UiTheme.fill_para(self, Rect2(Vector2.ZERO, size), Color(0.02, 0.03, 0.05, 0.85))
+	# A trough cut into the board, the fill inside it, and a thin iron rim.
+	draw_rect(Rect2(Vector2.ZERO, size), Color(0.03, 0.025, 0.02, 0.9))
 	var shown := clampf(_shown / _max, 0.0, 1.0)
 	var trail := clampf(_trail / _max, 0.0, 1.0)
 	if trail > shown:
-		_segment(shown, trail, Color(1, 1, 1, 0.75), s, span)
+		_segment(shown, trail, Color(1.0, 0.94, 0.8, 0.7), span)
 	if shown > 0.0:
-		_segment(0.0, shown, fill_color, s, span)
-		# Lighter band along the top for a little depth.
-		var top := PackedVector2Array([
-			Vector2(s, 0), Vector2(s + span * shown, 0),
-			Vector2(s * 0.6 + span * shown, size.y * 0.4), Vector2(s * 0.6, size.y * 0.4)])
+		_segment(0.0, shown, fill_color.darkened(0.12), span)
+		# Lighter band along the top, darker along the bottom, for a little roundness.
 		if span * shown > 2.0:
-			draw_colored_polygon(top, Color(1, 1, 1, 0.16))
+			draw_rect(Rect2(0, 0, span * shown, size.y * 0.42), Color(1, 0.95, 0.85, 0.16))
+			draw_rect(Rect2(0, size.y * 0.78, span * shown, size.y * 0.22), Color(0, 0, 0, 0.18))
 	if _preview > 0.0 and shown > 0.0:
 		var from := clampf((_shown - _preview) / _max, 0.0, 1.0)
 		var pulse := 0.55 + 0.35 * sin(Time.get_ticks_msec() / 110.0)
-		_segment(from, shown, Color(1, 0.95, 0.7, pulse), s, span)
+		_segment(from, shown, Color(1, 0.95, 0.7, pulse), span)
 	if _heal_to > _shown:
 		var heal_from := clampf(_shown / _max, 0.0, 1.0)
 		var heal_to := clampf(_heal_to / _max, 0.0, 1.0)
 		var glow := 0.55 + 0.35 * sin(Time.get_ticks_msec() / 110.0)
-		_segment(heal_from, heal_to, Color(UiTheme.HEAL, glow), s, span)
-	UiTheme.stroke_para(self, Rect2(Vector2.ZERO, size), Color(UiTheme.INK, 0.9), 2.0)
+		_segment(heal_from, heal_to, Color(UiTheme.HEAL, glow), span)
+	draw_rect(Rect2(Vector2.ZERO, size), Color(UiTheme.INK, 0.95), false, 2.0)
+	draw_rect(Rect2(Vector2.ZERO, size).grow(1.0), Color(UiTheme.EDGE, 0.8), false, 1.0)
 	if show_text:
 		var text := "%s%d / %d" % [label_prefix, roundi(_value), roundi(_max)]
-		var font := UiTheme.body_font()
+		var font := UiTheme.display_font()
 		var top_y := (size.y - font.get_height(font_size)) * 0.5
 		UiTheme.draw_text(self, font, Vector2(0, top_y), text, font_size, UiTheme.TEXT, 5, size.x, HORIZONTAL_ALIGNMENT_CENTER)
 
 
-func _segment(from: float, to: float, color: Color, s: float, span: float) -> void:
+func _segment(from: float, to: float, color: Color, span: float) -> void:
 	if (to - from) * span < 1.0:
 		return
-	draw_colored_polygon(PackedVector2Array([
-		Vector2(s + span * from, 0), Vector2(s + span * to, 0),
-		Vector2(span * to, size.y), Vector2(span * from, size.y)]), color)
+	draw_rect(Rect2(span * from, 0, span * (to - from), size.y), color)

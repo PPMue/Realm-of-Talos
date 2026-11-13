@@ -331,20 +331,22 @@ static func _clear(node: Node) -> void:
 
 
 func _build() -> void:
-	var backdrop := CityBackdrop.new()
+	var backdrop := InteriorBackdrop.new()
+	backdrop.kind = InteriorBackdrop.Kind.BARRACKS
 	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(backdrop)
 	var dim := ColorRect.new()
-	dim.color = Color(UiTheme.INK, 0.84)
+	dim.color = Color(UiTheme.INK, 0.35)
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(dim)
 
-	var title := UiTheme.label("PARTY", 60, UiTheme.GOLD, true, 8)
+	var title := UiTheme.label("THE BARRACKS", 56, UiTheme.GOLD, true, 8)
 	title.position = Vector2(60, 24)
 	add_child(title)
-	var hint := UiTheme.label("Up to %d fight, left to right; the rightmost stands nearest the enemies and is aimed at most. Changes are free until you commit to the day." % RunConfig.MAX_FIELDED,
-		19, UiTheme.MUTED)
+	var hint := UiTheme.label("Up to %d stand in the line. Whoever is on the right stands nearest the enemy and is struck most often." % RunConfig.MAX_FIELDED,
+		20, UiTheme.MUTED)
+	hint.add_theme_font_override("font", UiTheme.italic_font())
 	hint.position = Vector2(64, 100)
 	add_child(hint)
 
@@ -413,7 +415,7 @@ func _build() -> void:
 	scroll.add_child(_weapons)
 
 	var back := Button.new()
-	back.text = "DONE"
+	back.text = "Leave"
 	back.tooltip_text = "Back to the city."
 	back.focus_mode = Control.FOCUS_NONE
 	back.add_theme_font_size_override("font_size", 32)

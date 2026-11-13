@@ -208,7 +208,7 @@ func show_companion(c: CompanionUnit, battle: Battle, active_id: String, enabled
 		else:
 			_default_info = "Choose an enemy to hit. Right-click or Esc to go back."
 	elif enabled:
-		_default_info = "Choose what %s does. Every action lets the enemies' countdowns drop by 1." % c.display_name
+		_default_info = "What will %s do?" % c.display_name
 	else:
 		_default_info = ""
 	_update_info()

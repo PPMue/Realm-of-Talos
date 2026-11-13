@@ -1,8 +1,9 @@
 class_name RunEndScreen
 extends Control
-## The end of a run: victory or defeat, why, the day reached, a few numbers, and a new run.
+## The end of a run: victory or defeat, why, the day reached, a few numbers, and the way back to
+## the title.
 
-signal new_run_pressed
+signal closed
 
 var _ribbon := SlantPanel.new()
 var _title: Label
@@ -51,7 +52,7 @@ func _build() -> void:
 	_ribbon.position = Vector2(960 - 560, 150)
 	_ribbon.size = Vector2(1120, 220)
 	add_child(_ribbon)
-	_title = UiTheme.label("", 150, UiTheme.GOLD, true)
+	_title = UiTheme.label("", 130, UiTheme.GOLD, true)
 	_title.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -70,11 +71,11 @@ func _build() -> void:
 	add_child(_stats)
 
 	var again := Button.new()
-	again.text = "NEW RUN"
-	again.tooltip_text = "Start a new run: day 1, two new companions, a full city."
+	again.text = "Return to the title"
+	again.tooltip_text = "Leave this run. A new one can be started from the title."
 	again.focus_mode = Control.FOCUS_NONE
-	again.add_theme_font_size_override("font_size", 36)
-	again.position = Vector2(960 - 200, 790)
-	again.size = Vector2(400, 72)
-	again.pressed.connect(func() -> void: new_run_pressed.emit())
+	again.add_theme_font_size_override("font_size", 30)
+	again.position = Vector2(960 - 220, 790)
+	again.size = Vector2(440, 72)
+	again.pressed.connect(func() -> void: closed.emit())
 	add_child(again)

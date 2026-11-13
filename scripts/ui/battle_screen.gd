@@ -754,7 +754,7 @@ func show_report(report: BattleReport) -> void:
 	_result_bg.offset_bottom = bottom
 	_result_button.offset_top = bottom + 26.0
 	_result_button.offset_bottom = bottom + 94.0
-	_result_button.text = "CONTINUE" if report.run_over else "BACK TO THE CITY"
+	_result_button.text = "Continue" if report.run_over else "Back to the city"
 	_overlay.visible = true
 	_overlay.modulate.a = 0.0
 	create_tween().tween_property(_overlay, "modulate:a", 1.0, 0.35)
@@ -1105,16 +1105,15 @@ func _build_ui() -> void:
 	add_child(_title)
 
 	var pennant := SlantPanel.new()
-	pennant.fill = Color(UiTheme.INK, 0.9)
-	pennant.border = UiTheme.GOLD
-	pennant.border_width = 3.0
+	pennant.fill = Color(UiTheme.INK, 0.0)
+	pennant.border_width = 0.0
 	pennant.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	pennant.offset_left = -120.0
 	pennant.offset_right = 120.0
 	pennant.offset_top = 14.0
 	pennant.offset_bottom = 72.0
 	add_child(pennant)
-	_tick_label = UiTheme.label("TICK 0", 36, UiTheme.GOLD, true)
+	_tick_label = UiTheme.label("TICK 0", 22, Color(UiTheme.GOLD, 0.8), true, 6)
 	_tick_label.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_tick_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_tick_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -1132,7 +1131,8 @@ func _build_ui() -> void:
 	top_right.add_theme_constant_override("separation", 14)
 	add_child(top_right)
 	var log_btn := Button.new()
-	log_btn.text = "LOG  (L)"
+	log_btn.text = "Chronicle"
+	log_btn.tooltip_text = "What has happened in this battle so far.\nKey: L"
 	log_btn.focus_mode = Control.FOCUS_NONE
 	log_btn.pressed.connect(_toggle_log)
 	top_right.add_child(log_btn)
@@ -1249,7 +1249,7 @@ func _build_ui() -> void:
 	_result_lines.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_overlay.add_child(_result_lines)
 	_result_button = Button.new()
-	_result_button.text = "BACK TO THE CITY"
+	_result_button.text = "Back to the city"
 	_result_button.focus_mode = Control.FOCUS_NONE
 	_result_button.set_anchors_preset(Control.PRESET_CENTER)
 	_result_button.offset_left = -230.0

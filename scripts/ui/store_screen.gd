@@ -14,6 +14,7 @@ var _hint: Label
 var _gold: Label
 var _note: Label
 var _list := VBoxContainer.new()
+var _backdrop := InteriorBackdrop.new()
 
 
 func _init() -> void:
@@ -38,7 +39,7 @@ func close() -> void:
 func buy(item: ShopItemData) -> void:
 	var w := run.buy(item)
 	if w != null:
-		_note.text = "Bought %s. It waits in the armory: hand it out on the party screen." % w.data.display_name
+		_note.text = "Bought %s. It waits in the armory: hand it out at the barracks." % w.data.display_name
 		refresh()
 
 
@@ -66,16 +67,18 @@ func refresh() -> void:
 	_gold.text = "%d GOLD" % run.gold
 	var key := Run.FreeAction.SHOP if mode == Mode.SHOP else Run.FreeAction.TAVERN
 	var spent := run.actions_used.has(key)
-	var action_note := "Already paid for today: more purchases are free." if spent else \
-		"The first purchase uses one of today's actions (%d left)." % run.actions_left
+	var action_note := "You have already spent the time here today; anything more costs only gold." if spent else \
+		"The first purchase takes part of the day."
 	if mode == Mode.SHOP:
-		_title.text = "SHOP"
-		_hint.text = "Weapons go to the armory. Stronger weapons need a higher grade in their type to be held.  " + action_note
+		_title.text = "THE SMITHY"
+		_backdrop.kind = InteriorBackdrop.Kind.SMITHY
+		_hint.text = "\"Fresh from the forge, Commander. Mind the grade: a blade is no use to a hand that cannot hold it.\"   " + action_note
 		for item in run.shop_stock():
 			_list.add_child(_shop_row(item))
 	else:
-		_title.text = "TAVERN"
-		_hint.text = ("Companions looking for work today. They join at full health with their own weapon.  " + action_note).replace("purchase", "hire")
+		_title.text = "THE TAVERN"
+		_backdrop.kind = InteriorBackdrop.Kind.TAVERN
+		_hint.text = ("\"These are the ones looking for work tonight. They bring their own steel.\"   " + action_note).replace("purchase", "hire")
 		for data in run.tavern_offers:
 			_list.add_child(_tavern_row(data))
 		if run.tavern_offers.is_empty():
@@ -128,19 +131,19 @@ func _tavern_row(data: CompanionData) -> RowButton:
 
 
 func _build() -> void:
-	var backdrop := CityBackdrop.new()
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(backdrop)
+	_backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(_backdrop)
 	var dim := ColorRect.new()
-	dim.color = Color(UiTheme.INK, 0.84)
+	dim.color = Color(UiTheme.INK, 0.3)
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(dim)
 
-	_title = UiTheme.label("", 60, UiTheme.GOLD, true, 8)
+	_title = UiTheme.label("", 56, UiTheme.GOLD, true, 8)
 	_title.position = Vector2(60, 24)
 	add_child(_title)
-	_hint = UiTheme.label("", 19, UiTheme.MUTED)
+	_hint = UiTheme.label("", 21, UiTheme.TEXT.lerp(UiTheme.MUTED, 0.4), false, 4)
+	_hint.add_theme_font_override("font", UiTheme.italic_font())
 	_hint.position = Vector2(64, 100)
 	add_child(_hint)
 
@@ -170,7 +173,7 @@ func _build() -> void:
 	add_child(_note)
 
 	var back := Button.new()
-	back.text = "BACK"
+	back.text = "Leave"
 	back.tooltip_text = "Back to the city."
 	back.focus_mode = Control.FOCUS_NONE
 	back.add_theme_font_size_override("font_size", 32)

@@ -1,6 +1,6 @@
 class_name FrontCard
 extends Control
-## One front to defend on the city screen: the enemies waiting there, the danger, what winning gives
+## One front to defend, as a scout's report on the war table: the enemies waiting there, the danger, what winning gives
 ## and what losing costs, and a button to go. Also used, wider, for the boss.
 
 signal chosen
@@ -10,7 +10,7 @@ const BOSS_W := 980.0
 const H := 520.0
 const ART_H := 214.0
 const PAD := 8.0
-const DANGER_COLORS: Array[Color] = [Color("86e27a"), Color("f2a541"), Color("ff5d5d")]
+const DANGER_COLORS: Array[Color] = [Color("9fc27a"), Color("d9973f"), Color("d9584f")]
 const DANGER_NAMES: Array[String] = ["LOW", "MEDIUM", "HIGH"]
 
 var front: Front
@@ -76,10 +76,10 @@ func setup(p_front: Front, hotkey: String, why_not: String = "") -> void:
 	y += 40.0
 
 	y = _add_row(y, "REWARD", _reward_text(), UiTheme.GOLD)
-	var loss := "THE RUN ENDS" if front.is_boss else "CITY  -%d HEALTH" % front.city_damage
+	var loss := "THE CITY FALLS" if front.is_boss else "THE WALLS  -%d" % front.city_damage
 	y = _add_row(y, "IF LOST", loss, UiTheme.INJURED)
 
-	_button.title = "DEFEND" if not front.is_boss else "FACE THE BOSS"
+	_button.title = "MARCH OUT" if not front.is_boss else "FACE IT"
 	_button.hotkey = hotkey
 	_button.detail = ""
 	_button.position = Vector2(_edge_x(H - 18.0) + (_w - UiTheme.SLANT * H - ActionButton.W) * 0.5, H - 18.0 - ActionButton.H)
@@ -162,9 +162,9 @@ func _setup_boss(hotkey: String, why_not: String) -> void:
 
 	var rx := x0 - 22.0
 	y = _add_row(y, "REWARD", _reward_text(), UiTheme.GOLD, rx)
-	y = _add_row(y, "IF LOST", "THE RUN ENDS", UiTheme.INJURED, rx)
+	y = _add_row(y, "IF LOST", "THE CITY FALLS", UiTheme.INJURED, rx)
 
-	_button.title = "FACE THE BOSS"
+	_button.title = "FACE IT"
 	_button.hotkey = hotkey
 	_button.detail = ""
 	_button.position = Vector2(_edge_x(H - 18.0) + x0 + (right - x0 - ActionButton.W) * 0.5 - 20.0, H - 18.0 - ActionButton.H)

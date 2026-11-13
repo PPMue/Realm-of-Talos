@@ -1,76 +1,98 @@
 class_name UiTheme
 extends RefCounted
-## Colours, fonts and drawing helpers shared by the battle UI.
-## The look: dark ink panels, gold trim, and shapes that all lean the same way.
+## Colours, fonts and drawing helpers shared by every screen.
+## The look: things from the world rather than an interface. Dark iron-bound wood for frames, brass
+## trim, parchment for anything written, and a book serif for all text.
 
-const INK := Color("0a0e17")
-const PANEL := Color("131a28")
-const PANEL_HI := Color("22304a")
-const EDGE := Color("3d4d70")
-const GOLD := Color("f4c552")
-const GOLD_DEEP := Color("a8751c")
-const TEXT := Color("f6f1e4")
-const MUTED := Color("9aa7bf")
-const HP := Color("e8505b")
-const STA := Color("45c7c2")
-const READY := Color("86e27a")
-const RECOVERING := Color("f2a541")
-const INJURED := Color("ff5d5d")
-const DANGER := Color("ff7a45")
-const HEAL := Color("8ff0a4")
+const INK := Color("120e0b")
+const PANEL := Color("211913")
+const PANEL_HI := Color("35281c")
+const EDGE := Color("5c4a34")
+const GOLD := Color("d8b46c")
+const GOLD_DEEP := Color("7d6032")
+const TEXT := Color("efe6d0")
+const MUTED := Color("a39780")
+const HP := Color("b5463f")
+const STA := Color("5b9f96")
+const READY := Color("9fc27a")
+const RECOVERING := Color("d9973f")
+const INJURED := Color("d9584f")
+const DANGER := Color("d97a45")
+const HEAL := Color("a5d6a0")
+## Paper: letters, reports and maps are written on it in dark ink.
+const PARCHMENT := Color("dccba0")
+const PARCHMENT_SHADE := Color("b59f72")
+const PARCHMENT_INK := Color("2e2218")
+const PARCHMENT_MUTED := Color("6b5a42")
+const WAX := Color("8f2f2a")
 ## Magic schools: Black (offence) and White (support).
-const BLACK_MAGIC := Color("a77bff")
-const WHITE_MAGIC := Color("bfe6ff")
+const BLACK_MAGIC := Color("9c7fd6")
+const WHITE_MAGIC := Color("cfe3ee")
 ## An effective strike (e.g. a bow against a flying enemy).
-const EFFECTIVE := Color("ffd84a")
+const EFFECTIVE := Color("f0cf5a")
 ## A reflecting stance: striking the enemy hurts the striker.
-const REFLECT := Color("ff4fa0")
+const REFLECT := Color("d35a94")
 ## Damage over time (poison, burning).
-const POISON := Color("b8e04a")
+const POISON := Color("a9c653")
 ## A countdown lowered by an order, and recovery lengthened by the enemy.
-const HASTE := Color("ff9a3c")
+const HASTE := Color("e0914a")
 
 const INTENT_COLORS := {
-	EnemyActionData.Intent.ATTACK: Color("f0564a"),
-	EnemyActionData.Intent.DEFEND: Color("5aa9f2"),
-	EnemyActionData.Intent.BUFF: Color("f4c552"),
-	EnemyActionData.Intent.DEBUFF: Color("b678f0"),
+	EnemyActionData.Intent.ATTACK: Color("c9503f"),
+	EnemyActionData.Intent.DEFEND: Color("5e8fc0"),
+	EnemyActionData.Intent.BUFF: Color("d8b46c"),
+	EnemyActionData.Intent.DEBUFF: Color("9a70c2"),
 }
 
 static func school_color(school: int) -> Color:
 	return BLACK_MAGIC if school == SpellData.School.BLACK else WHITE_MAGIC
 
 
-## How far slanted shapes lean: horizontal shift as a fraction of their height.
-const SLANT := 0.24
+## How far shapes lean: horizontal shift as a fraction of their height. The game once leaned every
+## panel; it is upright now, and layouts that add `SLANT * height` simply add nothing.
+const SLANT := 0.0
+## Horizontal scale of the display face.
+const DISPLAY_SQUEEZE := 0.92
+const GRAIN_SIZE := 512
 
 static var _display: Font
 static var _body: Font
+static var _italic: Font
+static var _grain: Texture2D
 static var _theme: Theme
 
 
-## Condensed, heavy, slanted face for names, numbers and banners.
+## Bold book serif for names, numbers and titles, a little narrowed so long titles fit.
 static func display_font() -> Font:
 	if _display == null:
 		var sys := SystemFont.new()
-		sys.font_names = PackedStringArray(["Bahnschrift", "Segoe UI", "Arial"])
+		sys.font_names = PackedStringArray(["Palatino Linotype", "Book Antiqua", "Georgia", "Times New Roman"])
 		sys.font_weight = 700
-		sys.font_stretch = 80
-		var slanted := FontVariation.new()
-		slanted.base_font = sys
-		slanted.variation_transform = Transform2D(Vector2(1.0, 0.0), Vector2(0.18, 1.0), Vector2.ZERO)
-		_display = slanted
+		var narrowed := FontVariation.new()
+		narrowed.base_font = sys
+		narrowed.variation_transform = Transform2D(Vector2(DISPLAY_SQUEEZE, 0.0), Vector2(0.0, 1.0), Vector2.ZERO)
+		_display = narrowed
 	return _display
 
 
-## Upright face for descriptions, bars and small print.
+## The same serif, regular weight, for descriptions, bars and small print.
 static func body_font() -> Font:
 	if _body == null:
 		var sys := SystemFont.new()
-		sys.font_names = PackedStringArray(["Segoe UI", "Arial"])
-		sys.font_weight = 600
+		sys.font_names = PackedStringArray(["Palatino Linotype", "Book Antiqua", "Georgia", "Times New Roman"])
+		sys.font_weight = 400
 		_body = sys
 	return _body
+
+
+## Italic, for words spoken or written by someone in the world.
+static func italic_font() -> Font:
+	if _italic == null:
+		var sys := SystemFont.new()
+		sys.font_names = PackedStringArray(["Palatino Linotype", "Book Antiqua", "Georgia", "Times New Roman"])
+		sys.font_italic = true
+		_italic = sys
+	return _italic
 
 
 static func theme() -> Theme:
@@ -90,17 +112,19 @@ static func theme() -> Theme:
 
 		for state: String in ["normal", "hover", "pressed", "disabled", "focus"]:
 			var sb := StyleBoxFlat.new()
-			sb.bg_color = Color(PANEL, 0.9)
-			sb.border_color = EDGE
+			sb.bg_color = Color(PANEL, 0.95)
+			sb.border_color = GOLD_DEEP
 			sb.set_border_width_all(2)
+			sb.set_corner_radius_all(3)
 			sb.content_margin_left = 18
 			sb.content_margin_right = 18
 			sb.content_margin_top = 8
 			sb.content_margin_bottom = 8
-			sb.skew = Vector2(SLANT, 0)
 			if state == "hover" or state == "pressed":
 				sb.bg_color = PANEL_HI
 				sb.border_color = GOLD
+			if state == "disabled":
+				sb.border_color = Color(EDGE, 0.6)
 			if state == "focus":
 				sb.draw_center = false
 				sb.border_color = Color(GOLD, 0.0)
@@ -110,6 +134,7 @@ static func theme() -> Theme:
 		t.set_color("font_color", "Button", TEXT)
 		t.set_color("font_hover_color", "Button", GOLD)
 		t.set_color("font_pressed_color", "Button", GOLD)
+		t.set_color("font_disabled_color", "Button", Color(MUTED, 0.6))
 		_theme = t
 	return _theme
 
@@ -127,7 +152,7 @@ static func label(text: String, font_size: int, color: Color = TEXT, display: bo
 	return l
 
 
-## A parallelogram filling `rect`, leaning right at the top.
+## The four corners of `rect`, shifted by `slant_px` at the top. Upright now that SLANT is 0.
 static func para(rect: Rect2, slant_px: float) -> PackedVector2Array:
 	return PackedVector2Array([
 		Vector2(rect.position.x + slant_px, rect.position.y),
@@ -141,26 +166,131 @@ static func slant_for(height: float) -> float:
 	return height * SLANT
 
 
+## How much the corners of a plate of this size are cut.
+static func cut_for(rect_size: Vector2) -> float:
+	var m := minf(rect_size.x, rect_size.y)
+	return 0.0 if m < 16.0 else clampf(m * 0.12, 2.0, 7.0)
+
+
+## `rect` with its corners cut off, like a plate of metal or a board.
+static func plate(rect: Rect2, cut: float = -1.0) -> PackedVector2Array:
+	var c := cut_for(rect.size) if cut < 0.0 else cut
+	if c <= 0.0:
+		return para(rect, 0.0)
+	var a := rect.position
+	var b := rect.end
+	return PackedVector2Array([
+		Vector2(a.x + c, a.y), Vector2(b.x - c, a.y), Vector2(b.x, a.y + c), Vector2(b.x, b.y - c),
+		Vector2(b.x - c, b.y), Vector2(a.x + c, b.y), Vector2(a.x, b.y - c), Vector2(a.x, a.y + c)])
+
+
+## A flat plate filling `rect`. (The name is from when panels leaned.)
 static func fill_para(ci: CanvasItem, rect: Rect2, color: Color) -> void:
-	var s := slant_for(rect.size.y)
-	if rect.size.x <= s + 1.0 or rect.size.y <= 1.0:
+	if rect.size.x <= 1.0 or rect.size.y <= 1.0:
 		return
-	var pts := para(rect, s)
+	var pts := plate(rect)
 	ci.draw_colored_polygon(pts, color)
 	stroke_points(ci, pts, color, 1.0)
 
 
 static func stroke_para(ci: CanvasItem, rect: Rect2, color: Color, width: float) -> void:
-	var s := slant_for(rect.size.y)
-	if rect.size.x <= s + 1.0 or rect.size.y <= 1.0:
+	if rect.size.x <= 1.0 or rect.size.y <= 1.0:
 		return
-	stroke_points(ci, para(rect, s), color, width)
+	stroke_points(ci, plate(rect), color, width)
 
 
 static func stroke_points(ci: CanvasItem, pts: PackedVector2Array, color: Color, width: float) -> void:
 	var closed := pts.duplicate()
 	closed.append(pts[0])
 	ci.draw_polyline(closed, color, width, true)
+
+
+## Soft mottling shared by wood, iron and paper, so no surface is a flat colour.
+static func grain() -> Texture2D:
+	if _grain == null:
+		var noise := FastNoiseLite.new()
+		noise.seed = 7
+		noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+		noise.frequency = 0.012
+		noise.fractal_octaves = 5
+		noise.fractal_gain = 0.6
+		_grain = ImageTexture.create_from_image(noise.get_image(GRAIN_SIZE, GRAIN_SIZE))
+	return _grain
+
+
+static func draw_grain(ci: CanvasItem, rect: Rect2, strength: float, warm: Color = Color(1.0, 0.88, 0.7)) -> void:
+	if strength <= 0.0 or rect.size.x < 8.0 or rect.size.y < 8.0:
+		return
+	var region := Vector2(minf(rect.size.x, GRAIN_SIZE), minf(rect.size.y, GRAIN_SIZE))
+	# A different patch for each place, so neighbouring panels do not share the same blotches.
+	var off := Vector2(fposmod(rect.position.x * 3.7 + rect.size.x, GRAIN_SIZE - region.x + 1.0),
+		fposmod(rect.position.y * 2.3 + rect.size.y, GRAIN_SIZE - region.y + 1.0))
+	ci.draw_texture_rect_region(grain(), rect, Rect2(off, region), Color(warm, strength))
+
+
+## A framed board: fill with grain, a lit top edge, a dark outline, the trim, and studs at the corners
+## of large frames. Every panel and button in the game is one of these.
+static func draw_frame(ci: CanvasItem, rect: Rect2, fill: Color, trim: Color, trim_width: float = 2.0, studs: bool = true) -> void:
+	if rect.size.x <= 1.0 or rect.size.y <= 1.0:
+		return
+	var pts := plate(rect)
+	var c := cut_for(rect.size)
+	ci.draw_colored_polygon(pts, fill)
+	draw_grain(ci, rect.grow(-c), 0.07 * fill.a)
+	if rect.size.y > 30.0 and fill.a > 0.5:
+		# Lit from above: a pale line under the top edge and a shadow along the bottom.
+		ci.draw_line(Vector2(rect.position.x + c + 2.0, rect.position.y + 2.5), Vector2(rect.end.x - c - 2.0, rect.position.y + 2.5),
+			Color(1.0, 0.92, 0.78, 0.07), 1.0)
+		var sh := minf(18.0, rect.size.y * 0.25)
+		ci.draw_polygon(PackedVector2Array([Vector2(rect.position.x + c, rect.end.y - sh), Vector2(rect.end.x - c, rect.end.y - sh),
+			Vector2(rect.end.x - c, rect.end.y - 1.0), Vector2(rect.position.x + c, rect.end.y - 1.0)]),
+			PackedColorArray([Color(0, 0, 0, 0), Color(0, 0, 0, 0), Color(0, 0, 0, 0.22 * fill.a), Color(0, 0, 0, 0.22 * fill.a)]))
+	if trim_width <= 0.0:
+		stroke_points(ci, pts, fill, 1.0)
+		return
+	stroke_points(ci, plate(rect.grow(1.0), c + 0.5), Color(0, 0, 0, 0.55 * trim.a), 2.0)
+	stroke_points(ci, pts, trim, trim_width)
+	if studs and rect.size.x >= 150.0 and rect.size.y >= 96.0:
+		var inset := c + 7.0
+		for p: Vector2 in [rect.position + Vector2(inset, inset), Vector2(rect.end.x - inset, rect.position.y + inset),
+				rect.end - Vector2(inset, inset), Vector2(rect.position.x + inset, rect.end.y - inset)]:
+			ci.draw_circle(p + Vector2(0.5, 1.0), 3.2, Color(0, 0, 0, 0.5 * trim.a))
+			ci.draw_circle(p, 2.6, trim.darkened(0.15))
+			ci.draw_circle(p + Vector2(-0.7, -0.8), 1.0, trim.lightened(0.4))
+
+
+## A sheet of paper: pale in the middle, browned toward the edges, with a thin inked border.
+static func draw_parchment(ci: CanvasItem, rect: Rect2, edge: float = 0.5) -> void:
+	if rect.size.x <= 4.0 or rect.size.y <= 4.0:
+		return
+	# Shadow under the sheet.
+	ci.draw_rect(Rect2(rect.position + Vector2(4, 6), rect.size), Color(0, 0, 0, 0.35))
+	ci.draw_rect(rect, PARCHMENT)
+	draw_grain(ci, rect, 0.22, Color(0.45, 0.33, 0.18))
+	var clear := Color(PARCHMENT_SHADE, 0.0)
+	var dark := Color(PARCHMENT_SHADE.darkened(0.25), edge)
+	var m := minf(90.0, minf(rect.size.x, rect.size.y) * 0.3)
+	var a := rect.position
+	var b := rect.end
+	ci.draw_polygon(PackedVector2Array([a, Vector2(b.x, a.y), Vector2(b.x, a.y + m), Vector2(a.x, a.y + m)]),
+		PackedColorArray([dark, dark, clear, clear]))
+	ci.draw_polygon(PackedVector2Array([Vector2(a.x, b.y - m), Vector2(b.x, b.y - m), b, Vector2(a.x, b.y)]),
+		PackedColorArray([clear, clear, dark, dark]))
+	ci.draw_polygon(PackedVector2Array([a, Vector2(a.x + m, a.y), Vector2(a.x + m, b.y), Vector2(a.x, b.y)]),
+		PackedColorArray([dark, clear, clear, dark]))
+	ci.draw_polygon(PackedVector2Array([Vector2(b.x - m, a.y), Vector2(b.x, a.y), b, Vector2(b.x - m, b.y)]),
+		PackedColorArray([clear, dark, dark, clear]))
+	ci.draw_rect(rect.grow(-7.0), Color(PARCHMENT_INK, 0.35), false, 1.0)
+	ci.draw_rect(rect, Color(PARCHMENT_INK, 0.7), false, 1.5)
+
+
+## A thin rule with a small diamond in the middle, to part a title from what follows.
+static func draw_rule(ci: CanvasItem, center: Vector2, width: float, color: Color) -> void:
+	var h := width * 0.5
+	ci.draw_line(center - Vector2(h, 0), center - Vector2(9, 0), color, 1.0, true)
+	ci.draw_line(center + Vector2(9, 0), center + Vector2(h, 0), color, 1.0, true)
+	ci.draw_colored_polygon(PackedVector2Array([center + Vector2(-5, 0), center + Vector2(0, -5), center + Vector2(5, 0),
+		center + Vector2(0, 5)]), color)
 
 
 ## Text drawn with a dark outline, positioned by its top-left corner.

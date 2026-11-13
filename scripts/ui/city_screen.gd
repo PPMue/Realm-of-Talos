@@ -1,39 +1,46 @@
 class_name CityScreen
 extends Control
-## The city: the main scene and the hub of a run. Shows the day, the days ahead, the city's health and
-## stores, the party at a glance, and today's activity, which is the focus of the screen:
-##   battle day: the fronts as cards;  boss day: the boss card;
-##   free day: the four actions and how many remain;  event day: the text and the choices.
-## The party, shop, tavern, battle and run-end screens open over it.
-## No rules live here: it reads the Run and calls its commands.
+## The city: the hub of a run. The screen is the place itself, and its buildings are the buttons:
+##   the Gate        march out on battle and boss days, hear what waits on event days, end a free day
+##   the Tavern      hire companions            the Smithy     buy weapons
+##   the Inn         rest                       Mason's Yard   mend the walls
+##   the Barracks    the party (always open)    the Watchtower the days ahead (always open)
+## The sky is the clock: a free day runs from morning to dusk as its actions are spent, a battle day
+## opens at dawn with the enemy's fires beyond the wall, a boss day under a red sky.
+## A thin strip at the top carries the day, the days ahead and the city's stores; the company stands
+## along the bottom; a slip of parchment gives the day's news.
+## No rules live here: the screen reads the Run and calls its commands.
 
-const ACTIVITY_TOP := 214.0
-const CARDS_TOP := 304.0
-const ROSTER_TOP := 846.0
+signal left_run
 
-## 0 = a random seed for each new run.
-@export var run_seed: int = 0
+const NUMBER_WORDS: Array[String] = ["no", "one", "two", "three", "four", "five"]
 
 var run: Run
 
 var _art_pool: Array[CombatArtData] = []
 var _spell_pool: Array[SpellData] = []
+var _city := CityBackdrop.new()
+var _top := Control.new()
 var _day_label: Label
+var _mood_label: Label
 var _city_bar := SlantBar.new()
 var _gold_label: Label
 var _iron_label: Label
 var _timber_label: Label
 var _strip := DayStrip.new()
-var _activity := Control.new()
-var _roster_row := HBoxContainer.new()
-var _roster_head: Label
-var _notice := SlantPanel.new()
-var _notice_title: Label
-var _notice_text: Label
-var _notice_tween: Tween
-## Number-key shortcuts for today's activity: index 0 = key 1.
-var _shortcuts: Array[Callable] = []
+var _party_row := HBoxContainer.new()
+var _news := Control.new()
+var _news_title: Label
+var _news_text: Label
+var _news_action := Callable()
+var _news_tween: Tween
+var _curtain := Control.new()
+var _curtain_title: Label
+var _curtain_sub: Label
+var _busy := false
 
+var _letter := LetterPanel.new()
+var _war_table := WarTable.new()
 var _party_screen := PartyScreen.new()
 var _store_screen := StoreScreen.new()
 var _battle_screen := BattleScreen.new()
@@ -49,28 +56,33 @@ func _ready() -> void:
 	if spells != null:
 		_spell_pool = spells.spells
 	_build()
-	new_run(run_seed)
 
 
-## Starts a new run. `seed_value` 0 picks a random seed.
-func new_run(seed_value: int = 0) -> void:
+## Starts a new run. `seed_value` 0 picks a random seed. `opening`: greet the commander with a letter.
+func new_run(seed_value: int = 0, opening: bool = true) -> void:
 	var rng := RandomNumberGenerator.new()
 	if seed_value != 0:
 		rng.seed = seed_value
 	else:
 		rng.randomize()
 	run = Run.create(rng, RunContent.load_default(), _art_pool, _spell_pool)
-	_end_screen.visible = false
-	_battle_screen.visible = false
-	_party_screen.visible = false
-	_store_screen.visible = false
-	refresh()
-	_show_notice("DAY 1 BEGINS", "Monsters are gathering outside the walls. You have %s. Hold the city for %d days." % [
-		" and ".join(_names(run.roster)), RunConfig.DAYS])
+	for screen: Control in [_end_screen, _battle_screen, _party_screen, _store_screen, _war_table, _letter]:
+		screen.visible = false
+	_begin_day(_day_title(), _day_text())
+	if opening:
+		_open_opening()
 
 
-func refresh() -> void:
-	_day_label.text = "DAY %d / %d" % [run.day, RunConfig.DAYS]
+## True while the day is changing behind the curtain.
+func is_busy() -> bool:
+	return _busy
+
+
+func refresh(animate: bool = true) -> void:
+	if run == null:
+		return
+	_day_label.text = "DAY %d" % run.day
+	_mood_label.text = "of %d   ·   %s" % [RunConfig.DAYS, _mood()]
 	_city_bar.set_values(run.city_health, RunConfig.CITY_MAX_HEALTH)
 	_city_bar.fill_color = UiTheme.HP if run.city_health > 30 else UiTheme.INJURED
 	_gold_label.text = str(run.gold)
@@ -80,9 +92,10 @@ func refresh() -> void:
 	for d in run.boss_days_ahead():
 		bosses[d] = run.boss_on(d)
 	_strip.set_days(run.day, run.upcoming(), bosses)
-	_strip.position.x = (size.x - _strip.size.x) * 0.5 if size.x > 0 else (1920.0 - _strip.size.x) * 0.5
-	_build_activity()
-	_build_roster()
+	_strip.position = Vector2((1920.0 - _strip.size.x) * 0.5, 8.0)
+	_city.set_phase(_phase(), animate)
+	_refresh_buildings()
+	_build_party()
 
 
 # ---------------------------------------------------------------- commands (also used by tests and tools)
@@ -103,26 +116,34 @@ func open_tavern() -> void:
 		_store_screen.open_tavern(run)
 
 
+## Opens the table where the day's fight is chosen (battle and boss days).
+func open_war_table() -> void:
+	var t := run.day_type()
+	if not run.is_over() and (t == RunCalendar.DayType.BATTLE or t == RunCalendar.DayType.BOSS):
+		_war_table.open(run)
+
+
 func defend(front: Front) -> void:
 	var battle := run.start_battle(front)
 	if battle == null:
-		_show_notice("NOT YET", run.battle_block_reason(front))
+		_say("Not yet", run.battle_block_reason(front))
 		return
-	_hide_notice()
+	_war_table.visible = false
+	_hide_news()
 	_battle_screen.visible = true
 	_battle_screen.start(battle, "DAY %d  ·  %s" % [run.day, front.title()])
 
 
 func rest() -> void:
 	if run.rest():
-		_show_notice("REST", "Everyone recovers to full health, and every spell's uses come back.")
 		refresh()
+		_say("The Inn", "A hot meal and a real bed. Everyone is back to full health, and every spell is ready again.")
 
 
 func repair() -> void:
 	if run.repair():
-		_show_notice("REPAIR", "Masons patch the walls: city health +%d." % RunConfig.REPAIR_AMOUNT)
 		refresh()
+		_say("Mason's Yard", "The masons go up on the scaffolds. The walls are stronger by %d." % RunConfig.REPAIR_AMOUNT)
 
 
 func end_day() -> void:
@@ -135,21 +156,178 @@ func choose(choice: EventChoiceData) -> void:
 	var text := run.choose(choice)
 	if text == "":
 		return
-	_after_day(title.to_upper(), "%s  (%s)" % [text, choice_effects(run, choice, false)])
+	_after_day(title, "%s  (%s)" % [text, choice_effects(run, choice, false)])
+
+
+## Clicks a building.
+func visit(kind: CityBuilding.Kind) -> void:
+	if run == null or run.is_over() or _busy:
+		return
+	var A := Run.FreeAction
+	match kind:
+		CityBuilding.Kind.BARRACKS:
+			open_party()
+		CityBuilding.Kind.WATCHTOWER:
+			_open_watch()
+		CityBuilding.Kind.GATE:
+			_visit_gate()
+		CityBuilding.Kind.TAVERN:
+			var why := run.visit_block_reason(A.TAVERN)
+			if why == "":
+				open_tavern()
+			else:
+				_say("The Tavern", _in_world(why))
+		CityBuilding.Kind.SMITHY:
+			var why := run.visit_block_reason(A.SHOP)
+			if why == "":
+				open_shop()
+			else:
+				_say("The Smithy", _in_world(why))
+		CityBuilding.Kind.INN:
+			var why := run.free_action_block_reason(A.REST)
+			if why != "":
+				_say("The Inn", _in_world(why))
+				return
+			_letter.open({
+				"kicker": "The Inn",
+				"title": "A Bed and a Meal",
+				"body": "\"Rooms are ready, Commander. Send them in and I will see they sleep.\"",
+				"facts": "Everyone recovers to full health, and every spell's uses come back. Nothing else restores spell uses.\n%s  %s" % [
+					_hurt_text(), _time_cost()],
+				"choices": [{"label": "Rest the company", "action": rest}],
+				"leave": "Not now",
+			})
+		CityBuilding.Kind.MASON:
+			var why := run.free_action_block_reason(A.REPAIR)
+			if why != "":
+				_say("Mason's Yard", _in_world(why))
+				return
+			_letter.open({
+				"kicker": "Mason's Yard",
+				"title": "Mend the Walls",
+				"body": "\"Give us timber and iron and we will have the breaches closed by nightfall.\"",
+				"facts": "Costs %s. The city's walls gain %d (now %d of %d).\n%s" % [Run.cost_text(RunConfig.REPAIR_COST),
+					RunConfig.REPAIR_AMOUNT, run.city_health, RunConfig.CITY_MAX_HEALTH, _time_cost()],
+				"choices": [{"label": "Set the masons to work", "action": repair}],
+				"leave": "Not now",
+			})
+
+
+# ---------------------------------------------------------------- the gate, the watch, events, the opening
+
+func _visit_gate() -> void:
+	match run.day_type():
+		RunCalendar.DayType.BATTLE, RunCalendar.DayType.BOSS:
+			open_war_table()
+		RunCalendar.DayType.EVENT:
+			_open_event()
+		RunCalendar.DayType.FREE:
+			var left := run.actions_left
+			_letter.open({
+				"kicker": "The Gate",
+				"title": "Close the Gates for the Night",
+				"body": "\"Shall we bar the gate, Commander?\"",
+				"facts": "Ends the day and moves on to day %d.%s" % [run.day + 1,
+					"" if left <= 0 else "  There is still time for %s more thing%s in the city today; it is lost if you end the day now." % [
+						NUMBER_WORDS[mini(left, 5)], "" if left == 1 else "s"]],
+				"choices": [{"label": "End the day", "action": end_day}],
+				"leave": "Not yet",
+			})
+
+
+func _open_watch() -> void:
+	var lines: Array[String] = []
+	var types := run.upcoming()
+	for i in types.size():
+		var d := run.day + i
+		var when := "Today" if i == 0 else ("Tomorrow" if i == 1 else "Day %d" % d)
+		var what := String(DayStrip.TYPE_WORDS.get(types[i], "")).to_lower()
+		if types[i] == RunCalendar.DayType.BOSS and run.boss_on(d) != null:
+			what = "%s comes" % run.boss_on(d).display_name
+		lines.append("%s:  %s." % [when, what])
+	var bosses := _strip.bosses_ahead_text()
+	_letter.open({
+		"kicker": "The Watchtower",
+		"title": "The Watch's Report",
+		"body": "\"This is what we can see from up here, Commander.\"",
+		"facts": "\n".join(lines) + ("\n\nStill to come:\n" + bosses if bosses != "" else ""),
+		"leave": "Climb back down",
+		"width": 980.0,
+	})
+
+
+func _open_event() -> void:
+	if run.event == null or run.day_type() != RunCalendar.DayType.EVENT:
+		return
+	var choices: Array = []
+	for ch in run.event.choices:
+		choices.append({"label": ch.label, "sub": choice_effects(run, ch, true), "why": run.choice_block_reason(ch).trim_suffix("."),
+			"action": choose.bind(ch)})
+	_letter.open({
+		"kicker": "Day %d" % run.day,
+		"title": run.event.title,
+		"body": run.event.text,
+		"choices": choices,
+		"leave": "Decide later",
+		"width": 1040.0,
+	})
+
+
+func _open_opening() -> void:
+	var portraits: Array = []
+	for c in run.roster:
+		var kind := WeaponData.type_name(c.weapon().weapon_type).to_lower()
+		if c.data.is_mage():
+			kind = "%s mage" % ("black" if c.data.signature_spell.school == SpellData.School.BLACK else "white")
+		portraits.append({"texture": c.data.portrait, "focus": c.data.portrait_focus, "name": c.display_name(), "sub": kind})
+	_letter.open({
+		"kicker": "To the Commander",
+		"title": "The Last City",
+		"body": "The outer towns are gone. What is left of us stands behind these walls, and the things beyond them know it.\nHold the city for %d days.\n%s answered your call. More may be found at the tavern when there is a quiet day." % [
+			RunConfig.DAYS, " and ".join(_names(run.roster))],
+		"portraits": portraits,
+		"choices": [{"label": "Take command", "action": _announce_day}],
+		"leave": "",
+		"width": 940.0,
+	})
 
 
 # ---------------------------------------------------------------- day flow
 
 func _after_day(title: String = "", text: String = "") -> void:
-	refresh()
 	if run.is_over():
+		refresh(false)
 		_end_screen.open(run)
 		return
-	var heal := "Overnight every companion recovered %d%% of their health." % roundi(RunConfig.DAILY_HEAL_FRACTION * 100.0)
-	if title == "":
-		_show_notice("DAY %d BEGINS" % run.day, heal)
-	else:
-		_show_notice(title, text)
+	var heal := "Overnight the company recovered a fifth of its strength. "
+	_begin_day(_day_title() if title == "" else title, (heal + _day_text()) if title == "" else text)
+	_announce_day()
+
+
+## Draws the curtain over the city, changes the day behind it, and lifts it again.
+func _begin_day(news_title: String, news_text: String) -> void:
+	_busy = true
+	_hide_news()
+	_curtain_title.text = "DAY %d" % run.day
+	_curtain_sub.text = _mood()
+	_curtain.visible = true
+	_curtain.modulate.a = 1.0
+	refresh(false)
+	_say(news_title, news_text)
+	var t := create_tween()
+	t.tween_interval(0.9)
+	t.tween_property(_curtain, "modulate:a", 0.0, 0.7)
+	t.tween_callback(func() -> void:
+		_curtain.visible = false
+		_busy = false)
+
+
+## What the day opens with: an event is put in front of the commander at once.
+func _announce_day() -> void:
+	if run.is_over():
+		return
+	if run.day_type() == RunCalendar.DayType.EVENT and not _letter.is_open():
+		_open_event()
 
 
 func _on_battle_finished(battle: Battle) -> void:
@@ -163,89 +341,77 @@ func _on_battle_closed() -> void:
 	_after_day()
 
 
-# ---------------------------------------------------------------- today's activity
+# ---------------------------------------------------------------- words
 
-func _build_activity() -> void:
-	for child in _activity.get_children():
-		_activity.remove_child(child)
-		child.queue_free()
-	_shortcuts.clear()
+func _phase() -> CityBackdrop.Phase:
 	if run.is_over():
-		return
-	var t := run.day_type()
-	var kicker := "%s DAY" % RunCalendar.type_name(t)
-	match t:
+		return CityBackdrop.Phase.NIGHT
+	match run.day_type():
 		RunCalendar.DayType.BATTLE:
-			_heading(kicker, "CHOOSE A FRONT TO DEFEND",
-				"Your fielded party fights where you send it. Fronts you do not choose have no consequence. Change the party before you commit.")
-			_front_cards()
+			return CityBackdrop.Phase.DAWN
 		RunCalendar.DayType.BOSS:
-			_heading(kicker, "THE BOSS IS AT THE GATES",
-				"No choice today. Win and the run goes on; lose and the city falls.")
-			_front_cards()
+			return CityBackdrop.Phase.DREAD
 		RunCalendar.DayType.FREE:
-			_heading(kicker, "%d %s LEFT" % [run.actions_left, "ACTION" if run.actions_left == 1 else "ACTIONS"],
-				"Each action can be taken once today. Unused actions are lost when the day ends.")
-			_free_day()
+			var used := RunConfig.FREE_DAY_ACTIONS - run.actions_left
+			if run.actions_left <= 0:
+				return CityBackdrop.Phase.DUSK
+			return CityBackdrop.Phase.MORNING if used <= 0 else CityBackdrop.Phase.AFTERNOON
+	return CityBackdrop.Phase.MORNING
+
+
+## The line beside the day number.
+func _mood() -> String:
+	match run.day_type():
+		RunCalendar.DayType.BATTLE:
+			return "The horns are sounding"
+		RunCalendar.DayType.BOSS:
+			return "%s is at the gates" % _boss_name()
 		RunCalendar.DayType.EVENT:
-			_heading(kicker, run.event.title.to_upper() if run.event != null else "A QUIET DAY", "")
-			_event()
+			return "A matter awaits your answer"
+	var left := run.actions_left
+	if left <= 0:
+		return "The day is spent"
+	if left >= RunConfig.FREE_DAY_ACTIONS:
+		return "A quiet day: time for %s things" % NUMBER_WORDS[mini(left, 5)]
+	return "Time for %s more thing%s" % [NUMBER_WORDS[mini(left, 5)], "" if left == 1 else "s"]
 
 
-func _heading(kicker: String, title: String, hint: String) -> void:
-	var k := UiTheme.label(kicker, 22, UiTheme.GOLD, true, 6)
-	k.position = Vector2(64, ACTIVITY_TOP)
-	_activity.add_child(k)
-	var l := UiTheme.label(title, 50, UiTheme.TEXT, true, 10)
-	l.position = Vector2(56, ACTIVITY_TOP + 22.0)
-	_activity.add_child(l)
-	if hint != "":
-		var h := UiTheme.label(hint, 18, UiTheme.MUTED, false, 4)
-		h.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		var x := 64.0 + l.get_minimum_size().x + 30.0
-		h.position = Vector2(x, ACTIVITY_TOP + 30.0)
-		# Leave room for the END DAY button on free days.
-		h.size = Vector2(minf(720.0, 1920.0 - x - 460.0), 60.0)
-		h.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		_activity.add_child(h)
+func _day_title() -> String:
+	match run.day_type():
+		RunCalendar.DayType.BATTLE:
+			return "The horns are sounding"
+		RunCalendar.DayType.BOSS:
+			return _boss_name()
+		RunCalendar.DayType.EVENT:
+			return "A matter for the commander"
+	return "A quiet day"
 
 
-func _front_cards() -> void:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 34)
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.position = Vector2(0, CARDS_TOP)
-	row.size = Vector2(size.x if size.x > 0 else 1920.0, FrontCard.H)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_activity.add_child(row)
-	for i in run.fronts.size():
-		var f := run.fronts[i]
-		var card := FrontCard.new()
-		var why := run.battle_block_reason(f)
-		card.setup(f, str(i + 1), why)
-		card.chosen.connect(defend.bind(f))
-		row.add_child(card)
-		_shortcuts.append(defend.bind(f))
+func _day_text() -> String:
+	match run.day_type():
+		RunCalendar.DayType.BATTLE:
+			return "The enemy is moving on the walls. Go to the gate when the company is ready."
+		RunCalendar.DayType.BOSS:
+			return "It has come to the gate itself. If the company falls today, the city falls with it."
+		RunCalendar.DayType.EVENT:
+			return "Someone is asking for you at the gate."
+	return "No horns this morning. There is time for %s things in the city before the gates close." % NUMBER_WORDS[
+		mini(RunConfig.FREE_DAY_ACTIONS, 5)]
 
 
-func _free_day() -> void:
-	var end := ActionButton.new()
-	end.title = "END DAY"
-	end.hotkey = "E"
-	end.detail = "lose %d" % run.actions_left if run.actions_left > 0 else ""
-	end.position = Vector2(1920.0 - ActionButton.W - 90.0, ACTIVITY_TOP + 20.0)
-	end.tooltip_text = "End the free day and move on to day %d." % (run.day + 1)
-	end.pressed.connect(end_day)
-	_activity.add_child(end)
+func _boss_name() -> String:
+	var g := run.boss_on(run.day)
+	return g.display_name if g != null else "The enemy"
 
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 18)
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.position = Vector2(0, CARDS_TOP + 20.0)
-	row.size = Vector2(1920.0, ActivityCard.H)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_activity.add_child(row)
-	var A := Run.FreeAction
+
+## A free-day action's cost in time, in the city's words.
+func _time_cost() -> String:
+	var after := run.actions_left - 1
+	return "This takes part of the day: afterwards there is time for %s more thing%s." % [NUMBER_WORDS[clampi(after, 0, 5)],
+		"" if after == 1 else "s"]
+
+
+func _hurt_text() -> String:
 	var hurt := 0
 	var spent := 0
 	for c in run.roster:
@@ -253,63 +419,31 @@ func _free_day() -> void:
 			hurt += 1
 		if c.progress.has_spent_uses():
 			spent += 1
-	var rest_status := "%d of %d hurt" % [hurt, run.roster.size()]
+	var text := "%d of %d are hurt." % [hurt, run.roster.size()]
 	if spent > 0:
-		rest_status += "  ·  %d low on spells" % spent
-	var specs := [
-		[A.REST, "REST", "Full health and full spell uses for everyone. Only Rest restores spell uses.",
-			rest_status, "REST", rest, run.free_action_block_reason(A.REST)],
-		[A.SHOP, "SHOP", "Buy weapons with gold. Any number of purchases in one visit is one action.",
-			"Spent on the first purchase", "VISIT SHOP", open_shop, run.visit_block_reason(A.SHOP)],
-		[A.TAVERN, "TAVERN", "Hire a companion for %d gold. %d looking for work today." % [RunConfig.HIRE_COST, run.tavern_offers.size()],
-			"Spent on the first hire", "VISIT TAVERN", open_tavern, run.visit_block_reason(A.TAVERN)],
-		[A.REPAIR, "REPAIR", "Spend %s to restore %d city health." % [Run.cost_text(RunConfig.REPAIR_COST), RunConfig.REPAIR_AMOUNT],
-			"City %d / %d" % [run.city_health, RunConfig.CITY_MAX_HEALTH], "REPAIR", repair, run.free_action_block_reason(A.REPAIR)],
-	]
-	for i in specs.size():
-		var s: Array = specs[i]
-		var done: bool = run.actions_used.has(s[0])
-		var why: String = s[6]
-		# The shop and tavern stay open for more after their first purchase.
-		var reopen: bool = done and (s[0] == A.SHOP or s[0] == A.TAVERN)
-		var card := ActivityCard.new()
-		card.setup(s[1], s[2], s[3], s[4], str(i + 1), "" if reopen else (why if not done else "Already done today."), done)
-		card.chosen.connect(s[5])
-		row.add_child(card)
-		_shortcuts.append(s[5])
+		text += "  %d %s low on spells." % [spent, "is" if spent == 1 else "are"]
+	return text
 
 
-func _event() -> void:
-	if run.event == null:
-		return
-	var panel := SlantPanel.new()
-	panel.fill = Color(UiTheme.INK, 0.93)
-	panel.border = DayStrip.type_color(RunCalendar.DayType.EVENT)
-	panel.border_width = 3.0
-	panel.position = Vector2(150, CARDS_TOP)
-	panel.size = Vector2(1620, 520)
-	_activity.add_child(panel)
-	var text := UiTheme.label(run.event.text, 26, UiTheme.TEXT, false, 4)
-	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	text.position = Vector2(220, 34)
-	text.size = Vector2(1240, 110)
-	panel.add_child(text)
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 14)
-	box.position = Vector2(170, 170)
-	panel.add_child(box)
-	for i in run.event.choices.size():
-		var ch := run.event.choices[i]
-		var b := RowButton.new(1280.0, 92.0)
-		b.title = ch.label.to_upper()
-		b.sub = choice_effects(run, ch, true)
-		b.hotkey = str(i + 1)
-		var why := run.choice_block_reason(ch)
-		b.disabled = why != ""
-		b.detail = why.to_upper()
-		b.pressed.connect(choose.bind(ch))
-		box.add_child(b)
-		_shortcuts.append(choose.bind(ch))
+## The run's reasons, said the way the city would say them.
+func _in_world(reason: String) -> String:
+	match reason:
+		"Only on free days.":
+			var t := run.day_type()
+			if t == RunCalendar.DayType.EVENT:
+				return "There is no time for it today. A matter is waiting for your answer at the gate."
+			return "Shut and barred while the horns are sounding. Come back on a quiet day."
+		"Already done today.":
+			return "You have already been here today."
+		"No actions left today.":
+			return "The day is spent. Close the gates for the night."
+		"Nobody is looking for work.":
+			return "Nobody is looking for work today."
+		"The city is at full health.":
+			return "The walls are whole. There is nothing to mend."
+		"Everyone is at full health and every spell use is ready.":
+			return "Everyone is rested and every spell is ready. There is no need."
+	return reason
 
 
 ## What an event choice changes, in one line. `ahead`: phrased before choosing (names who would be hurt).
@@ -322,7 +456,7 @@ static func choice_effects(r: Run, ch: EventChoiceData, ahead: bool) -> String:
 		if n != 0:
 			parts.append("%+d %s" % [n, String(RunConfig.MATERIAL_NAMES[m]).to_lower()])
 	if ch.city_health != 0:
-		parts.append("%+d city health" % ch.city_health)
+		parts.append("%+d to the walls" % ch.city_health)
 	if ch.companion_hp != 0:
 		if ch.hp_target == EventChoiceData.HpTarget.ALL:
 			parts.append("%+d HP to every companion" % ch.companion_hp)
@@ -335,199 +469,275 @@ static func choice_effects(r: Run, ch: EventChoiceData, ahead: bool) -> String:
 	return "nothing changes" if parts.is_empty() else "   ·   ".join(parts)
 
 
-# ---------------------------------------------------------------- roster at a glance
+# ---------------------------------------------------------------- the buildings' state
 
-func _build_roster() -> void:
-	for child in _roster_row.get_children():
-		_roster_row.remove_child(child)
+func _refresh_buildings() -> void:
+	var A := Run.FreeAction
+	var over := run.is_over()
+	var t := run.day_type()
+	var free := t == RunCalendar.DayType.FREE and not over
+	for kind: CityBuilding.Kind in _city.buildings:
+		var b := _city.building(kind)
+		b.attention = false
+		match kind:
+			CityBuilding.Kind.BARRACKS:
+				b.open = true
+				b.status = "The company: %d in the line%s" % [run.lineup.size(),
+					", %d in reserve" % run.reserve().size() if not run.reserve().is_empty() else ""]
+			CityBuilding.Kind.WATCHTOWER:
+				b.open = true
+				b.status = "See the days ahead"
+			CityBuilding.Kind.GATE:
+				b.open = true
+				b.attention = not over and (not free or run.actions_left <= 0)
+				match t:
+					RunCalendar.DayType.BATTLE:
+						b.status = "The horns are sounding"
+					RunCalendar.DayType.BOSS:
+						b.status = "%s is here" % _boss_name()
+					RunCalendar.DayType.EVENT:
+						b.status = "Someone is asking for you"
+					_:
+						b.status = "Close the gates for the night"
+			CityBuilding.Kind.TAVERN:
+				var why := run.visit_block_reason(A.TAVERN)
+				b.open = why == ""
+				b.status = ("%d looking for work  ·  %d gold each" % [run.tavern_offers.size(), RunConfig.HIRE_COST]) if why == "" \
+					else _short(why)
+			CityBuilding.Kind.SMITHY:
+				var why := run.visit_block_reason(A.SHOP)
+				b.open = why == ""
+				b.status = "Weapons for sale" if why == "" else _short(why)
+			CityBuilding.Kind.INN:
+				var why := run.free_action_block_reason(A.REST)
+				b.open = why == ""
+				b.status = ("Rest the company  ·  %s" % _hurt_text().split(".")[0]) if why == "" else _short(why)
+			CityBuilding.Kind.MASON:
+				var why := run.free_action_block_reason(A.REPAIR)
+				b.open = why == ""
+				b.status = ("Mend the walls  ·  %s" % Run.cost_text(RunConfig.REPAIR_COST)) if why == "" else _short(why)
+
+
+## A building's reason for being shut, short enough for its board.
+func _short(reason: String) -> String:
+	match reason:
+		"Only on free days.":
+			return "Shut today"
+		"Already done today.":
+			return "Already visited today"
+		"No actions left today.":
+			return "The day is spent"
+		"The city is at full health.":
+			return "The walls are whole"
+		"Everyone is at full health and every spell use is ready.":
+			return "Everyone is rested"
+	return reason.trim_suffix(".")
+
+
+# ---------------------------------------------------------------- the company
+
+func _build_party() -> void:
+	for child in _party_row.get_children():
+		_party_row.remove_child(child)
 		child.queue_free()
-	_roster_head.text = "PARTY   ·   %d FIELDED%s" % [run.lineup.size(),
-		"   ·   %d IN RESERVE" % run.reserve().size() if not run.reserve().is_empty() else ""]
-	_roster_row.add_child(_marker("‹ BACK"))
 	for i in run.lineup.size():
-		var chip := CompanionChip.new()
-		chip.setup(run.lineup[i], i + 1, true)
-		if i == run.lineup.size() - 1:
-			chip.set_tag("FRONT")
-		chip.pressed.connect(open_party.bind(run.lineup[i]))
-		_roster_row.add_child(chip)
-	_roster_row.add_child(_marker("FRONT ›"))
-	for c in run.reserve():
-		var chip := CompanionChip.new()
-		chip.setup(c, 0, true)
-		chip.pressed.connect(open_party.bind(c))
-		_roster_row.add_child(chip)
+		var c := run.lineup[i]
+		var where := "In the line, place %d of %d%s" % [i + 1, run.lineup.size(),
+			" (the front: nearest the enemy)" if i == run.lineup.size() - 1 else (" (the back)" if i == 0 else "")]
+		_party_row.add_child(_medallion(c, true, where))
+	if not run.reserve().is_empty():
+		var gap := Control.new()
+		gap.custom_minimum_size = Vector2(26, 0)
+		gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_party_row.add_child(gap)
+		for c in run.reserve():
+			_party_row.add_child(_medallion(c, false, "In reserve"))
 
 
-func _marker(text: String) -> Label:
-	var l := UiTheme.label(text, 22, Color(UiTheme.MUTED, 0.8), true, 6)
-	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	l.custom_minimum_size = Vector2(110, 0)
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	return l
+func _medallion(c: RunCompanion, fielded: bool, where: String) -> PartyMedallion:
+	var m := PartyMedallion.new()
+	m.setup(c, fielded, where)
+	m.pressed.connect(open_party.bind(c))
+	return m
 
 
-# ---------------------------------------------------------------- notices
+# ---------------------------------------------------------------- the day's news
 
-## The day's news: stays until something else happens.
-func _show_notice(title: String, text: String) -> void:
-	_notice_title.text = title
-	_notice_text.text = text
-	_notice.tooltip_text = "%s
-%s" % [title, text]
-	_notice.visible = true
-	_notice.modulate.a = 0.0
-	if _notice_tween != null:
-		_notice_tween.kill()
-	_notice_tween = create_tween()
-	_notice_tween.tween_property(_notice, "modulate:a", 1.0, 0.25)
+## Puts a slip of parchment at the foot of the screen. `action`: called when the slip is clicked.
+func _say(title: String, text: String, action: Callable = Callable()) -> void:
+	_news_title.text = title
+	_news_text.text = text
+	_news_action = action
+	_news.tooltip_text = "%s\n%s" % [title, text]
+	_news.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if action.is_valid() else Control.CURSOR_ARROW
+	_news.visible = true
+	_news.modulate.a = 0.0
+	if _news_tween != null:
+		_news_tween.kill()
+	_news_tween = create_tween()
+	_news_tween.tween_property(_news, "modulate:a", 1.0, 0.25)
 
 
-func _hide_notice() -> void:
-	if _notice_tween != null:
-		_notice_tween.kill()
-	_notice.visible = false
+func _hide_news() -> void:
+	if _news_tween != null:
+		_news_tween.kill()
+	_news.visible = false
 
 
 # ---------------------------------------------------------------- input
 
+func _overlay_open() -> bool:
+	return _battle_screen.visible or _party_screen.visible or _store_screen.visible or _end_screen.visible \
+		or _letter.visible or _war_table.visible
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	var key := event as InputEventKey
-	if key == null or not key.pressed or key.echo or run == null or run.is_over():
+	if key == null or not key.pressed or key.echo or run == null or run.is_over() or _busy or _overlay_open():
 		return
-	if _battle_screen.visible or _party_screen.visible or _store_screen.visible or _end_screen.visible:
-		return
-	var n := -1
-	if key.keycode >= KEY_1 and key.keycode <= KEY_9:
-		n = key.keycode - KEY_1
-	elif key.keycode >= KEY_KP_1 and key.keycode <= KEY_KP_9:
-		n = key.keycode - KEY_KP_1
-	if n >= 0 and n < _shortcuts.size():
-		get_viewport().set_input_as_handled()
-		_shortcuts[n].call()
-	elif key.keycode == KEY_P:
-		get_viewport().set_input_as_handled()
-		open_party()
-	elif key.keycode == KEY_E and run.day_type() == RunCalendar.DayType.FREE:
-		get_viewport().set_input_as_handled()
-		end_day()
+	match key.keycode:
+		KEY_P:
+			get_viewport().set_input_as_handled()
+			open_party()
+		KEY_G, KEY_SPACE, KEY_ENTER:
+			get_viewport().set_input_as_handled()
+			visit(CityBuilding.Kind.GATE)
+		KEY_E:
+			if run.day_type() == RunCalendar.DayType.FREE:
+				get_viewport().set_input_as_handled()
+				visit(CityBuilding.Kind.GATE)
+		KEY_W:
+			get_viewport().set_input_as_handled()
+			visit(CityBuilding.Kind.WATCHTOWER)
 
 
 # ---------------------------------------------------------------- layout
 
 func _build() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
-	var backdrop := CityBackdrop.new()
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(backdrop)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_city.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_city.interactive = true
+	_city.building_pressed.connect(visit)
+	add_child(_city)
 
-	# Top bar: title, the day, the city's health and stores.
-	var title := UiTheme.label("REALM OF TALOS", 26, Color(UiTheme.GOLD, 0.85), true, 6)
-	title.position = Vector2(38, 20)
-	add_child(title)
-	var sub := UiTheme.label("THE LAST CITY", 18, UiTheme.MUTED, true, 4)
-	sub.position = Vector2(42, 52)
-	add_child(sub)
-
-	var pennant := SlantPanel.new()
-	pennant.fill = Color(UiTheme.INK, 0.9)
-	pennant.border = UiTheme.GOLD
-	pennant.border_width = 3.0
-	pennant.position = Vector2(960 - 170, 12)
-	pennant.size = Vector2(340, 70)
-	add_child(pennant)
-	_day_label = UiTheme.label("", 44, UiTheme.GOLD, true)
-	_day_label.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_day_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_day_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	pennant.add_child(_day_label)
-
-	var city := UiTheme.label("CITY", 22, UiTheme.MUTED, true, 4)
-	city.position = Vector2(1188, 30)
-	add_child(city)
-	_city_bar.position = Vector2(1248, 26)
-	_city_bar.size = Vector2(300, 34)
-	_city_bar.font_size = 20
-	_city_bar.tooltip_text = "City health. Lost when a battle is lost (%d / %d / %d by danger). At 0 the run ends." % RunConfig.CITY_DAMAGE_BY_DANGER
-	_city_bar.mouse_filter = Control.MOUSE_FILTER_STOP
-	add_child(_city_bar)
-	_gold_label = _resource(1572, "GOLD", UiTheme.GOLD, "Gold: pays for weapons, hires and some event choices.")
-	_iron_label = _resource(1680, "IRON", UiTheme.TEXT, "Iron ore: used to repair the walls and traded in events.")
-	_timber_label = _resource(1788, "TIMBER", UiTheme.TEXT, "Timber: used to repair the walls.")
-
-	_strip.position = Vector2(0, 100)
+	# The strip at the top: the day on the left, the days ahead in the middle, the stores on the right.
+	_top.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_top.draw.connect(_draw_top)
+	add_child(_top)
+	_day_label = UiTheme.label("", 38, UiTheme.GOLD, true, 8)
+	_day_label.position = Vector2(40, 8)
+	add_child(_day_label)
+	_mood_label = UiTheme.label("", 19, UiTheme.TEXT, false, 5)
+	_mood_label.add_theme_font_override("font", UiTheme.italic_font())
+	_mood_label.position = Vector2(43, 54)
+	add_child(_mood_label)
 	add_child(_strip)
 
-	_activity.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_activity.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_activity)
+	_city_bar.position = Vector2(1392, 22)
+	_city_bar.size = Vector2(190, 26)
+	_city_bar.font_size = 17
+	_city_bar.tooltip_text = "The walls. They suffer when a battle is lost (%d, %d or %d by how dangerous the front was). If they fall to nothing, the city is lost." % RunConfig.CITY_DAMAGE_BY_DANGER
+	_city_bar.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(_city_bar)
+	_gold_label = _store(1640, "Gold: pays for weapons, hires and some choices.")
+	_iron_label = _store(1740, "Iron ore: the masons need it to mend the walls, and it is traded now and then.")
+	_timber_label = _store(1832, "Timber: the masons need it to mend the walls.")
 
-	# The party at a glance.
-	_roster_head = UiTheme.label("", 22, UiTheme.GOLD, true, 6)
-	_roster_head.position = Vector2(64, ROSTER_TOP)
-	add_child(_roster_head)
-	var manage := ActionButton.new()
-	manage.title = "MANAGE PARTY"
-	manage.hotkey = "P"
-	manage.position = Vector2(1920.0 - ActionButton.W - 90.0, ROSTER_TOP - 18.0)
-	manage.tooltip_text = "Choose who is fielded and in what order, change weapons and combat arts. Free, any day."
-	manage.pressed.connect(func() -> void: open_party())
-	add_child(manage)
-	_roster_row.position = Vector2(40, ROSTER_TOP + 44.0)
-	_roster_row.size = Vector2(1840, CompanionChip.H)
-	_roster_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	_roster_row.add_theme_constant_override("separation", -12)
-	_roster_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_roster_row)
+	# The company, standing in the square.
+	_party_row.position = Vector2(0, 952)
+	_party_row.size = Vector2(1920, PartyMedallion.H)
+	_party_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_party_row.add_theme_constant_override("separation", 2)
+	_party_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_party_row)
 
-	# What just happened (the day's news), on the party header line, out of the way of today's activity.
-	_notice.fill = Color(UiTheme.INK, 0.92)
-	_notice.border = Color(UiTheme.GOLD, 0.8)
-	_notice.border_width = 2.0
-	_notice.position = Vector2(520, ROSTER_TOP - 22.0)
-	_notice.size = Vector2(950, 62)
-	_notice.visible = false
-	_notice.mouse_filter = Control.MOUSE_FILTER_STOP
-	add_child(_notice)
-	_notice_title = UiTheme.label("", 20, UiTheme.GOLD, true, 4)
-	_notice_title.position = Vector2(30, 4)
-	_notice.add_child(_notice_title)
-	_notice_text = UiTheme.label("", 15, UiTheme.TEXT, false, 3)
-	_notice_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_notice_text.max_lines_visible = 2
-	_notice_text.clip_text = true
-	_notice_text.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	_notice_text.position = Vector2(24, 26)
-	_notice_text.size = Vector2(900, 40)
-	_notice.add_child(_notice_text)
+	# The day's news: a slip of parchment at the foot of the screen.
+	_news.position = Vector2(34, 958)
+	_news.size = Vector2(470, 104)
+	_news.rotation = -0.012
+	_news.visible = false
+	_news.mouse_filter = Control.MOUSE_FILTER_STOP
+	_news.draw.connect(func() -> void: UiTheme.draw_parchment(_news, Rect2(Vector2.ZERO, _news.size), 0.4))
+	_news.gui_input.connect(_on_news_input)
+	add_child(_news)
+	_news_title = UiTheme.label("", 19, UiTheme.PARCHMENT_INK, true)
+	_news_title.position = Vector2(18, 10)
+	_news_title.size = Vector2(434, 24)
+	_news_title.clip_text = true
+	_news.add_child(_news_title)
+	_news_text = UiTheme.label("", 16, UiTheme.PARCHMENT_INK)
+	_news_text.add_theme_font_override("font", UiTheme.italic_font())
+	_news_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_news_text.max_lines_visible = 3
+	_news_text.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_news_text.position = Vector2(18, 34)
+	_news_text.size = Vector2(436, 64)
+	_news.add_child(_news_text)
 
 	# Screens that open over the city.
-	for screen: Control in [_party_screen, _store_screen, _battle_screen, _end_screen]:
+	for screen: Control in [_war_table, _party_screen, _store_screen, _letter, _battle_screen, _end_screen]:
 		screen.visible = false
 		screen.z_index = 10
 		add_child(screen)
+	_war_table.chosen.connect(defend)
 	_party_screen.closed.connect(refresh)
 	_store_screen.closed.connect(refresh)
 	_battle_screen.finished.connect(_on_battle_finished)
 	_battle_screen.closed.connect(_on_battle_closed)
-	_end_screen.new_run_pressed.connect(func() -> void: new_run(0))
+	_end_screen.closed.connect(func() -> void: left_run.emit())
+
+	# The curtain between days.
+	_curtain.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_curtain.mouse_filter = Control.MOUSE_FILTER_STOP
+	_curtain.visible = false
+	_curtain.z_index = 20
+	_curtain.draw.connect(func() -> void:
+		_curtain.draw_rect(Rect2(Vector2.ZERO, _curtain.size), UiTheme.INK)
+		UiTheme.draw_rule(_curtain, Vector2(_curtain.size.x * 0.5, _curtain.size.y * 0.5 + 34.0), 420.0, UiTheme.GOLD_DEEP))
+	add_child(_curtain)
+	_curtain_title = UiTheme.label("", 110, UiTheme.GOLD, true)
+	_curtain_title.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_curtain_title.offset_bottom = -110.0
+	_curtain_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_curtain_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_curtain.add_child(_curtain_title)
+	_curtain_sub = UiTheme.label("", 30, UiTheme.TEXT)
+	_curtain_sub.add_theme_font_override("font", UiTheme.italic_font())
+	_curtain_sub.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_curtain_sub.offset_top = 150.0
+	_curtain_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_curtain_sub.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_curtain.add_child(_curtain_sub)
 
 
-func _resource(x: float, head: String, color: Color, tip: String) -> Label:
-	var box := SlantPanel.new()
-	box.fill = Color(UiTheme.INK, 0.85)
-	box.position = Vector2(x, 20)
-	box.size = Vector2(100, 50)
-	box.mouse_filter = Control.MOUSE_FILTER_STOP
-	box.tooltip_text = tip
-	add_child(box)
-	var h := UiTheme.label(head, 13, UiTheme.MUTED, true)
-	h.position = Vector2(18, 3)
-	box.add_child(h)
-	var v := UiTheme.label("0", 26, color, true, 4)
-	v.position = Vector2(14, 16)
-	box.add_child(v)
+func _draw_top() -> void:
+	UiIcons.rampart(_top, Vector2(1364, 35), 28.0, UiTheme.TEXT.lerp(UiTheme.MUTED, 0.3))
+	UiIcons.coin(_top, Vector2(1622, 34), 24.0, UiTheme.GOLD)
+	UiIcons.ore(_top, Vector2(1722, 35), 24.0, Color("9aa3ad"))
+	UiIcons.timber(_top, Vector2(1812, 35), 26.0, Color("a0794a"))
+
+
+func _store(x: float, tip: String) -> Label:
+	var hit := Control.new()
+	hit.position = Vector2(x - 34.0, 12.0)
+	hit.size = Vector2(90, 46)
+	hit.mouse_filter = Control.MOUSE_FILTER_STOP
+	hit.tooltip_text = tip
+	add_child(hit)
+	var v := UiTheme.label("0", 26, UiTheme.TEXT, true, 6)
+	v.position = Vector2(x, 17)
+	add_child(v)
 	return v
+
+
+func _on_news_input(event: InputEvent) -> void:
+	var mb := event as InputEventMouseButton
+	if mb != null and mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+		if _news_action.is_valid():
+			_news_action.call()
+		else:
+			_hide_news()
 
 
 static func _names(cs: Array[RunCompanion]) -> Array[String]:

@@ -1,6 +1,7 @@
 class_name SlantPanel
 extends Control
-## A leaning panel: flat fill or a cropped piece of art, with an optional border and bottom shade.
+## A framed board with cut corners: a grained fill or a cropped piece of art, with trim and an
+## optional bottom shade. (The name is from when panels leaned.)
 
 var fill := UiTheme.PANEL:
 	set(v):
@@ -40,6 +41,13 @@ var shade := 0.0:
 		queue_redraw()
 
 
+## Studs at the corners of large frames.
+var studs := true:
+	set(v):
+		studs = v
+		queue_redraw()
+
+
 func _init() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
@@ -51,27 +59,26 @@ func _notification(what: int) -> void:
 
 func _draw() -> void:
 	var rect := Rect2(Vector2.ZERO, size)
-	var s := UiTheme.slant_for(size.y)
-	if size.x <= s + 1.0 or size.y <= 1.0:
+	if size.x <= 1.0 or size.y <= 1.0:
 		return
-	var pts := UiTheme.para(rect, s)
-	if texture != null:
-		draw_colored_polygon(pts, tint, _uvs(pts), texture)
-	else:
-		draw_colored_polygon(pts, fill)
+	var pts := UiTheme.plate(rect)
+	if texture == null:
+		UiTheme.draw_frame(self, rect, fill, border if border_width > 0.0 else fill, border_width, studs)
+		return
+	draw_colored_polygon(pts, tint, _uvs(pts), texture)
 	if shade > 0.0:
 		var mid_y := size.y * 0.45
-		var mid_shift := s * (1.0 - 0.45)
-		var lower := PackedVector2Array([
-			Vector2(mid_shift, mid_y), Vector2(size.x - s + mid_shift, mid_y),
-			Vector2(size.x - s, size.y), Vector2(0, size.y)])
+		var c := UiTheme.cut_for(size)
+		var lower := PackedVector2Array([Vector2(0, mid_y), Vector2(size.x, mid_y), Vector2(size.x, size.y - c),
+			Vector2(size.x - c, size.y), Vector2(c, size.y), Vector2(0, size.y - c)])
 		var clear := Color(UiTheme.INK, 0.0)
 		var dark := Color(UiTheme.INK, shade)
-		draw_polygon(lower, PackedColorArray([clear, clear, dark, dark]))
+		draw_polygon(lower, PackedColorArray([clear, clear, dark, dark, dark, dark]))
 	if border_width > 0.0:
+		UiTheme.stroke_points(self, UiTheme.plate(rect.grow(1.0), UiTheme.cut_for(size) + 0.5), Color(0, 0, 0, 0.55 * border.a), 2.0)
 		UiTheme.stroke_points(self, pts, border, border_width)
 	else:
-		UiTheme.stroke_points(self, pts, tint if texture != null else fill, 1.0)
+		UiTheme.stroke_points(self, pts, tint, 1.0)
 
 
 ## UVs that crop the art to the panel's shape without stretching it.
