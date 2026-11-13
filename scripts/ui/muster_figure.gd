@@ -11,8 +11,8 @@ extends Control
 signal pressed
 signal dropped(carried: RunCompanion)
 
-## One place in the line.
-const W := 212.0
+## One place in the line (the line holds RunConfig.MAX_FIELDED of them, four).
+const W := 262.0
 const H := 440.0
 ## How far down the slot the rail starts: the art is cut off there.
 const PORTRAIT_H := 372.0

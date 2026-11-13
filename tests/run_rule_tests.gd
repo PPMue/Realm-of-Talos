@@ -423,7 +423,7 @@ func test_fielded_limit_and_order() -> void:
 	run.gold = 10000
 	force_day(run, RunCalendar.DayType.FREE)
 	var hired := 0
-	while run.roster.size() < 5:
+	while run.roster.size() < RunConfig.MAX_FIELDED:
 		run.actions_left = 2
 		run.actions_used.clear()
 		run.tavern_offers.clear()
@@ -432,20 +432,21 @@ func test_fielded_limit_and_order() -> void:
 			break
 		t.check(run.hire(run.tavern_offers[0]) != null, "hired")
 		hired += 1
-	t.eq(run.roster.size(), 5, "five companions")
-	t.eq(run.lineup.size(), 5, "all five fielded")
+	t.eq(run.roster.size(), RunConfig.MAX_FIELDED, "a full line of companions")
+	t.eq(run.lineup.size(), RunConfig.MAX_FIELDED, "all of them fielded")
 	t.check(run.reserve().is_empty(), "no reserve")
+	var last := RunConfig.MAX_FIELDED - 1
 	var sixth := RunCompanion.create(companion("aina"))
 	run.roster.append(sixth)
-	t.check(not run.field(sixth), "a sixth cannot be fielded")
-	t.eq(run.reserve(), [sixth] as Array[RunCompanion], "the sixth waits in reserve")
-	var front_most := run.lineup[4]
+	t.check(not run.field(sixth), "one more cannot be fielded")
+	t.eq(run.reserve(), [sixth] as Array[RunCompanion], "the extra one waits in reserve")
+	var front_most := run.lineup[last]
 	t.check(run.bench(front_most), "bench one")
-	t.eq(run.lineup.size(), 4, "four fielded")
-	t.check(run.field(sixth, 0), "now the sixth fits, at the back")
+	t.eq(run.lineup.size(), last, "one fewer fielded")
+	t.check(run.field(sixth, 0), "now the extra one fits, at the back")
 	t.eq(run.lineup[0], sixth, "leftmost")
-	t.check(run.move_in_line(sixth, 4), "move to the front")
-	t.eq(run.lineup[4], sixth, "rightmost")
+	t.check(run.move_in_line(sixth, last), "move to the front")
+	t.eq(run.lineup[last], sixth, "rightmost")
 	t.check(not run.field(front_most), "full again")
 	# The battle line follows the order.
 	run.day = 3

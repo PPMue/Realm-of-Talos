@@ -18,7 +18,7 @@ const CITY_DAMAGE_BY_DANGER: Array[int] = [15, 20, 25]
 
 # --- Party ---
 const STARTING_COMPANIONS := 2
-const MAX_FIELDED := 5
+const MAX_FIELDED := 4
 ## At the end of every day each surviving companion heals this share of max HP (rounded up).
 const DAILY_HEAL_FRACTION := 0.2
 ## HP an injured companion comes back with after a battle, won or lost.
