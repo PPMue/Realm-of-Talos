@@ -1262,8 +1262,10 @@ func _refresh_party() -> void:
 			held += "\n  " + note
 		if not c.progress.enchant.is_empty():
 			held += "\n  Enchanted: " + ", ".join(OwnedWeapon.stat_lines(c.progress.enchant))
-		_party_sheets[c] = "%s\nLevel %d  ·  %s\n%s\n\n%s %s%s\nArts: %s%s\n\n%s" % [
-			c.display_name, c.progress.level, held, _stat_sheet(c, Stat.COMPANION_KEYS), WeaponData.type_name(kind),
+		# What they have become, with its rule, under their name.
+		var called := "" if c.calling() == null else "\n%s: %s" % [c.calling().display_name, c.calling().rule]
+		_party_sheets[c] = "%s%s\nLevel %d  ·  %s\n%s\n\n%s %s%s\nArts: %s%s\n\n%s" % [
+			c.display_name, called, c.progress.level, held, _stat_sheet(c, Stat.COMPANION_KEYS), WeaponData.type_name(kind),
 			Proficiency.grade_name(c.progress.grade(kind)),
 			"" if step.y == 0 else "  (%d / %d to %s)" % [step.x, step.y, Proficiency.grade_name(c.progress.grade(kind) + 1)],
 			", ".join(arts) if not arts.is_empty() else "none", magic, aim_tip + coming_text]

@@ -1,10 +1,10 @@
-# Callings: a companion becomes something, and not the same thing every run (design; only the stats are built)
+# Callings: a companion becomes something, and not the same thing every run (design; step 1 built)
 
 Written 2026-11-14 after the user's play reports: "When I get a companion, I can just keep using it
 and it will grow stronger... and I can do the same like this in every run. There is nothing that
 forces the player out of this comfort zone", and "I want to be able to take the same companion to a
 different path in a different run". Then: "design the callings to also help nudge growth, similar
-to a class in Fire Emblem". Every number here is a first guess. `design/growth.md` is built (2026-11-14): the stats
+to a class in Fire Emblem". Step 1 is built (2026-11-15: the twelve callings, how they are offered and taken, growth by calling, the screens); "Step 1 as built" below says where it differs from what is written here, and what the playthrough said. Steps 2 and 3 are not built. Every number here is a first guess. `design/growth.md` is built (2026-11-14): the stats
 in "What a calling does to growth" are at the size the game now has; the stats named elsewhere in
 this note (Elena's Strength 11, 36 Health, a Mend of 15) were written before it and are half as
 large again as they are now.
@@ -185,6 +185,109 @@ already in the game, so a find can complete a companion:
 - Spellblade with a Runeblade, which asks for the sword and black magic together and so is held by
   almost nobody today.
 
+## Step 1 as built (2026-11-15)
+
+Built with the proposed answers to "Yours to decide": three drawn and known from the first day with
+a day at the Drill Yard to change one; one holder each; the Mender's raising kept; level 4, each
+companion on their own; step 1 alone; +2 and +1 on the day and three growth rates. Where the build
+differs from the text above, or settles something it left open:
+
+- **What is drawn.** Three from the callings nobody holds (not from all twelve): a calling already
+  taken would be a dead card on a new hire's sheet.
+- **More are drawn at once**, when a calling is taken or someone joins, for whoever is left with
+  fewer than two open; not when their own moment comes. The sheets are then always true.
+- **The callings have their own dice**, seeded from the run's seed: a run's battles, fronts and
+  shops fall as they would without callings.
+- **Lead** is read from who they are (base stats, levels, traits), not from what they hold or wear,
+  so a ring cannot be put on for the day to turn it. A tie goes to the faster growth, then Strength.
+- **A calling of arms teaches nothing**; it only raises the grade of the weapon in hand to D. A
+  calling of magic teaches one tier I spell of two drawn; a Mender who knows no heal is always
+  offered one (the rule works through a heal).
+- **Champion**: a strike or spell that lands turns the enemy's pending single blow; a miss turns
+  nothing, and a blow on the whole line has no aim to turn.
+- **Harrier**: the push comes after whatever the action itself pushes, so an art that staggers by 2
+  still staggers by 2 and the Harrier's 1 adds nothing to it.
+- **Hexer**: the effect goes to the living enemy with the most Health, with the turns it has left,
+  and not onto one already carrying it for as long.
+- **Sage**: the first spell of a battle can be cast even with no use left.
+- **Mender**: the heal must be one aimed at one ally (Mend, Grace). The one raised is ready at once.
+- **Berserker**: the cost is half the stamina cost rounded up, and can never be their last Health.
+- **When the choice is put**: after a battle, once the result is left and before the day turns;
+  after a drill, a scavenging trip or a hire, when that room is left. Nothing else answers until it
+  is made.
+- **The Barracks** has no room for three cards: the callings are plates at the head of the third
+  column, and pointing at one reads it where an art is read. The cards are at the moment itself.
+
+### What the playthrough said, and the retune
+
+200 automated runs each (`run_policy.gd`; the same runs with and without, since the callings have
+their own dice).
+
+**Each calling by itself** (only that one is ever taken, by whoever is offered it first; about two
+runs in three have it), runs won against 20% with no callings at all:
+
+| Calling | Runs won | | Calling | Runs won |
+|---|---|---|---|---|
+| Harrier | 32% | | Sage | 26% |
+| Skirmisher | 28% | | Spellblade | 26% |
+| Hexer | 28% | | Executioner | 23% |
+| Hunter | 27% | | Warden | 22% |
+| Mender | 26% | | Berserker | 21% |
+| | | | Champion | 20% |
+| | | | Captain | 19% |
+
+About 7 points either way is the dice. None is broken alone; the Harrier is the strongest, and the
+Captain and the Champion are worth nothing to the automated player, which rouses by one plain rule
+and never moves its line to suit a Champion. The four that open a school are worth as much for the
+spell as for the rule: any fighter given a black spell hits harder with it than with a wooden axe.
+
+**All together** (everyone takes one at level 4): 59% of runs won, bosses beaten 84% / 94% / 77%.
+Four callings in a line add up, and a company that lives longer also levels further (level 13.0
+at the end against 10.2).
+
+**The retune.** The note said the bosses would be retuned after, and they were, with the later
+kinds. Twenty-four settings were tried over four rounds. Two things were learned:
+
+- Health moves a big fight far more than Strength does, because a boss is lost by running out
+  (stamina, spell uses, heals), not by one blow. But Health alone made the day-28 bosses last 58
+  turns (44 before the callings, 30 before the big fights were set in order). Bosses now have somewhat more Health and
+  clearly harder blows instead, which keeps a boss fight at 33 to 43 turns for the automated player.
+- The fight-length figure was added to the playthrough's report for this ("turns a fight takes").
+
+| | Now (on top of what `design/growth.md` records) |
+|---|---|
+| Middle and late kinds | Health x1.1, +1 Strength and Magic |
+| Elites (`ELITE_HP_MULT`, `ELITE_STR_BONUS`) | Health x0.9 on day 6, x1.6 and +1 Strength and Magic on day 20, x1.25 on day 34 |
+| Day-14 bosses | Health x1.3, +2 Strength |
+| Day-28 bosses | Health x1.3, +4 Strength and Magic |
+| Day-42 bosses | Health x1.5, +4 Strength and Magic |
+
+| Won by the automated player | Before callings | Callings, enemies as they were | Callings, retuned |
+|---|---|---|---|
+| Elite, day 6 | 76% | 76% | 76% |
+| Boss, day 14 | 71% | 84% | 70% |
+| Elite, day 20 | 65% | 82% | 71% |
+| Boss, day 28 | 59% | 94% | 59% |
+| Elite, day 34 | 47% | 68% | 52% |
+| Boss, day 42 | 48% | 77% | 46% |
+| Runs | 20% | 59% | 19% |
+| Turns a boss fight takes when won (days 14, 28, 42) | 35 / 44 / 27 (60 runs) | | 36 / 43 / 33 |
+
+("Before callings" is with the automated player's heal fixed: it used to aim a single heal at
+whoever was injured, which did nothing, so healers stopped healing once anyone had fallen. That
+alone took runs won from 16% to 20%, which is also about what the dice can do.)
+
+**Against the targets** (set under "How it is built"):
+
+| | Target | Measured |
+|---|---|---|
+| Each calling, how often taken when offered | None under 15% or over 60% | Warden 12%, Spellblade 16%, Captain 17% at the low end; Executioner 78%, Harrier 58% at the high end. This is the automated player's score, which ranks the Executioner first for everyone; it says little about what a person would take |
+| Battles won with a given calling in the line | No calling more than 10 points from the average | 78% (Berserker) to 83% (Warden); the average is 83% |
+| One companion over 200 runs | Their most-taken calling under half of the runs | The highest is Elena: a Skirmisher in 29% of the runs where Elena took a calling |
+
+Not measured: any of it played by a person. The screens were checked by screenshot
+(`tools/screen_checks/calling_*.gd`).
+
 ## Step 2: mastery
 
 At level 8 (about the day of the second boss; `MASTERY_LEVEL`) the holder chooses one of their
@@ -259,7 +362,7 @@ The user's own play outranks all four.
 - The weapon ladder is still "+2 Mt a tier, buy the next one". It needs its own answer later.
 - Days that differ (the first complaint) is the next design after this one.
 
-## Yours to decide
+## Yours to decide (step 1 was built with the proposed answers, 2026-11-15)
 
 1. **How the three are offered.** Drawn and known from the first day, with a day at the Drill Yard to
    change one (proposed). Or the whole list open to everyone, which lets you choose any path but ends

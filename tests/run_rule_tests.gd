@@ -1419,6 +1419,7 @@ func test_playthrough() -> void:
 	var call_by_name := {}    # companion -> {calling id -> runs}
 	var rouses := 0
 	var raises := 0
+	var fight_turns := {}     # kind of fight -> [won, turns in those won, lost, turns in those lost]
 	for s in runs:
 		var run := make_run(1000 + s)
 		var policy := RunPolicy.new(_seeded(5000 + s))
@@ -1470,6 +1471,11 @@ func test_playthrough() -> void:
 			mine[policy.calling_of[who]] = int(mine.get(policy.calling_of[who], 0)) + 1
 		rouses += policy.rouses
 		raises += policy.raises
+		for kind: String in policy.fight_turns:
+			var ft: Array = fight_turns.get(kind, [0, 0, 0, 0])
+			for i in 4:
+				ft[i] = int(ft[i]) + int(policy.fight_turns[kind][i])
+			fight_turns[kind] = ft
 		for a in run.accessories:
 			by_rank[a.rank - 1] += 1
 		for r in range(1, 6):
@@ -1589,6 +1595,11 @@ func test_playthrough() -> void:
 		most.sort()
 		print("    each companion's most-taken calling: %s" % "; ".join(most))
 		print("    per run: %.2f rouses, %.2f raised" % [float(rouses) / runs, float(raises) / runs])
+	var lengths: Array[String] = []
+	for kind: String in ["battle", "elite 6", "boss 14", "elite 20", "boss 28", "elite 34", "boss 42"]:
+		var ft: Array = fight_turns.get(kind, [0, 0, 0, 0])
+		lengths.append("%s %.0f / %.0f" % [kind, float(ft[1]) / maxf(1, int(ft[0])), float(ft[3]) / maxf(1, int(ft[2]))])
+	print("    turns a fight takes (won / lost): %s" % ", ".join(lengths))
 	print("    bosses (faced / beaten / beaten %):")
 	for g in content().bosses:
 		var f: int = faced.get(g, 0)

@@ -47,6 +47,8 @@ var calling_battles: Dictionary = {}
 var battles: Array[int] = [0, 0]
 var rouses := 0
 var raises := 0
+## How long fights run: "battle", "elite 6", "boss 14"... -> [won, turns in those won, lost, turns in those lost].
+var fight_turns: Dictionary = {}
 ## POLICY_NO_CALLINGS=1: nobody ever takes a calling (to compare a run with and without them).
 var use_callings := OS.get_environment("POLICY_NO_CALLINGS") == ""
 ## POLICY_ONLY_CALLING=<id>: only that calling is ever taken (by whoever is offered it first); everyone
@@ -89,8 +91,14 @@ func play(run: Run) -> int:
 					for unit in battle.roster:
 						if unit.calling() != null:
 							in_line.append(unit.calling().id)
+					var kind := "boss %d" % d if run.day_type() == RunCalendar.DayType.BOSS else ("elite %d" % d if elite else "battle")
 					play_battle(battle)
 					won = run.finish_battle(battle).won
+					var ft: Array = fight_turns.get(kind, [0, 0, 0, 0])
+					var at := 0 if won else 2
+					ft[at] = int(ft[at]) + 1
+					ft[at + 1] = int(ft[at + 1]) + battle.tick
+					fight_turns[kind] = ft
 					battles[0] += 1
 					battles[1] += 1 if won else 0
 					for id in in_line:

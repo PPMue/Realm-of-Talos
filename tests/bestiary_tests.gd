@@ -753,7 +753,7 @@ func test_bestiary_content() -> void:
 			arts[e.portrait.resource_path] = true
 		t.check(not e.actions.is_empty(), "%s has actions" % n)
 		t.check(not n.to_lower().contains("wywern"), "%s: spelled wyvern" % n)
-		t.check(e.max_hp >= 13 and e.max_hp <= 270, "%s HP %d" % [n, e.max_hp])
+		t.check(e.max_hp >= 13 and e.max_hp <= 340, "%s HP %d" % [n, e.max_hp])
 		t.check(e.strength >= 0 and e.strength <= 30 and e.magic <= 30, "%s STR/MAG sane" % n)
 		t.check(e.defense >= 0 and e.defense <= 20 and e.resistance <= 20, "%s DEF/RES sane" % n)
 		t.check(e.speed >= 0 and e.speed <= 25 and e.dexterity <= 25, "%s SPD/DEX sane" % n)

@@ -64,7 +64,7 @@ const ENEMY_DEF_EVERY_DAYS := 30        # +1 DEF on day 31
 const ENEMY_SPD_EVERY_DAYS := 30        # +1 SPD and DEX on day 31
 ## An elite fight (days 6, 20, 34) fields the day's danger-3 enemies made tougher, by elite: Health
 ## times this, and this much more STR and MAG (Run.elite_enemy).
-const ELITE_HP_MULT: Array[float] = [0.9, 1.25, 0.9]
+const ELITE_HP_MULT: Array[float] = [0.9, 1.6, 1.25]
 const ELITE_STR_BONUS: Array[int] = [0, 1, 0]
 
 # --- Levels and XP ---

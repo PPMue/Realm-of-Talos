@@ -222,6 +222,11 @@ double for it; the Rampart Golem barely moves without Defence), so each is set o
 Each of these is one 200-run sample, about 7 points either way, and single bosses (about 40 fights
 each) much more. The callings will move all of it; the order is what is to be kept when they are in.
 
+They did (2026-11-15): with a calling on everyone the automated player won 59% of runs, and the
+later kinds, the elites and the bosses were set again to keep this order. The numbers in the two
+tables above are no longer the game's; `design/callings.md`, "What the playthrough said, and the
+retune", has those that are.
+
 ## What to watch when it is built
 
 - **Sameness.** At this size five of the fourteen start with Strength 5. What tells them apart is
