@@ -11,6 +11,6 @@ tier = 2
 stamina_cost = 9
 recovery = 2
 durability_cost = 2
-might_bonus = 1
+might_bonus = -1
 crit_bonus = 5
 strikes = 2

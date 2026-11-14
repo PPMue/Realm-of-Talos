@@ -6,11 +6,11 @@
 script = ExtResource("1_w")
 weapon_type = 4
 tier = 4
-might = 13
+might = 9
 hit = 95
 required_grade = 8
 second_type = 0
 second_grade = 6
 family = "Twinblades"
 display_name = "Silver Twinblades"
-weight = 5
+weight = 7

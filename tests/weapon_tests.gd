@@ -11,11 +11,26 @@ const TYPES := ["sword", "axe", "spear", "bow", "dagger"]
 const TIERS := ["wooden", "bronze", "iron", "steel", "silver", "platinum"]
 ## Mt by type (rows: sword, axe, spear, bow, dagger) and tier (wooden ... platinum), as approved.
 const MIGHT_TABLE := [
-	[0, 3, 6, 9, 12, 15],
-	[0, 3, 7, 10, 14, 18],
-	[1, 4, 7, 10, 13, 16],
-	[0, 2, 5, 8, 11, 14],
-	[0, 1, 4, 7, 10, 13],
+	[0, 2, 4, 6, 8, 10],
+	[0, 2, 4, 7, 9, 12],
+	[1, 3, 5, 7, 9, 11],
+	[0, 1, 3, 5, 7, 9],
+	[0, 1, 3, 5, 7, 9],
+]
+## Hit and weight by type and tier, as approved: steel no worse than iron and silver, bows at 90.
+const HIT_TABLE := [
+	[90, 90, 90, 90, 90, 95],
+	[80, 80, 80, 80, 85, 85],
+	[85, 85, 85, 85, 85, 90],
+	[90, 90, 90, 90, 90, 90],
+	[95, 95, 95, 95, 95, 100],
+]
+const WEIGHT_TABLE := [
+	[4, 5, 6, 7, 7, 7],
+	[7, 9, 10, 11, 11, 11],
+	[6, 7, 8, 9, 9, 9],
+	[3, 4, 5, 6, 6, 6],
+	[1, 2, 2, 3, 3, 3],
 ]
 ## Health before this change, to check every companion kept their standing.
 const OLD_HP := {"Elena": 30, "Asterion": 29, "Ingrid": 27, "Aina": 26, "Shiro": 25, "Sylas": 24,
@@ -64,6 +79,7 @@ func tests() -> Array[Callable]:
 		test_runeblade_uses_mag,
 		test_smithy_stocks_hybrids,
 		test_hybrid_reach,
+		test_art_costs_by_type,
 	]
 
 
@@ -192,6 +208,8 @@ func test_weapon_ladder() -> void:
 			t.eq(w.weapon_type, ki, "%s: type" % name)
 			t.eq(w.might, MIGHT_TABLE[ki][ti], "%s: Mt" % name)
 			t.eq(WeaponData.ladder_might(ti, ki), MIGHT_TABLE[ki][ti], "%s: Mt by the rule" % name)
+			t.eq(w.hit, HIT_TABLE[ki][ti], "%s: Hit" % name)
+			t.eq(w.weight, WEIGHT_TABLE[ki][ti], "%s: weight" % name)
 			t.eq(w.required_grade, WeaponData.ladder_grade(ti), "%s: grade" % name)
 			t.eq(w.display_name, "%s %s" % [TIERS[ti].capitalize(), TYPES[ki].capitalize()], "%s: name" % name)
 			t.eq(w.effective_against.has(EnemyTraits.FLYING), ki == WeaponData.WeaponType.BOW, "%s: bows against Flying" % name)
@@ -224,7 +242,7 @@ func test_weapon_ladder() -> void:
 	t.check(p.can_equip_weapon(rc.ladder_weapon(WeaponData.Tier.PLATINUM, WeaponData.WeaponType.SWORD)), "S holds platinum")
 
 
-## The four magic weapons: rare, between bronze and iron of their type in Mt, needing at most D.
+## The four magic weapons: rare, above bronze and at most iron of their type in Mt, needing at most D.
 func test_rare_magic_weapons_on_the_ladder() -> void:
 	var rc := content()
 	var magic := rc.rare_weapons.filter(func(w: WeaponData) -> bool: return w.is_magic())
@@ -236,7 +254,7 @@ func test_rare_magic_weapons_on_the_ladder() -> void:
 		t.eq(w.tier, WeaponData.Tier.BRONZE, "%s sits at bronze" % w.display_name)
 		var bronze := rc.ladder_weapon(WeaponData.Tier.BRONZE, w.weapon_type)
 		var iron := rc.ladder_weapon(WeaponData.Tier.IRON, w.weapon_type)
-		t.check(w.might > bronze.might and w.might < iron.might, "%s: Mt %d between bronze and iron" % [w.display_name, w.might])
+		t.check(w.might > bronze.might and w.might <= iron.might, "%s: Mt %d above bronze, at most iron" % [w.display_name, w.might])
 		t.check(w.required_grade <= Proficiency.Grade.D and w.required_grade > Proficiency.Grade.E,
 			"%s: needs a little training, no more than bronze" % w.display_name)
 		t.eq(w.effective_against.has(EnemyTraits.FLYING), w.weapon_type == WeaponData.WeaponType.BOW, "%s: Flying if a bow" % w.display_name)
@@ -320,10 +338,10 @@ func test_run_companion_attack() -> void:
 	t.eq(yuzu.attack_power(), (6 + 12) / 2, "Yuzu: (STR 6 + SPD 12) / 2")
 	# With another weapon in mind: Yuzu (BLD 4) with a steel dagger (weight 3): no penalty.
 	var steel := rc.ladder_weapon(WeaponData.Tier.STEEL, WeaponData.WeaponType.DAGGER)
-	t.eq(yuzu.attack(steel), 9 + 7, "a steel dagger's Mt")
+	t.eq(yuzu.attack(steel), 9 + 5, "a steel dagger's Mt")
 	# Elena (BLD 9) with a steel axe (weight 13): BLD is not lowered by weight.
 	var steel_axe := rc.ladder_weapon(WeaponData.Tier.STEEL, WeaponData.WeaponType.AXE)
-	t.eq(elena.attack(steel_axe), 15 + 10, "steel axe")
+	t.eq(elena.attack(steel_axe), 15 + 7, "steel axe")
 	# Erik (BLD 5) with a heavy bow would lose DEX: steel bow weight 7 costs 2 DEX.
 	var erik := RunCompanion.create(by_name["Erik"])
 	var steel_bow := rc.ladder_weapon(WeaponData.Tier.STEEL, WeaponData.WeaponType.BOW)
@@ -729,7 +747,8 @@ func test_hybrid_families() -> void:
 			t.eq(w.weapon_type, main, "%s: main type" % name)
 			t.eq(w.might, WeaponData.ladder_might(ti + BattleConfig.HYBRID_MIGHT_TIERS_UP, main), "%s: Mt of the main type one tier up" % name)
 			t.eq(w.might, rc.ladder_weapon(ti + 1, main).might, "%s: as the next tier's %s" % [name, TYPES[main]])
-			t.eq(w.weight, plain.weight + BattleConfig.HYBRID_WEIGHT_BONUS, "%s: weight +2" % name)
+			t.eq(w.weight, plain.weight + (4 if fam == "Twinblades" else 2), "%s: weight +2 (Twinblades +4)" % name)
+			t.eq(w.weight, plain.weight + WeaponData.hybrid_weight_bonus(fam), "%s: weight by the rule" % name)
 			t.eq(w.hit, plain.hit, "%s: Hit as the tier's %s" % [name, TYPES[main]])
 			t.eq(w.required_grade, WeaponData.ladder_grade(ti), "%s: the tier's grade in the main type" % name)
 			t.eq(w.second_grade, maxi(BattleConfig.HYBRID_SECOND_GRADE_MIN, WeaponData.ladder_grade(ti) - BattleConfig.HYBRID_SECOND_GRADE_STEPS_BELOW), "%s: one grade lower in the second, at least E+" % name)
@@ -874,3 +893,23 @@ func test_hybrid_reach() -> void:
 			later.append(fam)
 		print("    %-9s start: %-36s by training: %s" % [d.display_name, ", ".join(now), ", ".join(later)])
 	t.check(true, "printed")
+
+
+## Dagger arts cost what the other types' do; Twin Arrows strikes twice for less.
+func test_art_costs_by_type() -> void:
+	var arts := ArtLibrary.load_default()
+	var want := {"Quick Jab": 4, "Backstab": 5, "Bleeding Cut": 5, "Fade": 5, "Venom Edge": 5, "Flicker": 9, "Hobble": 9,
+		"Nerve Strike": 9, "Shadowstep": 9, "Night Venom": 14, "Thousand Cuts": 14, "Assassinate": 15}
+	for a in arts.of_type(WeaponData.WeaponType.DAGGER):
+		t.eq(a.stamina_cost, want.get(a.display_name, -1), "%s costs %d" % [a.display_name, want.get(a.display_name, -1)])
+	var by_tier := {}
+	for a in arts.arts:
+		if a.weapon_type != WeaponData.WeaponType.DAGGER:
+			var span: Array = by_tier.get(a.tier, [99, 0])
+			by_tier[a.tier] = [mini(span[0], a.stamina_cost), maxi(span[1], a.stamina_cost)]
+	for a in arts.of_type(WeaponData.WeaponType.DAGGER):
+		var span: Array = by_tier[a.tier]
+		t.check(a.stamina_cost >= span[0] and a.stamina_cost <= span[1], "%s: within the other types' tier %d costs" % [a.display_name, a.tier])
+	for a in arts.of_type(WeaponData.WeaponType.BOW):
+		if a.display_name == "Twin Arrows":
+			t.eq(a.might_bonus, -1, "Twin Arrows: Mt -1")

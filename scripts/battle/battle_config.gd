@@ -45,25 +45,29 @@ const MIN_ACTION_COUNTDOWN := 1
 
 # --- The weapon ladder ---
 # Six tiers: wooden, bronze, iron, steel, silver, platinum (WeaponData.Tier). Every weapon type exists
-# in every tier. Mt = the tier's base + the type's offset in that tier, never below 0. The axe has no
-# edge in Mt early: its heft comes from BLD (see CombatMath.attack_power) and it pulls ahead late.
-const WEAPON_TIER_BASE_MIGHT: Array[int] = [0, 3, 6, 9, 12, 15]
+# in every tier. Mt = the tier's base + the type's offset in that tier, never below 0: 2 a tier. The axe
+# has no edge in Mt early: its heft comes from BLD (see CombatMath.attack_power) and it pulls ahead late.
+# Hit and weight are in each weapon's data (README, Weapons, has the table).
+const WEAPON_TIER_BASE_MIGHT: Array[int] = [0, 2, 4, 6, 8, 10]
 # By WeaponData.WeaponType (sword, axe, spear, bow, dagger), then by tier.
 const WEAPON_TYPE_MIGHT_OFFSET := [
 	[0, 0, 0, 0, 0, 0],      # sword
-	[0, 0, 1, 1, 2, 3],      # axe
+	[0, 0, 0, 1, 1, 2],      # axe
 	[1, 1, 1, 1, 1, 1],      # spear
 	[-1, -1, -1, -1, -1, -1], # bow
-	[-2, -2, -2, -2, -2, -2], # dagger
+	[-1, -1, -1, -1, -1, -1], # dagger
 ]
 # Grade (Proficiency.Grade) needed to hold each tier: E, D, C, B, A, S.
 const WEAPON_TIER_GRADE: Array[int] = [0, 2, 4, 6, 8, 10]
 # Two-proficiency weapons (bronze to silver): Mt of their main type's ladder weapon this many tiers up,
-# weight this much above it at the same tier, Hit as it; the second type needs a grade this many steps
+# weight this much above it at the same tier (by family: HYBRID_WEIGHT_BONUS_BY_FAMILY, else
+# HYBRID_WEIGHT_BONUS; see WeaponData.hybrid_weight_bonus), Hit as it; the second type needs a grade this many steps
 # lower than the tier's (2 steps = one letter), but never below HYBRID_SECOND_GRADE_MIN: everyone has E
 # in everything, so E would be no requirement. Bronze D + E+, iron C + D, steel B + C, silver A + B.
 const HYBRID_MIGHT_TIERS_UP := 1
 const HYBRID_WEIGHT_BONUS := 2
+## Twinblades were ahead of the sword with no cost: they carry more weight.
+const HYBRID_WEIGHT_BONUS_BY_FAMILY := {"Twinblades": 4}
 const HYBRID_SECOND_GRADE_STEPS_BELOW := 2
 const HYBRID_SECOND_GRADE_MIN := 1   # Proficiency.Grade.E_PLUS
 

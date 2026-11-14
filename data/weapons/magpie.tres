@@ -6,7 +6,7 @@
 script = ExtResource("1_w")
 weapon_type = 4
 tier = 2
-might = 4
+might = 3
 hit = 90
 required_grade = 4
 rare = true

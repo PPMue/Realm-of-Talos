@@ -222,21 +222,21 @@ Exit code 0 means every test passed. `TEST_ONLY=playthrough` runs only tests who
 
 ## Weapons
 
-Six tiers, and every one of the five types (sword, axe, spear, bow, dagger) exists in every tier: 30 weapons (`WeaponData.tier`, `RunContent.weapons`). Mt = the tier's base (wooden 0, bronze 3, iron 6, steel 9, silver 12, platinum 15) + the type's offset (sword 0, spear +1, bow -1, dagger -2; the axe 0 at wooden and bronze, +1 at iron and steel, +2 at silver, +3 at platinum), never below 0 (`BattleConfig.WEAPON_TIER_BASE_MIGHT`, `WEAPON_TYPE_MIGHT_OFFSET`, `WEAPON_TIER_GRADE`).
+Six tiers, and every one of the five types (sword, axe, spear, bow, dagger) exists in every tier: 30 weapons (`WeaponData.tier`, `RunContent.weapons`). Mt = the tier's base, 2 a tier (wooden 0, bronze 2, iron 4, steel 6, silver 8, platinum 10) + the type's offset (sword 0, spear +1, bow -1, dagger -1; the axe 0 from wooden to iron, +1 at steel and silver, +2 at platinum), never below 0 (`BattleConfig.WEAPON_TIER_BASE_MIGHT`, `WEAPON_TYPE_MIGHT_OFFSET`, `WEAPON_TIER_GRADE`).
 
 | Tier (grade) | Sword | Axe | Spear | Bow | Dagger |
 |---|---|---|---|---|---|
-| Wooden (E) | 0 / 90 / 4 | 0 / 75 / 8 | 1 / 85 / 6 | 0 / 100 / 3 | 0 / 95 / 1 |
-| Bronze (D) | 3 / 90 / 5 | 3 / 75 / 10 | 4 / 85 / 7 | 2 / 100 / 4 | 1 / 95 / 2 |
-| Iron (C) | 6 / 90 / 6 | 7 / 75 / 11 | 7 / 85 / 8 | 5 / 100 / 5 | 4 / 95 / 2 |
-| Steel (B) | 9 / 85 / 8 | 10 / 70 / 13 | 10 / 80 / 10 | 8 / 95 / 7 | 7 / 90 / 3 |
-| Silver (A) | 12 / 90 / 7 | 14 / 75 / 12 | 13 / 85 / 9 | 11 / 100 / 6 | 10 / 95 / 3 |
-| Platinum (S) | 15 / 95 / 7 | 18 / 80 / 12 | 16 / 90 / 9 | 14 / 100 / 6 | 13 / 100 / 3 |
+| Wooden (E) | 0 / 90 / 4 | 0 / 80 / 7 | 1 / 85 / 6 | 0 / 90 / 3 | 0 / 95 / 1 |
+| Bronze (D) | 2 / 90 / 5 | 2 / 80 / 9 | 3 / 85 / 7 | 1 / 90 / 4 | 1 / 95 / 2 |
+| Iron (C) | 4 / 90 / 6 | 4 / 80 / 10 | 5 / 85 / 8 | 3 / 90 / 5 | 3 / 95 / 2 |
+| Steel (B) | 6 / 90 / 7 | 7 / 80 / 11 | 7 / 85 / 9 | 5 / 90 / 6 | 5 / 95 / 3 |
+| Silver (A) | 8 / 90 / 7 | 9 / 85 / 11 | 9 / 85 / 9 | 7 / 90 / 6 | 7 / 95 / 3 |
+| Platinum (S) | 10 / 95 / 7 | 12 / 85 / 11 | 11 / 90 / 9 | 9 / 90 / 6 | 9 / 100 / 3 |
 
-Mt / Hit / weight. Axes are the least accurate and heaviest, daggers the lightest, bows and daggers the most accurate; wooden is the lightest tier. Every bow is effective against Flying, every spear against Large.
+Mt / Hit / weight. Axes are the least accurate and heaviest, daggers the lightest and most accurate, bows as accurate as swords (90 at every tier); steel is no less accurate than iron or silver and no heavier than silver; wooden is the lightest tier. Every bow is effective against Flying, every spear against Large.
 
 - **Damage**: attack power + Mt (+ an art's bonus) - the target's DEF, at least 1. Attack power depends on the weapon type: sword and spear STR; axe STR + BLD / 2; bow (STR + DEX) / 2; dagger (STR + SPD) / 2; every half rounded down, from the stats as they stand in battle (after the weight penalty and any effects). A magic weapon uses MAG in place of STR (a magic bow is (MAG + DEX) / 2) and strikes against RES. Enemies (STR or MAG + their action's Mt) and spells (MAG + the spell's Mt) are not affected by weapon type. The rule is `CombatMath.attack_power`; between battles `RunCompanion.attack_power(w)` gives it from the stats a companion carries, and `RunCompanion.attack(w)` adds the weapon's Mt (the "Attack" figure: what a strike deals before DEF).
-- **The magic weapons** are four of the rare weapons (see Rare weapons): Emberglass Sword Mt 5 and Whisper Fang (dagger) Mt 3 need E+; Moonthread Bow Mt 4 and Stormcall Pike Mt 6 need D. Each is 2 Mt above the bronze weapon of its type and strikes with MAG against RES; 150 gold at the Smithy. The hermit sells the Emberglass Sword.
+- **The magic weapons** are four of the rare weapons (see Rare weapons): Emberglass Sword Mt 3 and Whisper Fang (dagger) Mt 2 need E+; Moonthread Bow Mt 3 and Stormcall Pike Mt 4 need D. Each is above the bronze weapon of its type in Mt and at most the iron one and strikes with MAG against RES; 150 gold at the Smithy. The hermit sells the Emberglass Sword.
 - **The Smithy** rolls its stock on the first day of each week: 5 different weapons, each with a tier drawn by the week (`RunConfig.SHOP_TIER_WEIGHTS`): week 1 wooden and bronze; week 2 adds iron; week 3 steel; week 4 a little silver; weeks 5-6 mostly steel, some silver. Each slot is a two-proficiency weapon of that tier with a 20% chance when the tier has them (bronze to silver; `RunConfig.SHOP_HYBRID_CHANCE`), otherwise a ladder weapon of a random type (a slot that rolls a weapon already in stock is drawn again, so about 23% of bronze-silver slots end up two-proficiency). It never sells platinum. Prices by tier: 20, 50, 110, 200, 320, 480 gold; two-proficiency weapons 65, 140, 250, 400 (`Run.weapon_price`). On top of the five, each week has a 35% chance of one rare weapon (see Rare weapons), listed first; then by tier and type, a two-proficiency weapon after the ladder weapon of its type.
 - **Events** that grant a weapon either give a set one or draw one when the event comes up: a tier drawn as the week's stock is, or (one time in four) one tier above the best the Smithy sells that week; then a two-proficiency weapon of that tier (and type) with the same 20% chance; and with a 15% chance a rare weapon of that type whose grade fits the week instead (`RunConfig.EVENT_RARE_CHANCE`). A Wounded Knight leaves a bow; the Ruined Armory any type.
 - **Bosses**: beating the day 14 or day 28 boss drops one random weapon (any type) a tier above the best the Smithy sells that week: steel on day 14, platinum on day 28 (`Run.boss_weapon_tier`); on day 14 a two-proficiency steel weapon with the same 20% chance (there is no platinum one). With a 50% chance (`RunConfig.BOSS_RARE_CHANCE`) the boss drops a rare weapon in its place: on day 14 one needing grade D or less, on day 28 any. It goes to the armory and the battle's report names it (`BattleReport.weapon_found`). The day 42 boss ends the run and drops nothing.
@@ -247,16 +247,16 @@ Off the metal ladder: a rare weapon needs only a grade in its type (not a tier) 
 
 | Weapon | Type, grade | Mt / Hit / weight | Property | Price |
 |---|---|---|---|---|
-| Oathkeeper | sword, D | grows / 90 / 5 | Mt is the ladder base Mt of the tier the wielder's sword grade can hold: 3 at D, 6 at C, 9 at B, 12 at A, 15 at S | 300 |
-| Twinfang Sabre | sword, C | 3 / 80 / 6 | a plain Attack strikes twice, each rolled on its own (arts keep their own count) | 280 |
-| Headsman | axe, C | 10 / 60 / 13 | Crit +25, Attack and arts | 280 |
-| Bloodletter | axe, D | 5 / 70 / 9 | heals the wielder for half the damage it deals (rounded down, never above max HP) | 180 |
-| Wallbreaker | spear, C | 5 / 75 / 10 | ignores half the target's DEF; with an art that ignores DEF too, the larger counts | 280 |
-| Sentinel's Pike | spear, D | 5 / 80 / 9 | DEF +3 while held, and enemies are 1.5x as likely to aim at the wielder | 180 |
-| Galewing Bow | bow, D | 3 / 90 / 3 | SPD +3 while held | 180 |
-| Longwatch | bow, C | 7 / 110 / 7 | Crit +15 | 280 |
-| Viper's Kiss | dagger, D | 2 / 95 / 2 | every hit that lands poisons: 2 damage a turn for 3 turns (a kill by it is the wielder's) | 180 |
-| Magpie | dagger, C | 4 / 90 / 3 | +10 gold for every enemy its wielder fells in a won battle, in the battle's gold | 280 |
+| Oathkeeper | sword, D | grows / 90 / 5 | Mt is the ladder base Mt of the tier the wielder's sword grade can hold: 2 at D, 4 at C, 6 at B, 8 at A, 10 at S | 300 |
+| Twinfang Sabre | sword, C | 2 / 80 / 6 | a plain Attack strikes twice, each rolled on its own (arts keep their own count) | 280 |
+| Headsman | axe, C | 7 / 60 / 13 | Crit +25, Attack and arts | 280 |
+| Bloodletter | axe, D | 3 / 70 / 9 | heals the wielder for half the damage it deals (rounded down, never above max HP) | 180 |
+| Wallbreaker | spear, C | 3 / 75 / 10 | ignores half the target's DEF; with an art that ignores DEF too, the larger counts | 280 |
+| Sentinel's Pike | spear, D | 3 / 80 / 9 | DEF +3 while held, and enemies are 1.5x as likely to aim at the wielder | 180 |
+| Galewing Bow | bow, D | 2 / 90 / 3 | SPD +3 while held | 180 |
+| Longwatch | bow, C | 5 / 110 / 7 | Crit +15 | 280 |
+| Viper's Kiss | dagger, D | 1 / 95 / 2 | every hit that lands poisons: 2 damage a turn for 3 turns (a kill by it is the wielder's) | 180 |
+| Magpie | dagger, C | 3 / 90 / 3 | +10 gold for every enemy its wielder fells in a won battle, in the battle's gold | 280 |
 
 Spears are effective against Large and bows against Flying, as every spear and bow is. The properties are data on `WeaponData` (`might_by_grade`, `attack_strikes`, `crit_bonus`, `lifesteal_percent`, `ignore_def_percent`, `held_stats`, `target_weight_mult`, `on_hit_effect`, `gold_per_kill`), so another rare weapon is a new `.tres` in that list. The Attack figure and every forecast show the true numbers (Oathkeeper's Mt for its holder, two strikes for Twinfang).
 
@@ -277,20 +277,20 @@ Six families need a grade in two types. Each **is its main type** (the first nam
 | Javelin | spear + bow (effective against Large) |
 | Runeblade | sword + black magic: a magic weapon (MAG in place of STR, against RES) |
 
-Each family exists at bronze, iron, steel and silver ("Bronze Halberd" ... "Silver Halberd"; `data/weapons/<tier>_<family>.tres`, listed in `RunContent.hybrid_weapons`, 24 in all). To hold one: the tier's grade in the main type and one grade lower in the second, but never below E+ (everyone has E in everything, so E would be no requirement; `BattleConfig.HYBRID_SECOND_GRADE_MIN`): bronze D + E+, iron C + D, steel B + C, silver A + B. Mt is that of the main type's ladder weapon one tier up (`BattleConfig.HYBRID_MIGHT_TIERS_UP`), weight 2 above the main type's weapon of the same tier (`HYBRID_WEIGHT_BONUS`), Hit as it; the price is the tier's x1.25, rounded to 5 (`RunConfig.HYBRID_PRICE_MULT`). Effective only per the main type: Glaive and Javelin against Large, the others against nothing.
+Each family exists at bronze, iron, steel and silver ("Bronze Halberd" ... "Silver Halberd"; `data/weapons/<tier>_<family>.tres`, listed in `RunContent.hybrid_weapons`, 24 in all). To hold one: the tier's grade in the main type and one grade lower in the second, but never below E+ (everyone has E in everything, so E would be no requirement; `BattleConfig.HYBRID_SECOND_GRADE_MIN`): bronze D + E+, iron C + D, steel B + C, silver A + B. Mt is that of the main type's ladder weapon one tier up (`BattleConfig.HYBRID_MIGHT_TIERS_UP`), weight 2 above the main type's weapon of the same tier, 4 for the Twinblades (`HYBRID_WEIGHT_BONUS`, `HYBRID_WEIGHT_BONUS_BY_FAMILY`), Hit as it; the price is the tier's x1.25, rounded to 5 (`RunConfig.HYBRID_PRICE_MULT`). Effective only per the main type: Glaive and Javelin against Large, the others against nothing.
 
 | Tier (needs) | Halberd | Glaive | Greatsword | Twinblades | Javelin | Runeblade | Price |
 |---|---|---|---|---|---|---|---|
-| Bronze (D + E+) | 7 / 75 / 12 | 7 / 85 / 9 | 6 / 90 / 7 | 4 / 95 / 4 | 7 / 85 / 9 | 6 / 90 / 7 | 65 |
-| Iron (C + D) | 10 / 75 / 13 | 10 / 85 / 10 | 9 / 90 / 8 | 7 / 95 / 4 | 10 / 85 / 10 | 9 / 90 / 8 | 140 |
-| Steel (B + C) | 14 / 70 / 15 | 13 / 80 / 12 | 12 / 85 / 10 | 10 / 90 / 5 | 13 / 80 / 12 | 12 / 85 / 10 | 250 |
-| Silver (A + B) | 18 / 75 / 14 | 16 / 85 / 11 | 15 / 90 / 9 | 13 / 95 / 5 | 16 / 85 / 11 | 15 / 90 / 9 | 400 |
+| Bronze (D + E+) | 4 / 80 / 11 | 5 / 85 / 9 | 4 / 90 / 7 | 3 / 95 / 6 | 5 / 85 / 9 | 4 / 90 / 7 | 65 |
+| Iron (C + D) | 7 / 80 / 12 | 7 / 85 / 10 | 6 / 90 / 8 | 5 / 95 / 6 | 7 / 85 / 10 | 6 / 90 / 8 | 140 |
+| Steel (B + C) | 9 / 80 / 13 | 9 / 85 / 11 | 8 / 90 / 9 | 7 / 95 / 7 | 9 / 85 / 11 | 8 / 90 / 9 | 250 |
+| Silver (A + B) | 12 / 85 / 13 | 11 / 85 / 11 | 10 / 90 / 9 | 9 / 95 / 7 | 11 / 85 / 11 | 10 / 90 / 9 | 400 |
 
 Mt / Hit / weight. `WeaponData.second_type` (a weapon type) or `second_school` (a magic school), with `second_grade`, hold the second requirement (-1 / unset for ordinary weapons); `WeaponData.requirement_text()` writes it for display ("axe C · spear D"; an ordinary weapon "spear C"). Every check of whether someone can hold a weapon goes through `CompanionProgress.weapon_block_reason(w)` (`can_equip_weapon` is it being empty), which names the first grade missing ("Needs spear D; Elena is E.").
 
 ## Combat arts
 
-An art belongs to one weapon type, can only be used with a weapon of that type in hand, and costs stamina and a recovery like any action (always one turn). Tier 1: 4-6 STA, sits out 1 action; tier 2: 8-10 STA, 2 actions; tier 3: 13-15 STA, 3 actions. Every weapon type has 12 arts, 5 / 4 / 3 by tier (`data/arts/`, all listed in `art_library.tres`). A companion's signature art is one of the twelve: they start knowing it, and the other user of that weapon can learn it. Effects are limited to bonus Mt/Hit/Crit, striking every enemy, striking twice, ignoring part of DEF, effectiveness against a trait, a debuff on each enemy hit (lowered stats, some of which stack; taking more damage; bleeding or poison every turn, which can kill) and a buff on the user (raised stats; taking less damage; being aimed at more or less often; a stance that answers physical blows: an enemy whose physical action lands on the user is hurt for a share of the damage, at least 1, and can die of it; magic is never answered). `WeaponData.unique_art` is reserved for rare weapons that grant an art of their own; nothing uses it yet, nor `CombatArtData.durability_cost`.
+An art belongs to one weapon type, can only be used with a weapon of that type in hand, and costs stamina and a recovery like any action (always one turn). Tier 1: 4-6 STA, sits out 1 action; tier 2: 8-10 STA, 2 actions; tier 3: 13-15 STA, 3 actions. Dagger arts cost what the other types' do; Twin Arrows strikes twice at Mt -1. Every weapon type has 12 arts, 5 / 4 / 3 by tier (`data/arts/`, all listed in `art_library.tres`). A companion's signature art is one of the twelve: they start knowing it, and the other user of that weapon can learn it. Effects are limited to bonus Mt/Hit/Crit, striking every enemy, striking twice, ignoring part of DEF, effectiveness against a trait, a debuff on each enemy hit (lowered stats, some of which stack; taking more damage; bleeding or poison every turn, which can kill) and a buff on the user (raised stats; taking less damage; being aimed at more or less often; a stance that answers physical blows: an enemy whose physical action lands on the user is hurt for a share of the damage, at least 1, and can die of it; magic is never answered). `WeaponData.unique_art` is reserved for rare weapons that grant an art of their own; nothing uses it yet, nor `CombatArtData.durability_cost`.
 
 ## Not built yet
 

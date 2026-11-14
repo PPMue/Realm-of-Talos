@@ -15,7 +15,6 @@ display_name = "Fade"
 description = "Cut, then slip back into the shadows."
 weapon_type = 4
 tier = 1
-stamina_cost = 4
 recovery = 1
 durability_cost = 1
 might_bonus = -1

@@ -6,7 +6,6 @@
 script = ExtResource("1_w")
 weapon_type = 2
 tier = 1
-might = 7
 hit = 85
 effective_against = Array[String](["Large"])
 required_grade = 2

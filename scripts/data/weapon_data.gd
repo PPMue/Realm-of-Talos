@@ -102,12 +102,18 @@ func is_rare() -> bool:
 
 
 ## Mt for a wielder with progress `p` (null: the listed `might`). A might_by_grade weapon uses the
-## ladder base Mt of the best tier their grade in its type can hold: 3 at D, 6 at C, 9 at B, 12 at A,
-## 15 at S.
+## ladder base Mt of the best tier their grade in its type can hold: 2 at D, 4 at C, 6 at B, 8 at A,
+## 10 at S.
 func might_for(p: CompanionProgress) -> int:
 	if not might_by_grade or p == null:
 		return might
 	return grade_might(p.grade(weapon_type))
+
+
+## Weight a two-proficiency weapon of `family` carries above its main type's ladder weapon of its tier
+## (BattleConfig.HYBRID_WEIGHT_BONUS_BY_FAMILY, else HYBRID_WEIGHT_BONUS).
+static func hybrid_weight_bonus(p_family: String) -> int:
+	return int(BattleConfig.HYBRID_WEIGHT_BONUS_BY_FAMILY.get(p_family, BattleConfig.HYBRID_WEIGHT_BONUS))
 
 
 ## Ladder base Mt of the best tier `grade` can hold.
@@ -123,7 +129,8 @@ static func grade_might(grade: int) -> int:
 func trait_lines() -> Array[String]:
 	var out: Array[String] = []
 	if might_by_grade:
-		out.append("Mt grows with the wielder's %s grade (3 at D up to 15 at S)" % type_name(weapon_type).to_lower())
+		out.append("Mt grows with the wielder's %s grade (%d at D up to %d at S)" % [type_name(weapon_type).to_lower(),
+			grade_might(Proficiency.Grade.D), grade_might(Proficiency.Grade.S)])
 	if is_magic():
 		out.append("Strikes with MAG against RES")
 	if attack_strikes > 1:

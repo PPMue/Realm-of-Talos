@@ -6,7 +6,7 @@
 script = ExtResource("1_w")
 weapon_type = 0
 tier = 1
-might = 6
+might = 4
 hit = 90
 damage_type = 1
 required_grade = 2

@@ -7,16 +7,16 @@ var t   # the runner (run_tests.gd)
 
 ## name -> [file, type, grade, Mt, Hit, weight, price]
 const TEN := {
-	"Oathkeeper": ["oathkeeper", 0, 2, 3, 90, 5, 300],
-	"Twinfang Sabre": ["twinfang_sabre", 0, 4, 3, 80, 6, 280],
-	"Headsman": ["headsman", 1, 4, 10, 60, 13, 280],
-	"Bloodletter": ["bloodletter", 1, 2, 5, 70, 9, 180],
-	"Wallbreaker": ["wallbreaker", 2, 4, 5, 75, 10, 280],
-	"Sentinel's Pike": ["sentinels_pike", 2, 2, 5, 80, 9, 180],
-	"Galewing Bow": ["galewing_bow", 3, 2, 3, 90, 3, 180],
-	"Longwatch": ["longwatch", 3, 4, 7, 110, 7, 280],
-	"Viper's Kiss": ["vipers_kiss", 4, 2, 2, 95, 2, 180],
-	"Magpie": ["magpie", 4, 4, 4, 90, 3, 280],
+	"Oathkeeper": ["oathkeeper", 0, 2, 2, 90, 5, 300],
+	"Twinfang Sabre": ["twinfang_sabre", 0, 4, 2, 80, 6, 280],
+	"Headsman": ["headsman", 1, 4, 7, 60, 13, 280],
+	"Bloodletter": ["bloodletter", 1, 2, 3, 70, 9, 180],
+	"Wallbreaker": ["wallbreaker", 2, 4, 3, 75, 10, 280],
+	"Sentinel's Pike": ["sentinels_pike", 2, 2, 3, 80, 9, 180],
+	"Galewing Bow": ["galewing_bow", 3, 2, 2, 90, 3, 180],
+	"Longwatch": ["longwatch", 3, 4, 5, 110, 7, 280],
+	"Viper's Kiss": ["vipers_kiss", 4, 2, 1, 95, 2, 180],
+	"Magpie": ["magpie", 4, 4, 3, 90, 3, 280],
 }
 
 
@@ -131,8 +131,9 @@ func test_rare_holding_rule() -> void:
 
 func test_oathkeeper_might() -> void:
 	var oath := rare("oathkeeper")
-	var expected := {Proficiency.Grade.D: 3, Proficiency.Grade.D_PLUS: 3, Proficiency.Grade.C: 6, Proficiency.Grade.B: 9,
-		Proficiency.Grade.A: 12, Proficiency.Grade.A_PLUS: 12, Proficiency.Grade.S: 15}
+	var expected := {Proficiency.Grade.D: 2, Proficiency.Grade.D_PLUS: 2, Proficiency.Grade.C: 4, Proficiency.Grade.B: 6,
+		Proficiency.Grade.A: 8, Proficiency.Grade.A_PLUS: 8, Proficiency.Grade.S: 10}
+	t.eq(oath.trait_lines()[0], "Mt grows with the wielder's sword grade (2 at D up to 10 at S)", "its line")
 	var c := RunCompanion.create(fighter(oath))
 	for g: int in expected:
 		c.progress.points[WeaponData.WeaponType.SWORD] = Proficiency.points_for(g)
@@ -194,15 +195,15 @@ func test_wallbreaker_ignores_def() -> void:
 	var wb := rare("wallbreaker")
 	var b: Battle = t.make_battle(cs1(fighter(wb)), one(target(10)))
 	var c := b.roster[0]
-	t.eq(b.forecast(c, b.enemies[0]).damage, 10 + 5 - 5, "half of DEF 10 ignored")
+	t.eq(b.forecast(c, b.enemies[0]).damage, 10 + 3 - 5, "half of DEF 10 ignored")
 	var small: CombatArtData = t.make_art("Pierce", 1, 1, 1, 0, WeaponData.WeaponType.SPEAR)
 	small.ignore_def_percent = 20
 	t.give_art(c, small)
-	t.eq(b.forecast(c, b.enemies[0], small).damage, 10 + 5 - 5, "an art ignoring less: the weapon's half counts")
+	t.eq(b.forecast(c, b.enemies[0], small).damage, 10 + 3 - 5, "an art ignoring less: the weapon's half counts")
 	var big: CombatArtData = t.make_art("Skewer", 1, 1, 1, 0, WeaponData.WeaponType.SPEAR)
 	big.ignore_def_percent = 100
 	t.give_art(c, big)
-	t.eq(b.forecast(c, b.enemies[0], big).damage, 10 + 5 - 0, "an art ignoring more: the art's counts, no stacking")
+	t.eq(b.forecast(c, b.enemies[0], big).damage, 10 + 3 - 0, "an art ignoring more: the art's counts, no stacking")
 	var b2: Battle = t.make_battle(cs1(fighter(t.make_weapon(5, 999, 0, WeaponData.WeaponType.SPEAR))), one(target(10)))
 	t.eq(b2.forecast(b2.roster[0], b2.enemies[0]).damage, 10 + 5 - 10, "a plain spear: all of DEF")
 
