@@ -33,6 +33,8 @@ var worn_changes := 0
 ## at the start).
 var covers := 0
 var retreats := 0
+## Battle step 3: staggering arts used to push back a blow that would fell someone this turn.
+var staggers := 0
 var actions_by_rank: Array[int] = [0, 0, 0, 0]
 
 ## The order the city is built up in, timber facilities: what helps the company stay in the fight
@@ -636,6 +638,7 @@ func spell_fraction(run: Run) -> float:
 ## else uses an affordable art if it has one, otherwise attacks, always at the enemy with the least HP.
 ## It answers the mechanics in obvious ways: it never strikes an enemy whose reflecting stance is up
 ## (it hits another, or guards or focuses instead), it covers a neighbour about to fall (cover_ward),
+## it pushes back a blow that would fell someone this turn with a staggering art (stagger_answer),
 ## it guards when a heavy blow aimed at it lands next tick, and it sounds the retreat when the fight is
 ## going badly (should_retreat).
 func play_battle(b: Battle) -> void:
@@ -658,6 +661,11 @@ func play_battle(b: Battle) -> void:
 		if ward != null:
 			b.guard(c, ward)
 			covers += 1
+			continue
+		var answer := stagger_answer(b, c)
+		if not answer.is_empty():
+			b.use_art(c, answer[0], answer[1])
+			staggers += 1
 			continue
 		if should_guard(b, c):
 			b.guard(c)
@@ -704,6 +712,32 @@ func cover_ward(b: Battle, c: CompanionUnit) -> CompanionUnit:
 		if not p.falls and not p.ward_falls:
 			return w
 	return null
+
+
+## [art, enemy] when `c` can push back a blow that would fell someone this turn, else []: a staggering
+## art `c` can pay for (CombatArtData.stagger_ticks) and an enemy acting this turn whose action has not
+## been delayed yet, is not behind a reflecting stance, and strikes the whole line or is aimed at a
+## companion who would fall this turn (Battle.falls_on_turn 1).
+func stagger_answer(b: Battle, c: CompanionUnit) -> Array:
+	var art: CombatArtData = null
+	for a in c.arts():
+		if a.stagger_ticks > 0 and b.can_use_art(c, a):
+			art = a
+	if art == null:
+		return []
+	var falling: Array[CompanionUnit] = []
+	for o in b.active_companions():
+		if b.falls_on_turn(o) == 1:
+			falling.append(o)
+	if falling.is_empty():
+		return []
+	for e in b.living_enemies():
+		var a := e.pending_action
+		if a == null or e.countdown != 1 or e.delayed or not a.deals_damage or e.reflect_percent() > 0:
+			continue
+		if a.targeting == EnemyActionData.Targeting.ALL_COMPANIONS or falling.has(e.pending_target):
+			return [art, e]
+	return []
 
 
 ## Retreat (not from a boss: Battle.can_retreat) when at least half the line is injured and the enemies

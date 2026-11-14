@@ -12,4 +12,5 @@ stamina_cost = 9
 recovery = 3
 durability_cost = 2
 might_bonus = 4
+stagger_ticks = 1
 ignore_def_percent = 50

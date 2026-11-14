@@ -21,5 +21,6 @@ stamina_cost = 9
 recovery = 3
 durability_cost = 2
 might_bonus = -2
+stagger_ticks = 1
 hits_all_enemies = true
 target_effect = SubResource("Resource_target")

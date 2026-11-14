@@ -362,18 +362,22 @@ func test_front_generation_by_danger() -> void:
 func test_enemy_scaling() -> void:
 	var orc: EnemyData = load("res://data/enemies/orc.tres")
 	var d1 := Run.scaled_enemy(orc, 1)
-	t.eq(d1.max_hp, orc.max_hp, "day 1 unchanged HP")
+	t.eq(d1.max_hp, roundi(orc.max_hp * RunConfig.ENEMY_HP_MULT), "day 1: the base HP times the multiplier")
 	t.eq(d1.strength, orc.strength, "day 1 unchanged STR")
 	t.check(d1 != orc, "a copy, not the data itself")
 	var d42 := Run.scaled_enemy(orc, 42)
-	t.eq(d42.max_hp, roundi(42 * (1.0 + RunConfig.ENEMY_HP_GROWTH_PER_DAY * 41)), "day 42 HP")
+	t.eq(d42.max_hp, roundi(42 * RunConfig.ENEMY_HP_MULT * (1.0 + RunConfig.ENEMY_HP_GROWTH_PER_DAY * 41)), "day 42 HP")
+	var tyrant: EnemyData = load("res://data/enemies/bosses/horned_tyrant.tres")
+	t.eq(Run.sized_boss(tyrant).max_hp, roundi(tyrant.max_hp * RunConfig.BOSS_HP_MULT), "a boss: its HP times the boss multiplier")
+	t.check(Run.sized_boss(tyrant) != tyrant, "a copy too")
 	t.eq(d42.strength, orc.strength + floori(41.0 / RunConfig.ENEMY_STR_EVERY_DAYS), "day 42 STR")
 	t.eq(d42.defense, orc.defense + floori(41.0 / RunConfig.ENEMY_DEF_EVERY_DAYS), "day 42 DEF")
 	t.eq(d42.speed, orc.speed + floori(41.0 / RunConfig.ENEMY_SPD_EVERY_DAYS), "day 42 SPD")
 	t.check(d42.strength > orc.strength and d42.defense > orc.defense, "day 42 enemies are stronger")
 	# Fitted so day 42 is about what day 30 was with the old 30-day growth (+7 STR, +4 DEF, +3 SPD); Health
-	# x2.23, lowered from x2.44 when the whole line came to fight (battle step 2).
-	t.check(absf(d42.max_hp / 42.0 - 2.23) < 0.05, "day 42 HP is about x2.23 (%d)" % d42.max_hp)
+	# x2.23 by the day (lowered from x2.44 when the whole line came to fight, battle step 2), on top of
+	# the multiplier every enemy has since companions' Health went up by half (battle step 3).
+	t.check(absf(d42.max_hp / (42.0 * RunConfig.ENEMY_HP_MULT) - 2.23) < 0.05, "day 42 HP is about x2.23 of the base (%d)" % d42.max_hp)
 	t.eq(d42.strength - orc.strength, 7, "day 42: +7 STR")
 	t.eq(d42.defense - orc.defense, 4, "day 42: +4 DEF")
 	t.eq(d42.speed - orc.speed, 3, "day 42: +3 SPD")
@@ -389,7 +393,11 @@ func test_enemy_scaling() -> void:
 	t.eq(run.fronts.size(), 1, "one boss front")
 	var boss := run.fronts[0]
 	t.check(boss.is_boss, "boss front")
-	t.eq(boss.enemies[0], boss.group.enemies[0], "the boss itself is not scaled")
+	var lord: EnemyData = boss.enemies[0]
+	var lord_data: EnemyData = boss.group.enemies[0]
+	t.eq(lord.max_hp, roundi(lord_data.max_hp * RunConfig.BOSS_HP_MULT), "the boss itself: only its HP, by the boss multiplier")
+	t.eq(lord.strength, lord_data.strength, "its STR is as built")
+	t.eq(lord.display_name, lord_data.display_name, "and it is the same boss")
 	t.check(boss.enemies.size() < 2 or boss.enemies[1].max_hp > boss.group.enemies[1].max_hp, "escorts are scaled")
 
 
@@ -1399,6 +1407,7 @@ func test_playthrough() -> void:
 	var worn_changes := 0
 	var covers := 0
 	var retreats := 0
+	var staggers := 0
 	var by_busiest := [0, 0, 0, 0]
 	var by_rank := [0, 0, 0, 0, 0]
 	var stones := 0
@@ -1435,6 +1444,7 @@ func test_playthrough() -> void:
 		worn_changes += policy.worn_changes
 		covers += policy.covers
 		retreats += policy.retreats
+		staggers += policy.staggers
 		for i in 4:
 			by_busiest[i] += policy.actions_by_rank[i]
 		for a in run.accessories:
@@ -1518,8 +1528,8 @@ func test_playthrough() -> void:
 	print("    accessories per run: %.2f made (Topaz..Diamond %s), %.2f put on; %d types seen: %s" % [
 		float(crafted_total) / runs, str(by_rank), float(worn_changes) / runs, made.size(), ", ".join(made_text)])
 	var acts: int = by_busiest[0] + by_busiest[1] + by_busiest[2] + by_busiest[3]
-	print("    battles: %.2f covers and %.2f retreats per run; with four in the line, actions busiest first %d%% / %d%% / %d%% / %d%%" % [
-		float(covers) / runs, float(retreats) / runs, roundi(100.0 * by_busiest[0] / maxi(1, acts)), roundi(100.0 * by_busiest[1] / maxi(1, acts)),
+	print("    battles: %.2f covers, %.2f blows staggered and %.2f retreats per run; with four in the line, actions busiest first %d%% / %d%% / %d%% / %d%%" % [
+		float(covers) / runs, float(staggers) / runs, float(retreats) / runs, roundi(100.0 * by_busiest[0] / maxi(1, acts)), roundi(100.0 * by_busiest[1] / maxi(1, acts)),
 		roundi(100.0 * by_busiest[2] / maxi(1, acts)), roundi(100.0 * by_busiest[3] / maxi(1, acts))])
 	var trips: int = scavenged[0] + scavenged[1] + scavenged[2]
 	print("    scavenging: %.1f trips per run (full %d%%, half %d%%, nothing %d%%); %.2f injured per run" % [

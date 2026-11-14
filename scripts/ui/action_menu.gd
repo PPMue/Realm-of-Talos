@@ -406,7 +406,7 @@ func show_wait(enabled: bool, next_up: CompanionUnit) -> void:
 	var b: ActionButton = _buttons[WAIT]
 	b.disabled = not enabled
 	b.active = false
-	_descriptions[WAIT] = "Let one turn pass. Enemy countdowns drop by 1 and recovering companions get closer to ready."
+	_descriptions[WAIT] = "Let one turn pass. Enemy countdowns drop by 1, recovering companions get closer to ready and everyone catches 1 stamina."
 	_default_info = "Nobody is ready to act."
 	_update_info()
 

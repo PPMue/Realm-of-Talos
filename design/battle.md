@@ -1,8 +1,9 @@
-# Battles: the enemy's hand shown, the whole line fighting (design; steps 1 and 2 built, step 3 proposed)
+# Battles: the enemy's hand shown, the whole line fighting (design; steps 1 to 3 built, the account proposed)
 
 Written 2026-11-14 after the user's play reports ("not engaging; sometimes I don't know why I win or
 lose"). The user accepted the answers proposed under "Yours to decide" and asked for step 1, then
-step 2; step 3 waits for their word. Numbers marked "first guess" are to be tuned with the probe.
+step 2, then had the recovery cap of step 2 taken out and asked for step 3. All three are built;
+"The account" is not. Numbers marked "first guess" were tuned with the probe where a note says so.
 
 ## What is wrong, measured
 
@@ -165,6 +166,22 @@ sides and the balance is set again there.
   the enemies' Health and growth retuned to hold the win rate. An ordinary blow should be a cost and
   a heavy one (countdown 4 or more) a threat to answer.
 
+**Built** (2026-11-14). Breath: `BattleConfig.BREATH_PER_TURN` (1), given in `Battle._advance` at the
+end of every turn to each standing companion who did not act in it (a Wait is a turn nobody acts in;
+a companion standing alone acts every turn and gets none). Focus: `FOCUS_RESTORE_PERCENT` (50) of max
+stamina, rounded up, plus Steady Breath and Beads. Stagger: `CombatArtData.stagger_ticks` (1) on Sword
+Dance, Hamstring, Skewer, Suppressing Volley (every enemy it hits) and Hobble; it goes through
+`Battle.delay_action`, so an action is pushed back once, by anything (a spell, an art, an Hourglass),
+and only by a strike that lands. Health: every companion's base Health times 1.5, rounded up (24-36).
+Enemies: `RunConfig.ENEMY_HP_MULT` 1.35 on every enemy of a normal front and a boss's escorts, before
+the day's growth (left at 3% a day), and `BOSS_HP_MULT` 1.4 on the boss itself (`Run.sized_boss`);
+their blows were left as they were. Tried on 200 runs: enemies untouched 55% of runs won, both
+multipliers 1.3 28%, both 1.5 10%; 1.35 and 1.4 gave 19%. The automated player and the probe's players
+push back a blow that would fell someone this turn when the one acting carries a staggering art it can
+pay for (`run_policy.gd` `stagger_answer`), after trying to cover and before guarding. On screen: the
+art's card says "Staggers: its action comes 1 turn later (once per action)", the enemy pointed at
+says STAGGERS +1 or ALREADY DELAYED, and the pushed action carries the DELAYED tag a spell's does.
+
 ## The account
 
 - **Before**, on each report at the war table: the hardest blow that front has against the line as it
@@ -256,6 +273,47 @@ are injured, and Guard has a second use. What it did not do:
 - **Retreating is common and cheap**: about one battle in six ends that way for the automated player
   (3.3 a run), and runs lost to the walls fell rather than rose. Whether that is right is for the
   user's play to say; the wall damage of a lost front is the knob.
+
+**After the cap was removed, and after step 3** (2026-11-14; 30 runs each, 504 and 531 battles, 20
+replays each). The first column is step 2 without the recovery cap and nothing else changed; the
+second adds step 3 with the enemies' Health retuned (so its win figures are not the rules alone):
+
+| | Step 2 with the cap | Cap removed | After step 3 |
+|---|---|---|---|
+| Battles won: automated player / strongest acts / random Attacks | 73 / 76 / 54% | 72 / 73 / 53% | 74 / 76 / 51% |
+| Battles won: reader | 76% | 74% | 77% |
+| Reader's win share over random Attacks | 22 points | 21 points | 26 points |
+| Turns a battle | 13.8 | 13.9 | 19.0 |
+| Waits a battle | 0.1 | 1.2 | 1.4 |
+| Actions by the busiest two | 76% | 78% | 75% |
+| ...with four in the line | 68% | 68% | 67% |
+| Fielded who never act, a battle | 0.28 | 0.24 | 0.22 (reader 0.10) |
+| Plain Attack / arts, share of actions | 29 / 48% | 29 / 48% | 18 / 58% |
+| Guard, share of actions | 8% (reader 11%) | 8% (reader 10%) | 6% (reader 8%) |
+| Blows taking half of max Health or more | 37% | 37% | 17% |
+| Blows felling someone at 80% Health or more | 2.4% | 2.5% | 0.2% |
+| Injured a battle | 1.00 (reader 0.87) | 0.98 (reader 0.87) | 0.90 (reader 0.79) |
+| ...in battles won | 0.50 (reader 0.40) | 0.47 (reader 0.37) | 0.41 (reader 0.33) |
+| Battles ended by a retreat | 18% | 18% | 17% |
+| Won with two in the line / with four | 86 / 70% | 76 / 71% | 81 / 73% |
+| Whole runs won by the automated player (200 runs) | 21% | 13% | 19% |
+
+Removing the cap cost the small line most: a line of two went from 86% to 76% of battles won (it
+waits one action in three), week 1 from 91% to 86%. It did not make the fourth companion busier for
+the automated player, which does not plan around a heavy art's recovery.
+
+Step 3 did what it was for on two counts. Blows are lighter against the Health they land on: those
+taking half of someone's Health fell from 37% to 17% (the target was about 20%), and almost nobody is
+felled from near full Health any more. And stamina lasts: arts are 58% of actions and the plain Attack
+18%. Battles are longer, 19 turns for 14.
+
+What it did not do: **reading the enemy's hand still wins no more than letting the strongest act**
+(77% and 76%). The reader loses fewer companions (0.33 injured in a battle won, for 0.41), and is 26
+points ahead of random Attacks where the target was 40. A stagger saved someone only about once in
+twenty battles for the reader: the automated players carry whatever arts they learned and seldom have
+one to hand on the turn it is needed, so that figure says little about what a person choosing their
+three arts can do with it. The late game is still the wall: week 5 battles are won 41% of the time,
+the day 34 elite 19%, the day 42 bosses 28-36%.
 
 ## Yours to decide
 

@@ -34,8 +34,9 @@ const RECOVERY_FOCUS := 2
 const GUARD_DAMAGE_TAKEN_MULT := 0.5
 const GUARD_DURATION_TICKS := 1
 
-# --- Focus ---
-const FOCUS_RESTORE := 5               # stamina, flat: about the cost of a tier 1 art
+# --- Stamina in battle ---
+const FOCUS_RESTORE_PERCENT := 50      # Focus: this share of max stamina, rounded up
+const BREATH_PER_TURN := 1             # regained at the end of every turn a standing companion did not act in
 
 # --- Enemy single-target selection ---
 const TARGET_WEIGHT_BASE := 1.0         # leftmost companion

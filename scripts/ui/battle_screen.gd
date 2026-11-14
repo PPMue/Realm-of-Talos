@@ -1279,7 +1279,10 @@ func _refresh_enemies() -> void:
 			var art := _art if _mode == Mode.TARGET_ART else null
 			# The forecast knows how many times it lands: an art's strikes, or a weapon that strikes twice.
 			var f := battle.forecast(_selected, e, art)
-			view.set_forecast(f, f.strikes if f != null else 1)
+			var stagger := ""
+			if art != null and art.stagger_ticks > 0:
+				stagger = "ALREADY DELAYED" if e.delayed else "STAGGERS +%d" % art.stagger_ticks
+			view.set_forecast(f, f.strikes if f != null else 1, stagger)
 		else:
 			view.set_forecast(null)
 
@@ -1395,7 +1398,7 @@ func _enemy_tooltip(e: EnemyUnit) -> String:
 	if e.reflect_percent() > 0:
 		tip += "\nWeapon strikes and arts that land on it deal %d%% of their damage back. Spells pass through." % e.reflect_percent()
 	if e.delayed and e.is_alive():
-		tip += "\n\nIts coming action has already been delayed once. Spells cannot delay it again until it acts."
+		tip += "\n\nIts coming action has already been pushed back once. Nothing pushes it back again until it acts."
 	if e.hastened and e.is_alive():
 		tip += "\n\nAn order brought its coming action forward."
 	if e.data.has_phase() and e.phase == 0:

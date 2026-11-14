@@ -2267,7 +2267,7 @@ func _make_boss_front(d: int) -> Front:
 	# The first enemy is the boss, built for its day; any escorts grow with the day like other enemies.
 	for i in f.group.enemies.size():
 		var e := f.group.enemies[i]
-		f.enemies.append(e if i == 0 else scaled_enemy(e, d))
+		f.enemies.append(sized_boss(e) if i == 0 else scaled_enemy(e, d))
 	f.reward_gold = RunConfig.BOSS_REWARD_GOLD[clampi(index, 0, RunConfig.BOSS_REWARD_GOLD.size() - 1)]
 	if d < RunConfig.DAYS:
 		for m in RunConfig.MATERIAL_ORDER:
@@ -2278,11 +2278,20 @@ func _make_boss_front(d: int) -> Front:
 	return f
 
 
-## A copy of `e` grown for `day` (see RunConfig enemy scaling). Day 1 returns an unchanged copy.
+## A boss as it is fielded: a copy with its Health times RunConfig.BOSS_HP_MULT. Nothing else changes
+## (a boss is built for its day).
+static func sized_boss(e: EnemyData) -> EnemyData:
+	var s := e.duplicate() as EnemyData
+	s.max_hp = roundi(e.max_hp * RunConfig.BOSS_HP_MULT)
+	return s
+
+
+## A copy of `e` grown for `day` (see RunConfig enemy scaling): Health times RunConfig.ENEMY_HP_MULT on
+## any day, then the day's growth. On day 1 the other stats are unchanged.
 static func scaled_enemy(e: EnemyData, on_day: int) -> EnemyData:
 	var s := e.duplicate() as EnemyData
 	var d := maxi(0, on_day - 1)
-	s.max_hp = roundi(e.max_hp * (1.0 + RunConfig.ENEMY_HP_GROWTH_PER_DAY * d))
+	s.max_hp = roundi(e.max_hp * RunConfig.ENEMY_HP_MULT * (1.0 + RunConfig.ENEMY_HP_GROWTH_PER_DAY * d))
 	s.strength = e.strength + floori(float(d) / RunConfig.ENEMY_STR_EVERY_DAYS)
 	s.magic = e.magic + floori(float(d) / RunConfig.ENEMY_STR_EVERY_DAYS)
 	s.defense = e.defense + floori(float(d) / RunConfig.ENEMY_DEF_EVERY_DAYS)

@@ -6,8 +6,9 @@ extends Resource
 ##
 ## Effects are data only and limited to: bonus Mt/Hit/Crit, striking every living enemy,
 ## striking twice, ignoring part of the target's DEF (RES with a magic weapon), effectiveness against
-## enemy traits, a status effect on each enemy hit (debuff) and a status effect on the user (buff).
-## Nothing here touches enemy countdowns: only spells can delay them.
+## enemy traits, a status effect on each enemy hit (debuff), a status effect on the user (buff), and,
+## for one tier 2 art of each weapon type, a stagger: the coming action of each enemy hit is pushed back
+## (once per action, as a spell's delay is: Battle.delay_action).
 
 @export var display_name: String = ""
 @export_multiline var description: String = ""
@@ -33,6 +34,9 @@ extends Resource
 ## Enemy traits this art is effective against (half as much damage again). Does not stack with the
 ## weapon's own list.
 @export var effective_against: Array[String] = []
+## Turns added to the coming action of every enemy at least one strike lands on. An action can be
+## pushed back only once, by anything.
+@export_range(0, 3) var stagger_ticks: int = 0
 
 @export_group("Effects")
 ## Applied to every enemy at least one strike lands on (a debuff).
@@ -76,6 +80,8 @@ func effect_lines() -> Array[String]:
 		parts.append("Ignores %d%% of DEF" % ignore_def_percent)
 	if not effective_against.is_empty():
 		parts.append("Effective against %s" % ", ".join(effective_against))
+	if stagger_ticks > 0:
+		parts.append("Staggers: its action comes %d turn%s later (once per action)" % [stagger_ticks, "" if stagger_ticks == 1 else "s"])
 	if target_effect != null:
 		parts.append("On hit: %s" % target_effect.summary())
 	if self_effect != null:

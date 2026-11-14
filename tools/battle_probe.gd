@@ -9,7 +9,8 @@ extends SceneTree
 ##   random    a random ready companion makes a plain Attack on a random enemy
 ##   reader    strongest, but it reads the enemy's hand (Battle.incoming, falls_on_turn): when someone
 ##             would fall this turn it fells an enemy whose blow lands on them if it can, else has a
-##             free neighbour shield them (Battle.guard_preview) or has them guard, if that saves them
+##             free neighbour shield them (Battle.guard_preview), pushes the blow back with a
+##             staggering art, or has them guard, if that saves them
 ## Every player but the random one sounds the retreat as the automated player does (should_retreat),
 ## and a retreat counts as a battle lost.
 ## It prints: how long battles are, how the actions are shared along the line, how hard single enemy
@@ -51,7 +52,7 @@ func _init() -> void:
 		_stats.append({"battles": 0, "ticks": 0, "actions": 0, "waits": 0, "guards": 0, "top1": 0.0, "top2": 0.0,
 			"blows": 0, "blows_half": 0, "blows_fell": 0, "blows_fell_full": 0, "misses": 0, "strikes": 0,
 			"injured": 0, "fielded": 0, "idle": 0, "attacks": 0, "arts": 0, "spells": 0, "focuses": 0,
-			"covers": 0, "retreats": 0, "four": 0, "top2_four": 0.0, "won": 0, "injured_won": 0})
+			"covers": 0, "retreats": 0, "staggers": 0, "four": 0, "top2_four": 0.0, "won": 0, "injured_won": 0})
 	var started := Time.get_ticks_msec()
 	for s in runs:
 		var rng := RandomNumberGenerator.new()
@@ -129,7 +130,7 @@ func _play(b: Battle, mode: int, policy: RefCounted) -> bool:
 			b.retreat()
 			st.retreats += 1
 			break
-		if mode == Mode.READER and _read(b, ready, st):
+		if mode == Mode.READER and _read(b, ready, st, policy):
 			_scan(b, st)
 			continue
 		var c: CompanionUnit = ready[0]
@@ -144,6 +145,13 @@ func _play(b: Battle, mode: int, policy: RefCounted) -> bool:
 			b.guard(c, ward)
 			st.guards += 1
 			st.covers += 1
+			_scan(b, st)
+			continue
+		var answer: Array = policy.stagger_answer(b, c)
+		if not answer.is_empty():
+			b.use_art(c, answer[0], answer[1])
+			st.arts += 1
+			st.staggers += 1
 			_scan(b, st)
 			continue
 		if policy.should_guard(b, c):
@@ -216,7 +224,7 @@ func _play(b: Battle, mode: int, policy: RefCounted) -> bool:
 ## The reader's answer to a blow on the table: for whoever would fall this turn if everything lands,
 ## fell an enemy whose blow lands on them now (a sure enough strike that kills), else have them guard
 ## if they are free and half the damage leaves them standing. Returns true if it gave an order.
-func _read(b: Battle, ready: Array[CompanionUnit], st: Dictionary) -> bool:
+func _read(b: Battle, ready: Array[CompanionUnit], st: Dictionary, policy: RefCounted) -> bool:
 	for victim in b.active_companions():
 		if b.falls_on_turn(victim) != 1:
 			continue
@@ -248,6 +256,14 @@ func _read(b: Battle, ready: Array[CompanionUnit], st: Dictionary) -> bool:
 				st.covers += 1
 				return true
 			last_resort = g
+		# Or the blow is pushed back a turn by whoever has a staggering art to hand.
+		for c in ready:
+			var answer: Array = policy.stagger_answer(b, c)
+			if not answer.is_empty():
+				b.use_art(c, answer[0], answer[1])
+				st.arts += 1
+				st.staggers += 1
+				return true
 		if ready.has(victim) and b.active_companions().size() > 1 and not victim.has_effect("Guard"):
 			var own: Dictionary = b.guard_preview(victim, victim)
 			if not bool(own.falls):
@@ -339,7 +355,8 @@ func _report() -> void:
 			100.0 * st.blows_fell_full / maxi(1, int(st.blows))])
 		print("  injured a battle %.2f; in battles won %.2f" % [float(st.injured) / n, float(st.injured_won) / maxi(1, int(st.won))])
 		print("  with four in the line (%d): actions by the busiest two %.0f%%" % [int(st.four), 100.0 * st.top2_four / maxi(1, int(st.four))])
-		print("  guards that shielded a neighbour %.2f a battle; retreats %.1f%% of battles" % [float(st.covers) / n, 100.0 * st.retreats / n])
+		print("  guards that shielded a neighbour %.2f a battle; blows staggered to save someone %.2f a battle; retreats %.1f%% of battles" % [
+			float(st.covers) / n, float(st.staggers) / n, 100.0 * st.retreats / n])
 	print("")
 	print("Win share over the replays, all battles: greedy %.0f%%, strongest %.0f%%, random %.0f%%, reader %.0f%%" % [
 		100.0 * _mean(0, ""), 100.0 * _mean(1, ""), 100.0 * _mean(2, ""), 100.0 * _mean(3, "")])

@@ -7,7 +7,8 @@ extends RefCounted
 ##   2. every living enemy's countdown drops by 1
 ##   3. enemies at 0 act, left to right, then pick their next action (and, for one that strikes a single
 ##      companion, its target: the aim is fixed then and shown; see pick_next_action)
-##   4. companion recovery counters tick down (not the companion who just acted)
+##   4. companion recovery counters tick down (not the companion who just acted), and every standing
+##      companion who did not act this turn regains BattleConfig.BREATH_PER_TURN stamina
 ##
 ## Recovery is what the action carries (BattleConfig.RECOVERY_*, an art's or spell's own), whoever
 ## else stands: with an Attack's 2, three take turns and four have one to spare, while two both
@@ -232,9 +233,11 @@ func art_cost(c: CompanionUnit, art: CombatArtData) -> int:
 	return maxi(0, art.stamina_cost + TraitRules.sum(q))
 
 
-## Stamina one Focus restores (flat, BattleConfig.FOCUS_RESTORE), never past the companion's max.
+## Stamina one Focus restores: BattleConfig.FOCUS_RESTORE_PERCENT of the companion's max (rounded up)
+## plus what traits add, never past the max.
 func focus_amount(c: CompanionUnit) -> int:
-	return mini(BattleConfig.FOCUS_RESTORE + _trait_sum(c, TraitModifier.Kind.FOCUS_RESTORE), c.max_stamina())
+	var share := ceili(c.max_stamina() * BattleConfig.FOCUS_RESTORE_PERCENT / 100.0)
+	return mini(share + _trait_sum(c, TraitModifier.Kind.FOCUS_RESTORE), c.max_stamina())
 
 
 ## The sum of `kind` for `c` in this battle (see TraitRules).
@@ -474,6 +477,8 @@ func use_art(c: CompanionUnit, art: CombatArtData, target: EnemyUnit = null) -> 
 				break
 			if _companion_strike(c, t, art):
 				landed = true
+		if landed and art.stagger_ticks > 0 and t.is_alive():
+			delay_action(t, art.stagger_ticks)
 		if landed and art.target_effect != null and t.is_alive():
 			_apply_effect(t, art.target_effect, false, c)
 		c.last_struck_id = t.get_instance_id()
@@ -944,6 +949,10 @@ func _advance(acted: CompanionUnit) -> void:
 	for c in line():
 		if c != acted and c.recovery > 0:
 			c.recovery -= 1
+	# Breath comes back: whoever stands and did not act this turn regains a little stamina.
+	for c in active_companions():
+		if c != acted and c.stamina < c.max_stamina():
+			c.stamina = mini(c.max_stamina(), c.stamina + BattleConfig.BREATH_PER_TURN)
 	for unit: Combatant in roster + enemies:
 		_damage_over_time(unit)
 	if _check_end():
@@ -1143,7 +1152,8 @@ func _spell_strike(c: CompanionUnit, spell: SpellData, target: EnemyUnit) -> voi
 
 
 ## Adds `ticks` to an enemy's pending action, unless that action was already delayed. Returns true if
-## it was delayed. Only spells call this; combat arts never touch countdowns.
+## it was delayed. Spells call this, the arts that stagger (CombatArtData.stagger_ticks), and the
+## traits and accessories that push an action back on a critical or a first hit.
 func delay_action(target: EnemyUnit, ticks: int) -> bool:
 	if not target.is_alive() or target.pending_action == null or ticks <= 0:
 		return false

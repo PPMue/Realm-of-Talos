@@ -21,4 +21,5 @@ stamina_cost = 9
 recovery = 3
 durability_cost = 2
 might_bonus = 2
+stagger_ticks = 1
 self_effect = SubResource("Resource_self")

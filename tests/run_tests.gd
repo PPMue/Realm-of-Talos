@@ -62,6 +62,7 @@ func _init() -> void:
 		test_recovery_lengths,
 		test_recovery_whoever_stands,
 		test_recovery_when_others_fall,
+		test_breath_comes_back,
 		test_lone_companion_ignores_recovery,
 		test_wait_only_when_nobody_can_act,
 		test_guard_halves_damage_and_expires,
@@ -542,6 +543,32 @@ func test_recovery_when_others_fall() -> void:
 	check(b.can_act(a), "the last one standing acts at once")
 
 
+## Breath comes back: every standing companion who did not act in a turn regains 1 stamina at its end,
+## never past their max; the one who acted, and the injured, regain none. A Wait is a turn nobody acts in.
+func test_breath_comes_back() -> void:
+	var b := make_battle(three_companions(), one_enemy(idle_enemy(1000)))
+	var a := b.roster[0]
+	var m := b.roster[1]
+	var r := b.roster[2]
+	a.stamina = 3
+	m.stamina = 3
+	r.stamina = r.max_stamina()
+	b.attack(a, b.enemies[0])
+	eq(a.stamina, 3, "the one who acted: none")
+	eq(m.stamina, 3 + BattleConfig.BREATH_PER_TURN, "one who did not act: 1")
+	eq(r.stamina, r.max_stamina(), "never past the max")
+	set_injured(r)
+	r.stamina = 0
+	b.guard(m)
+	eq(a.stamina, 4, "the first, a turn later: 1")
+	eq(m.stamina, 4, "guarding is acting: none")
+	eq(r.stamina, 0, "the injured: none")
+	check(b.can_wait(), "both recovering")
+	b.wait()
+	eq(a.stamina, 5, "a wait: everyone standing")
+	eq(m.stamina, 5, "both")
+
+
 func test_lone_companion_ignores_recovery() -> void:
 	var b := make_battle(three_companions(), one_enemy(idle_enemy(1000)))
 	var e := b.enemies[0]
@@ -780,10 +807,10 @@ func test_art_costs_stamina_and_focus_restores() -> void:
 	check(not b.can_use_art(c, art), "not enough stamina")
 	check(b.art_block_reason(c, art).contains("stamina"), "the reason given is stamina")
 	check(not b.use_art(c, art, e), "art refused without stamina")
-	eq(b.focus_amount(c), BattleConfig.FOCUS_RESTORE, "focus restores a flat amount")
-	eq(BattleConfig.FOCUS_RESTORE, 5, "about the cost of a tier 1 art")
+	eq(c.stamina, 5 + 2 * BattleConfig.BREATH_PER_TURN, "breath back in the two turns the others acted")
+	eq(b.focus_amount(c), 15, "focus restores half of max stamina (30)")
 	b.focus(c)
-	eq(c.stamina, 10, "stamina after focus")
+	eq(c.stamina, 7 + 15, "stamina after focus")
 	c.stamina = 29
 	b.roster[1].recovery = 0
 	b.roster[2].recovery = 0

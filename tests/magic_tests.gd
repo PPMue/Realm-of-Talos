@@ -28,7 +28,7 @@ func tests() -> Array[Callable]:
 		test_white_every_ally,
 		test_black_every_enemy_ignore_res_and_debuff,
 		test_countdown_delay_once_per_action,
-		test_no_art_can_delay,
+		test_only_staggering_arts_delay,
 		test_enemy_magic_uses_res_and_guard_halves,
 		test_magic_weapon_uses_mag_and_res,
 		test_effective_weapon_adds_half,
@@ -563,7 +563,9 @@ func test_countdown_delay_once_per_action() -> void:
 	t.check(missed > 10, "most of them missed (%d)" % missed)
 
 
-func test_no_art_can_delay() -> void:
+## One tier 2 art of each weapon type staggers: the coming action of each enemy it lands on is pushed
+## back one turn, once per action. No other art touches a countdown.
+func test_only_staggering_arts_delay() -> void:
 	var lib := ArtLibrary.load_default()
 	var arts: Array[CombatArtData] = lib.arts.duplicate()
 	for n: String in ["elena", "aina", "erik", "ingrid", "yuzu"]:
@@ -571,7 +573,16 @@ func test_no_art_can_delay() -> void:
 	var props := []
 	for p in CombatArtData.new().get_property_list():
 		props.append(p.name)
-	t.check(not props.has("delay_ticks"), "combat arts have no delay field")
+	t.check(not props.has("delay_ticks"), "combat arts have no delay field of a spell's size")
+	var staggering := {}
+	for art in lib.arts:
+		if art.stagger_ticks > 0:
+			t.eq(art.stagger_ticks, 1, "%s: one turn" % art.display_name)
+			t.eq(art.tier, 2, "%s: a tier 2 art" % art.display_name)
+			t.check(not staggering.has(art.weapon_type), "%s: the only one of its weapon type" % art.display_name)
+			staggering[art.weapon_type] = art
+			t.check(art.effect_summary().contains("Staggers"), "%s: says so" % art.display_name)
+	t.eq(staggering.size(), 5, "one staggering art for each weapon type")
 	for art in arts:
 		var acts: Array[EnemyActionData] = [t.make_action("Slow", 50)]
 		var es: Array[EnemyData] = [t.make_enemy("E1", acts, 9999), t.make_enemy("E2", acts, 9999)]
@@ -581,8 +592,43 @@ func test_no_art_can_delay() -> void:
 		b.roster[0].stamina = 99
 		t.check(b.use_art(b.roster[0], art, b.enemies[0]), "%s used" % art.display_name)
 		for e in b.enemies:
-			t.eq(e.countdown, 49, "%s: countdown only drops by the tick" % art.display_name)
-			t.check(not e.delayed, "%s: never marks a delay" % art.display_name)
+			var struck: bool = art.hits_all_enemies or e == b.enemies[0]
+			if art.stagger_ticks > 0 and struck:
+				t.eq(e.countdown, 50, "%s: pushed back one turn" % art.display_name)
+				t.check(e.delayed, "%s: marked as delayed" % art.display_name)
+			else:
+				t.eq(e.countdown, 49, "%s: countdown only drops by the tick" % art.display_name)
+				t.check(not e.delayed, "%s: marks no delay" % art.display_name)
+	# Once per action, by anything: a second stagger does nothing until the enemy has acted.
+	var hamstring: CombatArtData = staggering[WeaponData.WeaponType.AXE]
+	var acts2: Array[EnemyActionData] = [t.make_action("Slow", 50)]
+	var es2: Array[EnemyData] = [t.make_enemy("E1", acts2, 9999)]
+	var d2: CompanionData = t.make_companion("User", 100, 0, t.make_weapon(5, 999, 0, hamstring.weapon_type))
+	var b2: Battle = t.make_battle(cs1(d2), es2)
+	t.give_art(b2.roster[0], hamstring)
+	b2.roster[0].stamina = 99
+	b2.use_art(b2.roster[0], hamstring, b2.enemies[0])
+	t.eq(b2.enemies[0].countdown, 50, "first stagger")
+	b2.use_art(b2.roster[0], hamstring, b2.enemies[0])
+	t.eq(b2.enemies[0].countdown, 49, "the second does not push it again")
+	# A miss staggers nothing.
+	var d3: CompanionData = t.make_companion("User", 100, 0, t.make_weapon(5, 0, 0, hamstring.weapon_type))
+	d3.dexterity = 0
+	var fast: EnemyData = t.make_enemy("E1", acts2, 9999)
+	fast.speed = 99
+	fast.luck = 99
+	var es3: Array[EnemyData] = [fast]
+	var missed := 0
+	for s in 8:
+		var b3: Battle = t.make_battle(cs1(d3), es3, 100 + s)
+		t.give_art(b3.roster[0], hamstring)
+		b3.roster[0].stamina = 99
+		b3.use_art(b3.roster[0], hamstring, b3.enemies[0])
+		if b3.enemies[0].hp == b3.enemies[0].max_hp():
+			missed += 1
+			t.eq(b3.enemies[0].countdown, 49, "a miss leaves the action where it was")
+			t.check(not b3.enemies[0].delayed, "and marks no delay")
+	t.check(missed > 0, "some of them missed (%d)" % missed)
 
 
 # ---------------------------------------------------------------- enemy magic, magic weapons

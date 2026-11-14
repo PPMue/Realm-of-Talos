@@ -140,7 +140,7 @@ func test_starting_health_and_stamina() -> void:
 	var cs := content().companions
 	t.eq(cs.size(), 14, "fourteen companions")
 	for d in cs:
-		t.check(d.max_hp >= 16 and d.max_hp <= 24, "%s: health %d in 16-24" % [d.display_name, d.max_hp])
+		t.check(d.max_hp >= 24 and d.max_hp <= 36, "%s: health %d in 24-36" % [d.display_name, d.max_hp])
 		t.check(d.max_sta >= 12 and d.max_sta <= 20, "%s: stamina %d in 12-20" % [d.display_name, d.max_sta])
 		t.check(OLD_HP.has(d.display_name), "%s: known" % d.display_name)
 		t.check(d.weapon != null and d.weapon.tier == WeaponData.Tier.WOODEN and not d.weapon.is_magic(),
@@ -171,17 +171,20 @@ func test_focus_pays_for_a_tier_one_art() -> void:
 		if art.tier == 1:
 			lo = mini(lo, art.stamina_cost)
 			hi = maxi(hi, art.stamina_cost)
-	t.check(BattleConfig.FOCUS_RESTORE >= lo and BattleConfig.FOCUS_RESTORE <= hi,
-		"one Focus (%d) is about a tier 1 art's cost (%d-%d)" % [BattleConfig.FOCUS_RESTORE, lo, hi])
-	# The same for everyone, never past max stamina.
+	# Half of max stamina, rounded up: for the companion with the least it still pays for any tier 1 art.
+	var least := 999
+	for cd in content().companions:
+		least = mini(least, cd.max_sta)
+	var one_focus := ceili(least * BattleConfig.FOCUS_RESTORE_PERCENT / 100.0)
+	t.check(one_focus >= hi, "one Focus of the least stamina (%d of %d) pays for a tier 1 art (%d-%d)" % [one_focus, least, lo, hi])
 	var d: CompanionData = t.make_companion("Frail")
-	d.max_sta = 12
+	d.max_sta = 13
 	var b: Battle = t.make_battle(cs1(d), one(t.idle_enemy()))
 	var c := b.roster[0]
-	t.eq(b.focus_amount(c), 5, "five stamina")
+	t.eq(b.focus_amount(c), 7, "half of 13, rounded up")
 	c.stamina = 10
 	b.focus(c)
-	t.eq(c.stamina, 12, "stops at max")
+	t.eq(c.stamina, 13, "stops at max")
 
 
 # ---------------------------------------------------------------- the ladder
