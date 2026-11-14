@@ -285,6 +285,11 @@ alone took runs won from 16% to 20%, which is also about what the dice can do.)
 | Battles won with a given calling in the line | No calling more than 10 points from the average | 78% (Berserker) to 83% (Warden); the average is 83% |
 | One companion over 200 runs | Their most-taken calling under half of the runs | The highest is Elena: a Skirmisher in 29% of the runs where Elena took a calling |
 
+**The battle probe after it** (`tools/battle_probe.gd`, 20 runs, 329 battles replayed 10 times):
+18.2 turns a battle (18.6 before the callings); the scouts' words still hold (a fight called sure is
+won 98% of the time, close 78%, grim 22%). The harder blows show: an enemy blow that lands takes
+half of someone's Health or more 20% of the time, where it was 13%, and fells them 12% of the time.
+
 Not measured: any of it played by a person. The screens were checked by screenshot
 (`tools/screen_checks/calling_*.gd`).
 
