@@ -140,8 +140,8 @@ func _standing() -> void:
 		[eff(K.DAMAGE_TAKEN_PERCENT, [-6, -12, -18, -24, -30], {"blow": TraitModifier.Blow.PHYSICAL})])
 	add("cameo", "Cameo", F.STANDING, lines("Guard takes %d%% off a blow", [60, 65, 70, 75, 80]),
 		[eff(K.GUARD_PERCENT, [60, 65, 70, 75, 80])])
-	add("bell", "Bell", F.STANDING, lines("Enemies aim at them %s times as often", ["1.5", "2", "2.5", "3", "3.5"]),
-		[eff(K.AIM, [1.5, 2.0, 2.5, 3.0, 3.5], {}, AccessoryEffect.Field.MULT)])
+	add("bell", "Bell", F.STANDING, lines("Drawn x%s, +%d Defence", [["1.5", 1], ["2", 1], ["2.5", 2], ["3", 2], ["3.5", 3]]),
+		[eff(K.AIM, [1.5, 2.0, 2.5, 3.0, 3.5], {}, AccessoryEffect.Field.MULT), eff(K.STAT, [1, 1, 2, 2, 3], {"stat": Stat.DEF})])
 	add("veil", "Veil", F.STANDING, lines("Enemies aim at them %s as often", ["0.8 times", "0.65 times", "half", "0.4 times", "0.3 times"]),
 		[eff(K.AIM, [0.8, 0.65, 0.5, 0.4, 0.3], {}, AccessoryEffect.Field.MULT)])
 	add("scarab", "Scarab", F.STANDING, lines("After a battle won, still standing: heals %d%% of their Health", [10, 20, 30, 40, 50]),
@@ -158,9 +158,9 @@ func _tempo() -> void:
 	add("beads", "Beads", F.TEMPO, lines("Focus restores %d more stamina", TWO_TO_TEN), [eff(K.FOCUS_RESTORE, TWO_TO_TEN)])
 	add("medal", "Medal", F.TEMPO, lines("+%d stamina when they fell an enemy", TWO_TO_TEN), [eff(K.KILL_STAMINA, TWO_TO_TEN)])
 	add("claw", "Claw", F.TEMPO, lines("+%d Health when they fell an enemy", TWO_TO_TEN), [eff(K.KILL_HP, TWO_TO_TEN)])
-	var spur: Array[String] = ["Their first action of a battle has 1 less recovery"]
-	spur.append_array(lines("Their first %d actions of a battle have 1 less recovery", [2, 3, 4, 5]))
-	var spur_eff := eff(K.RECOVERY, ONE_TO_FIVE, {}, AccessoryEffect.Field.ACTION_TO)
+	var spur: Array[String] = ["First action: 1 less recovery (not below 1)"]
+	spur.append_array(lines("First %d actions: 1 less recovery (not below 1)", [2, 3, 4, 5]))
+	var spur_eff := eff(K.RECOVERY, ONE_TO_FIVE, {"recovery_at_least": 2}, AccessoryEffect.Field.ACTION_TO)
 	spur_eff.modifier.amount = -1
 	add("spur", "Spur", F.TEMPO, spur, [spur_eff])
 	var hourglass: Array[String] = ["Their first hit of a battle pushes the target's next action back 1 turn"]
@@ -199,10 +199,11 @@ func _the_road() -> void:
 		[eff(K.PROFICIENCY_PERCENT, [20, 40, 60, 80, 100])])
 	add("acorn", "Acorn", F.THE_ROAD, lines("+%d to every growth rate", [3, 6, 9, 12, 15]),
 		[eff(K.GROWTH, [3, 6, 9, 12, 15])])
-	add("compass", "Compass", F.THE_ROAD, lines("Scavenging: counts as %d higher in whatever is asked", ONE_TO_FIVE),
-		[eff(K.SCAVENGE_STAT, ONE_TO_FIVE)])
-	add("poultice", "Poultice", F.THE_ROAD, lines("Heals %d%% more at the day's end", [20, 40, 60, 80, 100]),
-		[eff(K.DAY_HEAL_PERCENT, [20, 40, 60, 80, 100])])
+	add("compass", "Compass", F.THE_ROAD, lines("Scavenging: +%d to what is asked, %d%% more brought back",
+		[[1, 10], [2, 20], [3, 30], [4, 40], [5, 50]]),
+		[eff(K.SCAVENGE_STAT, ONE_TO_FIVE), eff(K.SCAVENGE_HAUL_PERCENT, [10, 20, 30, 40, 50])])
+	add("poultice", "Poultice", F.THE_ROAD, lines("Heals %d%% more of their Health at day's end", [4, 8, 12, 16, 20]),
+		[eff(K.DAY_HEAL_SHARE, [4, 8, 12, 16, 20])])
 
 
 func _two_edged() -> void:

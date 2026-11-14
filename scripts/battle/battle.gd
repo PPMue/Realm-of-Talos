@@ -183,17 +183,19 @@ func art_recovery(c: CompanionUnit, art: CombatArtData) -> int:
 	var q := c.trait_query(TraitModifier.Kind.RECOVERY)
 	q.action = TraitModifier.Action.ART
 	q.weapon_type = art.weapon_type
+	q.recovery = art.recovery
 	return maxi(0, art.recovery + TraitRules.sum(q))
 
 
 ## Actions `c` sits out after an attack, a spell, Guard or Focus (`action`: TraitModifier.Action, ANY for
-## Guard and Focus): `base` plus what traits and accessories change (TraitModifier.Kind.RECOVERY: a
-## Spur), never below 0. An art's: art_recovery.
+## Guard and Focus): `base` plus what traits and accessories change (TraitModifier.Kind.RECOVERY; a
+## Spur only where `base` is 2 or more), never below 0. An art's: art_recovery.
 func action_recovery(c: CompanionUnit, base: int, action: int = TraitModifier.Action.ANY, school: int = -1) -> int:
 	var q := c.trait_query(TraitModifier.Kind.RECOVERY)
 	q.action = action
 	q.school = school
 	q.weapon_type = c.weapon().weapon_type if action == TraitModifier.Action.ATTACK and c.weapon() != null else -1
+	q.recovery = base
 	return maxi(0, base + TraitRules.sum(q))
 
 

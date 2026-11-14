@@ -35,6 +35,8 @@ class Query:
 	var whole_line: bool = false
 	## A blow taken: TraitModifier.Blow.
 	var blow: int = TraitModifier.Blow.ANY
+	## RECOVERY: the action's own recovery (for TraitModifier.recovery_at_least).
+	var recovery: int = 0
 	## True: only modifiers with battle conditions (the plain ones are already in the base stats).
 	var battle_only: bool = false
 	## Out of a battle: whose modifiers count (TraitModifier.Who; SELF the companion's own).
@@ -153,6 +155,8 @@ static func _holds(m: TraitModifier, q: Query, holder: CompanionUnit) -> bool:
 	if m.whole_line_blows and not q.whole_line:
 		return false
 	if m.blow != TraitModifier.Blow.ANY and m.blow != q.blow:
+		return false
+	if m.recovery_at_least > 0 and q.recovery < m.recovery_at_least:
 		return false
 	if m.second_best_weapon:
 		var p := holder.progress if holder != null else q.progress

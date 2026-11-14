@@ -35,6 +35,8 @@ func tests() -> Array[Callable]:
 		test_locket,
 		test_hourglass,
 		test_spur,
+		test_compass_haul,
+		test_poultice,
 		test_sigil_in_an_elite_fight,
 		test_crown_and_tiara_uses,
 	]
@@ -134,7 +136,8 @@ func table() -> Array:
 		["t", "clasp", 1, "enemy_hit", -5, {}],
 		["t", "gorget", 5, "taken", "neg", {}], ["t", "gorget", 5, "taken", 0, {"enemy_magic": true}],
 		["t", "cameo", 5, "taken", "neg", {"guarding": true}], ["t", "cameo", 5, "taken", 0, {}],
-		["t", "bell", 1, "aim", "pos", {"line": 2}], ["t", "veil", 1, "aim", "neg", {"line": 2}],
+		["t", "bell", 1, "aim", "pos", {"line": 2}], ["to", "bell", 3, "plain:DEF", 2, {}], ["to", "bell", 5, "plain:DEF", 3, {}],
+		["t", "veil", 1, "aim", "neg", {"line": 2}],
 		["ho", "scarab", 5, "won_hp", "pos", {}],
 		["h", "talisman", 1, "dot_hp", 1, {}], ["h", "talisman", 5, "dot_hp", 3, {}],
 		["h", "locket", 1, "survive", 1, {}], ["h", "locket", 5, "survive", 16, {}], ["h", "locket", 5, "survive_twice", 0, {}],
@@ -153,7 +156,7 @@ func table() -> Array:
 		# The road.
 		["ho", "bangle", 1, "won_gold", 5, {}], ["to", "plume", 1, "xp", 6, {}], ["to", "tassel", 1, "drill_weapon", "pos", {}],
 		["to", "acorn", 1, "growth:STR:2", 3, {}], ["ho", "compass", 1, "scav_score", "pos", {}],
-		["to", "poultice", 5, "day_heal", "pos", {}],
+		["to", "poultice", 5, "day_heal", "pos", {}], ["ho", "compass", 5, "scav_score", 15, {}],   # 3 a point, as Pathfinder
 		# Two-edged: what it gives grows with the stone, what it takes does not.
 		["t", "skull", 1, "damage", 2, {}], ["t", "skull", 5, "damage", 6, {}], ["t", "skull", 5, "taken", 2, {}],
 		["t", "mask", 1, "crit", 10, {}], ["t", "mask", 5, "hit", -10, {}],
@@ -204,7 +207,11 @@ func test_accessory_library() -> void:
 	# The rank's value lands in the right field.
 	t.eq(one("bell", 2).effect().modifiers[0].mult, 2.0, "Bell: a multiplier")
 	var spur := one("spur", 3).effect().modifiers[0]
-	t.eq([spur.amount, spur.action_to], [-1, 3], "Spur: 1 less for the first 3 actions")
+	t.eq([spur.amount, spur.action_to, spur.recovery_at_least], [-1, 3, 2], "Spur: 1 less for the first 3 actions, where it is 2 or more")
+	t.eq(type_of("spur").gives_line(3), "First 3 actions: 1 less recovery (not below 1)", "a Spur's line")
+	t.eq(type_of("poultice").gives_line(3), "Heals 12% more of their Health at day's end", "a Poultice's line")
+	t.eq(type_of("bell").gives_line(3), "Drawn x2.5, +2 Defence", "a Bell's line")
+	t.eq(type_of("compass").gives_line(3), "Scavenging: +3 to what is asked, 30% more brought back", "a Compass's line")
 	t.eq(one("skull", 4).effect().modifiers[1].amount, 2, "the Skull's price is fixed")
 
 
@@ -499,22 +506,55 @@ func test_hourglass() -> void:
 	t.eq(e.countdown, before + 1, "a spell's first hit")
 
 
-## A Spur: their first actions of a battle have 1 less recovery (any action), never below 0.
+## A Spur: their first actions of a battle have 1 less recovery where the action's own is 2 or more (so
+## never below 1); an action of recovery 1 is unchanged but still counts as one of the first.
 func test_spur() -> void:
 	var b := battle([one("spur", 2)])
 	var u := b.roster[0]
 	for n in 4:
 		u.actions_taken = n
-		t.eq(b.action_recovery(u, 2, TraitModifier.Action.ATTACK), 1 if n < 2 else 2, "action %d" % (n + 1))
+		t.eq(b.action_recovery(u, 2, TraitModifier.Action.SPELL), 1 if n < 2 else 2, "action %d, recovery 2" % (n + 1))
+		t.eq(b.action_recovery(u, 1, TraitModifier.Action.ATTACK), 1, "action %d, recovery 1: unchanged" % (n + 1))
 	u.actions_taken = 0
-	t.eq(b.action_recovery(u, 0), 0, "never below 0")
+	t.eq(b.action_recovery(u, 1), 1, "Guard or Focus: unchanged")
 	var art := CombatArtData.new()
 	art.display_name = "Slow Cut"
 	art.weapon_type = u.weapon().weapon_type
 	art.recovery = 3
 	t.eq(b.art_recovery(u, art), 2, "an art too")
+	# A plain attack first still uses up one of the first actions.
+	b = battle([one("spur", 1)])
+	u = b.roster[0]
+	var e := b.enemies[0]
+	b.attack(u, e)
+	t.eq(u.recovery, BattleConfig.RECOVERY_ATTACK, "the first action, an attack: recovery as always")
+	t.eq(u.actions_taken, 1, "it counted")
+	t.eq(b.art_recovery(u, art), 3, "the second action is not the Topaz's")
 	var plain := battle([])
 	t.eq(plain.action_recovery(plain.roster[0], 2, TraitModifier.Action.ATTACK), 2, "without it, as before")
+
+
+## A Compass: the party brings back more (and the wearer counts higher in what is asked).
+func test_compass_haul() -> void:
+	var s: int = _ht._seed_for(ScavengeResult.Outcome.FULL)
+	var plain: ScavengeResult = _ht._trip([] as Array[TraitData], [] as Array[TraitData], s)[3]
+	var with_it: ScavengeResult = _ht._trip([one("compass", 3).effect()] as Array[TraitData], [] as Array[TraitData], s)[3]
+	t.eq(plain.gold, 100, "a full haul of 100")
+	t.eq(with_it.gold, 130, "Emerald Compass: 30% more gold")
+	t.eq(int(with_it.materials.get(RunConfig.TIMBER, 0)), 3, "and materials (2 x 1.3, rounded)")
+
+
+## A Poultice: the day's-end heal is that many percentage points of max Health more.
+func test_poultice() -> void:
+	var run := free_run(88)
+	var c := run.roster[0]
+	var base := run.day_heal(c)
+	var p := one("poultice", 3)
+	run.accessories.append(p)
+	run.wear(c, p)
+	var fraction := RunConfig.DAILY_HEAL_FRACTION
+	t.eq(run.day_heal(c), ceili(c.max_hp() * (fraction + 0.12)), "Emerald: 12 points more")
+	t.check(run.day_heal(c) > base, "more than without")
 
 
 ## Sigil: an elite day's battle counts every enemy as a boss (Run.start_battle sets Battle.elite).

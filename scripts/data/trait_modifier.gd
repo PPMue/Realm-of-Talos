@@ -135,6 +135,8 @@ enum Struck { ANY, LAST_STRUCK, NOT_LAST_STRUCK, HIT_ME_LAST, STRUCK_ME_SINCE }
 ## The holder's own actions this battle, 1-based, counting the one being taken: from / up to (0: no limit).
 @export var action_from: int = 0
 @export var action_to: int = 0
+## RECOVERY: only for an action whose own recovery is at least this (0: any). A Spur: 2.
+@export var recovery_at_least: int = 0
 ## The holder's last action was Guard or Focus.
 @export var after_guard_or_focus: bool = false
 ## The holder has not yet acted from the front place this battle.

@@ -6,17 +6,17 @@
 
 [sub_resource type="Resource" id="Resource_xn8kf"]
 script = ExtResource("2_b7kx4")
-kind = 17
+kind = 32
 
 [sub_resource type="Resource" id="Resource_8832o"]
 script = ExtResource("1_uiabr")
 modifier = SubResource("Resource_xn8kf")
-by_rank = Array[float]([20.0, 40.0, 60.0, 80.0, 100.0])
+by_rank = Array[float]([4.0, 8.0, 12.0, 16.0, 20.0])
 
 [resource]
 script = ExtResource("3_4w2vk")
 id = "poultice"
 display_name = "Poultice"
 family = 6
-gives = Array[String](["Heals 20% more at the day's end", "Heals 40% more at the day's end", "Heals 60% more at the day's end", "Heals 80% more at the day's end", "Heals 100% more at the day's end"])
+gives = Array[String](["Heals 4% more of their Health at day's end", "Heals 8% more of their Health at day's end", "Heals 12% more of their Health at day's end", "Heals 16% more of their Health at day's end", "Heals 20% more of their Health at day's end"])
 effects = Array[ExtResource("1_uiabr")]([SubResource("Resource_8832o")])

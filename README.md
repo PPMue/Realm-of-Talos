@@ -155,7 +155,8 @@ At the Smithy once it has its level 1 (an errand, see above: on any day until th
   - **Locket**: once a battle, a blow that would fell them leaves them at 1 Health (Topaz) or 10 / 20 / 30 / 40% of max Health rounded up, even from 1 Health; with Clings to Life the higher figure counts and both are used up (`Battle.survive_hp(c)`).
   - **Hourglass**: the first of their strikes or spells to hit in a battle pushes the target's next action back 1-5 turns, shown as a spell's delay (DELAYED; an action already delayed is not delayed again).
   - **Sigil**: more damage against a boss, and in an elite fight against every enemy (`Battle.elite`, set from `Front.is_elite`).
-  - **Spur**: their first 1-5 actions of a battle (any action: an attack, an art, a spell, Guard, Focus) have 1 less recovery, never below 0 (`Battle.action_recovery`).
+  - **Spur**: their first 1-5 actions of a battle have 1 less recovery where the action's own recovery is 2 or more (an art, a spell), so never below 1 (`TraitModifier.recovery_at_least`; `Battle.action_recovery`, `Battle.art_recovery`). An action of recovery 1 (an attack, Guard, Focus) is unchanged but still counts as one of the first.
+  - **Bell** also gives Defence (+1 / 1 / 2 / 2 / 3); **Poultice** heals 4-20 percentage points of max Health more at the day's end (`DAY_HEAL_SHARE`); **Compass** also brings back 10-50% more gold and materials for the whole party (`SCAVENGE_HAUL_PERCENT`).
   - **Tiara**: more uses of every tier I spell. **Crown**: every spell has 1 fewer use, never below 1.
   - **Cameo**: with more than one thing that changes Guard (the Wall trait), the largest share counts.
   - **Talon** counts against an enemy that is Flying or Large, once.
