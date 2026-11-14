@@ -88,6 +88,19 @@ Rules: `pending_target`, drawing it in `pick_next_action`, the re-aims above, `B
 (what is aimed at a companion, in order, with forecasts) and `Battle.falls_on_turn(c)` for the screen
 and the automated player, whose `should_guard` reads the aim in place of guessing it.
 
+**Built** (2026-11-14). `EnemyUnit.pending_target` is drawn in `Battle.pick_next_action` for every
+single-target action (one that deals no damage too) and the blow lands there; the "intent" event
+carries it. It moves only by the three re-aims above, each an "aim" event (`enemy`, `target`, `from`,
+`why`: "injured", "drawn", "hidden") and a log line; a passive weight (the place, Sentinel's Pike, a
+trait) only counts when an aim is drawn. Guard no longer draws the aim (`BattleConfig.GUARD_TARGET_WEIGHT_MULT`
+is now 1 and unused by the rules; it stays only for the action menu's text). Enemy criticals come only
+from `EnemyActionData.crit_percent` (none set). `Battle.incoming(c)` and `Battle.falls_on_turn(c)` as
+above; the automated player guards a heavy blow due next turn that is aimed at the guard. Decided
+along the way: the re-aims follow any effect that lands with an aim multiplier above or below 1, not
+only the five named; a "hidden" redraw uses the other companions' weights as they stand; an injury
+redraw with nobody left standing clears the aim (the battle is lost); `falls_on_turn` counts the Locket
+as well as Clings to Life, and only blows (not damage over time) can be saved from, as in the battle.
+
 ## Step 2: the whole line fights
 
 - **Recovery is one longer for everything**: Attack, Guard and Focus 2; arts and spells 2 / 3 / 4 by

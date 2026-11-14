@@ -671,8 +671,8 @@ func play_battle(b: Battle) -> void:
 			b.attack(c, target)
 
 
-## Guard when an enemy acts next tick with a heavy single blow, this companion is its most likely
-## target (at least half the weight), and the blow would take at least 40% of its HP.
+## Guard when an enemy acts next tick with a heavy single blow aimed at this companion
+## (EnemyUnit.pending_target), and the blow would take at least 40% of its HP.
 func should_guard(b: Battle, c: CompanionUnit) -> bool:
 	if b.is_lone_companion(c):
 		return false
@@ -680,12 +680,7 @@ func should_guard(b: Battle, c: CompanionUnit) -> bool:
 		var a := e.pending_action
 		if a == null or e.countdown != 1 or not a.deals_damage or a.targeting != EnemyActionData.Targeting.SINGLE:
 			continue
-		var weights := b.target_weights(e.aims_reversed(a))
-		var total := 0.0
-		for w in weights:
-			total += w
-		var i := b.line().find(c)
-		if i < 0 or total <= 0.0 or weights[i] / total < 0.5:
+		if e.pending_target != c:
 			continue
 		var f := CombatMath.forecast(e, a.might, a.hit, 0, c, 0, a.damage_type)
 		if f.damage * 5 >= c.hp * 2:

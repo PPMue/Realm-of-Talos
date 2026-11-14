@@ -4,6 +4,9 @@ extends Combatant
 
 var data: EnemyData
 var pending_action: EnemyActionData
+## The companion the pending action is aimed at, drawn when it was picked (Battle.pick_next_action), for
+## a single-target action; null for every other. Moved only by Battle's re-aims (the "aim" event).
+var pending_target: CompanionUnit
 var countdown: int = 0
 ## True once a spell has delayed the pending action; cleared when the next action is picked.
 var delayed: bool = false

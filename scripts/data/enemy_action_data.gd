@@ -35,6 +35,9 @@ enum Targeting { SINGLE, ALL_COMPANIONS, SELF, ALL_ALLIES }
 ## Recovery pressure: each companion reached (a landed hit, or every target of an action that deals
 ## no damage) gains this many ticks of recovery. A lone companion still ignores recovery.
 @export var add_recovery: int = 0
+## The chance (percent) that a landed blow is a critical. Enemies strike critically only when an action
+## says so; their CRT is not used for it.
+@export var crit_percent: int = 0
 
 
 static func intent_name(value: Intent) -> String:

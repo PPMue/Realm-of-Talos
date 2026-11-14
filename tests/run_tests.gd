@@ -15,6 +15,7 @@ const TraitTests := preload("res://tests/trait_tests.gd")
 const CityTests := preload("res://tests/city_tests.gd")
 const TraitHookTests := preload("res://tests/trait_hook_tests.gd")
 const AccessoryTests := preload("res://tests/accessory_tests.gd")
+const AimTests := preload("res://tests/aim_tests.gd")
 
 var _failures: Array[String] = []
 var _run_rules: RefCounted   # kept alive: Callables do not hold a reference to their object
@@ -29,6 +30,7 @@ var _traits: RefCounted
 var _city: RefCounted
 var _hooks: RefCounted
 var _accessories: RefCounted
+var _aims: RefCounted
 var _checks := 0
 var _current := ""
 
@@ -130,6 +132,8 @@ func _init() -> void:
 	tests.append_array(_hooks.tests())
 	_accessories = AccessoryTests.new(self)
 	tests.append_array(_accessories.tests())
+	_aims = AimTests.new(self)
+	tests.append_array(_aims.tests())
 	var verbose := OS.get_environment("TEST_VERBOSE") != ""
 	var only := OS.get_environment("TEST_ONLY")
 	if only != "":
@@ -500,7 +504,7 @@ func test_guard_and_injured_target_weights() -> void:
 	eq(b.target_weights(), [1.0, 2.0, 4.0] as Array[float], "base weights 1, 2, 4")
 	b.roster[0].add_effect(StatusEffect.guard())
 	set_injured(b.roster[2])
-	eq(b.target_weights(), [4.0, 2.0, 0.0] as Array[float], "guard x4, injured 0: never aimed at")
+	eq(b.target_weights(), [1.0, 2.0, 0.0] as Array[float], "guard changes nothing, injured 0: never aimed at")
 	var cs: Array[CompanionData] = []
 	for i in 5:
 		cs.append(make_companion("C%d" % i))
@@ -519,12 +523,12 @@ func test_targeting_distribution() -> void:
 		var share: float = counts[i] / float(n)
 		check(absf(share - expected[i]) < 0.015, "slot %d share %.3f ~ %.3f" % [i, share, expected[i]])
 
-	# Guarding the leftmost (x4) makes weights 4, 2, 4.
+	# Guarding the leftmost does not draw the aim: still 1, 2, 4.
 	b.roster[0].add_effect(StatusEffect.guard())
 	counts = [0, 0, 0]
 	for i in n:
 		counts[b.line().find(b.pick_target())] += 1
-	var exp2 := [0.4, 0.2, 0.4]
+	var exp2 := expected
 	for i in 3:
 		var share: float = counts[i] / float(n)
 		check(absf(share - exp2[i]) < 0.015, "guarded slot %d share %.3f ~ %.3f" % [i, share, exp2[i]])

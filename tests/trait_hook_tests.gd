@@ -598,7 +598,7 @@ func test_mentor() -> void:
 		b._check_end()
 		var report := run.finish_battle(b)
 		xp.append([report.xp_of(other.display_name()), report.xp_of(holder.display_name())])
-	t.eq(xp[1][0], int(xp[0][0]) * 120 / 100, "the lowest-level one: +20% (%d from %d)" % [xp[1][0], xp[0][0]])
+	t.eq(xp[1][0], int(xp[0][0]) * 120 / 100, "the lowest-level one: +20%% (%d from %d)" % [xp[1][0], xp[0][0]])
 	t.eq(xp[1][1], xp[0][1], "the Mentor: as before")
 
 

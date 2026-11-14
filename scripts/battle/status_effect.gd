@@ -41,7 +41,6 @@ static func guard() -> StatusEffect:
 	var e := StatusEffect.new()
 	e.display_name = "Guard"
 	e.damage_taken_mult = BattleConfig.GUARD_DAMAGE_TAKEN_MULT
-	e.target_weight_mult = BattleConfig.GUARD_TARGET_WEIGHT_MULT
 	e.ticks_left = BattleConfig.GUARD_DURATION_TICKS
 	return e
 

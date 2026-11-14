@@ -30,7 +30,9 @@ const RECOVERY_FOCUS := 1
 
 # --- Guard (lasts until the end of the tick it was used in) ---
 const GUARD_DAMAGE_TAKEN_MULT := 0.5
-const GUARD_TARGET_WEIGHT_MULT := 4.0
+## No longer used by the rules: Guard does not draw the enemy's aim (aims are fixed when an action is
+## picked). Kept, at 1, only for the action menu's Guard text until that text changes.
+const GUARD_TARGET_WEIGHT_MULT := 1.0
 const GUARD_DURATION_TICKS := 1
 
 # --- Focus ---

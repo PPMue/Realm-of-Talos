@@ -5,7 +5,8 @@ extends RefCounted
 ## One tick = one player action:
 ##   1. the player's action resolves
 ##   2. every living enemy's countdown drops by 1
-##   3. enemies at 0 act, left to right, then pick their next action
+##   3. enemies at 0 act, left to right, then pick their next action (and, for one that strikes a single
+##      companion, its target: the aim is fixed then and shown; see pick_next_action)
 ##   4. companion recovery counters tick down (not the companion who just acted)
 ##   5. damage over time (poison, burning) strikes every unit that carries it
 ##   6. timed effects (Guard, buffs, defends, debuffs) lose a tick and expire
@@ -389,7 +390,8 @@ func spell_target_block_reason(spell: SpellData, target: Combatant) -> String:
 
 
 ## Single-target weights for line(), left to right. `reversed`: the position weights mirrored, so the
-## leftmost companion has the largest (Guard, veils and beacons apply the same way). An injured
+## leftmost companion has the largest (veils and beacons apply the same way). Used when an aim is
+## drawn (pick_next_action); once drawn, an aim moves only as pick_next_action says. An injured
 ## companion's weight is 0: enemies never aim at them, so the others share it all. Places are counted
 ## along the whole line, injured ones included.
 func target_weights(reversed: bool = false) -> Array[float]:
@@ -546,10 +548,21 @@ func heal(c: CompanionUnit, amount: int) -> void:
 
 ## Picks the enemy's next action from its current list by pick weight. An action marked no_repeat is
 ## never picked right after itself while another action could be.
+##
+## A single-target action draws its target now, with target_weights as they stand (mirrored for one that
+## aims from the left), and keeps it (EnemyUnit.pending_target; null for any other targeting). A delay or
+## an order keeps it; a new phase picks a new action and so draws again. Once drawn, an aim moves only:
+## - when its target is injured: drawn again at once among those standing (_injure; "injured");
+## - when an effect that draws the eye (StatusEffect.target_weight_mult above 1: Beacon, Challenge,
+##   Phalanx) lands on a companion: every pending single aim moves to them ("drawn");
+## - when an effect that hides (below 1: Veil, Fade) lands on a companion: aims at them are drawn again
+##   among the other standing companions, and stay if nobody else stands ("hidden").
+## Each move is an "aim" event: {"enemy", "target" (the new), "from" (the old), "why"}.
 func pick_next_action(e: EnemyUnit) -> void:
 	var actions := e.actions()
 	if actions.is_empty():
 		e.pending_action = null
+		e.pending_target = null
 		e.countdown = 0
 		return
 	var weights: Array[float] = []
@@ -567,7 +580,57 @@ func pick_next_action(e: EnemyUnit) -> void:
 	e.countdown = maxi(BattleConfig.MIN_ACTION_COUNTDOWN, action.countdown)
 	e.delayed = false
 	e.hastened = false
-	_emit({"type": "intent", "enemy": e})
+	e.pending_target = _draw_aim(e, action)
+	_emit({"type": "intent", "enemy": e, "target": e.pending_target})
+
+
+## A target for `e`'s single-target `action`, drawn with target_weights (mirrored as the action aims);
+## `without` left out (null if nobody else stands). Null for any other targeting, or nobody standing.
+func _draw_aim(e: EnemyUnit, action: EnemyActionData, without: CompanionUnit = null) -> CompanionUnit:
+	if action == null or action.targeting != EnemyActionData.Targeting.SINGLE:
+		return null
+	var weights := target_weights(e.aims_reversed(action))
+	var l := line()
+	var total := 0.0
+	for i in l.size():
+		if l[i] == without:
+			weights[i] = 0.0
+		total += weights[i]
+	if total <= 0.0:
+		return null
+	return l[_weighted_index(weights)]
+
+
+## Enemies whose pending action is a single blow (any single-target action) aimed at `c`.
+func _aimed_at(c: CompanionUnit) -> Array[EnemyUnit]:
+	var out: Array[EnemyUnit] = []
+	for e in living_enemies():
+		if e.pending_target == c and e.pending_action != null \
+				and e.pending_action.targeting == EnemyActionData.Targeting.SINGLE:
+			out.append(e)
+	return out
+
+
+## Moves `e`'s aim to `target` (from wherever it was), with its event and log line.
+func _move_aim(e: EnemyUnit, target: CompanionUnit, why: String) -> void:
+	var from := e.pending_target
+	if target == null or target == from:
+		return
+	e.pending_target = target
+	_log("  %s's %s turns on %s." % [e.display_name, e.pending_action.display_name, target.display_name])
+	_emit({"type": "aim", "enemy": e, "target": target, "from": from, "why": why})
+
+
+## An effect with an aim multiplier has just landed on `c`: above 1 every pending single aim moves to
+## them; below 1 those aimed at them are drawn again among the others (see pick_next_action).
+func _aim_after_effect(c: CompanionUnit, mult: float) -> void:
+	if mult > 1.0:
+		for e in living_enemies():
+			if e.pending_action != null and e.pending_action.targeting == EnemyActionData.Targeting.SINGLE:
+				_move_aim(e, c, "drawn")
+	elif mult < 1.0:
+		for e in _aimed_at(c):
+			_move_aim(e, _draw_aim(e, e.pending_action, c), "hidden")
 
 
 func perform_enemy_action(e: EnemyUnit, action: EnemyActionData) -> void:
@@ -583,7 +646,9 @@ func perform_enemy_action(e: EnemyUnit, action: EnemyActionData) -> void:
 			for ally in living_enemies():
 				_enemy_support(ally, action)
 		EnemyActionData.Targeting.SINGLE:
-			var target := pick_target(e.aims_reversed(action))
+			var target := e.pending_target if action == e.pending_action else null
+			if target == null or not target.is_active() or not roster.has(target):
+				target = pick_target(e.aims_reversed(action))   # no aim kept: drawn as it lands
 			if target != null:
 				_enemy_strike(e, action, target)
 		EnemyActionData.Targeting.ALL_COMPANIONS:
@@ -1069,7 +1134,8 @@ func learn_after_battle() -> void:
 ## Forecast of `e`'s `action` striking companion `target` (`whole_line`: the blow strikes everyone):
 ## the usual formulas, with the target's Avoid taken off the Hit and what traits change in the damage
 ## they take (TraitModifier.Kind.AVOID, DAMAGE_TAKEN, DAMAGE_TAKEN_PERCENT; Guard's share: see
-## CompanionUnit.damage_taken_mult).
+## CompanionUnit.damage_taken_mult). The critical chance is the action's own (EnemyActionData.crit_percent,
+## 0 for most), not worked out from CRT and LCK.
 func enemy_forecast(e: EnemyUnit, action: EnemyActionData, target: CompanionUnit, whole_line: bool = false) -> AttackForecast:
 	var q := target.trait_query(TraitModifier.Kind.AVOID)
 	q.target = e
@@ -1080,8 +1146,90 @@ func enemy_forecast(e: EnemyUnit, action: EnemyActionData, target: CompanionUnit
 	var taken_mult := TraitRules.percent_product(q)
 	q.kind = TraitModifier.Kind.DAMAGE_TAKEN
 	var taken_flat := TraitRules.sum(q)
-	return CombatMath.forecast(e, action.might, action.hit - avoid, 0, target, 0, action.damage_type, false, -1, 0, 0,
+	var f := CombatMath.forecast(e, action.might, action.hit - avoid, 0, target, 0, action.damage_type, false, -1, 0, 0,
 		taken_mult, taken_flat)
+	f.crit = clampi(action.crit_percent, 0, 100)
+	return f
+
+
+## Every living enemy's pending action that will reach `c`: a single action aimed at them
+## (EnemyUnit.pending_target) or one on the whole line, in the order they land (fewest turns first, then
+## enemy order). Each: {"enemy": EnemyUnit, "action": EnemyActionData, "turns": int (its countdown),
+## "whole_line": bool, "forecast": AttackForecast} with the forecast as things stand now (enemy_forecast);
+## an action that deals no damage has damage 0 (and Hit 100: it always lands). Empty for someone injured.
+func incoming(c: CompanionUnit) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if c == null or not c.is_active() or not roster.has(c):
+		return out
+	for e in living_enemies():
+		var a := e.pending_action
+		if a == null:
+			continue
+		var whole := a.targeting == EnemyActionData.Targeting.ALL_COMPANIONS
+		if not whole and not (a.targeting == EnemyActionData.Targeting.SINGLE and e.pending_target == c):
+			continue
+		var f: AttackForecast
+		if a.deals_damage:
+			f = enemy_forecast(e, a, c, whole)
+		else:
+			f = AttackForecast.new()
+			f.hit = 100
+			f.magic = a.damage_type == CombatMath.DamageType.MAGIC
+		out.append({"enemy": e, "action": a, "turns": e.countdown, "whole_line": whole, "forecast": f})
+	var order := enemies
+	out.sort_custom(func(x: Dictionary, y: Dictionary) -> bool:
+		if int(x.turns) != int(y.turns):
+			return int(x.turns) < int(y.turns)
+		return order.find(x.enemy) < order.find(y.enemy))
+	return out
+
+
+## The first turn (1: the next) on which `c` would be at 0 Health if every blow in incoming(c) lands, none
+## of them critical, with the damage over time already on them turn by turn while it lasts (less what a
+## Talisman takes off), and survive_hp once if they still have it; 0 if they would be left standing.
+## Within a turn the blows land first, then damage over time, as in _advance. Only the actions pending
+## now are counted, not what the enemies will choose after them.
+func falls_on_turn(c: CompanionUnit) -> int:
+	if c == null or not c.is_active() or not roster.has(c):
+		return 0
+	var blows := incoming(c)
+	var last := 0
+	for b in blows:
+		last = maxi(last, int(b.turns))
+	var dots: Array[Vector2i] = []   # x: damage per turn, y: turns it lasts
+	for fx in c.effects:
+		if fx.damage_per_tick > 0:
+			dots.append(Vector2i(fx.damage_per_tick, fx.ticks_left))
+			last = maxi(last, fx.ticks_left)
+	var cut := _trait_sum(c, TraitModifier.Kind.DOT_TAKEN_PERCENT)
+	var dot_immune := _trait_any(c, TraitModifier.Kind.DOT_IMMUNE)
+	var hp := c.hp
+	var saved := c.survived_once
+	var next := 0
+	for turn in range(1, mini(last, StatusEffect.LASTING_TICKS * 2) + 1):
+		while next < blows.size() and int(blows[next].turns) <= turn:
+			var dmg := (blows[next].forecast as AttackForecast).damage
+			next += 1
+			if dmg >= hp and not saved:
+				var stand := _survive_hp_at(c, hp)
+				if stand > 0:
+					saved = true
+					hp = maxi(hp, stand)
+					dmg = hp - stand
+			hp -= dmg
+			if hp <= 0:
+				return turn
+		var total := 0
+		for d in dots:
+			if d.y >= turn:
+				total += d.x
+		if cut != 0:
+			total = maxi(0, floori(total * (100 + maxi(-100, cut)) / 100.0))
+		if total > 0 and not dot_immune:
+			hp -= total
+			if hp <= 0:
+				return turn
+	return 0
 
 
 func _enemy_strike(e: EnemyUnit, action: EnemyActionData, target: CompanionUnit, whole_line: bool = false) -> void:
@@ -1145,8 +1293,13 @@ func _reflect_on_enemy(c: CompanionUnit, stance: String, e: EnemyUnit, amount: i
 ## (TraitModifier.Kind.SURVIVE_SHARE: 1 at Topaz, else that percent of max Health rounded up); with both,
 ## the higher. Once a battle: either saving uses both up (CompanionUnit.survived_once).
 func survive_hp(c: CompanionUnit) -> int:
+	return _survive_hp_at(c, c.hp)
+
+
+## survive_hp as it would be with `hp` Health (for falls_on_turn).
+func _survive_hp_at(c: CompanionUnit, hp: int) -> int:
 	var best := 0
-	if c.hp > 1 and _trait_any(c, TraitModifier.Kind.SURVIVE_ONCE):
+	if hp > 1 and _trait_any(c, TraitModifier.Kind.SURVIVE_ONCE):
 		best = 1
 	var q := c.trait_query(TraitModifier.Kind.SURVIVE_SHARE)
 	for m in TraitRules.matching(q):
@@ -1186,8 +1339,9 @@ func _after_companion_hurt(c: CompanionUnit) -> void:
 		_log("  %s finds a second wind: stamina full." % c.display_name)
 
 
-## `c` drops to 0 HP: injured and out of this battle. They no longer act or are aimed at, every effect
-## on them ends and nothing new lands on them; nothing in battle undoes it.
+## `c` drops to 0 HP: injured and out of this battle. They no longer act or are aimed at (every blow
+## aimed at them is drawn again at once among those standing), every effect on them ends and nothing new
+## lands on them; nothing in battle undoes it.
 func _injure(c: CompanionUnit) -> void:
 	c.hp = 0
 	c.state = CompanionUnit.State.INJURED
@@ -1197,6 +1351,12 @@ func _injure(c: CompanionUnit) -> void:
 		injured_ever.append(c)
 	_log("  %s is injured and out of the battle!" % c.display_name)
 	_emit({"type": "injured", "target": c})
+	for e in _aimed_at(c):
+		var to := _draw_aim(e, e.pending_action)
+		if to == null:
+			e.pending_target = null   # nobody left standing
+		else:
+			_move_aim(e, to, "injured")
 	var mend := _trait_sum(c, TraitModifier.Kind.INJURED_HEAL_ALLIES)
 	if mend > 0:
 		for ally in active_companions():
@@ -1219,6 +1379,8 @@ func _apply_effect(unit: Combatant, data: StatusEffectData, helpful: bool, sourc
 	unit.add_effect(effect)
 	_log("  %s gains %s." % [unit.display_name, effect.describe()])
 	_emit({"type": "effect", "target": unit, "name": effect.display_name, "helpful": helpful})
+	if unit is CompanionUnit and effect.target_weight_mult != 1.0:
+		_aim_after_effect(unit as CompanionUnit, effect.target_weight_mult)
 
 
 func _add_points(c: CompanionUnit, amount: int) -> void:

@@ -288,9 +288,9 @@ func test_reversed_targeting_distribution() -> void:
 	for i in 3:
 		var share: float = counts[i] / float(n)
 		t.check(absf(share - expected[i]) < 0.015, "reversed slot %d share %.3f ~ %.3f" % [i, share, expected[i]])
-	# Guard and injury still apply on top of the mirrored position.
+	# Guard does not draw the aim, mirrored or not.
 	b.roster[2].add_effect(StatusEffect.guard())
-	t.eq(b.target_weights(true), [4.0, 2.0, 4.0] as Array[float], "guarding the rightmost x4")
+	t.eq(b.target_weights(true), [4.0, 2.0, 1.0] as Array[float], "guarding the rightmost changes nothing")
 	# An enemy with reversed targeting aims its single attacks this way, in a real battle.
 	var hit: EnemyActionData = t.make_action("Stab", 1, EnemyActionData.Targeting.SINGLE, 1)
 	var acts: Array[EnemyActionData] = [hit]
