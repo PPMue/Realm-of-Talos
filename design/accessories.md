@@ -1,4 +1,4 @@
-# Elite fights, gemstones and accessories (design; not built)
+# Elite fights, gemstones and accessories (design; built on 2026-11-14)
 
 Every number here is a first guess, to be tuned with the 200-run check.
 
@@ -101,7 +101,7 @@ Types marked **new** need a rule the game does not have yet; all the others use 
 | Clasp | Avoid | +5 / 10 / 15 / 20 / 25 |
 | Gorget | Physical blows deal less to them | -6% / 12% / 18% / 24% / 30% |
 | Cameo | Guarding takes this much off a blow instead of 50% | 60% / 65% / 70% / 75% / 80% |
-| Bell | Enemies aim at them more often | x1.5 / 2 / 2.5 / 3 / 3.5 |
+| Bell | Enemies aim at them more often, and Defence | x1.5 and +1 / x2 and +1 / x2.5 and +2 / x3 and +2 / x3.5 and +3 |
 | Veil | Enemies aim at them less often | x0.8 / 0.65 / 0.5 / 0.4 / 0.3 |
 | Scarab | After a battle won, still standing: heals this share of their Health | 10% / 20% / 30% / 40% / 50% |
 | Talisman (**new**) | Poison and burning deal less to them | -20% / 40% / 60% / 80% / 100% |
@@ -114,7 +114,7 @@ Types marked **new** need a rule the game does not have yet; all the others use 
 | Beads | Focus restores more stamina | +2 / 4 / 6 / 8 / 10 |
 | Medal | Stamina when they fell an enemy | +2 / 4 / 6 / 8 / 10 |
 | Claw | Health when they fell an enemy | +2 / 4 / 6 / 8 / 10 |
-| Spur | Their first actions of a battle have 1 less recovery | the first 1 / 2 / 3 / 4 / 5 actions |
+| Spur | Their first actions of a battle have 1 less recovery, where the action's recovery is 2 or more (a plain attack, Guard and Focus are not made free) | the first 1 / 2 / 3 / 4 / 5 actions |
 | Hourglass (**new**) | Their first hit of a battle pushes the target's next action back | 1 / 2 / 3 / 4 / 5 turns |
 
 ### 5. Magic (5)
@@ -144,8 +144,8 @@ Types marked **new** need a rule the game does not have yet; all the others use 
 | Plume | XP | +6% / 12% / 18% / 24% / 30% |
 | Tassel | Weapon and magic points | +20% / 40% / 60% / 80% / 100% |
 | Acorn | Every growth rate | +3 / 6 / 9 / 12 / 15 |
-| Compass | Scavenging: counts as this much higher in whatever is asked | +1 / 2 / 3 / 4 / 5 |
-| Poultice | Heals more at the day's end | +20% / 40% / 60% / 80% / 100% |
+| Compass | Scavenging: counts as this much higher in whatever is asked, and the party brings back more | +1 and 10% / +2 and 20% / +3 and 30% / +4 and 40% / +5 and 50% |
+| Poultice | Heals this much more of their Health at the day's end | +4% / 8% / 12% / 16% / 20% |
 
 ### 8. Two-edged (6): more than a plain one, at a fixed price
 
@@ -166,6 +166,13 @@ The price does not change with the stone, so a better stone is always simply bet
 - A Topaz of a "road" type (Acorn, Plume, Tassel) is worth most early; a Topaz Ring is worth little by week 4. That is the trade the random draw sets up: an early stone made at once, or kept in the hope of a better use.
 - The plain types make up a fifth of the draws. With the Jeweler's second level (pick one of two) the chance that neither design suits anyone in the company is small.
 - Six types need new rules (Pin, Thorn, Talisman, Locket, Hourglass, and the "elite fight" half of Sigil). They can be left out of a first build without changing anything else.
+
+## Changed after the first 200-run check (2026-11-14)
+
+- Spur no longer makes a plain attack, Guard or Focus free: it only shortens actions with a recovery of 2 or more.
+- Poultice is flat points of Health, not a share of the overnight heal (a Topaz was about +4% a night).
+- Bell also gives Defence: drawing blows did nothing for the wearer on its own.
+- Compass also raises the haul: one scavenging check was too little.
 
 ## Open questions
 
