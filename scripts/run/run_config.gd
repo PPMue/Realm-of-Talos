@@ -62,6 +62,10 @@ const ENEMY_HP_GROWTH_PER_DAY := 0.028  # then max HP x (1 + 0.028 x (day - 1)):
 const ENEMY_STR_EVERY_DAYS := 18        # +1 STR and MAG on days 19 and 37 (+2)
 const ENEMY_DEF_EVERY_DAYS := 30        # +1 DEF on day 31
 const ENEMY_SPD_EVERY_DAYS := 30        # +1 SPD and DEX on day 31
+## An elite fight (days 6, 20, 34) fields the day's danger-3 enemies made tougher, by elite: Health
+## times this, and this much more STR and MAG (Run.elite_enemy).
+const ELITE_HP_MULT: Array[float] = [0.9, 1.25, 0.9]
+const ELITE_STR_BONUS: Array[int] = [0, 1, 0]
 
 # --- Levels and XP ---
 # A won battle grants an XP pool, shared among the fielded companions still in the run at its end:

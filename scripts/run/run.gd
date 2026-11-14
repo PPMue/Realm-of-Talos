@@ -2215,6 +2215,8 @@ func _roll_elite_fronts(d: int) -> Array[Front]:
 		if options.size() > 1:
 			options.erase(group)
 		var f := _make_front(3, group, d, sites)
+		for j in f.enemies.size():
+			f.enemies[j] = elite_enemy(f.enemies[j], RunCalendar.elite_index(d))
 		f.is_elite = true
 		f.gem = gem_for_fight(d)
 		out.append(f)
@@ -2318,6 +2320,17 @@ static func scaled_enemy(e: EnemyData, on_day: int) -> EnemyData:
 	s.defense = e.defense + floori(float(d) / RunConfig.ENEMY_DEF_EVERY_DAYS)
 	s.speed = e.speed + floori(float(d) / RunConfig.ENEMY_SPD_EVERY_DAYS)
 	s.dexterity = e.dexterity + floori(float(d) / RunConfig.ENEMY_SPD_EVERY_DAYS)
+	return s
+
+
+## An enemy already grown for its day, as an elite fight fields it: tougher by which elite it is
+## (RunConfig.ELITE_HP_MULT, ELITE_STR_BONUS; `index` 0 for day 6, 1 for day 20, 2 for day 34).
+static func elite_enemy(e: EnemyData, index: int) -> EnemyData:
+	var i := clampi(index, 0, RunConfig.ELITE_HP_MULT.size() - 1)
+	var s := e.duplicate() as EnemyData
+	s.max_hp = roundi(e.max_hp * RunConfig.ELITE_HP_MULT[i])
+	s.strength = e.strength + RunConfig.ELITE_STR_BONUS[i]
+	s.magic = e.magic + RunConfig.ELITE_STR_BONUS[i]
 	return s
 
 

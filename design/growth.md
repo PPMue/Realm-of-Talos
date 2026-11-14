@@ -191,6 +191,37 @@ What is true of it and what is not:
   table above are the numbers to move.
 - Not measured: the user's own play. The screens were checked by screenshot, not played.
 
+## After play: the big fights step down (2026-11-14)
+
+The user, after playing: "the day 28 boss should be harder than the day 14 boss (the same for the
+elites), and a boss should be harder than an elite". The table above agreed with them: the day-28
+bosses were beaten as often as the day-14 ones (83% and 82%), the day-20 elite more often than the
+day-6 one (79% and 68%), and the first boss more often than the first elite.
+
+Twelve settings were tried, 200 runs each. More Health moves a boss more than more Strength does,
+and the three day-14 bosses do not answer alike (the Mossback Troll regenerates, so Health counts
+double for it; the Rampart Golem barely moves without Defence), so each is set on its own.
+
+| | Now |
+|---|---|
+| Elites (`RunConfig.ELITE_HP_MULT`, `ELITE_STR_BONUS`) | The day's danger-3 enemies with Health x0.9 on day 6, x1.25 and +1 Strength and Magic on day 20, x0.9 on day 34 |
+| Day-14 bosses | The Horned Tyrant's Health x1.4; the Mossback Troll +1 Strength; the Rampart Golem's Health x1.3, +1 Strength and Defence |
+| Day-28 bosses | Health x1.35, +1 Strength, Magic and Defence |
+| Day-42 bosses | Health x0.9 |
+
+| Won by the automated player | Before | Now |
+|---|---|---|
+| Elite, day 6 | 68% | 75% |
+| Boss, day 14 | 82% | 69% |
+| Elite, day 20 | 79% | 66% |
+| Boss, day 28 | 83% | 55% |
+| Elite, day 34 | 37% | 49% |
+| Boss, day 42 | 31% | 43% |
+| Runs | 20% | 16% |
+
+Each of these is one 200-run sample, about 7 points either way, and single bosses (about 40 fights
+each) much more. The callings will move all of it; the order is what is to be kept when they are in.
+
 ## What to watch when it is built
 
 - **Sameness.** At this size five of the fourteen start with Strength 5. What tells them apart is

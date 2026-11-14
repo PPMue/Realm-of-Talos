@@ -98,6 +98,11 @@ static func boss_index(day: int) -> int:
 	return floori(float(day) / RunConfig.BOSS_EVERY_DAYS) - 1
 
 
+## 0 for the first elite (day 6), 1 for the second (day 20), 2 for the third (day 34).
+static func elite_index(day: int) -> int:
+	return floori(float(day - 1) / RunConfig.BOSS_EVERY_DAYS)
+
+
 ## 1-based week of `day`: days 1-7 are week 1.
 static func week_of(day: int) -> int:
 	return floori(float(day - 1) / RunConfig.WEEK_DAYS) + 1

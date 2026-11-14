@@ -360,6 +360,11 @@ func test_elite_day() -> void:
 			t.eq(f.gem, Gem.TOPAZ, "gives a Topaz")
 			t.eq(f.city_damage, run.front_city_damage(3), "costs the walls as danger 3")
 			t.eq(f.xp_pool, run.xp_pool(3, 6), "danger 3 XP")
+			# Its enemies are the day's, sized for the first elite (RunConfig.ELITE_HP_MULT, ELITE_STR_BONUS).
+			for i in f.enemies.size():
+				var plain := Run.scaled_enemy(f.group.enemies[i], 6)
+				t.eq(f.enemies[i].max_hp, roundi(plain.max_hp * RunConfig.ELITE_HP_MULT[0]), "the first elite's Health")
+				t.eq(f.enemies[i].strength, plain.strength + RunConfig.ELITE_STR_BONUS[0], "and Strength")
 		t.check(run.fronts[0].site != run.fronts[1].site, "two places")
 		if run.content.groups_for(3, 6).size() > 1:
 			t.check(run.fronts[0].group != run.fronts[1].group, "two different groups")
@@ -377,6 +382,16 @@ func test_elite_day() -> void:
 		t.eq(run.gem_count(Gem.TOPAZ), before + 1, "in the company's stones")
 		t.eq(run.gems_taken, taken + 1, "one more taken")
 		t.eq(run.day, 7, "the day ended")
+	# Which elite a day is, and how the second is sized: tougher than the day's own enemies.
+	t.eq([RunCalendar.elite_index(6), RunCalendar.elite_index(20), RunCalendar.elite_index(34)], [0, 1, 2], "days 6, 20, 34")
+	var orc := load("res://data/enemies/orc.tres") as EnemyData
+	var on_20 := Run.scaled_enemy(orc, 20)
+	var second := Run.elite_enemy(on_20, 1)
+	t.eq(second.max_hp, roundi(on_20.max_hp * RunConfig.ELITE_HP_MULT[1]), "the second elite: more Health")
+	t.eq(second.strength, on_20.strength + RunConfig.ELITE_STR_BONUS[1], "and more Strength")
+	t.eq(second.magic, on_20.magic + RunConfig.ELITE_STR_BONUS[1], "and Magic, as the day's growth does")
+	t.eq(second.defense, on_20.defense, "nothing else changes")
+	t.check(RunConfig.ELITE_HP_MULT[1] > RunConfig.ELITE_HP_MULT[0], "the second elite is sized above the first")
 	# A lost elite: no stone, the walls pay as danger 3.
 	var run := make_run(6100)
 	walk_to(run, 6)
