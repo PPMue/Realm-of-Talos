@@ -356,7 +356,7 @@ func test_scavenge_full_haul() -> void:
 		t.eq(m.xp_gained, 9, "XP to each")
 		t.eq(m.hp_lost, 0, "nobody hurt")
 	t.check(r.injured == null, "nobody injured")
-	t.eq(r.outcome_name(), "Full haul", "named")
+	t.eq(r.outcome_name(), "Success", "named")
 	# A weapon: with a weapon chance of 100 a full haul always finds one, into the armory.
 	var found := 0
 	for k in 40:

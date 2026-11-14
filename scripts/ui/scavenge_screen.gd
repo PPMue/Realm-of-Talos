@@ -2,10 +2,10 @@ class_name ScavengeScreen
 extends Control
 ## The map table for a party sent beyond the walls. The company is listed down the left; on the table
 ## lie the scouts' two reports for the day, one per place: how many must go and as what (each place in
-## the party asks for one stat), what a full haul would bring, what it costs when it goes badly, and
+## the party asks for one stat), what a success would bring, what it costs when it goes badly, and
 ## the chance, which moves as the party is filled. Choose a report, click a place in it and then
 ## whoever should fill it, and send them out: that is the day's one thing. How it went is then written
-## up in place of the reports (full haul, half a haul or empty-handed, the odds and the roll, what
+## up in place of the reports (Success, Passable or Failure, the odds and the roll, what
 ## came home, and what happened to each of them), and every level gained is shown stat by stat like
 ## after a battle. Only reads the run and calls Run.scavenge.
 
@@ -28,7 +28,7 @@ const RISK_Y := 566.0
 const CHANCE_Y := 676.0
 const FOOT_Y := 944.0
 const REPORT := Rect2(470, 124, 1390, 800)
-const STAMPS: Array[String] = ["A FULL HAUL", "HALF A HAUL", "EMPTY-HANDED"]
+const STAMPS: Array[String] = ["SUCCESS", "PASSABLE", "FAILURE"]
 const STAMP_LINES: Array[String] = [
 	"\"More than we could carry, Commander. Almost.\"",
 	"\"We took what we could and ran.\"",
@@ -216,10 +216,10 @@ static func risk_lines(s: ScavengeSite) -> Array[String]:
 	var share := "%d%% of their health" % roundi(RunConfig.SCAVENGE_HP_LOSS_FRACTION * 100.0)
 	match s.risk:
 		ScavengeSite.Risk.MEDIUM:
-			return ["Empty-handed: everyone loses %s" % share]
+			return ["Failure: everyone loses %s" % share]
 		ScavengeSite.Risk.HIGH:
-			return ["Half a haul: everyone loses %s" % share, "Empty-handed: one is injured, the rest lose %s" % share]
-	return ["Nothing worse than empty hands"]
+			return ["Passable: everyone loses %s" % share, "Failure: one is injured, the rest lose %s" % share]
+	return ["A failure costs nothing but the day"]
 
 
 static func _risk_ink(s: ScavengeSite) -> Color:
@@ -484,7 +484,7 @@ func _paper(s: ScavengeSite, index: int) -> Control:
 			paper.draw_line(Vector2(PAD, y + SLOT_STEP - 4.0), Vector2(PAD + inner, y + SLOT_STEP - 4.0), Color(ink, 0.2), 1.5, true)
 
 		# What a full haul brings.
-		StatTable.head(paper, Vector2(PAD, HAUL_Y), inner, "A FULL HAUL")
+		StatTable.head(paper, Vector2(PAD, HAUL_Y), inner, "ON SUCCESS")
 		var lines: Array[String] = []
 		if s.material_count() > 0:
 			lines.append(_materials_text(s.materials))
@@ -508,7 +508,7 @@ func _paper(s: ScavengeSite, index: int) -> Control:
 		var fw := display.get_string_size(figure, HORIZONTAL_ALIGNMENT_LEFT, -1, 92).x
 		UiTheme.draw_text(paper, display, Vector2(PAD + fw + 6.0, CHANCE_Y + 22.0), "%", 44, chance_ink)
 		UiTheme.draw_text(paper, display, Vector2(PAD + fw + 62.0, CHANCE_Y + 30.0), "CHANCE", 22, muted)
-		UiTheme.draw_text(paper, italic, Vector2(PAD + fw + 62.0, CHANCE_Y + 60.0), "of a full haul", 18, muted)
+		UiTheme.draw_text(paper, italic, Vector2(PAD + fw + 62.0, CHANCE_Y + 60.0), "of success", 18, muted)
 		var track := Rect2(PAD + 330.0, CHANCE_Y + 52.0, inner - 330.0, 12.0)
 		paper.draw_rect(track, Color(ink, 0.14))
 		paper.draw_rect(Rect2(track.position, Vector2(track.size.x * chance / 100.0, track.size.y)), chance_ink)

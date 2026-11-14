@@ -4,7 +4,8 @@ extends RefCounted
 
 enum Outcome { FULL, HALF, NOTHING }
 
-const OUTCOME_NAMES: Array[String] = ["Full haul", "Half a haul", "Nothing"]
+## As the player reads them: a success is the full haul, passable half of it, a failure nothing.
+const OUTCOME_NAMES: Array[String] = ["Success", "Passable", "Failure"]
 
 
 ## What happened to one companion sent, in slot order.
