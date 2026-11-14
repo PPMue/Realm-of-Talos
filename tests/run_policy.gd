@@ -23,6 +23,8 @@ var enchant_taken := 0
 var enchant_taken_retry := 0
 var moves := 0
 var swaps := 0
+## Elite fights by day: day -> [faced, won] (a day given up counts as faced and lost).
+var elites: Dictionary = {}
 
 ## The order the city is built up in, timber facilities: what helps the company stay in the fight
 ## first (shorter stays, better overnight heal, stronger walls, XP for the bench), then the rest.
@@ -45,15 +47,21 @@ func play(run: Run) -> int:
 		guard += 1
 		prepare_party(run)
 		match run.day_type():
-			RunCalendar.DayType.BATTLE, RunCalendar.DayType.BOSS:
+			RunCalendar.DayType.BATTLE, RunCalendar.DayType.ELITE, RunCalendar.DayType.BOSS:
 				market_day(run)
+				var d := run.day
+				var elite := run.day_type() == RunCalendar.DayType.ELITE
+				var won := false
 				if run.lineup.is_empty() and run.yield_block_reason() == "":
 					run.yield_day()   # forced: everyone is in the infirmary
 					yielded += 1
 				else:
 					var battle := run.start_battle(pick_front(run))
 					play_battle(battle)
-					run.finish_battle(battle)
+					won = run.finish_battle(battle).won
+				if elite:
+					var e: Array = elites.get(d, [0, 0])
+					elites[d] = [int(e[0]) + 1, int(e[1]) + (1 if won else 0)]
 			RunCalendar.DayType.FREE:
 				if run.event_pending():
 					run.choose(pick_choice(run))
@@ -77,7 +85,7 @@ func prepare_party(run: Run) -> void:
 		# Badly hurt companions sit out while at least two others can fight.
 		var c: RunCompanion = by_hp[i]
 		var healthy := by_hp.size() - i - 1
-		if c.hp * 3 < c.max_hp() and healthy >= 2 and run.day_type() != RunCalendar.DayType.BOSS:
+		if c.hp * 3 < c.max_hp() and healthy >= 2 and not RunCalendar.is_big_fight(run.day_type()):
 			continue
 		run.field(c)
 	if run.day_type() == RunCalendar.DayType.BOSS and not run.fronts.is_empty() and faces_reversed(run.fronts[0].enemies):
@@ -137,7 +145,7 @@ func pick_front(run: Run) -> Front:
 func free_day(run: Run) -> void:
 	if run.is_over():
 		return
-	if run.day_type(run.day + 1) == RunCalendar.DayType.BOSS and (hp_fraction(run) < 1.0 or spell_fraction(run) < 1.0):
+	if RunCalendar.is_big_fight(run.day_type(run.day + 1)) and (hp_fraction(run) < 1.0 or spell_fraction(run) < 1.0):
 		run.rest()
 	if run.city_health <= 40:
 		run.repair()
@@ -303,7 +311,7 @@ func _swap_piles(run: Run) -> void:
 func scavenge(run: Run) -> void:
 	if run.free_action_block_reason(Run.FreeAction.SCAVENGE) != "":
 		return
-	var boss_next := run.day_type(run.day + 1) == RunCalendar.DayType.BOSS
+	var boss_next := RunCalendar.is_big_fight(run.day_type(run.day + 1))
 	var best: ScavengeSite = null
 	var best_party: Array = []
 	var best_value := 0.0
@@ -444,7 +452,7 @@ func _cure_one(run: Run) -> bool:
 			continue
 		var misses := false
 		for d in range(run.day + 1, c.back_on_day):
-			misses = misses or run.day_type(d) == RunCalendar.DayType.BATTLE or run.day_type(d) == RunCalendar.DayType.BOSS
+			misses = misses or run.is_fight_day(d)
 		if not misses:
 			continue
 		if pick == null or c.level() > pick.level():

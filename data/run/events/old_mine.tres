@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="EventData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/event_choice_data.gd" id="1_minch"]
+[ext_resource type="Script" path="res://scripts/data/event_data.gd" id="2_minev"]
+
+[sub_resource type="Resource" id="Resource_mndown"]
+script = ExtResource("1_minch")
+label = "Send the strongest down"
+result_text = "They come up bruised and grey with dust, holding a {gem}."
+companion_hp = -10
+gem_stone = 1
+
+[sub_resource type="Resource" id="Resource_mnprops"]
+script = ExtResource("1_minch")
+label = "Take the timber props instead"
+result_text = "The old props are good seasoned oak."
+materials = {
+"timber": 2
+}
+
+[sub_resource type="Resource" id="Resource_mnleave"]
+script = ExtResource("1_minch")
+label = "Leave it be"
+result_text = "The scouts mark the shaft on the map and move on."
+
+[resource]
+script = ExtResource("2_minev")
+title = "The Old Mine"
+text = "Scouts found the mouth of an old mine in the hills. The roof is unsafe, but something glitters in the dark."
+choices = Array[ExtResource("1_minch")]([SubResource("Resource_mndown"), SubResource("Resource_mnprops"), SubResource("Resource_mnleave")])

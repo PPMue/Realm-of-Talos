@@ -4,6 +4,9 @@ extends Resource
 ## A choice that would take more gold or materials than the player has cannot be picked.
 
 enum HpTarget { ALL, HEALTHIEST }
+## A gemstone the choice gives: none, one of the current rank (Run.gem_rank_now), or one rank lower
+## (never below Topaz). See Run.choice_gem.
+enum GemStone { NONE, CURRENT, ONE_LOWER }
 
 @export var label: String = ""
 ## What happens, shown after choosing. "{weapon}" is replaced by the weapon's name.
@@ -23,3 +26,5 @@ enum HpTarget { ALL, HEALTHIEST }
 @export var random_weapon: bool = false
 ## The random weapon's type (WeaponData.WeaponType), or -1 for any.
 @export var random_weapon_type: int = -1
+## A gemstone added to Run.gems. "{gem}" in result_text is replaced by its name.
+@export var gem_stone: GemStone = GemStone.NONE

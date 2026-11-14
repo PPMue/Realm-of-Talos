@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="EventData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/event_choice_data.gd" id="1_gemch"]
+[ext_resource type="Script" path="res://scripts/data/event_data.gd" id="2_gemev"]
+
+[sub_resource type="Resource" id="Resource_gcbuy"]
+script = ExtResource("1_gemch")
+label = "Buy the cut stone (60 gold)"
+result_text = "She counts the coins twice and puts a {gem} in your hand."
+gold = -60
+gem_stone = 1
+
+[sub_resource type="Resource" id="Resource_gctrade"]
+script = ExtResource("1_gemch")
+label = "Trade iron ore for a rough one"
+result_text = "The smith will miss the iron. The {gem} is small, but true."
+materials = {
+"iron_ore": -2
+}
+gem_stone = 2
+
+[sub_resource type="Resource" id="Resource_gcleave"]
+script = ExtResource("1_gemch")
+label = "Wish her well"
+result_text = "She wraps the stones in a cloth and goes to try the next town."
+
+[resource]
+script = ExtResource("2_gemev")
+title = "The Gem Cutter's Widow"
+text = "A widow at the gate is selling what is left of her husband's workshop: one cut stone, and a few rough ones."
+choices = Array[ExtResource("1_gemch")]([SubResource("Resource_gcbuy"), SubResource("Resource_gctrade"), SubResource("Resource_gcleave")])

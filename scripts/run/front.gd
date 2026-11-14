@@ -15,6 +15,11 @@ var reward_materials: Dictionary = {}
 var city_damage: int = 0
 ## XP shared by the fielded companions still standing if the battle is won.
 var xp_pool: int = 0
+## The rank of the gemstone (Gem) a win here gives, shown before the front is chosen; 0 for none.
+## Set on the big fights: the elites and every boss but the last (Run.gem_for_fight).
+var gem: int = 0
+## True on an elite day's fronts (two, both danger 3).
+var is_elite: bool = false
 
 
 func title() -> String:

@@ -44,7 +44,7 @@ func force_day(run: Run, type: int) -> void:
 ## Ends today whatever it is: a battle day is won at once, a free day's event answered.
 func next_day(run: Run) -> void:
 	match run.day_type():
-		RunCalendar.DayType.BATTLE, RunCalendar.DayType.BOSS:
+		RunCalendar.DayType.BATTLE, RunCalendar.DayType.ELITE, RunCalendar.DayType.BOSS:
 			if run.lineup.is_empty():
 				for c in run.reserve():
 					run.field(c)

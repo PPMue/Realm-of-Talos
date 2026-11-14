@@ -122,6 +122,10 @@ const EVENT_WEAPON_TIER_UP_CHANCE := 0.25
 ## the best the smithy is selling that week, into the armory.
 const BOSS_WEAPON_TIERS_ABOVE_SHOP := 1
 
+# --- Gemstones (Gem) ---
+## The chance (percent) that a scavenging Success also brings back a stone of the current rank.
+const SCAVENGE_GEM_PERCENT := 3
+
 # --- Free days ---
 const FREE_DAY_ACTIONS := 1
 ## A hire's price in week 1, and what it rises by each week after (week 6: 150). See Run.hire_cost.

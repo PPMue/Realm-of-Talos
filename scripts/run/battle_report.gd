@@ -37,6 +37,8 @@ var reserve_xp: Dictionary = {}
 var level_ups: Array[Dictionary] = []
 ## The weapon a beaten boss dropped into the armory (Run.boss_weapon_tier), or null.
 var weapon_found: WeaponData
+## The rank of the gemstone (Gem) the win gave (front.gem), already in Run.gems; 0 for none.
+var gem: int = 0
 ## True if this battle ended the run (won or lost).
 var run_over: bool = false
 

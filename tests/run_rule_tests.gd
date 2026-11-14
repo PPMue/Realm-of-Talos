@@ -86,7 +86,7 @@ func force_event(run: Run, ev: EventData = null) -> void:
 ## with the first choice it can afford and then ends.
 func advance(run: Run) -> void:
 	match run.day_type():
-		RunCalendar.DayType.BATTLE, RunCalendar.DayType.BOSS:
+		RunCalendar.DayType.BATTLE, RunCalendar.DayType.ELITE, RunCalendar.DayType.BOSS:
 			fight(run, true)
 		RunCalendar.DayType.FREE:
 			if run.event_pending():
@@ -137,9 +137,9 @@ func names(cs: Array[RunCompanion]) -> Array[String]:
 
 # ---------------------------------------------------------------- calendar
 
-## Six weeks of seven days. Week 1 and the boss weeks: battle, free, battle, free, battle, free, then a
-## free day in week 1 and the boss in the boss weeks (days 14, 28, 42). The week after a boss is turned
-## round: free, battle, free, battle, free, battle, free.
+## Six weeks of seven days. Week 1: battle, free, battle, free, free, elite, free. The boss weeks:
+## battle, free, battle, free, battle, free, boss (days 14, 28, 42). The week after a boss: free, battle,
+## free, battle, free, elite, free. Elites on days 6, 20, 34.
 func test_calendar_shape() -> void:
 	var D := RunCalendar.DayType
 	var cal := RunCalendar.generate()
@@ -147,7 +147,7 @@ func test_calendar_shape() -> void:
 	t.eq(RunConfig.DAYS, 42, "a run is 42 days")
 	t.eq(cal.size() % RunConfig.WEEK_DAYS, 0, "whole weeks")
 	t.eq(cal[0], D.BATTLE, "day 1 is a battle")
-	var counts := [0, 0, 0]
+	var counts := [0, 0, 0, 0]
 	for d in range(1, cal.size() + 1):
 		counts[cal[d - 1]] += 1
 		var boss := d == 14 or d == 28 or d == 42
@@ -158,23 +158,32 @@ func test_calendar_shape() -> void:
 			t.eq(RunCalendar.boss_index(d), d / 14 - 1, "boss index on day %d" % d)
 		var in_week := (d - 1) % 7 + 1
 		var week := (d - 1) / 7 + 1
-		var shape: String = ["BFBFBFF", "BFBFBFX", "FBFBFBF", "BFBFBFX", "FBFBFBF", "BFBFBFX"][week - 1]
-		var want: int = {"B": D.BATTLE, "F": D.FREE, "X": D.BOSS}[shape[in_week - 1]]
+		var shape: String = ["BFBFFEF", "BFBFBFX", "FBFBFEF", "BFBFBFX", "FBFBFEF", "BFBFBFX"][week - 1]
+		var want: int = {"B": D.BATTLE, "F": D.FREE, "X": D.BOSS, "E": D.ELITE}[shape[in_week - 1]]
 		t.eq(cal[d - 1], want, "day %d (week %d, day %d of the week)" % [d, week, in_week])
 		t.eq(RunCalendar.type_on(d), want, "type_on(%d)" % d)
 		t.eq(RunCalendar.after_boss_week(d), week == 3 or week == 5, "after_boss_week(%d)" % d)
 		if boss and d < cal.size():
 			t.eq(cal[d], D.FREE, "the day after the boss of day %d is free" % d)
-		# Alternation: never two fights in a row; two free days in a row only on days 6 and 7.
+		var elite := d == 6 or d == 20 or d == 34
+		t.eq(RunCalendar.is_elite_day(d), elite, "is_elite_day(%d)" % d)
+		if elite:
+			t.eq(cal[d - 2], D.FREE, "day %d before an elite is free" % (d - 1))
+		t.eq(RunCalendar.is_fight(cal[d - 1]), cal[d - 1] != D.FREE, "is_fight on day %d" % d)
+		t.eq(RunCalendar.is_big_fight(cal[d - 1]), boss or elite, "is_big_fight on day %d" % d)
+		# Alternation: never two fights in a row; two free days in a row only on days 4 and 5.
 		if d < cal.size():
 			var fight_today: bool = cal[d - 1] != D.FREE
 			var fight_next: bool = cal[d] != D.FREE
 			t.check(not (fight_today and fight_next), "never two fights in a row (day %d)" % d)
 			if not fight_today and not fight_next:
-				t.eq(d, 6, "two free days in a row only on days 6 and 7 (day %d)" % d)
-	t.eq(counts[D.BATTLE], 18, "18 battles besides the bosses")
+				t.eq(d, 4, "two free days in a row only on days 4 and 5 (day %d)" % d)
+	t.eq(counts[D.BATTLE], 15, "15 battles")
+	t.eq(counts[D.ELITE], 3, "3 elites")
 	t.eq(counts[D.FREE], 21, "21 free days")
 	t.eq(counts[D.BOSS], 3, "3 bosses")
+	t.eq(RunCalendar.NAMES[D.ELITE], "ELITE", "its name")
+	t.eq([D.BATTLE, D.FREE, D.BOSS, D.ELITE], [0, 1, 2, 3], "the older values keep their numbers")
 	t.eq(RunCalendar.week_of(1), 1, "day 1 is week 1")
 	t.eq(RunCalendar.week_of(7), 1, "day 7 is week 1")
 	t.eq(RunCalendar.week_of(8), 2, "day 8 is week 2")
@@ -193,7 +202,7 @@ func test_calendar_shape() -> void:
 		t.check(RunCalendar.is_week_start(d + RunCalendar.days_until_restock(d)), "day %d: lands on a week start" % d)
 
 
-## One event in every week, on a free day that is not the day before a boss.
+## One event in every week, on a free day that is not the day before a boss (so never on an elite).
 func test_event_days() -> void:
 	var D := RunCalendar.DayType
 	var cal := RunCalendar.generate()
@@ -507,7 +516,7 @@ func test_nobody_is_ever_removed() -> void:
 	while not run.is_over() and guard < 60:
 		guard += 1
 		match run.day_type():
-			RunCalendar.DayType.BATTLE, RunCalendar.DayType.BOSS:
+			RunCalendar.DayType.BATTLE, RunCalendar.DayType.ELITE, RunCalendar.DayType.BOSS:
 				if run.lineup.is_empty():
 					for c in run.reserve():
 						run.field(c)
@@ -1327,7 +1336,7 @@ func test_level_pace() -> void:
 			run._join(extra[i])
 		while not run.is_over():
 			match run.day_type():
-				RunCalendar.DayType.BATTLE, RunCalendar.DayType.BOSS:
+				RunCalendar.DayType.BATTLE, RunCalendar.DayType.ELITE, RunCalendar.DayType.BOSS:
 					var best: Front = run.fronts[0]
 					for f in run.fronts:
 						if absi(f.danger - 2) < absi(best.danger - 2):
@@ -1383,6 +1392,9 @@ func test_playthrough() -> void:
 	var taken := {RunConfig.TIMBER: 0, RunConfig.IRON_ORE: 0}
 	var walls_after_empty := 0   # runs lost by the walls after a day given up for want of anyone
 	var beaten := {}   # boss group -> times beaten
+	var elites := {}   # elite day -> [faced, won]
+	var stones := 0
+	var stones_by_rank := [0, 0, 0, 0, 0]
 	for s in runs:
 		var run := make_run(1000 + s)
 		var policy := RunPolicy.new(_seeded(5000 + s))
@@ -1405,6 +1417,12 @@ func test_playthrough() -> void:
 		for m: String in taken:
 			taken[m] += int(run.materials_taken.get(m, 0))
 		yielded += policy.yielded
+		for d: int in policy.elites:
+			var e: Array = elites.get(d, [0, 0])
+			elites[d] = [int(e[0]) + int(policy.elites[d][0]), int(e[1]) + int(policy.elites[d][1])]
+		stones += run.gems_taken
+		for r in range(1, 6):
+			stones_by_rank[r - 1] += run.gem_count(r)
 		if run.outcome == Run.Outcome.DEFEAT and run.city_health <= 0 and policy.yielded > 0:
 			walls_after_empty += 1
 		for d: int in run.boss_draw:
@@ -1467,6 +1485,13 @@ func test_playthrough() -> void:
 	print("    training ground per run: %.1f sparring, %.1f proficiency drills" % [float(sparred) / runs, float(drilled) / runs])
 	print("    infirmary: %.1f cures per run; %d days given up with nobody to field; %d runs lost by the walls after such a day" % [
 		float(cured) / runs, yielded, walls_after_empty])
+	var elite_days := elites.keys()
+	elite_days.sort()
+	var elite_text: Array[String] = []
+	for d: int in elite_days:
+		elite_text.append("day %d %d / %d (%d%%)" % [d, elites[d][0], elites[d][1], roundi(100.0 * elites[d][1] / maxf(1, elites[d][0]))])
+	print("    elites (reached / won): %s" % ", ".join(elite_text))
+	print("    gemstones per run: %.2f (Topaz..Diamond %s)" % [float(stones) / runs, str(stones_by_rank)])
 	var trips: int = scavenged[0] + scavenged[1] + scavenged[2]
 	print("    scavenging: %.1f trips per run (full %d%%, half %d%%, nothing %d%%); %.2f injured per run" % [
 		float(trips) / runs, roundi(100.0 * scavenged[0] / maxf(1, trips)), roundi(100.0 * scavenged[1] / maxf(1, trips)),

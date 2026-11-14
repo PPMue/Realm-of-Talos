@@ -39,6 +39,9 @@ var gold: int = 0
 var materials: Dictionary = {}
 ## Already in the armory; null if none.
 var weapon_found: WeaponData
+## The rank of a gemstone (Gem) brought home, already in Run.gems; 0 for none. Only on a success,
+## RunConfig.SCAVENGE_GEM_PERCENT of the time, of the current rank (Run.gem_rank_now).
+var gem: int = 0
 ## One per companion sent, in slot order.
 var members: Array[Member] = []
 ## Who was injured and went to the infirmary (high risk, nothing found), or null.

@@ -68,6 +68,10 @@ var materials: Dictionary = {}
 ## Every piece of material the run has taken in so far (battles, bosses, events, scavenging), by id;
 ## for the record and the balance checks.
 var materials_taken: Dictionary = {}
+## The company's gemstones: Gem rank (1-5) -> count. Kept like materials; nothing spends them yet.
+var gems: Dictionary = {}
+## Every stone taken this run, any rank.
+var gems_taken: int = 0
 ## Every companion in the run (fielded, bench and infirmary), in the order they joined. Nobody is ever
 ## removed.
 var roster: Array[RunCompanion] = []
@@ -177,6 +181,69 @@ func day_type(d: int = -1) -> int:
 	if at < 1 or at > calendar.size():
 		return -1
 	return calendar[at - 1]
+
+
+## True if day `d` (default today) is a day the company marches out: a battle, an elite or a boss
+## (RunCalendar.is_fight).
+func is_fight_day(d: int = -1) -> bool:
+	return RunCalendar.is_fight(day_type(d))
+
+
+# ---------------------------------------------------------------- gemstones
+
+func gem_count(rank: int) -> int:
+	return int(gems.get(rank, 0))
+
+
+## Every stone the company holds, any rank.
+func gem_total() -> int:
+	var n := 0
+	for r: int in gems:
+		n += int(gems[r])
+	return n
+
+
+## Adds one stone of `rank` (1-5; anything else does nothing). Returns the rank added, or 0.
+func add_gem(rank: int) -> int:
+	if not Gem.is_rank(rank):
+		return 0
+	gems[rank] = gem_count(rank) + 1
+	gems_taken += 1
+	return rank
+
+
+## The stone winning the big fight of day `d` gives: the elites and the bosses before the last day, in
+## order, give Topaz, Sapphire, Emerald, Ruby, Diamond (days 6, 14, 20, 28, 34). 0 on any other day and
+## on the run's last day.
+func gem_for_fight(d: int) -> int:
+	if d >= calendar.size() or not RunCalendar.is_big_fight(day_type(d)):
+		return 0
+	var rank := 0
+	for x in range(1, d + 1):
+		if RunCalendar.is_big_fight(day_type(x)):
+			rank += 1
+	return mini(rank, Gem.max_rank())
+
+
+## The stone other sources give today (scavenging, events): that of the last big fight whose day has
+## passed, won or not; Topaz before the first.
+func gem_rank_now() -> int:
+	var rank := Gem.TOPAZ
+	for x in range(1, mini(day, calendar.size() + 1)):
+		rank = maxi(rank, gem_for_fight(x))
+	return rank
+
+
+## The stone `choice` gives if chosen now (EventChoiceData.gem_stone), or 0.
+func choice_gem(choice: EventChoiceData) -> int:
+	if choice == null:
+		return 0
+	match choice.gem_stone:
+		EventChoiceData.GemStone.CURRENT:
+			return gem_rank_now()
+		EventChoiceData.GemStone.ONE_LOWER:
+			return maxi(Gem.TOPAZ, gem_rank_now() - 1)
+	return 0
 
 
 ## The boss group waiting on boss day `d`, drawn when the run began; null on other days, and for a
@@ -340,8 +407,8 @@ const NOBODY_TO_FIELD := "Everyone is in the infirmary: nobody can march out."
 func yield_block_reason() -> String:
 	if is_over():
 		return "The run is over."
-	if day_type() != RunCalendar.DayType.BATTLE and day_type() != RunCalendar.DayType.BOSS:
-		return "Only on a battle or boss day."
+	if not is_fight_day():
+		return "Only on a battle, elite or boss day."
 	if committed_front != null:
 		return BATTLE_BEGUN
 	if fronts.is_empty():
@@ -436,6 +503,7 @@ func finish_battle(battle: Battle) -> BattleReport:
 				report.kill_gold += earned
 				report.kill_gold_by[fielded[i].display_name()] = earned
 		report.materials = front.reward_materials.duplicate()
+		report.gem = add_gem(front.gem)
 		_battle_won_traits(report, battle, fielded)
 		report.gold = front.reward_gold + report.kill_gold + report.trait_gold
 		gold += report.gold
@@ -993,6 +1061,8 @@ func scavenge(site: ScavengeSite, party: Array) -> ScavengeResult:
 				r.weapon_found = _draw_found_weapon()
 				if r.weapon_found != null:
 					inventory.add(r.weapon_found)
+			if rng.randi_range(1, 100) <= RunConfig.SCAVENGE_GEM_PERCENT:
+				r.gem = add_gem(gem_rank_now())
 		ScavengeResult.Outcome.HALF:
 			r.gold = site.gold / 2
 			for m: String in site.materials:
@@ -1303,7 +1373,7 @@ func seen_day_type(d: int = -1) -> int:
 
 
 ## Tomorrow's fronts, rolled a day early once the Watchtower has its level 2 (they are the fronts
-## tomorrow brings); empty otherwise, or when tomorrow is not a battle or boss day.
+## tomorrow brings); empty otherwise, or when tomorrow is not a battle, elite or boss day.
 func tomorrow_fronts() -> Array[Front]:
 	if facility_level(Facility.WATCHTOWER) < 2 or _next_fronts_day != day + 1 or is_over():
 		return []
@@ -1320,6 +1390,9 @@ func _roll_tomorrow() -> void:
 	match day_type(d):
 		RunCalendar.DayType.BATTLE:
 			_next_fronts = _roll_fronts(d)
+			_next_fronts_day = d
+		RunCalendar.DayType.ELITE:
+			_next_fronts = _roll_elite_fronts(d)
 			_next_fronts_day = d
 		RunCalendar.DayType.BOSS:
 			_next_fronts = [_make_boss_front(d)]
@@ -1804,12 +1877,14 @@ func choose(choice: EventChoiceData) -> String:
 	var gained := choice_weapon(choice)
 	if gained != null:
 		inventory.add(gained)
+	var stone := add_gem(choice_gem(choice))
 	event = null
 	event_weapons.clear()
 	if city_health <= 0:
 		_end(Outcome.DEFEAT, "The city fell on day %d." % day)
 	var text := choice.result_text if choice.result_text != "" else choice.label
-	return text.replace("{weapon}", gained.display_name if gained != null else "weapon")
+	return text.replace("{weapon}", gained.display_name if gained != null else "weapon") \
+		.replace("{gem}", Gem.name_of(stone) if stone > 0 else "stone")
 
 
 ## The companions a choice's HP change would apply to.
@@ -1860,6 +1935,8 @@ func _begin_day() -> void:
 	match day_type():
 		RunCalendar.DayType.BATTLE:
 			fronts.assign(early if not early.is_empty() else _roll_fronts(day))
+		RunCalendar.DayType.ELITE:
+			fronts.assign(early if not early.is_empty() else _roll_elite_fronts(day))
 		RunCalendar.DayType.BOSS:
 			fronts.assign(early if not early.is_empty() else [_make_boss_front(day)])
 		RunCalendar.DayType.FREE:
@@ -1919,22 +1996,47 @@ func _roll_fronts(d: int) -> Array[Front]:
 		var options := content.groups_for(danger, d)
 		if options.is_empty():
 			continue
-		var f := Front.new()
-		f.danger = danger
-		f.group = _pick_group(options, d)
-		f.site = sites.pop_at(rng.randi_range(0, sites.size() - 1)) if not sites.is_empty() else null
-		for e in f.group.enemies:
-			f.enemies.append(scaled_enemy(e, d))
-		var growth := 1.0 + RunConfig.REWARD_GROWTH_PER_DAY * (d - 1)
-		var spread := rng.randf_range(1.0 - RunConfig.REWARD_GOLD_SPREAD, 1.0 + RunConfig.REWARD_GOLD_SPREAD)
-		f.reward_gold = roundi(RunConfig.REWARD_GOLD_BY_DANGER[danger - 1] * growth * spread)
-		if rng.randf() < RunConfig.REWARD_MATERIAL_CHANCE[danger - 1]:
-			var m: String = RunConfig.MATERIAL_ORDER[rng.randi_range(0, RunConfig.MATERIAL_ORDER.size() - 1)]
-			f.reward_materials[m] = RunConfig.REWARD_MATERIAL_AMOUNT[danger - 1]
-		f.city_damage = front_city_damage(danger)
-		f.xp_pool = xp_pool(danger, d)
+		out.append(_make_front(danger, _pick_group(options, d), d, sites))
+	return out
+
+
+## An elite day's fronts: exactly two, both of the highest danger (3), of two different groups where
+## the day has two, each giving the day's gemstone when won (gem_for_fight).
+func _roll_elite_fronts(d: int) -> Array[Front]:
+	var out: Array[Front] = []
+	var sites := content.sites.duplicate()
+	var options := content.groups_for(3, d)
+	for i in 2:
+		if options.is_empty():
+			break
+		var group := _pick_group(options, d)
+		if options.size() > 1:
+			options.erase(group)
+		var f := _make_front(3, group, d, sites)
+		f.is_elite = true
+		f.gem = gem_for_fight(d)
 		out.append(f)
 	return out
+
+
+## One front of `danger` against `group` on day `d`, at a site taken from `sites`: its enemies grown
+## for the day, its gold, material odds, cost to the walls and XP by danger.
+func _make_front(danger: int, group: EnemyGroupData, d: int, sites: Array) -> Front:
+	var f := Front.new()
+	f.danger = danger
+	f.group = group
+	f.site = sites.pop_at(rng.randi_range(0, sites.size() - 1)) if not sites.is_empty() else null
+	for e in f.group.enemies:
+		f.enemies.append(scaled_enemy(e, d))
+	var growth := 1.0 + RunConfig.REWARD_GROWTH_PER_DAY * (d - 1)
+	var spread := rng.randf_range(1.0 - RunConfig.REWARD_GOLD_SPREAD, 1.0 + RunConfig.REWARD_GOLD_SPREAD)
+	f.reward_gold = roundi(RunConfig.REWARD_GOLD_BY_DANGER[danger - 1] * growth * spread)
+	if rng.randf() < RunConfig.REWARD_MATERIAL_CHANCE[danger - 1]:
+		var m: String = RunConfig.MATERIAL_ORDER[rng.randi_range(0, RunConfig.MATERIAL_ORDER.size() - 1)]
+		f.reward_materials[m] = RunConfig.REWARD_MATERIAL_AMOUNT[danger - 1]
+	f.city_damage = front_city_damage(danger)
+	f.xp_pool = xp_pool(danger, d)
+	return f
 
 
 ## A group for a front, favouring the band of the day: a group from an older band is less likely
@@ -1991,6 +2093,7 @@ func _make_boss_front(d: int) -> Front:
 			f.reward_materials[m] = RunConfig.BOSS_REWARD_MATERIALS
 	f.city_damage = 0
 	f.xp_pool = RunConfig.BOSS_XP_POOL[clampi(index, 0, RunConfig.BOSS_XP_POOL.size() - 1)]
+	f.gem = gem_for_fight(d)
 	return f
 
 

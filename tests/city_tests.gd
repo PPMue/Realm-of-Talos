@@ -36,6 +36,10 @@ func tests() -> Array[Callable]:
 		test_outside_practice,
 		test_hire_joins_practised,
 		test_practice_numbers,
+		test_elite_day,
+		test_gems,
+		test_gem_events,
+		test_scavenge_gem,
 	]
 
 
@@ -317,6 +321,208 @@ func test_practice_numbers() -> void:
 	t.check(avg < 8 * 3 * 5, "behind someone fielded from week 1 (up to %d)" % (8 * 3 * 5))
 
 
+# ---------------------------------------------------------------- elite fights and gemstones
+
+## Walks `run` to the start of day `d`, winning every fight at the first front and answering events.
+func walk_to(run: Run, d: int) -> void:
+	run.gold = 100000
+	while run.day < d and not run.is_over():
+		if run.is_fight_day():
+			if run.lineup.is_empty():
+				for c in run.reserve():
+					run.field(c)
+			if run.lineup.is_empty():
+				run.yield_day()
+				continue
+			win(run)
+		else:
+			if run.event_pending():
+				for ch in run.event.choices:
+					if run.choice_block_reason(ch) == "":
+						run.choose(ch)
+						break
+			run.end_free_day()
+
+
+## An elite day plays as a battle day with two danger-3 fronts that give the day's stone.
+func test_elite_day() -> void:
+	for s in 6:
+		var run := make_run(6000 + s)
+		walk_to(run, 6)
+		t.eq(run.day, 6, "seed %d: day 6" % s)
+		t.eq(run.day_type(), RunCalendar.DayType.ELITE, "an elite")
+		t.check(run.is_fight_day(), "a fight day")
+		t.eq(run.seen_day_type(), RunCalendar.DayType.ELITE, "shown as an elite")
+		t.eq(run.fronts.size(), 2, "exactly two fronts")
+		for f in run.fronts:
+			t.eq(f.danger, 3, "danger 3")
+			t.check(f.is_elite and not f.is_boss, "an elite front")
+			t.eq(f.gem, Gem.TOPAZ, "gives a Topaz")
+			t.eq(f.city_damage, run.front_city_damage(3), "costs the walls as danger 3")
+			t.eq(f.xp_pool, run.xp_pool(3, 6), "danger 3 XP")
+		t.check(run.fronts[0].site != run.fronts[1].site, "two places")
+		if run.content.groups_for(3, 6).size() > 1:
+			t.check(run.fronts[0].group != run.fronts[1].group, "two different groups")
+		t.eq(run.market_block_reason(), "", "the smithy and tavern are open")
+		t.eq(run.errand_block_reason(), "Only on free days.", "free-day errands are not")
+		t.check(not run.has_event_day(), "no event")
+		t.eq(run.event, null, "none waiting")
+		t.eq(run.actions_left, 0, "no free action")
+		t.check(not run.end_free_day(), "not a free day to end")
+		var before := run.gem_count(Gem.TOPAZ)   # an event may have given one already
+		var taken := run.gems_taken
+		var report := win(run)
+		t.check(report.won, "won")
+		t.eq(report.gem, Gem.TOPAZ, "the report carries the Topaz")
+		t.eq(run.gem_count(Gem.TOPAZ), before + 1, "in the company's stones")
+		t.eq(run.gems_taken, taken + 1, "one more taken")
+		t.eq(run.day, 7, "the day ended")
+	# A lost elite: no stone, the walls pay as danger 3.
+	var run := make_run(6100)
+	walk_to(run, 6)
+	var walls := run.city_health
+	var stones := run.gem_total()
+	var b := run.start_battle(run.fronts[0])
+	for c in b.line():
+		c.hp = 0
+		c.state = CompanionUnit.State.INJURED
+	b._check_end()
+	var lost := run.finish_battle(b)
+	t.check(not lost.won, "lost")
+	t.eq(lost.gem, 0, "no stone")
+	t.eq(run.gem_total(), stones, "none kept")
+	t.eq(run.city_health, walls - lost.city_damage, "the walls pay")
+	t.eq(lost.city_damage, run.front_city_damage(3), "as a danger-3 front")
+	# Yielded: only on fight days, elites included.
+	run = make_run(6101)
+	walk_to(run, 6)
+	t.check(run.yield_block_reason() != "Only on a battle, elite or boss day.", "an elite can be given up")
+	# The Watchtower's level 2 shows tomorrow's elite fronts, and they are today's.
+	run = make_run(6102)
+	walk_to(run, 5)
+	run.facilities[F.WATCHTOWER] = 2
+	run._roll_tomorrow()
+	var next := run.tomorrow_fronts()
+	t.eq(next.size(), 2, "tomorrow's two elite fronts known")
+	run.end_free_day()
+	t.eq(run.fronts, next, "the same fronts")
+	t.check(run.fronts.all(func(f: Front) -> bool: return f.gem == Gem.TOPAZ and f.danger == 3), "elite fronts")
+	# The boss days are hidden without the Watchtower; the elites never are.
+	run = make_run(6103)
+	t.eq(run.seen_day_type(6), RunCalendar.DayType.ELITE, "day 6 seen as an elite from day 1")
+	t.eq(run.seen_day_type(14), RunCalendar.DayType.BATTLE, "a boss day ahead still looks like a battle")
+
+
+func test_gems() -> void:
+	t.eq(Gem.NAMES, ["Topaz", "Sapphire", "Emerald", "Ruby", "Diamond"] as Array[String], "five stones")
+	t.eq(Gem.name_of(1), "Topaz", "rank 1")
+	t.eq(Gem.name_of(5), "Diamond", "rank 5")
+	t.eq(Gem.name_of(0), "", "no stone")
+	var run := make_run(6200)
+	# The stone of each big fight.
+	var want := {6: Gem.TOPAZ, 14: Gem.SAPPHIRE, 20: Gem.EMERALD, 28: Gem.RUBY, 34: Gem.DIAMOND, 42: 0}
+	for d in range(1, 43):
+		t.eq(run.gem_for_fight(d), int(want.get(d, 0)), "the fight of day %d" % d)
+	# The current rank: the last big fight passed, Topaz before the first.
+	for pair: Array in [[1, 1], [6, 1], [7, 1], [14, 1], [15, 2], [20, 2], [21, 3], [28, 3], [29, 4], [34, 4], [35, 5], [42, 5]]:
+		run.day = pair[0]
+		t.eq(run.gem_rank_now(), pair[1], "day %d: %s" % [pair[0], Gem.name_of(pair[1])])
+	# Kept like materials.
+	t.eq(run.gem_total(), 0, "none at the start")
+	t.eq(run.add_gem(Gem.RUBY), Gem.RUBY, "added")
+	t.eq(run.add_gem(Gem.RUBY), Gem.RUBY, "and another")
+	t.eq(run.add_gem(0), 0, "no stone of rank 0")
+	t.eq(run.add_gem(6), 0, "nor 6")
+	t.eq(run.gem_count(Gem.RUBY), 2, "two rubies")
+	t.eq(run.gem_count(Gem.TOPAZ), 0, "no topaz")
+	t.eq(run.gems_taken, 2, "two taken")
+	# Bosses: day 14 a Sapphire, the last none.
+	run = make_run(6201)
+	walk_to(run, 14)
+	t.eq(run.fronts[0].gem, Gem.SAPPHIRE, "the day 14 boss gives a Sapphire")
+	var r := win(run)
+	if r.won:
+		t.eq(r.gem, Gem.SAPPHIRE, "won: a Sapphire")
+	run = make_run(6202)
+	walk_to(run, 42)
+	if run.day == 42:
+		t.eq(run.fronts[0].gem, 0, "the last boss gives none")
+	# A run that wins every big fight takes the five, in order.
+	run = make_run(6203)
+	walk_to(run, 42)
+	t.eq(run.day, 42, "reached the last day")
+	for rank in range(1, 6):
+		t.check(run.gem_count(rank) >= 1, "a %s" % Gem.name_of(rank))
+
+
+## Two events give a stone: the gem cutter's widow (gold for the current rank, iron ore for one
+## lower) and the old mine (the healthiest gets hurt for the current rank).
+func test_gem_events() -> void:
+	var widow: EventData = load("res://data/run/events/gem_cutter.tres")
+	var mine: EventData = load("res://data/run/events/old_mine.tres")
+	t.check(RunContent.load_default().events.has(widow) and RunContent.load_default().events.has(mine), "both in the content")
+	var run := rich_run(6300)
+	run.event = widow
+	t.eq(run.choice_gem(widow.choices[0]), Gem.TOPAZ, "week 1: a Topaz for gold")
+	t.eq(run.choice_gem(widow.choices[1]), Gem.TOPAZ, "one lower, never below Topaz")
+	t.eq(run.choice_gem(widow.choices[2]), 0, "leaving gives none")
+	var gold := run.gold
+	var text := run.choose(widow.choices[0])
+	t.eq(run.gem_count(Gem.TOPAZ), 1, "the stone is kept")
+	t.eq(run.gold, gold - 60, "for 60 gold")
+	t.check(text.contains("Topaz") and not text.contains("{gem}"), "the letter names it: %s" % text)
+	run.day = 30
+	t.eq(run.gem_rank_now(), Gem.RUBY, "day 30: Ruby")
+	t.eq(run.choice_gem(widow.choices[0]), Gem.RUBY, "a Ruby for gold")
+	t.eq(run.choice_gem(widow.choices[1]), Gem.EMERALD, "an Emerald for ore")
+	t.eq(run.choice_gem(mine.choices[0]), Gem.RUBY, "the mine: the current rank")
+	run.day = 2
+	run.event = mine
+	var c: RunCompanion = run.hp_targets(mine.choices[0])[0]
+	var hp := c.hp
+	run.choose(mine.choices[0])
+	t.eq(c.hp, maxi(1, hp - 10), "the healthiest pays in HP")
+	t.eq(run.gem_count(Gem.TOPAZ), 2, "a second Topaz")
+	t.eq(run.gems_taken, 2, "two taken")
+
+
+## A scavenging Success sometimes brings back a stone of the current rank; nothing else does.
+func test_scavenge_gem() -> void:
+	t.eq(RunConfig.SCAVENGE_GEM_PERCENT, 3, "3%")
+	var found := 0
+	var full := 0
+	for s in 600:
+		var run := rich_run(6400 + s)
+		run.day = 16 if s % 2 == 0 else 2
+		run.calendar[run.day - 1] = RunCalendar.DayType.FREE
+		run.event_days.erase(run.day)
+		run._begin_day()
+		var sites := run.scavenge_sites()
+		if sites.is_empty():
+			continue
+		var site: ScavengeSite = sites[0]
+		var party: Array[RunCompanion] = []
+		for c in run.available():
+			if party.size() < site.size:
+				party.append(c)
+		if party.size() < site.size:
+			continue
+		var r := run.scavenge(site, party)
+		if r == null:
+			continue
+		if r.outcome == ScavengeResult.Outcome.FULL:
+			full += 1
+			if r.gem > 0:
+				found += 1
+				t.eq(r.gem, run.gem_rank_now(), "the current rank")
+				t.eq(run.gem_count(r.gem), 1, "kept")
+		else:
+			t.eq(r.gem, 0, "only on a success")
+			t.eq(run.gem_total(), 0, "nothing kept")
+	t.check(full > 100, "enough successes (%d)" % full)
+	t.check(found > 0 and found / float(full) < 0.08, "a stone now and then (%d of %d)" % [found, full])
+
+
 # ---------------------------------------------------------------- materials
 
 func test_repair_and_swap() -> void:
@@ -432,7 +638,7 @@ func test_watchtower_tomorrow() -> void:
 		while not r.is_over() and r.day < 30:
 			var next := r.tomorrow_fronts()
 			var tomorrow := r.day_type(r.day + 1)
-			t.eq(not next.is_empty(), tomorrow == RunCalendar.DayType.BATTLE or tomorrow == RunCalendar.DayType.BOSS,
+			t.eq(not next.is_empty(), RunCalendar.is_fight(tomorrow),
 				"seed %d day %d: fronts known exactly when tomorrow fights" % [s, r.day])
 			if r.day_type() == RunCalendar.DayType.FREE:
 				if r.event_pending():
