@@ -3,7 +3,10 @@
 Written 2026-11-14 after the user's play reports: "When I get a companion, I can just keep using it
 and it will grow stronger... and I can do the same like this in every run. There is nothing that
 forces the player out of this comfort zone", and "I want to be able to take the same companion to a
-different path in a different run". Every number here is a first guess.
+different path in a different run". Then: "design the callings to also help nudge growth, similar
+to a class in Fire Emblem". Every number here is a first guess. `design/growth.md` is built first; the stats
+in "What a calling does to growth" are at the size it proposes (two thirds of today's), the stats
+named elsewhere in this note are today's.
 
 ## What is wrong, from the rules and the data
 
@@ -51,8 +54,8 @@ traits, accessories, enchanting, the weapons, everything in the battle that is n
 
 ## Step 1: the calling
 
-- **Twelve callings.** A calling is one rule that changes what its holder does in a battle. It is not
-  a number added to a stat.
+- **Twelve callings.** A calling is one rule that changes what its holder does in a battle, and a
+  lean in how they grow from then on (see "What a calling does to growth").
 - **Three are offered to each companion, drawn when they first appear in a run** (with their traits,
   with the run's generator, each of the twelve as likely as another). They are shown from then on: on
   a hire's paper in the Tavern before the hire, and on the Barracks sheet. Elena may be offered
@@ -116,6 +119,49 @@ Each is written as it would stand on a screen: one line.
   today: the one raised fights on and does not go to the Infirmary. Captain moves who is ready, on
   top of the recovery rules just built: it costs the Captain's own turn and recovery, so the line acts
   no more often than before; the same action is given to someone else.
+
+### What a calling does to growth
+
+As a class does in Fire Emblem: the calling is felt the moment it is taken and in every level after.
+
+- **On taking**: +2 to its first stat and +1 to its second, shown stat by stat as a level-up is.
+  Health counts three for one (+6, or +3).
+- **From then on**: the first stat's growth rate is 20 points higher, the second's 10 higher, and one
+  stat's 10 lower.
+- "Lead" is whichever of Strength and Magic is higher when the calling is taken; "the other" is the
+  lower one.
+
+| Calling | On taking | Grows faster | Grows slower |
+|---|---|---|---|
+| Warden | Defence +2, Health +3 | Defence, Health | Speed |
+| Champion | Health +6, Defence +1 | Health, Defence | Dexterity |
+| Executioner | Lead +2, Critical +1 | Lead, Critical | Defence |
+| Skirmisher | Speed +2, Dexterity +1 | Speed, Dexterity | Health |
+| Captain | Resistance +2, Defence +1 | Resistance, Defence | Critical |
+| Harrier | Dexterity +2, Lead +1 | Dexterity, Lead | Resistance |
+| Hunter | Lead +2, Dexterity +1 | Lead, Dexterity | Health |
+| Berserker | Lead +2, Health +3 | Lead, Health | Dexterity |
+| Mender | Magic +2, Resistance +1 | Magic, Resistance | Strength |
+| Hexer | Magic +2, Dexterity +1 | Magic, Dexterity | Strength |
+| Sage | Magic +2, Critical +1 | Magic, Critical | Defence |
+| Spellblade | The other +2, Lead +1 | The other, Lead | Health |
+
+- **What it comes to.** Taken at level 4 with about eight levels to go, a calling adds about 3.5
+  points to its first stat by the end of a run and about 2 to its second, and takes about 1 from the
+  third. The first stat began at 5 to 7 and gains about 4 or 5 from levels, so the calling is nearly
+  half of how far it goes.
+- **It settles arms or magic.** Strength and Magic start 1 apart. A calling of magic gives Magic +2
+  at once and the faster growth after, and slows Strength: Elena the Mender has about Magic 9
+  against Strength 8 the day she takes it and is a caster from then on. An Executioner or a Hunter makes the
+  stat that already leads lead further.
+- **Built well, built wrong.** Elena the Executioner ends near Strength 16 where her levels alone
+  would leave her at 12. A Mender kept swinging her axe has spent the calling on the stat she is not
+  using and grows slower in the one she is; a Hunter stood at the front has less Health than anyone
+  there should; a Warden left at the rear has Defence nobody tests. Nothing stops any of it, and the
+  company is weaker for it.
+- **Known beforehand.** Each of the three cards offered shows its stats from day one (two rising, one
+  falling), and the Barracks' growth lines count the calling as they count traits.
+- The mastery at level 8 stays a choice of rule and adds no stats.
 
 ### What it does to the two complaints
 
@@ -228,3 +274,5 @@ The user's own play outranks all four.
    first and second boss.
 6. **What to build first.** Step 1 alone with all twelve, then play (proposed); or steps 1 and 2
    together; step 3 in either case after.
+7. **Growth by calling.** +2 and +1 on taking, and three growth rates shifted (proposed). Or the
+   growth rates alone, with nothing on the day it is taken. Or larger: +3 and +2.

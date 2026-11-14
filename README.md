@@ -2,7 +2,7 @@
 
 2D roguelite party builder (Godot 4.7, GDScript). You command the last city and defend it from monsters for 42 days, six weeks. Currently: a playable run (a calendar of battle, free, elite and boss days, with events at the start of some free days) with countdown battles, weapon proficiency, combat arts and magic that carry through the run, a city whose facilities are built up, enchanted weapons, and gemstones set into accessories at the Jeweler.
 
-Every rule and every screen is described in this file. `design/` holds the design notes the larger systems were built from (`traits.md`, `city-and-enchanting.md`, `accessories.md`, and `battle.md`, all of it built); where the two differ, this file is what the game does. `design/callings.md` is a proposal: a calling each companion takes at level 4, from three drawn for them that run. Of it only the companions' Strength and Magic standing close together is built. `design/growth.md` is a proposal of which nothing is built: growth rates down by a third, enemies that grow less by the day, and a weapon ladder of +1 Mt a metal.
+Every rule and every screen is described in this file. `design/` holds the design notes the larger systems were built from (`traits.md`, `city-and-enchanting.md`, `accessories.md`, and `battle.md`, all of it built); where the two differ, this file is what the game does. `design/callings.md` is a proposal: a calling each companion takes at level 4, from three drawn for them that run. Of it only the companions' Strength and Magic standing close together is built. `design/growth.md` is a proposal of which nothing is built: every stat at two thirds of its size, growth rates down by a third, enemies that grow less by the day, and a weapon ladder of +1 Mt a metal.
 
 ## Run
 
