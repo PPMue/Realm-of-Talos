@@ -27,8 +27,8 @@ const RECOVERY_ATTACK := 2
 const RECOVERY_GUARD := 2
 const RECOVERY_FOCUS := 2
 # Combat arts and spells carry their own recovery in their data (tier 1: 2, tier 2: 3, tier 3: 4).
-# Recovery an enemy adds comes on top. When nobody is ready the party waits (Battle.wait); a companion
-# standing alone ignores recovery.
+# Recovery an enemy adds comes on top. When nobody is ready the party waits (Battle.wait), a companion
+# standing alone included.
 
 # --- Guard (lasts until the end of the tick it was used in) ---
 const GUARD_DAMAGE_TAKEN_MULT := 0.5
@@ -37,6 +37,13 @@ const GUARD_DURATION_TICKS := 1
 # --- Stamina in battle ---
 const FOCUS_RESTORE_PERCENT := 50      # Focus: this share of max stamina, rounded up
 const BREATH_PER_TURN := 1             # regained at the end of every turn a standing companion did not act in
+
+# --- The account before a battle (BattleAccount.before) ---
+# The scouts' word, from the turns the enemies need to bring the line down over the turns the line needs
+# to bring them down. Set with tools/battle_probe.gd so the words are true of the automated player:
+# it wins a "sure" fight nine times in ten or more, a "grim" one fewer than four in ten.
+const ACCOUNT_SURE_RATIO := 0.8
+const ACCOUNT_GRIM_RATIO := 0.4
 
 # --- Enemy single-target selection ---
 const TARGET_WEIGHT_BASE := 1.0         # leftmost companion

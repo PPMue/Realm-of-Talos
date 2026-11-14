@@ -17,6 +17,7 @@ const TraitHookTests := preload("res://tests/trait_hook_tests.gd")
 const AccessoryTests := preload("res://tests/accessory_tests.gd")
 const AimTests := preload("res://tests/aim_tests.gd")
 const LineTests := preload("res://tests/line_tests.gd")
+const AccountTests := preload("res://tests/account_tests.gd")
 
 var _failures: Array[String] = []
 var _run_rules: RefCounted   # kept alive: Callables do not hold a reference to their object
@@ -33,6 +34,7 @@ var _hooks: RefCounted
 var _accessories: RefCounted
 var _aims: RefCounted
 var _lines: RefCounted
+var _accounts: RefCounted
 var _checks := 0
 var _current := ""
 
@@ -63,7 +65,7 @@ func _init() -> void:
 		test_recovery_whoever_stands,
 		test_recovery_when_others_fall,
 		test_breath_comes_back,
-		test_lone_companion_ignores_recovery,
+		test_lone_companion_waits,
 		test_wait_only_when_nobody_can_act,
 		test_guard_halves_damage_and_expires,
 		test_guard_and_injured_target_weights,
@@ -141,6 +143,8 @@ func _init() -> void:
 	tests.append_array(_aims.tests())
 	_lines = LineTests.new(self)
 	tests.append_array(_lines.tests())
+	_accounts = AccountTests.new(self)
+	tests.append_array(_accounts.tests())
 	var verbose := OS.get_environment("TEST_VERBOSE") != ""
 	var only := OS.get_environment("TEST_ONLY")
 	if only != "":
@@ -297,6 +301,12 @@ func three_companions(hp: int = 20) -> Array[CompanionData]:
 func one_enemy(e: EnemyData) -> Array[EnemyData]:
 	var es: Array[EnemyData] = [e]
 	return es
+
+
+## Everyone in `b` is ready again: for tests that have one companion act turn after turn.
+func rest(b: Battle) -> void:
+	for c in b.roster:
+		c.recovery = 0
 
 
 func set_injured(c: CompanionUnit) -> void:
@@ -460,8 +470,7 @@ func test_recovery_lengths() -> void:
 
 
 ## Recovery is what the action carries, whoever else stands: an Attack's 2 and a recovery 4 art's 4
-## with two, three or four standing. Only a companion standing alone has none. Enemy-added recovery
-## comes on top.
+## with one, two, three or four standing. Enemy-added recovery comes on top.
 func test_recovery_whoever_stands() -> void:
 	var slow := make_art("Slow", 3, 5, 4)
 	for n in [1, 2, 3, 4]:
@@ -470,11 +479,10 @@ func test_recovery_whoever_stands() -> void:
 			cs.append(make_companion("C%d" % i))
 		var b := make_battle(cs, one_enemy(idle_enemy(1000)))
 		var c := b.roster[0]
-		var own := 0 if n == 1 else 2
-		eq(b.action_recovery(c, BattleConfig.RECOVERY_ATTACK, TraitModifier.Action.ATTACK), own, "%d standing: attack" % n)
-		eq(b.art_recovery(c, slow), 0 if n == 1 else 4, "%d standing: a recovery 4 art" % n)
+		eq(b.action_recovery(c, BattleConfig.RECOVERY_ATTACK, TraitModifier.Action.ATTACK), 2, "%d standing: attack" % n)
+		eq(b.art_recovery(c, slow), 4, "%d standing: a recovery 4 art" % n)
 		b.attack(c, b.enemies[0])
-		eq(c.recovery, own, "%d standing: what attacking leaves" % n)
+		eq(c.recovery, 2, "%d standing: what attacking leaves" % n)
 	# Two standing: each acts, then both recover and the party waits one action.
 	var two: Array[CompanionData] = [make_companion("A"), make_companion("B")]
 	var b2 := make_battle(two, one_enemy(idle_enemy(100000)))
@@ -520,7 +528,7 @@ func test_recovery_whoever_stands() -> void:
 	eq(b3.roster[0].recovery, 5, "2 of its own, 3 from the enemy: 5")
 
 
-## An injury leaves the others' recovery as it was, until one stands alone: that one waits for nobody.
+## An injury leaves the others' recovery as it was, the last one standing included.
 func test_recovery_when_others_fall() -> void:
 	var slow := make_art("Slow", 3, 5, 4)
 	var b := make_battle(four_companions(), one_enemy(idle_enemy(1000)))
@@ -539,8 +547,8 @@ func test_recovery_when_others_fall() -> void:
 	eq(a.recovery, 4, "two standing: unchanged")
 	check(b.can_wait(), "both recovering: Wait")
 	b._damage_companion(c, 999, false)
-	eq(a.recovery, 0, "alone: none")
-	check(b.can_act(a), "the last one standing acts at once")
+	eq(a.recovery, 4, "alone: unchanged")
+	check(not b.can_act(a) and b.can_wait(), "the last one standing waits it out")
 
 
 ## Breath comes back: every standing companion who did not act in a turn regains 1 stamina at its end,
@@ -569,18 +577,24 @@ func test_breath_comes_back() -> void:
 	eq(m.stamina, 5, "both")
 
 
-func test_lone_companion_ignores_recovery() -> void:
+## A companion standing alone recovers like any other: after an Attack the party waits two turns.
+func test_lone_companion_waits() -> void:
 	var b := make_battle(three_companions(), one_enemy(idle_enemy(1000)))
 	var e := b.enemies[0]
 	set_injured(b.roster[0])
 	set_injured(b.roster[1])
 	var lone := b.roster[2]
-	check(b.use_art(lone, lone.arts()[0], e), "lone companion uses an art")
-	check(b.can_act(lone), "lone companion can act despite recovery")
-	check(b.attack(lone, e), "and actually act")
-	check(not b.can_wait(), "no Wait offered while the lone companion can act")
+	check(b.is_lone_companion(lone), "alone")
+	check(b.attack(lone, e), "the lone companion attacks")
+	eq(lone.recovery, 2, "recovery 2 as for anyone")
+	check(not b.can_act(lone) and not b.attack(lone, e), "and cannot act again at once")
+	check(b.can_wait(), "Wait is offered")
+	b.wait()
+	check(not b.can_act(lone), "one wait is not enough")
+	b.wait()
+	check(b.can_act(lone) and not b.can_wait(), "ready after two")
 
-	# With two active companions, recovery applies again.
+	# With two active companions it is the same.
 	var b2 := make_battle(three_companions(), one_enemy(idle_enemy(1000)))
 	set_injured(b2.roster[0])
 	b2.attack(b2.roster[2], b2.enemies[0])
@@ -892,6 +906,7 @@ func test_proficiency_cap_per_battle() -> void:
 	var b := make_battle(cs, one_enemy(idle_enemy(99999)), 1, party)
 	var solo := b.roster[0]
 	for i in 40:
+		rest(b)
 		check(b.attack(solo, b.enemies[0]), "lone companion attacks every tick")
 	eq(solo.proficiency_gained, BattleConfig.PROFICIENCY_CAP_PER_BATTLE, "gain stops at the cap")
 	eq(party[0].points_in(sword), BattleConfig.PROFICIENCY_CAP_PER_BATTLE, "stored points stop at the cap")
@@ -903,11 +918,13 @@ func test_proficiency_cap_per_battle() -> void:
 	# An art that would go past the cap only adds what is left.
 	var b2 := make_battle(cs, one_enemy(idle_enemy(99999)), 1, party)
 	b2.roster[0].proficiency_gained = BattleConfig.PROFICIENCY_CAP_PER_BATTLE - 1
+	rest(b2)
 	b2.use_art(b2.roster[0], b2.roster[0].arts()[0], b2.enemies[0])
 	eq(party[0].points_in(sword), BattleConfig.PROFICIENCY_CAP_PER_BATTLE + 1, "only the room left under the cap is added")
 	# The next battle starts a fresh allowance.
 	var b3 := make_battle(cs, one_enemy(idle_enemy(99999)), 1, party)
 	eq(b3.roster[0].proficiency_gained, 0, "allowance resets each battle")
+	rest(b3)
 	b3.attack(b3.roster[0], b3.enemies[0])
 	eq(party[0].points_in(sword), BattleConfig.PROFICIENCY_CAP_PER_BATTLE + 1 + BattleConfig.PROFICIENCY_POINTS_ATTACK,
 		"gains again in the next battle")
@@ -1327,12 +1344,15 @@ func test_art_reflecting_stance() -> void:
 	var c := b.roster[0]
 	var e := b.enemies[0]
 	give_art(c, riposte)
+	rest(b)
 	check(b.use_art(c, riposte, e), "Riposte used")
 	eq(c.hp, 100 - 30, "the Brute's blow still lands in full")
 	eq(e.hp, 1000 - 18 - 9, "Riposte's strike (18), then 30% of the 30 dealt back")
 	eq(count_events(b, "riposte"), 1, "a riposte event for playback")
 	check(log_has(b, "A's Riposte strikes back at Brute!"), "the log says so")
+	rest(b)
 	b.guard(c)
+	rest(b)
 	b.guard(c)
 	eq(count_events(b, "riposte"), 0, "worn off after 2 ticks: nothing reflected")
 	# Magic is never reflected.
@@ -1340,18 +1360,21 @@ func test_art_reflecting_stance() -> void:
 	mage.actions[0].damage_type = CombatMath.DamageType.MAGIC
 	var b2 := make_battle(cs, one_enemy(mage))
 	give_art(b2.roster[0], riposte)
+	rest(b2)
 	b2.use_art(b2.roster[0], riposte, b2.enemies[0])
 	eq(b2.enemies[0].hp, 1000 - 18, "a magic blow is not reflected")
 	# At least 1 is reflected.
 	var tough: Array[CompanionData] = [make_companion("A", 100, 100)]
 	var b3 := make_battle(tough, one_enemy(brute()))
 	give_art(b3.roster[0], riposte)
+	rest(b3)
 	b3.use_art(b3.roster[0], riposte, b3.enemies[0])
 	eq(b3.roster[0].hp, 100 - 1, "the blow deals only 1")
 	eq(b3.enemies[0].hp, 1000 - 18 - 1, "and still 1 comes back")
 	# The reflected damage can defeat the enemy, which ends the battle.
 	var b4 := make_battle(cs, one_enemy(brute(20)))
 	give_art(b4.roster[0], riposte)
+	rest(b4)
 	b4.use_art(b4.roster[0], riposte, b4.enemies[0])
 	check(not b4.enemies[0].is_alive(), "struck down by its own blow")
 	check(log_has(b4, "Brute is defeated!"), "the defeat is logged")
@@ -1361,7 +1384,9 @@ func test_art_reflecting_stance() -> void:
 	var b5 := make_battle(two, one_enemy(brute(18 + 18 + 9, EnemyActionData.Targeting.ALL_COMPANIONS, 2)))
 	give_art(b5.roster[0], riposte)
 	give_art(b5.roster[1], riposte)
+	rest(b5)
 	b5.use_art(b5.roster[0], riposte, b5.enemies[0])
+	rest(b5)
 	b5.use_art(b5.roster[1], riposte, b5.enemies[0])
 	eq(b5.roster[0].hp, 100 - 30, "A is hit and strikes back")
 	eq(b5.roster[1].hp, 100, "B is never reached")
@@ -1378,10 +1403,12 @@ func test_art_bleed_kills_enemy() -> void:
 	var c := b.roster[0]
 	var e := b.enemies[0]
 	give_art(c, cut)
+	rest(b)
 	check(b.use_art(c, cut, e), "Bleeding Cut used")
 	eq(e.hp, 20 - 16 - 2, "16 from the cut, then 2 at the end of the tick")
 	eq(count_events(b, "dot"), 1, "a dot event for playback")
 	check(log_has(b, "Dummy loses 2 HP to Bleeding"), "the log names the bleeding")
+	rest(b)
 	b.guard(c)
 	check(not e.is_alive(), "bled out")
 	check(log_has(b, "Dummy is defeated!"), "the defeat is logged")
@@ -1396,10 +1423,11 @@ func test_art_bleed_kills_enemy() -> void:
 func test_points_for_attacks() -> void:
 	var cs: Array[CompanionData] = [make_companion("A", 100, 0, make_weapon(1, 0))]   # Hit 0: the 20% floor
 	var b := make_battle(cs, one_enemy(idle_enemy(100000)))
-	var c := b.roster[0]   # alone: ignores recovery
+	var c := b.roster[0]   # rested before each action
 	var hits := 0
 	var misses := 0
 	for i in 40:
+		rest(b)
 		b.attack(c, b.enemies[0])
 		if count_events(b, "miss") > 0:
 			misses += 1
@@ -1467,11 +1495,14 @@ func test_points_for_blows_taken() -> void:
 	var cs: Array[CompanionData] = [make_companion("A", 1000)]
 	var b := make_battle(cs, one_enemy(brute()))
 	var c := b.roster[0]
+	rest(b)
 	b.focus(c)
 	eq(b.points_of(c), BattleConfig.POINTS_BLOW_TAKEN, "1 for a blow taken")
+	rest(b)
 	b.guard(c)
 	eq(b.points_of(c), BattleConfig.POINTS_BLOW_TAKEN + BattleConfig.POINTS_BLOW_TAKEN_GUARDING, "2 for one taken on Guard")
 	var b2 := make_battle(three_companions(1000), one_enemy(brute(1000, EnemyActionData.Targeting.ALL_COMPANIONS)))
+	rest(b2)
 	b2.focus(b2.roster[0])
 	for x in b2.roster:
 		eq(b2.points_of(x), BattleConfig.POINTS_BLOW_TAKEN, "%s: 1 from the sweep" % x.display_name)
@@ -1482,6 +1513,7 @@ func test_points_for_blows_taken() -> void:
 	var b3 := make_battle(nimble, one_enemy(dodgy))
 	var landed := 0
 	for i in 40:
+		rest(b3)
 		b3.focus(b3.roster[0])
 		if count_events(b3, "miss") == 0:
 			landed += 1
@@ -1586,6 +1618,7 @@ func test_art_debuff_stacks() -> void:
 	give_art(c, hew)
 	for i in 4:
 		c.stamina = c.max_stamina()
+		rest(b)
 		check(b.use_art(c, hew, e), "Hew %d" % (i + 1))
 		eq(e.get_effect("Hewn").stacks, mini(i + 1, 3), "stacks after hit %d" % (i + 1))
 		eq(e.stat(Stat.DEF), 10 - 2 * mini(i + 1, 3), "DEF after hit %d" % (i + 1))
@@ -1600,13 +1633,17 @@ func test_art_oath_raises_damage_taken() -> void:
 	var c := b.roster[0]
 	give_art(c, oath)
 	eq(CombatMath.forecast(b.enemies[0], 20, 999, 0, c).damage, 30, "30 before the oath")
+	rest(b)
 	check(b.use_art(c, oath, b.enemies[0]), "Duelist's Oath used")
 	eq(c.stat(Stat.STR), 13, "STR +3")
 	eq(c.damage_taken_mult(), 1.25, "takes 25% more")
+	rest(b)
 	b.guard(c)   # the Brute strikes this tick, into a Guard (x0.5) and the oath (x1.25)
 	eq(c.hp, 100 - floori(30 * 0.5 * 1.25), "guarded blow raised by the oath")
+	rest(b)
 	b.guard(c)
 	eq(c.hp, 100 - 18, "no blow this tick")
+	rest(b)
 	b.attack(c, b.enemies[0])   # the Brute strikes again, no Guard this time
 	eq(c.hp, 100 - 18 - floori(30 * 1.25), "a plain blow raised by the oath: 37")
 

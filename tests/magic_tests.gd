@@ -246,21 +246,25 @@ func test_magic_points_and_separate_cap() -> void:
 	var d := caster("Mage", 5, [bolt])
 	var cs: Array[CompanionData] = [d]
 	var b := battle_with(cs, one(enemy_with(0, 9999)))
-	var c := b.roster[0]   # alone: ignores recovery
+	var c := b.roster[0]   # rested before each action
 	var before := c.progress.magic_points_in(SpellData.School.BLACK)
+	t.rest(b)
 	b.cast(c, bolt, b.enemies[0])
 	t.eq(c.progress.magic_points_in(SpellData.School.BLACK) - before, BattleConfig.MAGIC_POINTS_PER_CAST, "4 points per cast")
 	t.eq(c.progress.magic_points_in(SpellData.School.WHITE), 0, "only the spell's school")
 	# The weapon cap is reached first; it must not stop magic.
 	for i in 8:
+		t.rest(b)
 		b.attack(c, b.enemies[0])
 	t.eq(c.proficiency_gained, BattleConfig.PROFICIENCY_CAP_PER_BATTLE, "weapon cap reached")
 	for i in 10:
+		t.rest(b)
 		b.cast(c, bolt, b.enemies[0])
 	t.eq(c.progress.magic_points_in(SpellData.School.BLACK) - before, BattleConfig.MAGIC_CAP_PER_BATTLE, "magic stops at its own cap")
 	t.check(BattleConfig.MAGIC_CAP_PER_BATTLE > 2 * BattleConfig.MAGIC_POINTS_PER_CAST, "more than two casts count")
 	t.eq(c.magic_gained, BattleConfig.MAGIC_CAP_PER_BATTLE, "tracked per battle")
 	var b2 := Battle.new(cs, one(enemy_with(0, 9999)), t.make_rng(2), [c.progress] as Array[CompanionProgress])
+	t.rest(b2)
 	b2.cast(b2.roster[0], bolt, b2.enemies[0])
 	t.eq(b2.roster[0].magic_gained, BattleConfig.MAGIC_POINTS_PER_CAST, "the cap starts again next battle")
 
@@ -321,8 +325,10 @@ func test_spell_learned_on_grade_up_in_battle() -> void:
 	t.eq(c.progress.magic_grade(SpellData.School.BLACK), Proficiency.Grade.D, "starts at D")
 	var known := c.spells().size()
 	# D (11) -> D+ (17): two casts of 4.
+	t.rest(b)
 	b.cast(c, bolt, b.enemies[0])
 	t.eq(b.grade_ups.size(), 0, "no grade-up after one cast")
+	t.rest(b)
 	b.cast(c, bolt, b.enemies[0])
 	t.eq(c.progress.magic_grade(SpellData.School.BLACK), Proficiency.Grade.D_PLUS, "D+ after two casts")
 	t.eq(b.grade_ups.size(), 1, "one grade-up recorded")
@@ -346,7 +352,9 @@ func test_spell_learned_on_grade_up_in_battle() -> void:
 	d2.start_grade_black = Proficiency.Grade.D
 	var b2 := battle_with(cs1(d2), one(enemy_with(0, 9999)), [], 3, pool)
 	var c2 := b2.roster[0]
+	t.rest(b2)
 	b2.cast(c2, bolt, b2.enemies[0])
+	t.rest(b2)
 	b2.cast(c2, bolt, b2.enemies[0])
 	t.eq(b2.grade_ups.size(), 1, "a grade-up")
 	var spells2 := c2.progress.known_spells.size()
@@ -590,6 +598,7 @@ func test_only_staggering_arts_delay() -> void:
 		var b: Battle = t.make_battle(cs1(d), es)
 		t.give_art(b.roster[0], art)
 		b.roster[0].stamina = 99
+		t.rest(b)
 		t.check(b.use_art(b.roster[0], art, b.enemies[0]), "%s used" % art.display_name)
 		for e in b.enemies:
 			var struck: bool = art.hits_all_enemies or e == b.enemies[0]
@@ -607,8 +616,10 @@ func test_only_staggering_arts_delay() -> void:
 	var b2: Battle = t.make_battle(cs1(d2), es2)
 	t.give_art(b2.roster[0], hamstring)
 	b2.roster[0].stamina = 99
+	t.rest(b2)
 	b2.use_art(b2.roster[0], hamstring, b2.enemies[0])
 	t.eq(b2.enemies[0].countdown, 50, "first stagger")
+	t.rest(b2)
 	b2.use_art(b2.roster[0], hamstring, b2.enemies[0])
 	t.eq(b2.enemies[0].countdown, 49, "the second does not push it again")
 	# A miss staggers nothing.
@@ -623,6 +634,7 @@ func test_only_staggering_arts_delay() -> void:
 		var b3: Battle = t.make_battle(cs1(d3), es3, 100 + s)
 		t.give_art(b3.roster[0], hamstring)
 		b3.roster[0].stamina = 99
+		t.rest(b3)
 		b3.use_art(b3.roster[0], hamstring, b3.enemies[0])
 		if b3.enemies[0].hp == b3.enemies[0].max_hp():
 			missed += 1

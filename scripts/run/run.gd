@@ -475,6 +475,26 @@ func start_battle(front: Front) -> Battle:
 	return battle
 
 
+## What can be said of `front` before it is chosen, for the line as it stands (BattleAccount.before): the
+## hardest blow there against the line, and the scouts' word for the fight. Nothing in the run changes
+## and none of its dice are rolled: the battle it looks at is a throwaway. {} when nobody is in the line.
+func front_account(front: Front) -> Dictionary:
+	if front == null or lineup.is_empty() or front.enemies.is_empty():
+		return {}
+	var datas: Array[CompanionData] = []
+	var party: Array[CompanionProgress] = []
+	for c in lineup:
+		datas.append(c.data)
+		party.append(c.progress)
+	var look := RandomNumberGenerator.new()
+	look.seed = 1
+	var battle := Battle.new(datas, front.enemies, look, party, art_pool, spell_pool)
+	battle.elite = front.is_elite
+	for i in lineup.size():
+		battle.roster[i].hp = clampi(lineup[i].hp, 1, lineup[i].max_hp())
+	return BattleAccount.before(battle)
+
+
 ## Applies a finished battle from start_battle() to the run and ends the day.
 func finish_battle(battle: Battle) -> BattleReport:
 	var front := committed_front
@@ -484,6 +504,7 @@ func finish_battle(battle: Battle) -> BattleReport:
 	report.front = front
 	report.won = battle.outcome == Battle.Outcome.VICTORY
 	report.retreated = battle.retreated
+	report.account = battle.account.lines(battle)
 	battle.learn_after_battle()   # the battle did it when it ended; harmless again
 	report.grade_ups = battle.grade_ups.duplicate()
 	var fielded := lineup.duplicate()

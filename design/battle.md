@@ -1,9 +1,10 @@
-# Battles: the enemy's hand shown, the whole line fighting (design; steps 1 to 3 built, the account proposed)
+# Battles: the enemy's hand shown, the whole line fighting (design; all of it built)
 
 Written 2026-11-14 after the user's play reports ("not engaging; sometimes I don't know why I win or
 lose"). The user accepted the answers proposed under "Yours to decide" and asked for step 1, then
-step 2, then had the recovery cap of step 2 taken out and asked for step 3. All three are built;
-"The account" is not. Numbers marked "first guess" were tuned with the probe where a note says so.
+step 2, then had the recovery cap of step 2 taken out and asked for step 3, then asked that a
+companion standing alone wait like any other and for "The account". All of it is built. Numbers
+marked "first guess" were tuned with the probe where a note says so.
 
 ## What is wrong, measured
 
@@ -146,7 +147,8 @@ first: three rotate and the fourth acts only when chosen.
 **The cap removed** (2026-11-14, the user's decision after the figures below under "After step 2":
 with the cap, every action cost the same recovery once three or fewer stood). `Battle.recovery_cap`
 is gone: `action_recovery` and `art_recovery` return what the action carries (and 0 for a companion
-standing alone, whose recovery is also cleared the moment the last other falls). An injury no longer
+standing alone, whose recovery is also cleared the moment the last other falls; that last exception
+went too, see "One alone waits too"). An injury no longer
 shortens anyone else's recovery. What follows from it: two standing (how a run begins) act in turn
 and then both recover, so the party waits one action in three and the enemies get that turn; with
 three, a tier 2 or 3 art leaves a Wait behind it unless the line is four; one alone acts every turn,
@@ -182,6 +184,19 @@ pay for (`run_policy.gd` `stagger_answer`), after trying to cover and before gua
 art's card says "Staggers: its action comes 1 turn later (once per action)", the enemy pointed at
 says STAGGERS +1 or ALREADY DELAYED, and the pushed action carries the DELAYED tag a spell's does.
 
+**One alone waits too** (2026-11-14, the user's decision: "player should do their best to keep party
+alive"). The rule that a companion standing alone ignores recovery is gone: after an Attack the last
+one standing waits two turns like anyone, and enemy-added recovery holds them too. So the line's pace
+only ever falls as it thins: one action a turn with three or more, two in three with two, one in
+three alone, and breath comes back on the turns waited. `Battle.is_lone_companion` stays as a
+question the automated player asks. For the automated player a battle begun alone went from 52% won
+to 24%, and whole runs from 19% to 10% of 200: it loses at the bosses, where there is no falling back
+and a line that thins can no longer act (the day 42 bosses are beaten 7-31% of the time). Lowering
+the enemies' Health does little for it (both multipliers at 1.3: 11%; at 1.25: 13%), so they were
+left at 1.35 and 1.4. The automated player does nothing to keep its line standing beyond covering a
+neighbour about to fall; whether 10% is the right hardness for a person is for the user's play to say,
+and the knob that would move it is the bosses themselves, not the Health of ordinary enemies.
+
 ## The account
 
 - **Before**, on each report at the war table: the hardest blow that front has against the line as it
@@ -192,6 +207,55 @@ says STAGGERS +1 or ALREADY DELAYED, and the pushed action carries the DELAYED t
 - **After**, one more beat in the result, "How it went", at most five lines the rules write
   (`BattleReport.account`): each fall (who, to which blow, how much, what they had left, the turn),
   the blows that missed on both sides, and who dealt and took the most.
+
+**Built** (2026-11-14; `scripts/battle/battle_account.gd`, tests in `tests/account_tests.gd`).
+Before: `Run.front_account(front)` looks at a throwaway battle for the line as it stands (the run's
+dice are not rolled) and `BattleAccount.before` gives the hardest blow and the two counts of turns.
+The hardest blow is the one taking the largest share of some companion's Health as they stand, over
+every damaging action of every enemy, second phases included, so it is not always the largest figure.
+The line's turns: each companion's Attack or best damaging spell, with its chance to hit, averaged
+over the line, at the pace the line can act (1, 2/3 or 1/3 of the turns). The enemies' turns: each
+enemy's actions by how often it picks them and how long they take, with their chance to hit, single
+blows spread as the line draws them; a second phase counts for the share of the enemy's Health it
+covers (half when it begins once the enemy stands alone). Arts, healing, Guard, and enemies falling
+one by one are all left out, which is why the ratio that means an even fight is well under 1. On
+each report at the war table: WORST ("CRUSHING BLOW  ·  21 TO FREYA", or "FELLS FREYA" in red) and
+SCOUTS (A SURE FIGHT, A CLOSE FIGHT, A GRIM FIGHT), written again when the line's order changes.
+
+The words were set with the probe (40 runs, 640 battles, 10 replays each, the automated player):
+
+| Ratio (turns they need / turns we need) | Battles | Won |
+|---|---|---|
+| under 0.2 | 82 | 4% |
+| 0.2 to 0.3 | 53 | 22% |
+| 0.3 to 0.4 | 36 | 43% |
+| 0.4 to 0.5 | 30 | 60% |
+| 0.5 to 0.7 | 90 | 70% |
+| 0.7 to 0.8 | 34 | 94% |
+| 0.8 to 1.0 | 64 | 91% |
+| 1.0 and more | 251 | 99% |
+
+Sure is 0.8 or more (`BattleConfig.ACCOUNT_SURE_RATIO`), grim under 0.4 (`ACCOUNT_GRIM_RATIO`):
+
+| Word | Share of battles | Won | Battles / elites / bosses |
+|---|---|---|---|
+| Sure | 49% | 97% | 98 / 97 / 94% |
+| Close | 24% | 73% | 76 / 78 / 56% |
+| Grim | 27% | 18% | 17 / 19 / 15% |
+
+So the first word is right nine times in ten and the last is won fewer than four times in ten, for
+every kind of fight, as asked. A close boss fight is harder than a close battle (56% for 76%): boss
+mechanics are not in the count. The words describe the automated player; a person who shields and
+staggers well should beat them, and the words should be read again with the probe after any change
+to the rules of battle.
+
+After: `Battle.account` keeps every fall (the enemy, the blow, the damage, the Health they had, the
+turn, whether it was a critical; damage over time names the effect alone), strikes and blows with
+their misses, and damage dealt and taken by name (never more than the target had left).
+`BattleAccount.lines` writes: the first fall in full, a second in full or the rest together ("Then
+Ingrid on turn 6 and Freya on turn 8."), "The enemy had 433 of 468 Health left." after a battle lost,
+the misses, and who dealt and took the most. The result shows them as a page of the chronicle, its
+second beat; the first beat now waits for a click when the page follows.
 
 ## What it reverses
 

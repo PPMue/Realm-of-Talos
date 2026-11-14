@@ -3,7 +3,9 @@ extends Control
 ## The table in the gatehouse where the day's fight is chosen: the scouts' reports laid out side by
 ## side (one per front, or the single report of a boss), under candlelight and drawn large, since
 ## the enemy is what this table is for. Along the foot, small, stands the line as it will march, from
-## the rear to the front, each place with the share of the enemy's blows it draws. Its order can be
+## the rear to the front, each place with the share of the enemy's blows it draws. Each report also
+## says the hardest blow waiting there for the line as it stands and the scouts' word for the fight,
+## written again whenever the line changes. Its order can be
 ## changed here: carry someone onto another's place, or click them and then the place (Left and Right
 ## move whoever is picked up). Who is in the line at all is the barracks' business. Choosing a report
 ## marches the party out.
@@ -14,7 +16,7 @@ signal closed
 const CARDS_TOP := 142.0
 ## The reports are drawn larger than a FrontCard is made: by this much when they fit, less when
 ## three lie side by side.
-const CARD_SCALE := 1.25
+const CARD_SCALE := 1.2
 const CARDS_ROOM := 1860.0
 const CARD_GAP := 34.0
 ## The line, along the foot of the table.
@@ -116,7 +118,7 @@ func _build_cards() -> void:
 	for i in _fronts.size():
 		var f := _fronts[i]
 		var card := FrontCard.new()
-		card.setup(f, str(i + 1), run.battle_block_reason(f))
+		card.setup(f, str(i + 1), run.battle_block_reason(f), run.front_account(f))
 		card.chosen.connect(_choose.bind(f))
 		_row.add_child(card)
 		wide += card.custom_minimum_size.x + (CARD_GAP if i > 0 else 0.0)

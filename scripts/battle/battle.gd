@@ -12,8 +12,8 @@ extends RefCounted
 ##
 ## Recovery is what the action carries (BattleConfig.RECOVERY_*, an art's or spell's own), whoever
 ## else stands: with an Attack's 2, three take turns and four have one to spare, while two both
-## recover after acting in turn and the party waits one action (wait). Only a companion standing
-## alone ignores recovery (is_lone_companion). Guard can cover a standing neighbour (guard): single
+## recover after acting in turn and the party waits one action (wait), and one standing alone acts
+## one turn in three. Guard can cover a standing neighbour (guard): single
 ## blows that would land on them this turn land on the guard instead, halved. Outside a boss fight the
 ## company can sound the retreat (retreat): the battle is lost at once and only those already injured are.
 ##   5. damage over time (poison, burning) strikes every unit that carries it
@@ -80,6 +80,11 @@ var elite: bool = false
 var allow_retreat: bool = false
 ## True once the battle was ended by retreat() (a DEFEAT).
 var retreated: bool = false
+## What happened, kept as the battle goes, for "How it went" on the result (BattleAccount.lines).
+var account := BattleAccount.new()
+## Who and what the damage being dealt to a companion comes from, for the record of a fall.
+var _blow_by := ""
+var _blow_name := ""
 ## This turn's cover (guard with a ward): single blows on `_cover_ward` land on `_cover_guard`. Both null
 ## when nobody covers anyone; cleared when the turn ends or either is injured.
 var _cover_guard: CompanionUnit = null
@@ -149,8 +154,8 @@ func kills_of(c: CompanionUnit) -> int:
 	return int(kills.get(c, 0))
 
 
-## True when only one companion is able to act at all; that companion ignores recovery (enemy-added
-## too): there is nobody to act in their place.
+## True when `c` is the only companion still able to act. Nothing in the rules turns on it (a companion
+## alone recovers like any other and the party waits meanwhile); the automated player asks.
 func is_lone_companion(c: CompanionUnit) -> bool:
 	var active := active_companions()
 	return active.size() == 1 and active[0] == c
@@ -159,7 +164,7 @@ func is_lone_companion(c: CompanionUnit) -> bool:
 func can_act(c: CompanionUnit) -> bool:
 	if is_over() or c == null or not c.is_active():
 		return false
-	return c.recovery <= 0 or is_lone_companion(c)
+	return c.recovery <= 0
 
 
 func ready_companions() -> Array[CompanionUnit]:
@@ -196,10 +201,8 @@ func art_block_reason(c: CompanionUnit, art: CombatArtData) -> String:
 
 
 ## Actions `c` sits out after `art`: its recovery plus what traits change (TraitModifier.Kind.RECOVERY),
-## never below 0; none for a companion standing alone (the number the action menu shows is what happens).
+## never below 0 (the number the action menu shows is what happens).
 func art_recovery(c: CompanionUnit, art: CombatArtData) -> int:
-	if is_lone_companion(c):
-		return 0
 	var q := c.trait_query(TraitModifier.Kind.RECOVERY)
 	q.action = TraitModifier.Action.ART
 	q.weapon_type = art.weapon_type
@@ -209,11 +212,8 @@ func art_recovery(c: CompanionUnit, art: CombatArtData) -> int:
 
 ## Actions `c` sits out after an attack, a spell, Guard or Focus (`action`: TraitModifier.Action, ANY for
 ## Guard and Focus): `base` plus what traits and accessories change (TraitModifier.Kind.RECOVERY; a
-## Spur only where `base` is 3 or more), never below 0; none for a companion standing alone. An art's:
-## art_recovery.
+## Spur only where `base` is 3 or more), never below 0. An art's: art_recovery.
 func action_recovery(c: CompanionUnit, base: int, action: int = TraitModifier.Action.ANY, school: int = -1) -> int:
-	if is_lone_companion(c):
-		return 0
 	var q := c.trait_query(TraitModifier.Kind.RECOVERY)
 	q.action = action
 	q.school = school
@@ -866,8 +866,7 @@ func heal_enemy(e: EnemyUnit, amount: int) -> void:
 	_emit({"type": "enemy_heal", "target": e, "amount": e.hp - before, "hp": e.hp})
 
 
-## Recovery pressure: `c` sits out `ticks` more actions. Injured companions are left alone,
-## and a lone companion still ignores recovery (see can_act).
+## Recovery pressure: `c` sits out `ticks` more actions. Injured companions are left alone.
 func add_recovery(c: CompanionUnit, ticks: int) -> void:
 	if not c.is_active() or ticks <= 0:
 		return
@@ -897,7 +896,7 @@ func _end_player_action(c: CompanionUnit, recovery: int, steady: bool = false) -
 	if c.felled_this_action and _trait_any(c, TraitModifier.Kind.KILL_NO_RECOVERY):
 		recovery = 0
 		_log("  %s presses on: no recovery." % c.display_name)
-	c.recovery = 0 if is_lone_companion(c) else recovery   # the others may have fallen during the action
+	c.recovery = recovery
 	var breath := _trait_sum(c, TraitModifier.Kind.ACTION_STAMINA)
 	if breath != 0 and c.is_active():
 		c.stamina = clampi(c.stamina + breath, 0, c.max_stamina())
@@ -972,9 +971,12 @@ func _companion_strike(c: CompanionUnit, target: EnemyUnit, art: CombatArtData) 
 	if not _roll(f.hit):
 		_log("  Miss on %s! (%d%% to hit)" % [target.display_name, f.hit])
 		_emit({"type": "miss", "target": target})
+		account.note_strike(false)
 		return false
 	var crit := _roll(f.crit)
 	var dmg := f.crit_damage if crit else f.damage
+	account.note_strike(true)
+	account.note_dealt(c.display_name, mini(dmg, maxi(0, target.hp)))
 	target.hp -= dmg
 	_log("  %s%s takes %d %sdamage%s (%d/%d HP)." % ["CRITICAL! " if crit else "", target.display_name, dmg,
 		"magic " if f.magic else "", ", effective" if f.effective else "", maxi(target.hp, 0), target.max_hp()])
@@ -996,6 +998,8 @@ func _companion_strike(c: CompanionUnit, target: EnemyUnit, art: CombatArtData) 
 	if back > 0 and c.is_active():
 		_log("  %s's %s strikes back at %s!" % [target.display_name, _reflect_name(target), c.display_name])
 		_emit({"type": "reflect", "source": target, "target": c, "amount": back})
+		_blow_by = target.display_name
+		_blow_name = _reflect_name(target)
 		_damage_companion(c, back, false)
 	return true
 
@@ -1106,10 +1110,13 @@ func _damage_over_time(unit: Combatant) -> void:
 		if total <= 0 or _trait_any(c, TraitModifier.Kind.DOT_IMMUNE):
 			_log("  %s shrugs off %s." % [c.display_name, ", ".join(names)])
 			return
+		var had := c.hp
 		c.hp -= total
+		account.note_taken(c.display_name, mini(total, had))
 		_log("  %s loses %d HP to %s (%d/%d HP)." % [c.display_name, total, ", ".join(names), c.hp, c.max_hp()])
 		_emit({"type": "dot", "target": c, "amount": total, "hp": c.hp, "name": names[0]})
 		if c.hp <= 0:
+			account.note_fall(c.display_name, "", names[0], total, had, tick, false)
 			_injure(c)
 		else:
 			_after_companion_hurt(c)
@@ -1117,6 +1124,8 @@ func _damage_over_time(unit: Combatant) -> void:
 		var e := unit as EnemyUnit
 		if not e.is_alive():
 			return
+		if by != null:
+			account.note_dealt(by.display_name, mini(total, maxi(0, e.hp)))
 		e.hp -= total
 		_log("  %s loses %d HP to %s (%d/%d HP)." % [e.display_name, total, ", ".join(names), maxi(e.hp, 0), e.max_hp()])
 		_emit({"type": "dot", "target": e, "amount": total, "hp": e.hp, "name": names[0]})
@@ -1131,9 +1140,12 @@ func _spell_strike(c: CompanionUnit, spell: SpellData, target: EnemyUnit) -> voi
 	if not _roll(f.hit):
 		_log("  Miss on %s! (%d%% to hit)" % [target.display_name, f.hit])
 		_emit({"type": "miss", "target": target})
+		account.note_strike(false)
 		return
 	var crit := _roll(f.crit)
 	var dmg := f.crit_damage if crit else f.damage
+	account.note_strike(true)
+	account.note_dealt(c.display_name, mini(dmg, maxi(0, target.hp)))
 	target.hp -= dmg
 	_log("  %s%s takes %d magic damage%s (%d/%d HP)." % ["CRITICAL! " if crit else "", target.display_name, dmg,
 		", effective" if f.effective else "", maxi(target.hp, 0), target.max_hp()])
@@ -1414,7 +1426,11 @@ func _enemy_strike(e: EnemyUnit, action: EnemyActionData, target: CompanionUnit,
 		if not _roll(f.hit):
 			_log("  %s dodges. (%d%% to hit)" % [target.display_name, f.hit])
 			_emit({"type": "miss", "target": target})
+			account.note_blow(false)
 			return
+		account.note_blow(true)
+		_blow_by = e.display_name
+		_blow_name = action.display_name
 		var crit := _roll(f.crit)
 		var dmg := f.crit_damage if crit else f.damage
 		# A companion's reflecting stance (Riposte, Set Spear) answers physical blows, even one that
@@ -1443,6 +1459,7 @@ func _enemy_strike(e: EnemyUnit, action: EnemyActionData, target: CompanionUnit,
 ## it if that is all it had left (the kill is `c`'s). Not from blows on the whole line.
 func _thorns(c: CompanionUnit, e: EnemyUnit, amount: int) -> void:
 	_log("  %s is cut on %s's thorns!" % [e.display_name, c.display_name])
+	account.note_dealt(c.display_name, mini(amount, maxi(0, e.hp)))
 	e.hp -= amount
 	_log("  %s takes %d damage (%d/%d HP)." % [e.display_name, amount, maxi(e.hp, 0), e.max_hp()])
 	_emit({"type": "damage", "target": e, "amount": amount, "crit": false, "hp": e.hp,
@@ -1455,6 +1472,7 @@ func _thorns(c: CompanionUnit, e: EnemyUnit, amount: int) -> void:
 func _reflect_on_enemy(c: CompanionUnit, stance: String, e: EnemyUnit, amount: int) -> void:
 	_log("  %s's %s strikes back at %s!" % [c.display_name, stance, e.display_name])
 	_emit({"type": "riposte", "source": c, "target": e, "amount": amount})
+	account.note_dealt(c.display_name, mini(amount, maxi(0, e.hp)))
 	e.hp -= amount
 	_log("  %s takes %d damage (%d/%d HP)." % [e.display_name, amount, maxi(e.hp, 0), e.max_hp()])
 	_emit({"type": "damage", "target": e, "amount": amount, "crit": false, "hp": e.hp,
@@ -1493,10 +1511,13 @@ func _damage_companion(c: CompanionUnit, dmg: int, crit: bool) -> void:
 				c.hp = stand   # a Locket can leave them higher than they were
 			dmg = c.hp - stand
 			_log("  %s clings to life!" % c.display_name)
+	var had := c.hp
 	c.hp -= dmg
+	account.note_taken(c.display_name, mini(dmg, had))
 	_log("  %s%s takes %d damage (%d/%d HP)." % ["CRITICAL! " if crit else "", c.display_name, dmg, c.hp, c.max_hp()])
 	_emit({"type": "damage", "target": c, "amount": dmg, "crit": crit, "hp": c.hp})
 	if c.hp <= 0:
+		account.note_fall(c.display_name, _blow_by, _blow_name if _blow_name != "" else "a blow", dmg, had, tick, crit)
 		_injure(c)
 	else:
 		_after_companion_hurt(c)
@@ -1528,10 +1549,7 @@ func _injure(c: CompanionUnit) -> void:
 	if c == _cover_guard or c == _cover_ward:
 		_cover_guard = null
 		_cover_ward = null
-	# The last one standing waits for nobody (enemy-added recovery included).
-	for o in active_companions():
-		if is_lone_companion(o):
-			o.recovery = 0
+
 	for e in _aimed_at(c):
 		var to := _draw_aim(e, e.pending_action)
 		if to == null:

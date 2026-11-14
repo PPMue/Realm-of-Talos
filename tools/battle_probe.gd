@@ -82,7 +82,8 @@ func _hold(dir: String) -> void:
 func measure(run: Run, b: Battle) -> void:
 	var front := run.committed_front
 	var kind := "boss" if front.is_boss else ("elite" if front.is_elite else "battle")
-	var row := {"day": run.day, "kind": kind, "size": b.roster.size(), "p": [0.0, 0.0, 0.0, 0.0]}
+	var row := {"day": run.day, "kind": kind, "size": b.roster.size(), "p": [0.0, 0.0, 0.0, 0.0],
+		"ratio": float(BattleAccount.before(b).ratio)}
 	for mode in MODES:
 		var wins := 0
 		for k in _replays:
@@ -398,6 +399,41 @@ func _report() -> void:
 		if by_size.has(size):
 			print("  %d in the line: %d battles, greedy wins %.0f%%" % [size, by_size[size][0],
 				100.0 * float(by_size[size][1]) / int(by_size[size][0])])
+	print("")
+	print("The account before a battle (BattleAccount.before): greedy's win share by the ratio of turns, and by the word given:")
+	var edges: Array[float] = [0.0, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.25, 1.5, 2.0, 3.0, 1.0e9]
+	for i in edges.size() - 1:
+		var n := 0
+		var sum := 0.0
+		var by_kind := {"battle": [0, 0.0], "elite": [0, 0.0], "boss": [0, 0.0]}
+		for r in _rows:
+			if float(r.ratio) >= edges[i] and float(r.ratio) < edges[i + 1]:
+				n += 1
+				sum += float(r.p[0])
+				by_kind[r.kind] = [int(by_kind[r.kind][0]) + 1, float(by_kind[r.kind][1]) + float(r.p[0])]
+		if n > 0:
+			var parts: Array[String] = []
+			for k: String in by_kind:
+				if int(by_kind[k][0]) > 0:
+					parts.append("%s %d: %.0f%%" % [k, by_kind[k][0], 100.0 * float(by_kind[k][1]) / int(by_kind[k][0])])
+			print("  ratio %.2f to %s: %d battles, won %.0f%%  (%s)" % [edges[i], "more" if edges[i + 1] > 1.0e8 else "%.2f" % edges[i + 1], n, 100.0 * sum / n,
+				"; ".join(parts)])
+	var names := ["sure", "close", "grim"]
+	for w in 3:
+		var n := 0
+		var sum := 0.0
+		var by_kind := {"battle": [0, 0.0], "elite": [0, 0.0], "boss": [0, 0.0]}
+		for r in _rows:
+			if int(BattleAccount.word_for(float(r.ratio))) == w:
+				n += 1
+				sum += float(r.p[0])
+				by_kind[r.kind] = [int(by_kind[r.kind][0]) + 1, float(by_kind[r.kind][1]) + float(r.p[0])]
+		if n > 0:
+			var parts: Array[String] = []
+			for k: String in by_kind:
+				if int(by_kind[k][0]) > 0:
+					parts.append("%s %d: %.0f%%" % [k, by_kind[k][0], 100.0 * float(by_kind[k][1]) / int(by_kind[k][0])])
+			print("  %s: %d battles (%.0f%%), won %.0f%%  (%s)" % [names[w], n, 100.0 * n / maxi(1, _rows.size()), 100.0 * sum / n, "; ".join(parts)])
 
 
 func _mean(mode: int, kind: String) -> float:

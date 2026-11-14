@@ -1,19 +1,25 @@
 class_name FrontCard
 extends Control
 ## One front to defend, as a scout's report on the war table: the enemies waiting there, the danger, what winning gives
-## and what losing costs, and a button to go. Also used, wider, for the boss.
+## and what losing costs, the hardest blow they have against the line as it stands and the scouts' word
+## for the fight (Run.front_account), and a button to go. Also used, wider, for the boss.
 
 signal chosen
 
 const W := 520.0
 const BOSS_W := 980.0
-const H := 520.0
-const ART_H := 214.0
+const H := 560.0
+const ART_H := 180.0
 const PAD := 8.0
 const DANGER_COLORS: Array[Color] = [Color("9fc27a"), Color("d9973f"), Color("d9584f")]
 const DANGER_NAMES: Array[String] = ["LOW", "MEDIUM", "HIGH"]
+## The scouts' word for the fight, by BattleAccount.Word.
+const WORD_NAMES: Array[String] = ["A SURE FIGHT", "A CLOSE FIGHT", "A GRIM FIGHT"]
+const WORD_COLORS: Array[Color] = [Color("9fc27a"), Color("d9973f"), Color("d9584f")]
 
 var front: Front
+## What Run.front_account says of the front ({} when nobody is in the line).
+var account: Dictionary = {}
 var _w := W
 var _bg := SlantPanel.new()
 var _button := ActionButton.new()
@@ -46,9 +52,11 @@ func _set_hover(inside: bool, on_button: bool) -> void:
 		_restyle()
 
 
-## `why_not`: when not "", the card cannot be chosen and says why instead.
-func setup(p_front: Front, hotkey: String, why_not: String = "") -> void:
+## `why_not`: when not "", the card cannot be chosen and says why instead. `p_account`: what
+## Run.front_account says of the front for the line as it stands.
+func setup(p_front: Front, hotkey: String, why_not: String = "", p_account: Dictionary = {}) -> void:
 	front = p_front
+	account = p_account
 	_w = BOSS_W if front.is_boss else W
 	custom_minimum_size = Vector2(_w, H)
 	size = custom_minimum_size
@@ -92,6 +100,7 @@ func setup(p_front: Front, hotkey: String, why_not: String = "") -> void:
 	y = _add_row(y, "REWARD", _reward_text(), UiTheme.GOLD)
 	var loss := "THE CITY FALLS" if front.is_boss else "THE WALLS  -%d" % front.city_damage
 	y = _add_row(y, "IF LOST", loss, UiTheme.INJURED)
+	y = _add_account_rows(y)
 
 	_button.title = "MARCH OUT" if not front.is_boss else "FACE IT"
 	_button.hotkey = hotkey
@@ -143,7 +152,7 @@ func _setup_boss(hotkey: String, why_not: String) -> void:
 	desc.position = Vector2(_edge_x(y + 84.0) + x0, y)
 	desc.size = Vector2(right - x0 - 130.0, 84.0)
 	add_child(desc)
-	y += 96.0
+	y += 88.0
 
 	var escorts := front.enemies.slice(1)
 	var head := UiTheme.label("ESCORTS" if not escorts.is_empty() else "ALONE  ·  NO ESCORTS", 18, UiTheme.MUTED, true)
@@ -152,7 +161,7 @@ func _setup_boss(hotkey: String, why_not: String) -> void:
 	y += 28.0
 	if not escorts.is_empty():
 		var tile_w := 168.0
-		var tile_h := 92.0
+		var tile_h := 72.0
 		for i in escorts.size():
 			var e: EnemyData = escorts[i]
 			var p := SlantPanel.new()
@@ -175,10 +184,11 @@ func _setup_boss(hotkey: String, why_not: String) -> void:
 		y += 4.0
 
 	var rx := x0 - 22.0
-	y = _add_row(y, "REWARD", _reward_text(), UiTheme.GOLD, rx)
+	y = _add_row(y, "REWARD", _reward_text(), UiTheme.GOLD, rx, 0, 34.0)
 	if front.gem > 0:
-		y = _add_row(y, "STONE", "", UiTheme.GOLD, rx, front.gem)
-	y = _add_row(y, "IF LOST", "THE CITY FALLS", UiTheme.INJURED, rx)
+		y = _add_row(y, "STONE", "", UiTheme.GOLD, rx, front.gem, 34.0)
+	y = _add_row(y, "IF LOST", "THE CITY FALLS", UiTheme.INJURED, rx, 0, 34.0)
+	y = _add_account_rows(y, rx, 34.0)
 
 	_button.title = "FACE IT"
 	_button.hotkey = hotkey
@@ -205,9 +215,26 @@ func _reward_text() -> String:
 	return "  ·  ".join(parts)
 
 
+## The account before the fight, two lines: the hardest blow they have against the line as it stands
+## ("CRUSHING BLOW  ·  21 TO FREYA", red when it would fell them), and the scouts' word.
+func _add_account_rows(y: float, x: float = 0.0, pitch: float = 38.0) -> float:
+	if account.is_empty():
+		return y
+	var blow: Dictionary = account.get("blow", {})
+	if not blow.is_empty():
+		var action: EnemyActionData = blow.action
+		var target: CompanionUnit = blow.target
+		var fells: bool = blow.fells
+		var text := "%s  ·  %s %s" % [action.display_name.to_upper(), "FELLS" if fells else "%d TO" % int(blow.damage), target.display_name.to_upper()]
+		y = _add_row(y, "WORST", text, UiTheme.INJURED if fells else UiTheme.TEXT, x, 0, pitch)
+	var word := int(account.get("word", BattleAccount.Word.CLOSE))
+	return _add_row(y, "SCOUTS", WORD_NAMES[word], WORD_COLORS[word], x, 0, pitch)
+
+
 ## One line of the report: a small heading and what it says. A long line shrinks to stay on the card.
 ## `gem`: the rank of a stone drawn in place of the text (what a win brings besides); 0 for none.
-func _add_row(y: float, head: String, text: String, color: Color, x: float = 0.0, gem: int = 0) -> float:
+## `pitch`: the height the line takes.
+func _add_row(y: float, head: String, text: String, color: Color, x: float = 0.0, gem: int = 0, pitch: float = 38.0) -> float:
 	var h := UiTheme.label(head, 18, UiTheme.MUTED, true)
 	h.position = Vector2(_edge_x(y + 30.0) + 26.0 + x, y + 4.0)
 	add_child(h)
@@ -222,7 +249,7 @@ func _add_row(y: float, head: String, text: String, color: Color, x: float = 0.0
 			UiIcons.gem(tag, Vector2(13.0, 18.0), 26.0, gem)
 			UiTheme.draw_text(tag, font, Vector2(34.0, 2.0), Gem.name_of(gem).to_upper(), 24, UiIcons.gem_color(gem), 6))
 		add_child(tag)
-		return y + 38.0
+		return y + pitch
 	var l := UiTheme.label(text, 24, color, true, 6)
 	l.position = at
 	var room := _w - at.x - 30.0
@@ -235,7 +262,7 @@ func _add_row(y: float, head: String, text: String, color: Color, x: float = 0.0
 			l.add_theme_font_size_override("font_size", px)
 		l.position.y = at.y + (24 - px) * 0.7
 	l.ready.connect(fit)
-	return y + 38.0
+	return y + pitch
 
 
 func _build_art() -> void:

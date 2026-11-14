@@ -21,6 +21,10 @@ var yielded: bool = false
 ## True if the company sounded the retreat (Battle.retreated): lost, but only those already injured went
 ## to the Infirmary.
 var retreated: bool = false
+## How it went, in at most five short lines the rules write (BattleAccount.lines): who fell, to which
+## blow and with how much Health left; what the enemy had left if the battle was lost; the misses on both
+## sides; who dealt and took the most. Empty for a day given up.
+var account: Array[String] = []
 ## Battle.grade_ups entries: {"actor", "weapon_type", "grade", "art", "equipped"}.
 var grade_ups: Array[Dictionary] = []
 ## XP each fielded companion still in the run received, by name, in line order (empty on a loss).

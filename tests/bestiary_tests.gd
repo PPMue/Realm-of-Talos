@@ -22,7 +22,7 @@ func tests() -> Array[Callable]:
 		test_enemy_self_heal_and_all_allies,
 		test_reversed_targeting_distribution,
 		test_countdown_orders_floor_of_one,
-		test_recovery_pressure_and_lone_companion,
+		test_recovery_pressure,
 		test_phase_switch_on_hp,
 		test_phase_switch_when_last_standing,
 		test_stacking_effect,
@@ -340,7 +340,7 @@ func test_countdown_orders_floor_of_one() -> void:
 
 # ---------------------------------------------------------------- recovery pressure
 
-func test_recovery_pressure_and_lone_companion() -> void:
+func test_recovery_pressure() -> void:
 	var stare := support("Stare", 1, EnemyActionData.Targeting.ALL_COMPANIONS)
 	stare.intent = EnemyActionData.Intent.DEBUFF
 	stare.add_recovery = 2
@@ -359,11 +359,12 @@ func test_recovery_pressure_and_lone_companion() -> void:
 	t.set_injured(b2.roster[0])
 	b2.roster[0].state = CompanionUnit.State.INJURED
 	b2.guard(b2.roster[1])
-	t.eq(b2.roster[1].recovery, 0 + 3, "hit and held (alone: none of its own, 3 from the enemy)")
+	t.eq(b2.roster[1].recovery, 2 + 3, "hit and held: 2 of its own and 3 from the enemy")
 	t.eq(b2.roster[0].recovery, 0, "the injured one gains none")
-	# The lone companion still ignores recovery.
+	# A companion standing alone is held like any other: the party waits.
 	t.check(b2.is_lone_companion(b2.roster[1]), "alone")
-	t.check(b2.can_act(b2.roster[1]), "a lone companion acts despite recovery")
+	t.check(not b2.can_act(b2.roster[1]), "a companion standing alone is held too")
+	t.check(b2.can_wait(), "so the party waits")
 
 
 # ---------------------------------------------------------------- phases

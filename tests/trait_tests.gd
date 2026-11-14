@@ -668,7 +668,9 @@ func test_apt_points_in_battle() -> void:
 		rng.seed = 1
 		var b := Battle.new(datas, es, rng, party)
 		var before := p.points_in(WeaponData.WeaponType.SWORD)
+		t.rest(b)
 		b.attack(b.roster[0], b.enemies[0])
+		t.rest(b)
 		b.attack(b.roster[0], b.enemies[0])
 		t.eq(p.points_in(WeaponData.WeaponType.SWORD) - before, 3 if not traits.is_empty() else 2, "two attacks: %d traits" % traits.size())
 

@@ -33,7 +33,7 @@ enum Targeting { SINGLE, ALL_COMPANIONS, SELF, ALL_ALLIES }
 ## (an enemy already at 0, about to act this tick, is left alone).
 @export var hasten_allies: int = 0
 ## Recovery pressure: each companion reached (a landed hit, or every target of an action that deals
-## no damage) gains this many ticks of recovery. A lone companion still ignores recovery.
+## no damage) gains this many ticks of recovery.
 @export var add_recovery: int = 0
 ## The chance (percent) that a landed blow is a critical. Enemies strike critically only when an action
 ## says so; their CRT is not used for it.

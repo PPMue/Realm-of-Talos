@@ -1,19 +1,21 @@
 class_name BattleResult
 extends Control
-## After a battle, over the field, in four beats:
+## After a battle, over the field, in five beats:
 ##   1. won or lost and what it gave or cost, with the company in a row and their XP bars filling,
 ##      each by their own share (a skull for every enemy they felled, gold marks for whoever did most);
-##   2. one LevelUpPanel for every level gained, the stats coming up one at a time;
-##   3. one LearnedPanel for every combat art or spell learned (they are learned now, not during the
+##   2. how it went: a page of the chronicle, at most five lines the rules wrote (BattleReport.account):
+##      who fell and to what, what the enemy had left, the misses, who dealt and took the most;
+##   3. one LevelUpPanel for every level gained, the stats coming up one at a time;
+##   4. one LearnedPanel for every combat art or spell learned (they are learned now, not during the
 ##      fight), written out in full; an art that found no free place can be swapped in there;
-##   4. the company again, and the way back.
+##   5. the company again, and the way back.
 ## A click, Space or Enter moves it on (advance()), except past an art that waits for a decision:
 ## that panel has its own way on. It only reads the report; the run has already
 ## been changed by the time this opens.
 
 signal leave_pressed
 
-enum Stage { SPOILS, LEVELS, LEARNED, DONE }
+enum Stage { SPOILS, ACCOUNT, LEVELS, LEARNED, DONE }
 
 const FILL_SECONDS := 0.7
 const CARD_GAP := 18.0
@@ -22,12 +24,23 @@ const REWARDS_Y := 178.0
 const CARDS_Y := 316.0
 const PANEL_Y := 296.0
 const FOOT_Y := 946.0
+## The page of the chronicle ("How it went").
+const PAGE_W := 1180.0
+const PAGE_PAD := 56.0
+const PAGE_HEAD := 96.0
+const PAGE_LINE_GAP := 14.0
 
 var _dim := ColorRect.new()
 var _head := Control.new()
 var _cards := Control.new()
 var _panel := LevelUpPanel.new()
 var _learn := LearnedPanel.new()
+## The page of the chronicle and what is written on it.
+var _page := Control.new()
+var _account: Array[String] = []
+## True once the first beat's bars have filled.
+var _spoils_shown := false
+var _page_h := 0.0
 var _hint: Label
 var _button := Button.new()
 var _stage := Stage.DONE
@@ -63,6 +76,10 @@ func _init() -> void:
 	_learn.visible = false
 	_learn.finished.connect(_after_learned)
 	add_child(_learn)
+	_page.visible = false
+	_page.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_page.draw.connect(_draw_page)
+	add_child(_page)
 	_hint = UiTheme.label("Click to go on", 22, UiTheme.MUTED, false, 4)
 	_hint.add_theme_font_override("font", UiTheme.italic_font())
 	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -113,6 +130,7 @@ func open(report: BattleReport, roster: Array[CompanionUnit], battle: Battle = n
 	_next = 0
 	_learned.clear()
 	_next_learned = 0
+	_write_page(report.account)
 	for g: Dictionary in report.grade_ups:
 		var actor: CompanionUnit = g.actor
 		if g.get("art") != null:
@@ -134,7 +152,9 @@ func open(report: BattleReport, roster: Array[CompanionUnit], battle: Battle = n
 	_hint.visible = false
 	_panel.visible = false
 	_learn.visible = false
+	_page.visible = false
 	_cards.visible = true
+	_spoils_shown = false
 	_stage = Stage.SPOILS
 	_layout()
 	_head.queue_redraw()
@@ -147,10 +167,10 @@ func open(report: BattleReport, roster: Array[CompanionUnit], battle: Battle = n
 			card.play(FILL_SECONDS)
 		var generation := _generation
 		get_tree().create_timer(FILL_SECONDS + (0.35 if not _queue.is_empty() else 0.1)).timeout.connect(func() -> void:
-			if generation == _generation and _stage == Stage.SPOILS:
-				_after_spoils())
+			if generation == _generation and _stage == Stage.SPOILS and not _spoils_shown:
+				_show_spoils())
 	else:
-		_after_spoils()
+		_show_spoils()
 
 
 ## True once everything has been shown and only the way back is left.
@@ -162,7 +182,12 @@ func is_done() -> bool:
 func advance() -> void:
 	match _stage:
 		Stage.SPOILS:
-			_after_spoils()
+			if _spoils_shown:
+				_after_spoils()
+			else:
+				_show_spoils()
+		Stage.ACCOUNT:
+			_after_account()
 		Stage.LEVELS:
 			if not _panel.is_done():
 				_panel.skip()
@@ -176,9 +201,37 @@ func advance() -> void:
 				_after_learned()
 
 
+## The first beat has been shown in full. With a page of the chronicle to follow it waits here for a
+## click, so the cards can be read; without one it goes straight on, as it always did.
+func _show_spoils() -> void:
+	_spoils_shown = true
+	for card: SpoilsCard in _cards.get_children():
+		card.finish()
+	if _account.is_empty():
+		_after_spoils()
+	else:
+		_hint.visible = true
+
+
 func _after_spoils() -> void:
 	for card: SpoilsCard in _cards.get_children():
 		card.finish()
+	if _account.is_empty():
+		_after_account()
+		return
+	# How it went: the page is laid over the field, the cards put aside.
+	_stage = Stage.ACCOUNT
+	_cards.visible = false
+	_page.visible = true
+	_page.modulate.a = 0.0
+	create_tween().tween_property(_page, "modulate:a", 1.0, 0.18)
+	_hint.visible = true
+
+
+func _after_account() -> void:
+	_page.visible = false
+	_hint.visible = false
+	_cards.visible = true
 	if _queue.is_empty():
 		_after_levels()
 	else:
@@ -226,10 +279,49 @@ func _on_level_shown() -> void:
 		_hint.visible = true
 
 
+## Writes `lines` on the page of the chronicle: one Label a line, wrapped to the page.
+func _write_page(lines: Array[String]) -> void:
+	_account = lines.duplicate()
+	for child in _page.get_children():
+		_page.remove_child(child)
+		child.queue_free()
+	var y := PAGE_HEAD
+	var room := PAGE_W - PAGE_PAD * 2.0 - 34.0
+	for text in _account:
+		var l := UiTheme.label(text, 27, UiTheme.PARCHMENT_INK)
+		l.add_theme_font_override("font", UiTheme.body_font())
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		l.position = Vector2(PAGE_PAD + 34.0, y)
+		l.size = Vector2(room, 0.0)
+		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_page.add_child(l)
+		var rows := maxi(1, ceili(UiTheme.body_font().get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 27).x / room))
+		y += rows * UiTheme.body_font().get_height(27) + PAGE_LINE_GAP
+	_page_h = y + PAGE_PAD - PAGE_LINE_GAP
+	_page.size = Vector2(PAGE_W, _page_h)
+	_page.queue_redraw()
+
+
+func _draw_page() -> void:
+	var rect := Rect2(Vector2.ZERO, Vector2(PAGE_W, _page_h))
+	UiTheme.draw_parchment(_page, rect)
+	var display := UiTheme.display_font()
+	UiTheme.draw_text(_page, display, Vector2(0, 30.0), "HOW IT WENT", 34, UiTheme.PARCHMENT_INK, 0, PAGE_W, HORIZONTAL_ALIGNMENT_CENTER)
+	UiTheme.draw_rule(_page, Vector2(PAGE_W * 0.5, 80.0), 420.0, Color(UiTheme.PARCHMENT_MUTED, 0.8))
+	# A mark before each line: red for a fall, plain for the rest.
+	for child in _page.get_children():
+		var l := child as Label
+		if l == null:
+			continue
+		var fell := l.text.contains(" fell on turn ") or l.text.begins_with("Then ")
+		UiIcons.diamond(_page, Vector2(PAGE_PAD + 10.0, l.position.y + 19.0), 6.0, UiTheme.WAX if fell else UiTheme.PARCHMENT_MUTED)
+
+
 func _finish() -> void:
 	_stage = Stage.DONE
 	_panel.visible = false
 	_learn.visible = false
+	_page.visible = false
 	_hint.visible = false
 	_cards.visible = true
 	_button.visible = true
@@ -344,6 +436,7 @@ func _layout() -> void:
 	for i in n:
 		(_cards.get_child(i) as Control).position = Vector2(i * (SpoilsCard.W + CARD_GAP), 0)
 	_panel.position = Vector2((size.x - LevelUpPanel.SIZE.x) * 0.5, PANEL_Y)
+	_page.position = Vector2((size.x - PAGE_W) * 0.5, PANEL_Y + 20.0)
 	_learn.position = _panel.position
 	_hint.position = Vector2((size.x - _hint.size.x) * 0.5, FOOT_Y + 14.0)
 	_button.position = Vector2((size.x - _button.size.x) * 0.5, FOOT_Y)
