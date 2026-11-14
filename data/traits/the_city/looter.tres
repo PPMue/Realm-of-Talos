@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_reb7p"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_rqmts"]
+
+[sub_resource type="Resource" id="Resource_8r774"]
+script = ExtResource("1_reb7p")
+kind = 43
+amount = 10
+
+[resource]
+script = ExtResource("2_rqmts")
+id = "looter"
+display_name = "Looter"
+family = 8
+rarity = 1
+gives = Array[String](["+10 gold after a battle won in which they fought"])
+modifiers = Array[ExtResource("1_reb7p")]([SubResource("Resource_8r774")])

@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_er8cd"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_0m17c"]
+
+[sub_resource type="Resource" id="Resource_nst77"]
+script = ExtResource("1_er8cd")
+kind = 42
+amount = 5
+
+[resource]
+script = ExtResource("2_0m17c")
+id = "masons_kin"
+display_name = "Mason's Kin"
+family = 8
+rarity = 1
+gives = Array[String](["Repairs mend 5 more"])
+modifiers = Array[ExtResource("1_er8cd")]([SubResource("Resource_nst77")])

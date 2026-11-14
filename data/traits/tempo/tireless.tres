@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_bky66"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_t6v7a"]
+
+[sub_resource type="Resource" id="Resource_0h5s4"]
+script = ExtResource("1_bky66")
+kind = 22
+amount = 1
+
+[resource]
+script = ExtResource("2_t6v7a")
+id = "tireless"
+display_name = "Tireless"
+family = 5
+rarity = 1
+gives = Array[String](["+1 stamina after each of their actions"])
+modifiers = Array[ExtResource("1_bky66")]([SubResource("Resource_0h5s4")])

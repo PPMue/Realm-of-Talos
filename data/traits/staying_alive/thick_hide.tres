@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_0oeic"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_2dld3"]
+
+[sub_resource type="Resource" id="Resource_ck8xr"]
+script = ExtResource("1_0oeic")
+kind = 18
+amount = -1
+blow = 1
+
+[resource]
+script = ExtResource("2_2dld3")
+id = "thick_hide"
+display_name = "Thick Hide"
+family = 6
+rarity = 1
+gives = Array[String](["Physical blows deal 1 less"])
+modifiers = Array[ExtResource("1_0oeic")]([SubResource("Resource_ck8xr")])

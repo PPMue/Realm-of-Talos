@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_x7018"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_0e8kc"]
+
+[sub_resource type="Resource" id="Resource_m477p"]
+script = ExtResource("1_x7018")
+kind = 35
+amount = 100
+
+[resource]
+script = ExtResource("2_0e8kc")
+id = "glory_hound"
+display_name = "Glory-Hound"
+family = 7
+rarity = 1
+gives = Array[String](["Enemies they fell count double towards their share of XP"])
+modifiers = Array[ExtResource("1_x7018")]([SubResource("Resource_m477p")])

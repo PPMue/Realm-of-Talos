@@ -148,7 +148,7 @@ func free_day(run: Run) -> void:
 	if hp_fraction(run) < 0.8:
 		run.rest()
 	run.repair()
-	if run.gold < 2 * RunConfig.DRILL_COST:
+	if run.gold < 2 * run.drill_cost():
 		scavenge(run)
 	train(run)
 	scavenge(run)
@@ -394,7 +394,7 @@ func pick_choice(run: Run) -> EventChoiceData:
 	for ch in run.event.choices:
 		if run.choice_block_reason(ch) != "":
 			continue
-		var score := float(ch.gold) + 3.0 * ch.city_health
+		var score := float(run.choice_gold(ch)) + 3.0 * ch.city_health
 		for m: String in ch.materials:
 			score += 25.0 * int(ch.materials[m])
 		score += 2.0 * ch.companion_hp * run.hp_targets(ch).size()
@@ -586,7 +586,7 @@ func _upgrade_for(run: Run, c: RunCompanion) -> ShopItemData:
 		var w := item.weapon
 		if w.weapon_type != c.weapon().weapon_type or _power(c, w) <= _power(c, c.weapon()):
 			continue
-		if not c.progress.can_equip_weapon(w) or item.price > run.gold:
+		if not c.progress.can_equip_weapon(w) or run.shop_price(item) > run.gold:
 			continue
 		if best == null or _power(c, w) > _power(c, best.weapon):
 			best = item

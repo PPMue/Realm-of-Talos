@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_a80h3"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_p7nct"]
+
+[sub_resource type="Resource" id="Resource_sjmyk"]
+script = ExtResource("1_a80h3")
+kind = 45
+amount = 1
+material = "timber"
+
+[resource]
+script = ExtResource("2_p7nct")
+id = "woodsman"
+display_name = "Woodsman"
+family = 8
+rarity = 1
+gives = Array[String](["+1 timber after a battle in which they fought"])
+modifiers = Array[ExtResource("1_a80h3")]([SubResource("Resource_sjmyk")])

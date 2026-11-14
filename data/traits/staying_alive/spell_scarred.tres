@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_yhf2f"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_on7rg"]
+
+[sub_resource type="Resource" id="Resource_nl7b0"]
+script = ExtResource("1_yhf2f")
+kind = 18
+amount = -1
+blow = 2
+
+[resource]
+script = ExtResource("2_on7rg")
+id = "spell_scarred"
+display_name = "Spell-Scarred"
+family = 6
+rarity = 1
+gives = Array[String](["Magic deals 1 less"])
+modifiers = Array[ExtResource("1_yhf2f")]([SubResource("Resource_nl7b0")])

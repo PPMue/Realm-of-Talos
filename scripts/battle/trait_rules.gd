@@ -5,10 +5,11 @@ extends RefCounted
 ## the screens show already includes traits.
 ##
 ## A query names the kind of number (TraitModifier.Kind) and what it is for: the stat, the action, the
-## weapon type or school, the enemy aimed at, the level reached. In a battle the companion it is for
-## (`unit`) also collects the modifiers of the companions beside and in front of them that are meant
-## for them (TraitModifier.Who). Out of a battle only the companion's own modifiers without battle
-## conditions count.
+## weapon type or school, the enemy aimed at, the level reached, the kind of blow. In a battle the
+## companion it is for (`unit`) also collects the modifiers of the companions in the line that are
+## meant for them (TraitModifier.Who: beside them, in front of them, anyone else). Out of a battle only
+## the companion's own modifiers without battle conditions count; the company-wide ones (the city's)
+## are summed by Run over everyone not in the Infirmary.
 
 
 ## What a number is for.
@@ -18,6 +19,8 @@ class Query:
 	var stat: String = ""
 	## The companion's traits (out of a battle; in one `unit` is used).
 	var traits: Array[TraitData] = []
+	## Out of a battle, for conditions that read the companion (their second-best weapon).
+	var progress: CompanionProgress
 	## In a battle: the companion it is for, and the battle.
 	var unit: CompanionUnit
 	var battle: Battle
@@ -29,8 +32,12 @@ class Query:
 	## GROWTH: the level being reached.
 	var level: int = 0
 	var whole_line: bool = false
+	## A blow taken: TraitModifier.Blow.
+	var blow: int = TraitModifier.Blow.ANY
 	## True: only modifiers with battle conditions (the plain ones are already in the base stats).
 	var battle_only: bool = false
+	## Out of a battle: whose modifiers count (TraitModifier.Who; SELF the companion's own).
+	var who: int = TraitModifier.Who.SELF
 
 
 static func query(kind: int) -> Query:
@@ -39,11 +46,13 @@ static func query(kind: int) -> Query:
 	return q
 
 
-## Sum of the matching modifiers' amounts.
+## Sum of the matching modifiers' amounts (one counting once per standing neighbour of its holder:
+## TraitModifier.per_neighbour).
 static func sum(q: Query) -> int:
 	var total := 0
-	for m in matching(q):
-		total += m.amount
+	for pair in matching_with_holders(q):
+		var m: TraitModifier = pair[0]
+		total += m.amount * (_standing_neighbours(q, pair[1]) if m.per_neighbour else 1)
 	return total
 
 
@@ -65,12 +74,20 @@ static func percent_product(q: Query) -> float:
 
 ## True if any modifier matches.
 static func any(q: Query) -> bool:
-	return not matching(q).is_empty()
+	return not matching_with_holders(q).is_empty()
 
 
 ## Every modifier that counts for `q`.
 static func matching(q: Query) -> Array[TraitModifier]:
 	var out: Array[TraitModifier] = []
+	for pair in matching_with_holders(q):
+		out.append(pair[0])
+	return out
+
+
+## Every modifier that counts for `q`, each with its holder ([TraitModifier, CompanionUnit or null]).
+static func matching_with_holders(q: Query) -> Array:
+	var out: Array = []
 	if q.unit != null and q.battle != null:
 		var l := q.battle.roster
 		var i := l.find(q.unit)
@@ -81,6 +98,9 @@ static func matching(q: Query) -> Array[TraitModifier]:
 			if i < l.size() - 1:
 				holders.append([l[i + 1], TraitModifier.Who.NEIGHBOURS])
 				holders.append([l[i + 1], TraitModifier.Who.BEHIND])   # q.unit stands behind l[i + 1]
+			for other in l:
+				if other != q.unit:
+					holders.append([other, TraitModifier.Who.ALLIES])
 		for h: Array in holders:
 			var holder: CompanionUnit = h[0]
 			if holder != q.unit and not holder.is_active():
@@ -88,14 +108,26 @@ static func matching(q: Query) -> Array[TraitModifier]:
 			for t in holder.traits():
 				for m in t.modifiers:
 					if m.who == h[1] and _holds(m, q, holder):
-						out.append(m)
+						out.append([m, holder])
 		return out
 	var traits := q.traits if q.unit == null else q.unit.traits()
 	for t in traits:
 		for m in t.modifiers:
-			if m.who == TraitModifier.Who.SELF and not m.is_battle_only() and _holds(m, q, null):
-				out.append(m)
+			if m.who == q.who and not m.is_battle_only() and _holds(m, q, null):
+				out.append([m, null])
 	return out
+
+
+static func _standing_neighbours(q: Query, holder: CompanionUnit) -> int:
+	if holder == null or q.battle == null:
+		return 0
+	var l := q.battle.roster
+	var i := l.find(holder)
+	var n := 0
+	for j in [i - 1, i + 1]:
+		if i >= 0 and j >= 0 and j < l.size() and l[j].is_active():
+			n += 1
+	return n
 
 
 static func _holds(m: TraitModifier, q: Query, holder: CompanionUnit) -> bool:
@@ -119,11 +151,25 @@ static func _holds(m: TraitModifier, q: Query, holder: CompanionUnit) -> bool:
 		return false
 	if m.whole_line_blows and not q.whole_line:
 		return false
+	if m.blow != TraitModifier.Blow.ANY and m.blow != q.blow:
+		return false
+	if m.second_best_weapon:
+		var p := holder.progress if holder != null else q.progress
+		if p == null or q.weapon_type < 0 or second_best_type(p) != q.weapon_type:
+			return false
 	if not m.is_battle_only():
 		return true
 	if holder == null or q.battle == null:
 		return false
 	return _battle_holds(m, q, holder)
+
+
+## The weapon type of `p`'s second-best grade (by points; a tie goes to the type listed first).
+static func second_best_type(p: CompanionProgress) -> int:
+	var types: Array = WeaponData.WeaponType.values()
+	types.sort_custom(func(a: int, b: int) -> bool:
+		return p.points_in(a) > p.points_in(b) or (p.points_in(a) == p.points_in(b) and a < b))
+	return types[1]
 
 
 static func _battle_holds(m: TraitModifier, q: Query, holder: CompanionUnit) -> bool:
@@ -157,6 +203,8 @@ static func _battle_holds(m: TraitModifier, q: Query, holder: CompanionUnit) -> 
 		return false
 	if m.self_health == TraitModifier.Health.FULL and holder.hp < holder.max_hp():
 		return false
+	if m.self_hp_at_most > 0 and holder.hp > m.self_hp_at_most:
+		return false
 	var number := holder.actions_taken + 1
 	if m.action_from > 0 and number < m.action_from:
 		return false
@@ -165,6 +213,14 @@ static func _battle_holds(m: TraitModifier, q: Query, holder: CompanionUnit) -> 
 	if m.after_guard_or_focus and not holder.after_guard_or_focus:
 		return false
 	if m.first_front_action and holder.front_actions > 0:
+		return false
+	if m.first_blow_taken and holder.blows_taken > 0:
+		return false
+	if m.first_art and holder.arts_used > 0:
+		return false
+	if m.ally_injured and not b.injured_ever.any(func(c: CompanionUnit) -> bool: return c != holder):
+		return false
+	if m.rival_ahead and not l.any(func(c: CompanionUnit) -> bool: return c != holder and b.kills_of(c) > b.kills_of(holder)):
 		return false
 	var needs_target := m.target_health != TraitModifier.Health.ANY or m.target_trait != "" or m.target_boss \
 		or m.target_next_magic or m.struck != TraitModifier.Struck.ANY
@@ -213,9 +269,11 @@ static func plain_stat(traits: Array[TraitData], key: String) -> int:
 	return total
 
 
-## The sum of `kind` from `traits` out of a battle, for a weapon type, school, spell tier or level.
+## The sum of `kind` from `traits` out of a battle, for a weapon type, school, spell tier, level or
+## stat; `who`: whose modifiers (the companion's own by default); `progress` for conditions that read
+## the companion.
 static func total(traits: Array[TraitData], kind: int, weapon_type: int = -1, school: int = -1, spell_tier: int = 0,
-		level: int = 0, stat: String = "") -> int:
+		level: int = 0, stat: String = "", who: int = TraitModifier.Who.SELF, progress: CompanionProgress = null) -> int:
 	var q := query(kind)
 	q.traits = traits
 	q.weapon_type = weapon_type
@@ -223,4 +281,13 @@ static func total(traits: Array[TraitData], kind: int, weapon_type: int = -1, sc
 	q.spell_tier = spell_tier
 	q.level = level
 	q.stat = stat
+	q.who = who
+	q.progress = progress
 	return sum(q)
+
+
+## True if `traits` hold a modifier of `kind` (out of a battle, the companion's own).
+static func has(traits: Array[TraitData], kind: int) -> bool:
+	var q := query(kind)
+	q.traits = traits
+	return any(q)

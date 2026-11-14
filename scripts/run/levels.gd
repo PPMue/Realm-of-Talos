@@ -140,9 +140,10 @@ static func level_up(p: CompanionProgress, rng: RandomNumberGenerator) -> Dictio
 	return gains
 
 
-## XP `p` gets from `amount`: changed by their traits (TraitModifier.Kind.XP_PERCENT), rounded down.
-static func with_traits(p: CompanionProgress, amount: int) -> int:
-	var percent := TraitRules.total(p.traits, TraitModifier.Kind.XP_PERCENT)
+## XP `p` gets from `amount`: changed by their traits (TraitModifier.Kind.XP_PERCENT) and `extra`
+## percent (another's trait: Mentor), rounded down.
+static func with_traits(p: CompanionProgress, amount: int, extra: int = 0) -> int:
+	var percent := TraitRules.total(p.traits, TraitModifier.Kind.XP_PERCENT) + extra
 	return maxi(0, amount * (100 + percent) / 100) if percent != 0 else amount
 
 

@@ -1,10 +1,14 @@
 extends SceneTree
-## Writes every trait built so far (design/traits.md, wave 1) as a .tres under res://data/traits/ and
-## the library listing them (res://data/traits/trait_library.tres). Run it again after changing a
-## trait here; a trait can also be written as a .tres by hand and added to the library.
+## Writes every trait built so far (design/traits.md, waves up to BUILT_WAVE) as a .tres under
+## res://data/traits/ and the library listing them (res://data/traits/trait_library.tres). A trait whose
+## file already exists is left as it is (its sub-resource ids would change for nothing) unless
+## REWRITE_ALL is set; a trait can also be written as a .tres by hand and added to the library.
 ##
 ##   godot --headless --path . -s res://tools/generate_traits.gd
 
+## Waves built: 1 numbers with a condition, 2 single moments, 3 other people and scavenging.
+const BUILT_WAVE := 2
+const REWRITE_ALL := false
 const OUT := "res://data/traits"
 const FAMILY_DIRS: Array[String] = ["weapon_hands", "schools", "body_and_mind", "two_edged", "the_line",
 	"tempo", "staying_alive", "learning", "the_city", "the_company"]
@@ -20,16 +24,23 @@ func _init() -> void:
 	_the_line()
 	_tempo()
 	_learning()
+	if BUILT_WAVE >= 2:
+		_wave_two()
+	if BUILT_WAVE >= 3:
+		_wave_three()
 	var lib := TraitLibrary.new()
+	var written := 0
 	for t in _all:
 		var dir := "%s/%s" % [OUT, FAMILY_DIRS[t.family]]
 		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dir))
 		var path := "%s/%s.tres" % [dir, t.id]
-		var err := ResourceSaver.save(t, path)
-		if err != OK:
-			printerr("could not save %s: %d" % [path, err])
-		t.take_over_path(path)
+		if REWRITE_ALL or not FileAccess.file_exists(path):
+			var err := ResourceSaver.save(t, path)
+			if err != OK:
+				printerr("could not save %s: %d" % [path, err])
+			written += 1
 		lib.traits.append(load(path) as TraitData)
+	print("%d traits written of %d" % [written, _all.size()])
 	var err := ResourceSaver.save(lib, "%s/trait_library.tres" % OUT)
 	print("wrote %d traits (%s)" % [_all.size(), "ok" if err == OK else "error %d" % err])
 	quit()
@@ -245,6 +256,98 @@ func _tempo() -> void:
 		[mod(TraitModifier.Kind.HIT, 15, {"struck": TraitModifier.Struck.STRUCK_ME_SINCE})])
 	add("kingslayer", "Kingslayer", F, TraitData.Rarity.RARE, ["+10% damage to bosses"], [],
 		[mod(TraitModifier.Kind.DAMAGE_PERCENT, 10, {"target_boss": true})])
+
+
+# ---------------------------------------------------------------- wave 2: single moments
+
+func _wave_two() -> void:
+	var K := TraitModifier.Kind
+	var U := TraitData.Rarity.UNCOMMON
+	var R := TraitData.Rarity.RARE
+	var T := TraitData.Family.TEMPO
+	add("second_wind", "Second Wind", T, U, ["The first time they fall below half Health, their stamina is full again"], [],
+		[mod(K.HALF_HEALTH_STAMINA, 1)])
+	add("steady_breath", "Steady Breath", T, U, ["Focus restores 3 more stamina"], [], [mod(K.FOCUS_RESTORE, 3)])
+	add("tireless", "Tireless", T, U, ["+1 stamina after each of their actions"], [], [mod(K.ACTION_STAMINA, 1)])
+	add("quick_hands", "Quick Hands", T, U, ["The first art they use each battle has 1 less recovery"], [],
+		[mod(K.RECOVERY, -1, {"action": TraitModifier.Action.ART, "first_art": true})])
+	add("relentless", "Relentless", T, U, ["An action that fells an enemy has no recovery"], [], [mod(K.KILL_NO_RECOVERY, 1)])
+	add("bloodrush", "Bloodrush", T, U, ["+4 stamina when they fell an enemy"], [], [mod(K.KILL_STAMINA, 4)])
+	add("blood_drinker", "Blood-Drinker", T, U, ["+2 Health when they fell an enemy"], [], [mod(K.KILL_HP, 2)])
+	add("staggering_blow", "Staggering Blow", T, R,
+		["Their critical hits push the target's next action back 1 turn (once per action, as spells do)"], [], [mod(K.CRIT_DELAY, 1)])
+	var S := TraitData.Family.STAYING_ALIVE
+	add("thick_hide", "Thick Hide", S, U, ["Physical blows deal 1 less"], [],
+		[mod(K.DAMAGE_TAKEN, -1, {"blow": TraitModifier.Blow.PHYSICAL})])
+	add("spell_scarred", "Spell-Scarred", S, U, ["Magic deals 1 less"], [],
+		[mod(K.DAMAGE_TAKEN, -1, {"blow": TraitModifier.Blow.MAGIC})])
+	add("brace", "Brace", S, U, ["The first blow that lands on them each battle deals half"], [],
+		[mod(K.DAMAGE_TAKEN_PERCENT, -50, {"first_blow_taken": true})])
+	add("stubborn", "Stubborn", S, U, ["At 5 Health or less: Avoid +15"], [], [mod(K.AVOID, 15, {"self_hp_at_most": 5})])
+	add("clean_blood", "Clean Blood", S, U, ["Damage over time cannot touch them"], [], [mod(K.DOT_IMMUNE, 1)])
+	add("calm", "Calm", S, U, ["Curses on them end 1 turn sooner"], [], [mod(K.CURSE_TURNS, -1)])
+	add("good_patient", "Good Patient", S, U, ["White magic heals them 3 more"], [], [mod(K.HEAL_RECEIVED, 3)])
+	add("fast_healer", "Fast Healer", S, U, ["Heals 35% at day's end instead of 20%"], [], [mod(K.DAY_HEAL_SHARE, 15)])
+	add("field_dresser", "Field Dresser", S, U, ["Heals 15% after a battle won"], [], [mod(K.BATTLE_WON_HEAL_PERCENT, 15)])
+	add("quick_to_mend", "Quick to Mend", S, U, ["Infirmary stays are 1 day shorter"], [], [mod(K.INFIRMARY_DAYS, -1)])
+	add("healers_favourite", "Healer's Favourite", S, U, ["The healer charges half for them"], [], [mod(K.CURE_PERCENT, -50)])
+	add("clings_to_life", "Clings to Life", S, R, ["Once a battle, a blow that would fell them leaves them at 1 Health"], [],
+		[mod(K.SURVIVE_ONCE, 1)])
+	var L := TraitData.Family.LEARNING
+	add("quick_study", "Quick Study", L, U, ["+10% XP"], [], [mod(K.XP_PERCENT, 10)])
+	add("glory_hound", "Glory-Hound", L, U, ["Enemies they fell count double towards their share of XP"], [],
+		[mod(K.KILL_POINTS_PERCENT, 100)])
+	add("bench_learner", "Bench Learner", L, U, ["Gets a quarter share of XP from the bench"], [], [mod(K.RESERVE_XP_SHARE, 25)])
+	add("yard_rat", "Yard Rat", L, U, ["Drills never come out poor for them"], [], [mod(K.DRILL_NEVER_POOR, 1)])
+	add("second_trade", "Second Trade", L, U, ["Their second-best weapon grade earns +50% points"], [],
+		[mod(K.PROFICIENCY_PERCENT, 50, {"second_best_weapon": true})])
+	add("apprentice", "Apprentice", L, U, ["Arts and spells they learn lean a tier higher"], [], [mod(K.LEARN_GRADE_STEPS, 2)])
+	add("deep_well", "Deep Well", L, R, ["+1 use of every spell"], [], [mod(K.SPELL_USES, 1)])
+	var C := TraitData.Family.THE_CITY
+	add("haggler", "Haggler", C, U, ["The Smithy charges 10% less"], [], [mod(K.SHOP_PERCENT, -10)])
+	add("well_liked", "Well-Liked", C, U, ["Hires cost 20 gold less"], [], [mod(K.HIRE_COST, -20)])
+	add("drillmaster", "Drillmaster", C, U, ["Drills cost 10 gold less"], [], [mod(K.DRILL_COST, -10)])
+	add("masons_kin", "Mason's Kin", C, U, ["Repairs mend 5 more"], [], [mod(K.REPAIR_AMOUNT, 5)])
+	add("looter", "Looter", C, U, ["+10 gold after a battle won in which they fought"], [], [mod(K.BATTLE_WON_GOLD, 10)])
+	add("bounty_hunter", "Bounty Hunter", C, U, ["+4 gold for each enemy they fell"], [], [mod(K.KILL_GOLD, 4)])
+	add("woodsman", "Woodsman", C, U, ["+1 timber after a battle in which they fought"], [],
+		[mod(K.BATTLE_MATERIAL, 1, {"material": RunConfig.TIMBER})])
+	add("prospector", "Prospector", C, U, ["+1 iron ore after a battle in which they fought"], [],
+		[mod(K.BATTLE_MATERIAL, 1, {"material": RunConfig.IRON_ORE})])
+	add("camp_cook", "Camp Cook", C, U, ["Everyone heals 5% more at day's end"], [],
+		[mod(K.DAY_HEAL_SHARE, 5, {"who": TraitModifier.Who.COMPANY})])
+	add("night_watch", "Night Watch", C, U, ["From the bench: a lost battle costs the walls 3 less"], [], [mod(K.CITY_DAMAGE, -3)])
+	add("silver_tongue", "Silver Tongue", C, U, ["Event choices that cost gold cost 20% less"], [], [mod(K.EVENT_GOLD_PERCENT, -20)])
+
+
+# ---------------------------------------------------------------- wave 3: other people, scavenging
+
+func _wave_three() -> void:
+	var K := TraitModifier.Kind
+	var U := TraitData.Rarity.UNCOMMON
+	var F := TraitData.Family.THE_COMPANY
+	var near := {"who": TraitModifier.Who.NEIGHBOURS}
+	add("inspiring", "Inspiring", F, U, ["Neighbours have +5 Hit"], [], [mod(K.HIT, 5, near)])
+	add("watchful", "Watchful", F, U, ["Neighbours have Avoid +10"], [], [mod(K.AVOID, 10, near)])
+	add("avenger", "Avenger", F, U, ["+3 damage for the rest of the battle once an ally is injured"], [],
+		[mod(K.DAMAGE, 3, {"ally_injured": true})])
+	add("rival", "Rival", F, U, ["+10 Crit while another companion has felled more enemies this battle"], [],
+		[mod(K.CRIT, 10, {"rival_ahead": true})])
+	add("lead_by_example", "Lead by Example", F, U, ["After they fell an enemy, the next ally to act has +15 Hit"], [],
+		[mod(K.KILL_NEXT_ALLY_HIT, 15)])
+	add("mentor", "Mentor", F, U, ["The lowest-level companion in the line gets +20% XP"], [],
+		[mod(K.XP_PERCENT, 20, {"who": TraitModifier.Who.LOWEST})])
+	add("martyr", "Martyr", F, U, ["When they are injured, every ally heals 5"], [], [mod(K.INJURED_HEAL_ALLIES, 5)])
+	add("battle_kin", "Battle-Sister / Battle-Brother", F, U, ["+1 Strength and Defence for each neighbour"], [],
+		[stat(Stat.STR, 1, {"per_neighbour": true}), stat(Stat.DEF, 1, {"per_neighbour": true})])
+	add("envied", "Envied", F, U, ["Neighbours earn +25% proficiency points"], [], [mod(K.PROFICIENCY_PERCENT, 25, near)])
+	add("standard_bearer", "Standard-Bearer", F, TraitData.Rarity.RARE, ["Every ally has +3 Hit"], [],
+		[mod(K.HIT, 3, {"who": TraitModifier.Who.ALLIES})])
+	var C := TraitData.Family.THE_CITY
+	add("pathfinder", "Pathfinder", C, U, ["Scavenging: counts as 3 higher in whatever is asked of them"], [],
+		[mod(K.SCAVENGE_STAT, 3)])
+	add("sure_footed", "Sure-Footed", C, U, ["Scavenging: never comes back injured"], [], [mod(K.SCAVENGE_NO_INJURY, 1)])
+	add("pack_mule", "Pack Mule", C, U, ["Scavenging: the party brings back 25% more"], [], [mod(K.SCAVENGE_HAUL_PERCENT, 25)])
 
 
 # ---------------------------------------------------------------- 8. learning (the growth traits)

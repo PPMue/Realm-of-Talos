@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_5luyg"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_31mur"]
+
+[sub_resource type="Resource" id="Resource_s71a3"]
+script = ExtResource("1_5luyg")
+kind = 19
+amount = -50
+first_blow_taken = true
+
+[resource]
+script = ExtResource("2_31mur")
+id = "brace"
+display_name = "Brace"
+family = 6
+rarity = 1
+gives = Array[String](["The first blow that lands on them each battle deals half"])
+modifiers = Array[ExtResource("1_5luyg")]([SubResource("Resource_s71a3")])

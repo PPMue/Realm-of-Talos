@@ -415,8 +415,7 @@ func finish_battle(battle: Battle) -> BattleReport:
 	if report.won:
 		battles_won += 1
 		_grant_xp(report, front.xp_pool, standing, points)
-		if facility_level(Facility.BARRACKS) >= 1:
-			_grant_reserve_xp(report, front.xp_pool)
+		_grant_reserve_xp(report, front.xp_pool)
 		# Weapons that pay for kills (WeaponData.gold_per_kill): only on a win.
 		for i in fielded.size():
 			var unit := battle.roster[i]
@@ -425,10 +424,11 @@ func finish_battle(battle: Battle) -> BattleReport:
 				var earned := battle.kills_of(unit) * w.gold_per_kill
 				report.kill_gold += earned
 				report.kill_gold_by[fielded[i].display_name()] = earned
-		report.gold = front.reward_gold + report.kill_gold
 		report.materials = front.reward_materials.duplicate()
+		_battle_won_traits(report, battle, fielded)
+		report.gold = front.reward_gold + report.kill_gold + report.trait_gold
 		gold += report.gold
-		_add_materials(front.reward_materials)
+		_add_materials(report.materials)
 		if front.is_boss and day >= RunConfig.DAYS:
 			_end(Outcome.VICTORY, "The last boss has fallen. The city stands.")
 		elif front.is_boss:
@@ -437,10 +437,18 @@ func finish_battle(battle: Battle) -> BattleReport:
 				inventory.add(report.weapon_found)
 	else:
 		battles_lost += 1
+		_battle_material_traits(report, fielded)
+		_add_materials(report.materials)
 		if front.is_boss:
 			_end(Outcome.DEFEAT, "%s broke through on day %d." % [front.group.display_name, day])
 		else:
-			report.city_damage = mini(front.city_damage, city_health)
+			var watch := 0
+			for c in reserve():
+				var less := -TraitRules.total(c.traits, TraitModifier.Kind.CITY_DAMAGE)
+				if less != 0:
+					watch += less
+					report.trait_lines.append("%s, %s: the walls lose %d less" % [c.display_name(), _trait_name(c, TraitModifier.Kind.CITY_DAMAGE), less])
+			report.city_damage = mini(maxi(0, front.city_damage - watch), city_health)
 			city_health -= report.city_damage
 	committed_front = null
 	_end_day()
@@ -495,8 +503,8 @@ func free_action_block_reason(a: FreeAction) -> String:
 			if not _can_pay(repair_cost()):
 				return "Needs %s." % cost_text(repair_cost())
 		FreeAction.TRAIN:
-			if gold < RunConfig.DRILL_COST:
-				return "Needs %d gold." % RunConfig.DRILL_COST
+			if gold < drill_cost():
+				return "Needs %d gold." % drill_cost()
 			if not _anyone_can_drill():
 				return NO_USEFUL_DRILL
 		FreeAction.CURE:
@@ -536,8 +544,11 @@ func cure_cost(c: RunCompanion) -> int:
 	if c == null or not c.injured:
 		return 0
 	var cost := c.days_left(day) * (RunConfig.CURE_GOLD_PER_DAY_BASE + RunConfig.CURE_GOLD_PER_DAY_PER_LEVEL * c.level())
+	var percent := TraitRules.total(c.traits, TraitModifier.Kind.CURE_PERCENT)
 	if facility_level(Facility.INFIRMARY) >= 2:
-		cost = roundi(cost * (100 - RunConfig.INFIRMARY_CURE_DISCOUNT_PERCENT) / 100.0)
+		percent -= RunConfig.INFIRMARY_CURE_DISCOUNT_PERCENT
+	if percent != 0:
+		cost = roundi(cost * maxi(0, 100 + percent) / 100.0)
 	return cost
 
 
@@ -584,8 +595,8 @@ func buy_block_reason(item: ShopItemData) -> String:
 		return why
 	if item == null or not shop_stock().has(item):
 		return "Not for sale this week."
-	if gold < item.price:
-		return "Needs %d gold." % item.price
+	if gold < shop_price(item):
+		return "Needs %d gold." % shop_price(item)
 	return ""
 
 
@@ -628,7 +639,7 @@ func choice_weapon(choice: EventChoiceData) -> WeaponData:
 func buy(item: ShopItemData) -> OwnedWeapon:
 	if buy_block_reason(item) != "":
 		return null
-	gold -= item.price
+	gold -= shop_price(item)
 	shop_week.erase(item)
 	return inventory.add(item.weapon)
 
@@ -691,12 +702,13 @@ func train(drill: Drill, c: RunCompanion) -> DrillResult:
 	if drill_block_reason(drill, c) != "":
 		return null
 	_spend(FreeAction.TRAIN)
-	gold -= RunConfig.DRILL_COST
+	var paid := drill_cost()
+	gold -= paid
 	var r := DrillResult.new()
 	r.drill = drill
 	r.companion = c
-	r.gold_spent = RunConfig.DRILL_COST
-	r.quality = _roll_drill_quality()
+	r.gold_spent = paid
+	r.quality = _roll_drill_quality(c)
 	r.quality_name = DrillResult.QUALITY_NAMES[r.quality]
 	if drill.is_proficiency():
 		_drill_proficiency(r)
@@ -740,7 +752,9 @@ func _anyone_can_drill() -> bool:
 	return false
 
 
-func _roll_drill_quality() -> DrillResult.Quality:
+## A drill's quality by RunConfig.DRILL_QUALITY_WEIGHTS; poor comes out good with the Drill Yard's level
+## 1 or for `c` with a trait that says so (Yard Rat).
+func _roll_drill_quality(c: RunCompanion = null) -> DrillResult.Quality:
 	var total := 0
 	for w in RunConfig.DRILL_QUALITY_WEIGHTS:
 		total += w
@@ -748,7 +762,8 @@ func _roll_drill_quality() -> DrillResult.Quality:
 	for q in RunConfig.DRILL_QUALITY_WEIGHTS.size():
 		r -= RunConfig.DRILL_QUALITY_WEIGHTS[q]
 		if r <= 0:
-			if q == DrillResult.Quality.POOR and facility_level(Facility.YARD) >= 1:
+			if q == DrillResult.Quality.POOR and (facility_level(Facility.YARD) >= 1
+					or (c != null and TraitRules.has(c.traits, TraitModifier.Kind.DRILL_NEVER_POOR))):
 				return DrillResult.Quality.GOOD   # the Drill Yard level 1: never poor
 			return q as DrillResult.Quality
 	return DrillResult.Quality.GOOD
@@ -798,9 +813,19 @@ func _grant_xp(report: BattleReport, pool: int, standing: Array[RunCompanion], p
 	if standing.is_empty() or pool <= 0:
 		return
 	var shares := Levels.split_xp(pool, points)
+	# Mentor (TraitModifier.Who.LOWEST): the lowest-level companion in the line (the first of them in
+	# line order) gets more, from everyone else's Mentor.
+	var lowest: RunCompanion = null
+	for c in standing:
+		if lowest == null or c.level() < lowest.level():
+			lowest = c
+	var mentored := 0
+	for c in standing:
+		if c != lowest:
+			mentored += TraitRules.total(c.traits, TraitModifier.Kind.XP_PERCENT, -1, -1, 0, 0, "", TraitModifier.Who.LOWEST)
 	for i in standing.size():
 		var c := standing[i]
-		var xp := Levels.with_traits(c.progress, shares[i])
+		var xp := Levels.with_traits(c.progress, shares[i], mentored if c == lowest else 0)
 		report.xp_gained[c.display_name()] = xp
 		for up in Levels.add_xp(c.progress, xp, rng):
 			c.hp += int(up.gains.get(Stat.HP, 0))
@@ -847,10 +872,16 @@ func scavenge_slot_score(site: ScavengeSite, index: int, c: RunCompanion) -> int
 	if site == null or index < 0 or index >= site.slots.size() or c == null:
 		return RunConfig.SCAVENGE_EMPTY
 	var slot := site.slots[index]
-	var have := int(c.progress.stats().get(slot.stat, 0))
+	var have := scavenge_stat(c, slot.stat)
 	if have >= slot.target:
 		return mini(RunConfig.SCAVENGE_SLOT_MAX, RunConfig.SCAVENGE_MEET + RunConfig.SCAVENGE_PER_POINT_ABOVE * (have - slot.target))
 	return maxi(RunConfig.SCAVENGE_SLOT_MIN, -RunConfig.SCAVENGE_PER_POINT_SHORT * (slot.target - have))
+
+
+## What `c` counts as in `stat` when scavenging: the stat (CompanionProgress.stats) plus what their traits
+## add (Pathfinder).
+func scavenge_stat(c: RunCompanion, stat: String) -> int:
+	return int(c.progress.stats().get(stat, 0)) + TraitRules.total(c.traits, TraitModifier.Kind.SCAVENGE_STAT)
 
 
 ## The chance (percent) of a full haul at `site` with `party` (indexed by slot; nulls and missing
@@ -935,6 +966,13 @@ func scavenge(site: ScavengeSite, party: Array) -> ScavengeResult:
 				if int(site.materials[m]) / 2 > 0:
 					r.materials[m] = int(site.materials[m]) / 2
 			xp = site.xp_each / 2
+	var more := 0
+	for c in r.party:
+		more += TraitRules.total(c.traits, TraitModifier.Kind.SCAVENGE_HAUL_PERCENT)
+	if more != 0:
+		r.gold = roundi(r.gold * (100 + more) / 100.0)
+		for m: String in r.materials:
+			r.materials[m] = roundi(int(r.materials[m]) * (100 + more) / 100.0)
 	gold += r.gold
 	_add_materials(r.materials)
 	var hurt := (site.risk == ScavengeSite.Risk.MEDIUM and r.outcome == ScavengeResult.Outcome.NOTHING) \
@@ -966,12 +1004,16 @@ func _furthest_short(site: ScavengeSite, party: Array[RunCompanion]) -> RunCompa
 	var worst := 0
 	var picks: Array[RunCompanion] = []
 	for i in party.size():
-		var short := maxi(0, site.slots[i].target - int(party[i].progress.stats().get(site.slots[i].stat, 0)))
+		if TraitRules.has(party[i].traits, TraitModifier.Kind.SCAVENGE_NO_INJURY):
+			continue   # Sure-Footed: never comes back injured
+		var short := maxi(0, site.slots[i].target - scavenge_stat(party[i], site.slots[i].stat))
 		if picks.is_empty() or short > worst:
 			worst = short
 			picks = [party[i]]
 		elif short == worst:
 			picks.append(party[i])
+	if picks.is_empty():
+		return null
 	return picks[rng.randi_range(0, picks.size() - 1)]
 
 
@@ -1144,12 +1186,39 @@ func repair_cost() -> Dictionary:
 
 ## City health one repair mends (the Mason's Yard level 1 raises it).
 func repair_amount() -> int:
-	return RunConfig.MASON_REPAIR_AMOUNT if facility_level(Facility.MASON) >= 1 else RunConfig.REPAIR_AMOUNT
+	return (RunConfig.MASON_REPAIR_AMOUNT if facility_level(Facility.MASON) >= 1 else RunConfig.REPAIR_AMOUNT) \
+		+ company_total(TraitModifier.Kind.REPAIR_AMOUNT)
 
 
 ## Gold a hire costs (the Tavern level 2 lowers it).
+## Gold a hire costs: the Tavern's level 2 and the company's traits (Well-Liked) lower it, never below 0.
 func hire_cost() -> int:
-	return RunConfig.HIRE_COST - (RunConfig.TAVERN_HIRE_DISCOUNT if facility_level(Facility.TAVERN) >= 2 else 0)
+	return maxi(0, RunConfig.HIRE_COST - (RunConfig.TAVERN_HIRE_DISCOUNT if facility_level(Facility.TAVERN) >= 2 else 0)
+		+ company_total(TraitModifier.Kind.HIRE_COST))
+
+
+## Gold a drill costs: RunConfig.DRILL_COST and the company's traits (Drillmaster), never below 0.
+func drill_cost() -> int:
+	return maxi(0, RunConfig.DRILL_COST + company_total(TraitModifier.Kind.DRILL_COST))
+
+
+## What the smithy asks for `item`: its price, changed by the company's traits (Haggler), rounded.
+func shop_price(item: ShopItemData) -> int:
+	if item == null:
+		return 0
+	var percent := company_total(TraitModifier.Kind.SHOP_PERCENT)
+	return item.price if percent == 0 else maxi(0, roundi(item.price * (100 + percent) / 100.0))
+
+
+## Gold `choice` changes: as written, but a cost is changed by the company's traits (Silver Tongue),
+## rounded, never past 0.
+func choice_gold(choice: EventChoiceData) -> int:
+	if choice == null:
+		return 0
+	if choice.gold >= 0:
+		return choice.gold
+	var percent := company_total(TraitModifier.Kind.EVENT_GOLD_PERCENT)
+	return -maxi(0, roundi(-choice.gold * (100 + percent) / 100.0))
 
 
 ## City health a lost front of `danger` costs (the Gate level 2 lowers it).
@@ -1373,7 +1442,19 @@ func infirmary_days(c: RunCompanion) -> int:
 func day_heal(c: RunCompanion) -> int:
 	var percent := TraitRules.total(c.traits, TraitModifier.Kind.DAY_HEAL_PERCENT)
 	var fraction := RunConfig.INN_DAILY_HEAL_FRACTION if facility_level(Facility.INN) >= 1 else RunConfig.DAILY_HEAL_FRACTION
+	var points := TraitRules.total(c.traits, TraitModifier.Kind.DAY_HEAL_SHARE) \
+		+ company_total(TraitModifier.Kind.DAY_HEAL_SHARE, TraitModifier.Who.COMPANY)
+	fraction += points / 100.0
 	return maxi(0, ceili(c.max_hp() * fraction * (100 + percent) / 100.0))
+
+
+## The sum of `kind` over everyone in the company not in the Infirmary (the city's traits, and those
+## meant for the whole company: `who` TraitModifier.Who.COMPANY).
+func company_total(kind: int, who: int = TraitModifier.Who.SELF) -> int:
+	var total := 0
+	for c in available():
+		total += TraitRules.total(c.traits, kind, -1, -1, 0, 0, "", who)
+	return total
 
 
 ## Points a proficiency drill of `quality` gives `c`: RunConfig.DRILL_POINTS, changed by their traits
@@ -1383,7 +1464,8 @@ func drill_points(drill: Drill, c: RunCompanion, quality: int) -> int:
 	if drill == null or c == null or not drill.is_proficiency():
 		return base
 	var percent := TraitRules.total(c.traits, TraitModifier.Kind.PROFICIENCY_PERCENT,
-		drill.weapon_type if drill.kind == Drill.Kind.WEAPON else -1, drill.school if drill.kind == Drill.Kind.MAGIC else -1)
+		drill.weapon_type if drill.kind == Drill.Kind.WEAPON else -1, drill.school if drill.kind == Drill.Kind.MAGIC else -1,
+		0, 0, "", TraitModifier.Who.SELF, c.progress)
 	return roundi(base * (100 + percent) / 100.0)
 
 
@@ -1453,12 +1535,61 @@ static func _trait_fits(t: TraitData, p: CompanionProgress) -> bool:
 	return true
 
 
+## After a won battle: what the fielded companions' traits bring (TraitModifier.Kind.BATTLE_WON_GOLD for
+## each who fought, KILL_GOLD for each enemy they felled, BATTLE_MATERIAL, BATTLE_WON_HEAL_PERCENT for
+## those still standing), into the report.
+func _battle_won_traits(report: BattleReport, battle: Battle, fielded: Array) -> void:
+	for i in fielded.size():
+		var c: RunCompanion = fielded[i]
+		var g := TraitRules.total(c.traits, TraitModifier.Kind.BATTLE_WON_GOLD)
+		if g != 0:
+			report.trait_gold += g
+			report.trait_lines.append("%s, %s: +%d gold" % [c.display_name(), _trait_name(c, TraitModifier.Kind.BATTLE_WON_GOLD), g])
+		var per := TraitRules.total(c.traits, TraitModifier.Kind.KILL_GOLD)
+		var k := battle.kills_of(battle.roster[i])
+		if per != 0 and k > 0:
+			report.trait_gold += per * k
+			report.trait_lines.append("%s, %s: +%d gold" % [c.display_name(), _trait_name(c, TraitModifier.Kind.KILL_GOLD), per * k])
+		var mend := TraitRules.total(c.traits, TraitModifier.Kind.BATTLE_WON_HEAL_PERCENT)
+		if mend > 0 and not c.injured:
+			var healed := c.heal(ceili(c.max_hp() * mend / 100.0))
+			if healed > 0:
+				report.trait_lines.append("%s, %s: +%d HP" % [c.display_name(), _trait_name(c, TraitModifier.Kind.BATTLE_WON_HEAL_PERCENT), healed])
+	_battle_material_traits(report, fielded)
+
+
+## After a battle, won or lost: materials the fielded companions' traits bring (BATTLE_MATERIAL).
+func _battle_material_traits(report: BattleReport, fielded: Array) -> void:
+	for c: RunCompanion in fielded:
+		for t in c.traits:
+			for m in t.modifiers:
+				if m.kind == TraitModifier.Kind.BATTLE_MATERIAL and m.who == TraitModifier.Who.SELF and m.material != "" and m.amount > 0:
+					report.materials[m.material] = int(report.materials.get(m.material, 0)) + m.amount
+					report.trait_lines.append("%s, %s: +%d %s" % [c.display_name(), t.display_name, m.amount,
+						RunConfig.MATERIAL_NAMES.get(m.material, m.material)])
+
+
+## The name of `c`'s first trait with a modifier of `kind` ("" if none).
+static func _trait_name(c: RunCompanion, kind: int) -> String:
+	for t in c.traits:
+		for m in t.modifiers:
+			if m.kind == kind:
+				return t.display_name
+	return ""
+
+
 ## The Barracks level 1: everyone on the bench (not fielded, not in the infirmary) gets a share of a won
 ## battle's XP: RunConfig.BARRACKS_RESERVE_XP_SHARE of an even share (pool / MAX_FIELDED), rounded,
 ## changed by their traits. In report.reserve_xp; level-ups in report.level_ups.
+## Bench Learner (TraitModifier.Kind.RESERVE_XP_SHARE) adds its share to the Barracks' (or gives one
+## without it).
 func _grant_reserve_xp(report: BattleReport, pool: int) -> void:
 	for c in reserve():
-		var xp := Levels.with_traits(c.progress, roundi(float(pool) / RunConfig.MAX_FIELDED * RunConfig.BARRACKS_RESERVE_XP_SHARE))
+		var share := (RunConfig.BARRACKS_RESERVE_XP_SHARE if facility_level(Facility.BARRACKS) >= 1 else 0.0) \
+			+ TraitRules.total(c.traits, TraitModifier.Kind.RESERVE_XP_SHARE) / 100.0
+		if share <= 0.0:
+			continue
+		var xp := Levels.with_traits(c.progress, roundi(float(pool) / RunConfig.MAX_FIELDED * share))
 		if xp <= 0:
 			continue
 		report.reserve_xp[c.display_name()] = xp
@@ -1490,8 +1621,8 @@ func end_free_day() -> bool:
 func choice_block_reason(choice: EventChoiceData) -> String:
 	if not event_pending() or day_type() != RunCalendar.DayType.FREE or not event.choices.has(choice):
 		return "Not available."
-	if choice.gold < 0 and gold < -choice.gold:
-		return "Needs %d gold." % -choice.gold
+	if choice_gold(choice) < 0 and gold < -choice_gold(choice):
+		return "Needs %d gold." % -choice_gold(choice)
 	var cost := {}
 	for m: String in choice.materials:
 		if int(choice.materials[m]) < 0:
@@ -1505,7 +1636,7 @@ func choice_block_reason(choice: EventChoiceData) -> String:
 func choose(choice: EventChoiceData) -> String:
 	if choice_block_reason(choice) != "":
 		return ""
-	gold += choice.gold
+	gold += choice_gold(choice)
 	_add_materials(choice.materials)
 	city_health = clampi(city_health + choice.city_health, 0, max_city_health())
 	if choice.companion_hp != 0:

@@ -20,6 +20,12 @@ static func roll_tier(rng: RandomNumberGenerator, grade: int) -> int:
 	return odds.size()
 
 
+## Grade steps a companion's traits add when the tier of what they learn is rolled
+## (TraitModifier.Kind.LEARN_GRADE_STEPS: Apprentice draws as if a letter higher).
+static func learn_steps(progress: CompanionProgress) -> int:
+	return TraitRules.total(progress.traits, TraitModifier.Kind.LEARN_GRADE_STEPS) if progress != null else 0
+
+
 ## Arts of type `t` in `pool` that `progress` does not know yet.
 static func unknown_arts(progress: CompanionProgress, t: WeaponData.WeaponType, pool: Array[CombatArtData]) -> Array[CombatArtData]:
 	var out: Array[CombatArtData] = []
@@ -53,7 +59,7 @@ static func pick_art(rng: RandomNumberGenerator, progress: CompanionProgress, t:
 	var open := unknown_arts(progress, t, pool)
 	if open.is_empty():
 		return null
-	var tier := nearest_tier(open, roll_tier(rng, grade))
+	var tier := nearest_tier(open, roll_tier(rng, grade + learn_steps(progress)))
 	var of_tier: Array[CombatArtData] = []
 	for a in open:
 		if a.tier == tier:

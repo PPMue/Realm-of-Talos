@@ -61,6 +61,9 @@ var injured_ever: Array[CompanionUnit] = []
 var points: Dictionary = {}
 ## Enemies each companion landed the killing blow on this battle: CompanionUnit -> int (missing = 0).
 var kills: Dictionary = {}
+## Lead by Example (a trait): Hit the next companion to act gains, and who earned it (instance id).
+var next_ally_hit: int = 0
+var _next_ally_from: int = 0
 
 
 ## `party` holds each companion's progress, in the same order as `companion_data`; it is read and
@@ -171,6 +174,15 @@ func art_block_reason(c: CompanionUnit, art: CombatArtData) -> String:
 	return ""
 
 
+## Actions `c` sits out after `art`: its recovery plus what traits change (TraitModifier.Kind.RECOVERY),
+## never below 0.
+func art_recovery(c: CompanionUnit, art: CombatArtData) -> int:
+	var q := c.trait_query(TraitModifier.Kind.RECOVERY)
+	q.action = TraitModifier.Action.ART
+	q.weapon_type = art.weapon_type
+	return maxi(0, art.recovery + TraitRules.sum(q))
+
+
 ## Stamina `art` costs `c`: its own cost plus what traits add (TraitModifier.Kind.ART_STAMINA), never
 ## below 0.
 func art_cost(c: CompanionUnit, art: CombatArtData) -> int:
@@ -184,7 +196,16 @@ func art_cost(c: CompanionUnit, art: CombatArtData) -> int:
 
 ## Stamina one Focus restores (flat, BattleConfig.FOCUS_RESTORE), never past the companion's max.
 func focus_amount(c: CompanionUnit) -> int:
-	return mini(BattleConfig.FOCUS_RESTORE, c.max_stamina())
+	return mini(BattleConfig.FOCUS_RESTORE + _trait_sum(c, TraitModifier.Kind.FOCUS_RESTORE), c.max_stamina())
+
+
+## The sum of `kind` for `c` in this battle (see TraitRules).
+func _trait_sum(c: CompanionUnit, kind: int) -> int:
+	return TraitRules.sum(c.trait_query(kind))
+
+
+func _trait_any(c: CompanionUnit, kind: int) -> bool:
+	return TraitRules.any(c.trait_query(kind))
 
 
 ## Forecast of one strike by a companion on an enemy: a plain attack, or with `art`'s bonuses.
@@ -259,6 +280,8 @@ func trait_strike(c: CompanionUnit, target: EnemyUnit, action: int, school: int 
 	q.weapon_type = c.weapon().weapon_type if action != TraitModifier.Action.SPELL and c.weapon() != null else -1
 	q.school = school
 	var out := {"hit": TraitRules.sum(q)}
+	if next_ally_hit != 0 and c.get_instance_id() != _next_ally_from:
+		out.hit = int(out.hit) + next_ally_hit
 	q.kind = TraitModifier.Kind.CRIT
 	out.crit = TraitRules.sum(q)
 	q.kind = TraitModifier.Kind.DAMAGE
@@ -414,7 +437,9 @@ func use_art(c: CompanionUnit, art: CombatArtData, target: EnemyUnit = null) -> 
 		_apply_effect(c, art.self_effect, true, c)
 	_add_points(c, BattleConfig.POINTS_ART)
 	_gain_proficiency(c, BattleConfig.PROFICIENCY_POINTS_ART)
-	_end_player_action(c, art.recovery)
+	var rec := art_recovery(c, art)
+	c.arts_used += 1
+	_end_player_action(c, rec)
 	return true
 
 
@@ -607,6 +632,8 @@ func _is_valid_target(target: EnemyUnit) -> bool:
 
 
 func _begin_tick() -> void:
+	for c in roster:
+		c.felled_this_action = false
 	tick += 1
 	events.clear()
 	_log("== Turn %d ==" % tick)
@@ -614,7 +641,16 @@ func _begin_tick() -> void:
 
 ## `steady`: the action was Guard or Focus (for traits that wait for one).
 func _end_player_action(c: CompanionUnit, recovery: int, steady: bool = false) -> void:
+	if c.felled_this_action and _trait_any(c, TraitModifier.Kind.KILL_NO_RECOVERY):
+		recovery = 0
+		_log("  %s presses on: no recovery." % c.display_name)
 	c.recovery = recovery
+	var breath := _trait_sum(c, TraitModifier.Kind.ACTION_STAMINA)
+	if breath != 0 and c.is_active():
+		c.stamina = clampi(c.stamina + breath, 0, c.max_stamina())
+	if next_ally_hit != 0 and c.get_instance_id() != _next_ally_from:
+		next_ally_hit = 0
+		_next_ally_from = 0
 	if roster.find(c) == roster.size() - 1:
 		c.front_actions += 1
 	c.actions_taken += 1
@@ -687,6 +723,8 @@ func _companion_strike(c: CompanionUnit, target: EnemyUnit, art: CombatArtData) 
 		"effective": f.effective, "magic": f.magic})
 	var back := reflect_amount(c, target, dmg)
 	_after_enemy_hurt(target, c)
+	if crit:
+		_on_crit(c, target)
 	var w := c.weapon()
 	if w.lifesteal_percent > 0 and c.is_active():
 		var drained := floori(dmg * w.lifesteal_percent / 100.0)
@@ -719,6 +757,7 @@ func _after_enemy_hurt(e: EnemyUnit, by: CompanionUnit = null) -> void:
 		if by != null:
 			kills[by] = kills_of(by) + 1
 			_add_points(by, BattleConfig.POINTS_KILL)
+			_on_kill(by)
 		var left := living_enemies()
 		if left.size() == 1 and left[0].phase == 0 and left[0].data.has_phase() \
 				and left[0].data.phase_trigger == EnemyData.PhaseTrigger.LAST_STANDING:
@@ -727,6 +766,36 @@ func _after_enemy_hurt(e: EnemyUnit, by: CompanionUnit = null) -> void:
 	if e.phase == 0 and e.data.has_phase() and e.data.phase_trigger == EnemyData.PhaseTrigger.HP_BELOW \
 			and e.hp * 100 <= e.max_hp() * e.data.phase_hp_percent:
 		_enter_phase(e)
+
+
+## What `c`'s traits do when they fell an enemy: more contribution points for it, stamina, HP, no
+## recovery for the action, and the next ally's Hit (TraitModifier.Kind.KILL_*).
+func _on_kill(c: CompanionUnit) -> void:
+	var extra := _trait_sum(c, TraitModifier.Kind.KILL_POINTS_PERCENT)
+	if extra != 0:
+		_add_points(c, BattleConfig.POINTS_KILL * extra / 100)
+	if not c.is_active():
+		return
+	var sta := _trait_sum(c, TraitModifier.Kind.KILL_STAMINA)
+	if sta > 0 and c.stamina < c.max_stamina():
+		c.stamina = mini(c.max_stamina(), c.stamina + sta)
+		_log("  %s's blood is up: +%d STA." % [c.display_name, sta])
+	var hp := _trait_sum(c, TraitModifier.Kind.KILL_HP)
+	if hp > 0:
+		heal(c, hp)
+	c.felled_this_action = true
+	var lead := _trait_sum(c, TraitModifier.Kind.KILL_NEXT_ALLY_HIT)
+	if lead > 0:
+		next_ally_hit = lead
+		_next_ally_from = c.get_instance_id()
+
+
+## A critical hit by `c` on `target`: traits that push the target's next action back
+## (TraitModifier.Kind.CRIT_DELAY), once per pending action as spells do.
+func _on_crit(c: CompanionUnit, target: EnemyUnit) -> void:
+	var push := _trait_sum(c, TraitModifier.Kind.CRIT_DELAY)
+	if push > 0 and target.is_alive():
+		delay_action(target, push)
 
 
 ## Switches an enemy to its second action list, announced, and replaces its pending action.
@@ -759,11 +828,16 @@ func _damage_over_time(unit: Combatant) -> void:
 		var c := unit as CompanionUnit
 		if not c.is_active():
 			return
+		if _trait_any(c, TraitModifier.Kind.DOT_IMMUNE):
+			_log("  %s shrugs off %s." % [c.display_name, ", ".join(names)])
+			return
 		c.hp -= total
 		_log("  %s loses %d HP to %s (%d/%d HP)." % [c.display_name, total, ", ".join(names), c.hp, c.max_hp()])
 		_emit({"type": "dot", "target": c, "amount": total, "hp": c.hp, "name": names[0]})
 		if c.hp <= 0:
 			_injure(c)
+		else:
+			_after_companion_hurt(c)
 	elif unit is EnemyUnit:
 		var e := unit as EnemyUnit
 		if not e.is_alive():
@@ -791,6 +865,8 @@ func _spell_strike(c: CompanionUnit, spell: SpellData, target: EnemyUnit) -> voi
 	_emit({"type": "damage", "target": target, "amount": dmg, "crit": crit, "hp": target.hp,
 		"effective": f.effective, "magic": true})
 	_after_enemy_hurt(target, c)
+	if crit:
+		_on_crit(c, target)
 	if not target.is_alive():
 		return
 	if spell.delay_ticks > 0:
@@ -850,7 +926,7 @@ func _gain_proficiency(c: CompanionUnit, amount: int) -> void:
 	if w == null or amount <= 0:
 		return
 	var t := w.weapon_type
-	var percent := TraitRules.total(c.traits(), TraitModifier.Kind.PROFICIENCY_PERCENT, t)
+	var percent := _points_percent(c, t, -1)
 	var cap := proficiency_cap(c, t)
 	var scaled := amount * (100 + percent) / 100.0 + c.point_carry
 	var whole := floori(scaled)
@@ -875,7 +951,7 @@ func _gain_proficiency(c: CompanionUnit, amount: int) -> void:
 ## Magic points for casting, up to the per-battle magic cap (separate from the weapon cap).
 ## Every school grade reached teaches a random spell of that school (if any is left to learn).
 func _gain_magic(c: CompanionUnit, s: SpellData.School) -> void:
-	var percent := TraitRules.total(c.traits(), TraitModifier.Kind.PROFICIENCY_PERCENT, -1, s)
+	var percent := _points_percent(c, -1, s)
 	var cap := magic_cap(c, s)
 	var room := maxi(0, cap - c.magic_gained)
 	var before := c.progress.magic_grade(s)
@@ -898,14 +974,21 @@ func _gain_magic(c: CompanionUnit, s: SpellData.School) -> void:
 ## The most weapon points `c` can gain in one battle in type `t`: BattleConfig.PROFICIENCY_CAP_PER_BATTLE,
 ## raised by the same share as traits raise the points (TraitModifier.Kind.PROFICIENCY_PERCENT).
 func proficiency_cap(c: CompanionUnit, t: int) -> int:
-	var percent := TraitRules.total(c.traits(), TraitModifier.Kind.PROFICIENCY_PERCENT, t)
-	return BattleConfig.PROFICIENCY_CAP_PER_BATTLE * (100 + percent) / 100
+	return BattleConfig.PROFICIENCY_CAP_PER_BATTLE * (100 + _points_percent(c, t, -1)) / 100
 
 
 ## The same for magic points in school `s` (BattleConfig.MAGIC_CAP_PER_BATTLE).
 func magic_cap(c: CompanionUnit, s: int) -> int:
-	var percent := TraitRules.total(c.traits(), TraitModifier.Kind.PROFICIENCY_PERCENT, -1, s)
-	return BattleConfig.MAGIC_CAP_PER_BATTLE * (100 + percent) / 100
+	return BattleConfig.MAGIC_CAP_PER_BATTLE * (100 + _points_percent(c, -1, s)) / 100
+
+
+## What traits add to `c`'s points (percent) in weapon type `t` or school `s`: their own (Apt, Second
+## Trade) and their neighbours' (Envied).
+func _points_percent(c: CompanionUnit, t: int, s: int) -> int:
+	var q := c.trait_query(TraitModifier.Kind.PROFICIENCY_PERCENT)
+	q.weapon_type = t
+	q.school = s
+	return TraitRules.sum(q)
 
 
 ## Once the battle is over: every grade reached this battle (won or lost, injured or not) teaches its
@@ -953,6 +1036,7 @@ func enemy_forecast(e: EnemyUnit, action: EnemyActionData, target: CompanionUnit
 	var q := target.trait_query(TraitModifier.Kind.AVOID)
 	q.target = e
 	q.whole_line = whole_line
+	q.blow = TraitModifier.Blow.MAGIC if action.damage_type == CombatMath.DamageType.MAGIC else TraitModifier.Blow.PHYSICAL
 	var avoid := TraitRules.sum(q)
 	q.kind = TraitModifier.Kind.DAMAGE_TAKEN_PERCENT
 	var taken_mult := TraitRules.percent_product(q)
@@ -981,6 +1065,7 @@ func _enemy_strike(e: EnemyUnit, action: EnemyActionData, target: CompanionUnit,
 		target.last_hit_by_id = e.get_instance_id()
 		if not target.struck_since.has(target.last_hit_by_id):
 			target.struck_since.append(target.last_hit_by_id)
+		target.blows_taken += 1
 		_damage_companion(target, dmg, crit)
 		_add_points(target, BattleConfig.POINTS_BLOW_TAKEN_GUARDING if guarding else BattleConfig.POINTS_BLOW_TAKEN)
 		if back > 0 and e.is_alive():
@@ -1007,11 +1092,28 @@ func _reflect_on_enemy(c: CompanionUnit, stance: String, e: EnemyUnit, amount: i
 func _damage_companion(c: CompanionUnit, dmg: int, crit: bool) -> void:
 	if c.is_injured():
 		return
+	if dmg >= c.hp and c.hp > 1 and not c.survived_once and _trait_any(c, TraitModifier.Kind.SURVIVE_ONCE):
+		c.survived_once = true
+		dmg = c.hp - 1
+		_log("  %s clings to life!" % c.display_name)
 	c.hp -= dmg
 	_log("  %s%s takes %d damage (%d/%d HP)." % ["CRITICAL! " if crit else "", c.display_name, dmg, c.hp, c.max_hp()])
 	_emit({"type": "damage", "target": c, "amount": dmg, "crit": crit, "hp": c.hp})
 	if c.hp <= 0:
 		_injure(c)
+	else:
+		_after_companion_hurt(c)
+
+
+## After `c` lost HP and is still standing: the first time below half Health in the battle, traits that
+## wait for it (TraitModifier.Kind.HALF_HEALTH_STAMINA: stamina full).
+func _after_companion_hurt(c: CompanionUnit) -> void:
+	if c.half_health_done or c.hp * 2 >= c.max_hp():
+		return
+	c.half_health_done = true
+	if _trait_any(c, TraitModifier.Kind.HALF_HEALTH_STAMINA) and c.stamina < c.max_stamina():
+		c.stamina = c.max_stamina()
+		_log("  %s finds a second wind: stamina full." % c.display_name)
 
 
 ## `c` drops to 0 HP: injured and out of this battle. They no longer act or are aimed at, every effect
@@ -1025,6 +1127,10 @@ func _injure(c: CompanionUnit) -> void:
 		injured_ever.append(c)
 	_log("  %s is injured and out of the battle!" % c.display_name)
 	_emit({"type": "injured", "target": c})
+	var mend := _trait_sum(c, TraitModifier.Kind.INJURED_HEAL_ALLIES)
+	if mend > 0:
+		for ally in active_companions():
+			heal(ally, mend)
 
 
 ## `helpful`: a buff or defend (as opposed to a debuff); only changes how it is shown.
@@ -1036,6 +1142,10 @@ func _apply_effect(unit: Combatant, data: StatusEffectData, helpful: bool, sourc
 	var effect := StatusEffect.from_data(data)
 	if effect.damage_per_tick > 0 and unit != source:
 		effect.source = source
+	if unit is CompanionUnit and effect.is_harmful():
+		var shorter := _trait_sum(unit as CompanionUnit, TraitModifier.Kind.CURSE_TURNS)
+		if shorter != 0:
+			effect.ticks_left = maxi(1, effect.ticks_left + shorter)
 	unit.add_effect(effect)
 	_log("  %s gains %s." % [unit.display_name, effect.describe()])
 	_emit({"type": "effect", "target": unit, "name": effect.display_name, "helpful": helpful})

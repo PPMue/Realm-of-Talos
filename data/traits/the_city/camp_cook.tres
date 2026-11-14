@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_ylddx"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_yea1m"]
+
+[sub_resource type="Resource" id="Resource_t447j"]
+script = ExtResource("1_ylddx")
+kind = 32
+amount = 5
+who = 3
+
+[resource]
+script = ExtResource("2_yea1m")
+id = "camp_cook"
+display_name = "Camp Cook"
+family = 8
+rarity = 1
+gives = Array[String](["Everyone heals 5% more at day's end"])
+modifiers = Array[ExtResource("1_ylddx")]([SubResource("Resource_t447j")])

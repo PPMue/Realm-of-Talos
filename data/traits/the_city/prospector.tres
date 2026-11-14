@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_0oquw"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_183qy"]
+
+[sub_resource type="Resource" id="Resource_7k311"]
+script = ExtResource("1_0oquw")
+kind = 45
+amount = 1
+material = "iron_ore"
+
+[resource]
+script = ExtResource("2_183qy")
+id = "prospector"
+display_name = "Prospector"
+family = 8
+rarity = 1
+gives = Array[String](["+1 iron ore after a battle in which they fought"])
+modifiers = Array[ExtResource("1_0oquw")]([SubResource("Resource_7k311")])

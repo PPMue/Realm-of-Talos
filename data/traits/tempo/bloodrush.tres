@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_paami"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_eeick"]
+
+[sub_resource type="Resource" id="Resource_x7tlh"]
+script = ExtResource("1_paami")
+kind = 25
+amount = 4
+
+[resource]
+script = ExtResource("2_eeick")
+id = "bloodrush"
+display_name = "Bloodrush"
+family = 5
+rarity = 1
+gives = Array[String](["+4 stamina when they fell an enemy"])
+modifiers = Array[ExtResource("1_paami")]([SubResource("Resource_x7tlh")])

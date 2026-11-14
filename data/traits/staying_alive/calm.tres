@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_0hw7u"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_um0qx"]
+
+[sub_resource type="Resource" id="Resource_kt5k2"]
+script = ExtResource("1_0hw7u")
+kind = 30
+amount = -1
+
+[resource]
+script = ExtResource("2_um0qx")
+id = "calm"
+display_name = "Calm"
+family = 6
+rarity = 1
+gives = Array[String](["Curses on them end 1 turn sooner"])
+modifiers = Array[ExtResource("1_0hw7u")]([SubResource("Resource_kt5k2")])

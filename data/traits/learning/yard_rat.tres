@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_rj3r6"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_ypg05"]
+
+[sub_resource type="Resource" id="Resource_35l40"]
+script = ExtResource("1_rj3r6")
+kind = 37
+amount = 1
+
+[resource]
+script = ExtResource("2_ypg05")
+id = "yard_rat"
+display_name = "Yard Rat"
+family = 7
+rarity = 1
+gives = Array[String](["Drills never come out poor for them"])
+modifiers = Array[ExtResource("1_rj3r6")]([SubResource("Resource_35l40")])

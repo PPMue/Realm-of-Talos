@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_xynxw"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_skxen"]
+
+[sub_resource type="Resource" id="Resource_o4i5u"]
+script = ExtResource("1_xynxw")
+kind = 3
+amount = 15
+self_hp_at_most = 5
+
+[resource]
+script = ExtResource("2_skxen")
+id = "stubborn"
+display_name = "Stubborn"
+family = 6
+rarity = 1
+gives = Array[String](["At 5 Health or less: Avoid +15"])
+modifiers = Array[ExtResource("1_xynxw")]([SubResource("Resource_o4i5u")])

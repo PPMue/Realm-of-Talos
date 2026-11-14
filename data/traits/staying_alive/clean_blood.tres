@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_5udri"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_762w8"]
+
+[sub_resource type="Resource" id="Resource_o10x8"]
+script = ExtResource("1_5udri")
+kind = 29
+amount = 1
+
+[resource]
+script = ExtResource("2_762w8")
+id = "clean_blood"
+display_name = "Clean Blood"
+family = 6
+rarity = 1
+gives = Array[String](["Damage over time cannot touch them"])
+modifiers = Array[ExtResource("1_5udri")]([SubResource("Resource_o10x8")])

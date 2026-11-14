@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_aqg87"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_jdlia"]
+
+[sub_resource type="Resource" id="Resource_i68dt"]
+script = ExtResource("1_aqg87")
+kind = 40
+amount = -20
+
+[resource]
+script = ExtResource("2_jdlia")
+id = "well_liked"
+display_name = "Well-Liked"
+family = 8
+rarity = 1
+gives = Array[String](["Hires cost 20 gold less"])
+modifiers = Array[ExtResource("1_aqg87")]([SubResource("Resource_i68dt")])

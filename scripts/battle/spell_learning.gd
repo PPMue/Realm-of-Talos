@@ -31,7 +31,7 @@ static func pick_spell(rng: RandomNumberGenerator, progress: CompanionProgress, 
 	var open := unknown_spells(progress, s, pool)
 	if open.is_empty():
 		return null
-	var tier := nearest_tier(open, ArtLearning.roll_tier(rng, grade))
+	var tier := nearest_tier(open, ArtLearning.roll_tier(rng, grade + ArtLearning.learn_steps(progress)))
 	var of_tier: Array[SpellData] = []
 	for sp in open:
 		if sp.tier == tier:

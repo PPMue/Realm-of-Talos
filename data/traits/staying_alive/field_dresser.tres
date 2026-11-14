@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_nfjlp"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_akcf7"]
+
+[sub_resource type="Resource" id="Resource_bcbes"]
+script = ExtResource("1_nfjlp")
+kind = 33
+amount = 15
+
+[resource]
+script = ExtResource("2_akcf7")
+id = "field_dresser"
+display_name = "Field Dresser"
+family = 6
+rarity = 1
+gives = Array[String](["Heals 15% after a battle won"])
+modifiers = Array[ExtResource("1_nfjlp")]([SubResource("Resource_bcbes")])

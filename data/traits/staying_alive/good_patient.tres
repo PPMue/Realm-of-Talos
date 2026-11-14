@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_wc0j6"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_ryt2u"]
+
+[sub_resource type="Resource" id="Resource_har1a"]
+script = ExtResource("1_wc0j6")
+kind = 11
+amount = 3
+
+[resource]
+script = ExtResource("2_ryt2u")
+id = "good_patient"
+display_name = "Good Patient"
+family = 6
+rarity = 1
+gives = Array[String](["White magic heals them 3 more"])
+modifiers = Array[ExtResource("1_wc0j6")]([SubResource("Resource_har1a")])

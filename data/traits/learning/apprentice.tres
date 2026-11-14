@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_eudni"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_mdf2h"]
+
+[sub_resource type="Resource" id="Resource_8vl3a"]
+script = ExtResource("1_eudni")
+kind = 38
+amount = 2
+
+[resource]
+script = ExtResource("2_mdf2h")
+id = "apprentice"
+display_name = "Apprentice"
+family = 7
+rarity = 1
+gives = Array[String](["Arts and spells they learn lean a tier higher"])
+modifiers = Array[ExtResource("1_eudni")]([SubResource("Resource_8vl3a")])

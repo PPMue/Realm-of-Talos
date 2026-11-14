@@ -8,6 +8,15 @@ extends RefCounted
 var t   # the runner (run_tests.gd)
 var _lib: TraitLibrary
 
+const TraitHookTests := preload("res://tests/trait_hook_tests.gd")
+
+## The waves built (tools/generate_traits.gd BUILT_WAVE): traits by family (TraitData.Family order),
+## and ids of later waves that must not be in the library yet.
+const BUILT := [
+	[25, 8, 11, 22, 13, 18, 12, 19, 11, 0],
+	["inspiring", "mentor", "standard_bearer", "battle_kin", "pathfinder", "sure_footed", "pack_mule"],
+]
+
 
 func _init(runner: Object) -> void:
 	t = runner
@@ -398,7 +407,10 @@ func table() -> Array:
 
 func test_trait_library() -> void:
 	t.check(_lib != null, "the library loads")
-	t.eq(_lib.traits.size(), 101, "wave 1: 101 traits")
+	var total := 0
+	for n: int in BUILT[0]:
+		total += n
+	t.eq(_lib.traits.size(), total, "the waves built: %d traits" % total)
 	var ids := {}
 	var by_family := {}
 	for x in _lib.traits:
@@ -409,17 +421,10 @@ func test_trait_library() -> void:
 		t.eq(x.drawback_lines().is_empty(), not x.is_two_edged(), "%s: a drawback only if two-edged" % x.id)
 		t.check(not x.modifiers.is_empty(), "%s does something" % x.id)
 		t.check(x.rarity_name() != "" and x.display_name != "", "%s named" % x.id)
-	t.eq(by_family.get(TraitData.Family.WEAPON_HANDS, 0), 25, "25 weapon hands")
-	t.eq(by_family.get(TraitData.Family.SCHOOLS, 0), 8, "8 school traits")
-	t.eq(by_family.get(TraitData.Family.BODY_AND_MIND, 0), 11, "11 body and mind")
-	t.eq(by_family.get(TraitData.Family.TWO_EDGED, 0), 22, "22 two-edged")
-	t.eq(by_family.get(TraitData.Family.THE_LINE, 0), 13, "13 of the line")
-	t.eq(by_family.get(TraitData.Family.TEMPO, 0), 10, "10 of tempo (the damage and Hit lines)")
-	t.eq(by_family.get(TraitData.Family.LEARNING, 0), 12, "12 of learning (the growth traits)")
-	for later in [TraitData.Family.STAYING_ALIVE, TraitData.Family.THE_CITY, TraitData.Family.THE_COMPANY]:
-		t.eq(by_family.get(later, 0), 0, "nothing of %s yet" % TraitData.FAMILY_NAMES[later])
+	for f in TraitData.Family.values():
+		t.eq(by_family.get(f, 0), BUILT[0][f], "%s: %d" % [TraitData.FAMILY_NAMES[f], BUILT[0][f]])
 	# Later waves stay out.
-	for later_id in ["second_wind", "tireless", "quick_study", "yard_rat", "deep_well", "haggler", "pathfinder", "inspiring"]:
+	for later_id: String in BUILT[1]:
 		t.check(_lib.find(later_id) == null, "%s is not handed out before its wave" % later_id)
 	t.eq(trait_of("axe_sure").lines(), ["+10 Hit with axes"] as Array[String], "worded as in the design")
 	t.eq(trait_of("reckless").drawback_lines(), ["Avoid -10"] as Array[String], "and its drawback")
@@ -600,6 +605,8 @@ func test_trait_table_covers_library() -> void:
 	var covered := {}
 	for row: Array in table():
 		covered[row[0]] = true
+	for id: String in TraitHookTests.covered_ids():
+		covered[id] = true
 	for x in _lib.traits:
 		t.check(covered.has(x.id), "%s is in the table" % x.id)
 

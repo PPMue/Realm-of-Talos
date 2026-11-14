@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_v0yrv"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_bpb56"]
+
+[sub_resource type="Resource" id="Resource_hsott"]
+script = ExtResource("1_v0yrv")
+kind = 16
+amount = -1
+
+[resource]
+script = ExtResource("2_bpb56")
+id = "quick_to_mend"
+display_name = "Quick to Mend"
+family = 6
+rarity = 1
+gives = Array[String](["Infirmary stays are 1 day shorter"])
+modifiers = Array[ExtResource("1_v0yrv")]([SubResource("Resource_hsott")])

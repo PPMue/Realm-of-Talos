@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_udflx"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_b4cix"]
+
+[sub_resource type="Resource" id="Resource_5ehnk"]
+script = ExtResource("1_udflx")
+kind = 36
+amount = 25
+
+[resource]
+script = ExtResource("2_b4cix")
+id = "bench_learner"
+display_name = "Bench Learner"
+family = 7
+rarity = 1
+gives = Array[String](["Gets a quarter share of XP from the bench"])
+modifiers = Array[ExtResource("1_udflx")]([SubResource("Resource_5ehnk")])

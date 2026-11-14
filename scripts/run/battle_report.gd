@@ -26,7 +26,12 @@ var xp_gained: Dictionary = {}
 ## Contribution points each fielded companion still in the run earned in the battle, by name, in line
 ## order (won or lost). See Battle.points.
 var points: Dictionary = {}
-## XP the reserve got (the Barracks level 1), by name; empty otherwise.
+## What companions' traits brought after the battle (Looter, Bounty Hunter, Woodsman, Prospector, Field
+## Dresser, Night Watch), one short line each ("Elena, Looter: +10 gold"). The gold is in `gold`
+## (trait_gold of it), the materials in `materials`, the walls' saving in `city_damage`.
+var trait_lines: Array[String] = []
+var trait_gold: int = 0
+## XP the reserve got (the Barracks level 1, Bench Learner), by name; empty otherwise.
 var reserve_xp: Dictionary = {}
 ## One entry per level reached: {"name", "level", "gains"} (gains: stat key -> amount).
 var level_ups: Array[Dictionary] = []

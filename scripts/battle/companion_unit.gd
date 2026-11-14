@@ -29,6 +29,14 @@ var last_hit_by_id: int = 0
 var struck_since: Array[int] = []
 ## Fractions of a proficiency point carried between actions (traits that raise points by a share).
 var point_carry: float = 0.0
+## Enemy blows that have landed on them, and arts they have used, this battle.
+var blows_taken: int = 0
+var arts_used: int = 0
+## They felled an enemy during the action being taken (cleared when the next action begins).
+var felled_this_action: bool = false
+## Once-a-battle moments already used: falling below half Health, being saved at 1 Health.
+var half_health_done: bool = false
+var survived_once: bool = false
 ## The battle, for traits that depend on it (weak, so the two do not keep each other alive).
 var _battle: WeakRef
 ## True if some trait in the line can change this companion's stats during the battle.
