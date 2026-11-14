@@ -7,7 +7,7 @@
 script = ExtResource("2_fx")
 display_name = "Impaled"
 duration_ticks = 3
-damage_per_tick = 3
+damage_per_tick = 2
 
 [resource]
 script = ExtResource("1_art")
@@ -18,6 +18,6 @@ tier = 2
 stamina_cost = 10
 recovery = 3
 durability_cost = 2
-might_bonus = 5
+might_bonus = 3
 crit_bonus = 10
 target_effect = SubResource("Resource_target")

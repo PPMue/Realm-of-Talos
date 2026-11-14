@@ -115,55 +115,55 @@ func table() -> Array:
 	var half := {"enemy_half": true}
 	return [
 		# Plain.
-		["to", "ring", 3, "plain:STR", 3, {}], ["t", "ring", 5, "stat:STR", 5, {}],
-		["to", "circlet", 2, "plain:MAG", 2, {}], ["to", "bracelet", 4, "plain:DEX", 4, {}],
-		["to", "anklet", 1, "plain:SPD", 1, {}], ["to", "armlet", 5, "plain:DEF", 5, {}],
-		["to", "amulet", 2, "plain:RES", 2, {}], ["to", "earring", 3, "plain:CRT", 3, {}],
-		["to", "buckle", 1, "plain:BLD", 1, {}], ["to", "pendant", 2, "max_hp", 6, {}],
-		["t", "girdle", 4, "max_sta", 8, {}], ["to", "charm", 5, "plain:LCK", 10, {}],
+		["to", "ring", 3, "plain:STR", 2, {}], ["t", "ring", 5, "stat:STR", 4, {}],
+		["to", "circlet", 2, "plain:MAG", 2, {}], ["to", "bracelet", 4, "plain:DEX", 3, {}],
+		["to", "anklet", 1, "plain:SPD", 1, {}], ["to", "armlet", 5, "plain:DEF", 4, {}],
+		["to", "amulet", 2, "plain:RES", 2, {}], ["to", "earring", 3, "plain:CRT", 2, {}],
+		["to", "buckle", 1, "plain:BLD", 1, {}], ["to", "pendant", 2, "max_hp", 4, {}],
+		["t", "girdle", 4, "max_sta", 8, {}], ["to", "charm", 5, "plain:LCK", 7, {}],
 		# Striking.
 		["t", "signet", 1, "hit", 5, {}], ["t", "signet", 2, "art_hit", 10, {}],
 		["h", "brooch", 1, "crit", 6, {}], ["h", "brooch", 1, "crit", 0, {"self_hp": 5}],
-		["t", "fang", 1, "damage", 2, half], ["t", "fang", 1, "damage", 0, {}],
-		["t", "horn", 1, "damage", 2, {}], ["t", "horn", 1, "damage", 2, {"actions": 1}], ["t", "horn", 1, "damage", 0, {"actions": 2}],
+		["t", "fang", 1, "damage", 1, half], ["t", "fang", 1, "damage", 0, {}],
+		["t", "horn", 1, "damage", 1, {}], ["t", "horn", 1, "damage", 1, {"actions": 1}], ["t", "horn", 1, "damage", 0, {"actions": 2}],
 		["t", "torc", 5, "damage", "pos", {"self_low": true}], ["t", "torc", 5, "damage", 0, {}],
 		["t", "sigil", 5, "damage", "pos", {"band": 0}], ["t", "sigil", 5, "damage", "pos", {"elite": true}],
 		["t", "sigil", 5, "damage", 0, {}],
 		["t", "talon", 1, "hit", 4, {"enemy_traits": ["Flying"]}], ["t", "talon", 1, "hit", 4, {"enemy_traits": ["Large"]}],
-		["t", "talon", 2, "damage", 2, {"enemy_traits": ["Large"]}], ["t", "talon", 1, "hit", 0, {}],
+		["t", "talon", 2, "damage", 1, {"enemy_traits": ["Large"]}], ["t", "talon", 1, "hit", 0, {}],
 		["t", "pin", 5, "damage", "pos", {}], ["t", "pin", 5, "spell_damage", 0, {}],
 		# Standing.
 		["t", "clasp", 1, "enemy_hit", -5, {}],
 		["t", "gorget", 5, "taken", "neg", {}], ["t", "gorget", 5, "taken", 0, {"enemy_magic": true}],
 		["t", "cameo", 5, "taken", "neg", {"guarding": true}], ["t", "cameo", 5, "taken", 0, {}],
-		["t", "bell", 1, "aim", "pos", {"line": 2}], ["to", "bell", 3, "plain:DEF", 2, {}], ["to", "bell", 5, "plain:DEF", 3, {}],
+		["t", "bell", 1, "aim", "pos", {"line": 2}], ["to", "bell", 3, "plain:DEF", 1, {}], ["to", "bell", 5, "plain:DEF", 2, {}],
 		["t", "veil", 1, "aim", "neg", {"line": 2}],
 		["ho", "scarab", 5, "won_hp", "pos", {}],
 		["h", "talisman", 1, "dot_hp", 1, {}], ["h", "talisman", 5, "dot_hp", 3, {}],
 		["h", "locket", 1, "survive", 1, {}], ["h", "locket", 5, "survive", 16, {}], ["h", "locket", 5, "survive_twice", 0, {}],
 		# Breath and tempo.
-		["h", "beads", 1, "focus", 2, {}], ["h", "medal", 2, "kill_stamina", 4, {}], ["h", "claw", 1, "kill_hp", 2, {}],
+		["h", "beads", 1, "focus", 2, {}], ["h", "medal", 2, "kill_stamina", 4, {}], ["h", "claw", 1, "kill_hp", 1, {}],
 		# Magic.
 		["t", "tiara", 2, "uses_black_1", 2, {}], ["t", "tiara", 2, "uses_white_1", 2, {}], ["t", "tiara", 2, "uses_black_2", 0, {}],
 		["t", "lens", 1, "spell_hit", 5, {}], ["t", "lens", 1, "hit", 0, {}],
 		["t", "prism", 5, "spell_damage", "pos", {}], ["t", "prism", 5, "damage", 0, {}],
-		["t", "rosary", 1, "heal_given", 2, {}], ["t", "reliquary", 1, "heal_received", 2, {"line": 2, "slot": 1}],
+		["t", "rosary", 1, "heal_given", 1, {}], ["t", "reliquary", 1, "heal_received", 1, {"line": 2, "slot": 1}],
 		# The line.
 		["t", "lantern", 1, "hit", 3, {"line": 2, "holder": 0, "slot": 1}], ["t", "lantern", 1, "hit", 0, {"line": 2, "holder": 1, "slot": 1}],
 		["t", "chain", 5, "taken", "neg", {"line": 2, "holder": 0, "slot": 1}], ["t", "chain", 5, "taken", 0, {"line": 2, "holder": 1, "slot": 1}],
 		["h", "whistle", 1, "hit", 10, {"line": 2, "holder": 1, "slot": 0, "holder_kills": true}],
-		["h", "dove", 1, "martyr", 4, {"line": 2, "holder": 0, "slot": 1}],
+		["h", "dove", 1, "martyr", 3, {"line": 2, "holder": 0, "slot": 1}],
 		# The road.
 		["ho", "bangle", 1, "won_gold", 5, {}], ["to", "plume", 1, "xp", 6, {}], ["to", "tassel", 1, "drill_weapon", "pos", {}],
 		["to", "acorn", 1, "growth:STR:2", 3, {}], ["ho", "compass", 1, "scav_score", "pos", {}],
 		["to", "poultice", 5, "day_heal", "pos", {}], ["ho", "compass", 5, "scav_score", 15, {}],   # 3 a point, as Pathfinder
 		# Two-edged: what it gives grows with the stone, what it takes does not.
-		["t", "skull", 1, "damage", 2, {}], ["t", "skull", 5, "damage", 6, {}], ["t", "skull", 5, "taken", 2, {}],
+		["t", "skull", 1, "damage", 1, {}], ["t", "skull", 5, "damage", 4, {}], ["t", "skull", 5, "taken", 1, {}],
 		["t", "mask", 1, "crit", 10, {}], ["t", "mask", 5, "hit", -10, {}],
 		["t", "monocle", 1, "hit", 10, {}], ["t", "monocle", 5, "enemy_hit", 10, {}],
-		["to", "shackle", 1, "plain:DEF", 2, {}], ["to", "shackle", 5, "plain:SPD", -2, {}],
-		["to", "wing", 5, "plain:SPD", 6, {}], ["to", "wing", 1, "plain:DEF", -2, {}],
-		["to", "crown", 1, "plain:MAG", 2, {}], ["t", "crown", 3, "uses_black_1", -1, {}],
+		["to", "shackle", 1, "plain:DEF", 1, {}], ["to", "shackle", 5, "plain:SPD", -1, {}],
+		["to", "wing", 5, "plain:SPD", 4, {}], ["to", "wing", 1, "plain:DEF", -1, {}],
+		["to", "crown", 1, "plain:MAG", 1, {}], ["t", "crown", 3, "uses_black_1", -1, {}],
 	]
 
 
@@ -193,7 +193,7 @@ func test_accessory_library() -> void:
 	t.eq(counts, [11, 9, 8, 5, 5, 4, 6, 6], "the eight families")
 	t.eq(AccessoryTypeData.FAMILY_NAMES[AccessoryTypeData.Family.TEMPO], "Breath and tempo", "family names")
 	var ring := type_of("ring")
-	t.eq(ring.gives_line(3), "+3 Strength", "a Ring's line")
+	t.eq(ring.gives_line(3), "+2 Strength", "a Ring's line")
 	t.eq(ring.takes_line(), "", "takes nothing")
 	t.eq(type_of("mask").takes_line(), "-10 Hit", "a Mask takes Hit")
 	t.eq(type_of("mask").lines(2), ["+15 Crit", "-10 Hit"] as Array[String], "both lines")
@@ -201,7 +201,7 @@ func test_accessory_library() -> void:
 	var a := one("ring", 4)
 	t.eq(a.title(), "Ruby Ring", "named by the stone")
 	t.eq(one("lantern", 1).title(), "Topaz Lantern", "Topaz Lantern")
-	t.eq(a.lines(), ["+4 Strength"] as Array[String], "its lines")
+	t.eq(a.lines(), ["+3 Strength"] as Array[String], "its lines")
 	t.eq(a.effect().display_name, "Ruby Ring", "its effect carries its name")
 	t.eq(a.effect(), a.effect(), "made once")
 	# The rank's value lands in the right field.
@@ -210,9 +210,9 @@ func test_accessory_library() -> void:
 	t.eq([spur.amount, spur.action_to, spur.recovery_at_least], [-1, 3, 3], "Spur: 1 less for the first 3 actions, where it is 3 or more")
 	t.eq(type_of("spur").gives_line(3), "First 3 actions: 1 less recovery (not below 2)", "a Spur's line")
 	t.eq(type_of("poultice").gives_line(3), "Heals 12% more of their Health at day's end", "a Poultice's line")
-	t.eq(type_of("bell").gives_line(3), "Drawn x2.5, +2 Defence", "a Bell's line")
-	t.eq(type_of("compass").gives_line(3), "Scavenging: +3 to what is asked, 30% more brought back", "a Compass's line")
-	t.eq(one("skull", 4).effect().modifiers[1].amount, 2, "the Skull's price is fixed")
+	t.eq(type_of("bell").gives_line(3), "Drawn x2.5, +1 Defence", "a Bell's line")
+	t.eq(type_of("compass").gives_line(3), "Scavenging: +2 to what is asked, 30% more brought back", "a Compass's line")
+	t.eq(one("skull", 4).effect().modifiers[1].amount, 1, "the Skull's price is fixed")
 
 
 func test_accessory_table() -> void:
@@ -353,8 +353,8 @@ func test_wear_rules() -> void:
 	c.hp = 10
 	var max_before := c.max_hp()
 	t.check(run.wear(c, pendant), "a Pendant")
-	t.eq(c.max_hp(), max_before + 9, "+9 max Health")
-	t.eq(c.hp, 19, "HP rises by it")
+	t.eq(c.max_hp(), max_before + 6, "+6 max Health")
+	t.eq(c.hp, 16, "HP rises by it")
 	t.check(run.wear_block_reason(c, armlet).contains("two"), "at most two")
 	t.eq(run.accessories_of(c), [ring, pendant] as Array[Accessory], "in the order put on")
 	# Handed over.
@@ -432,7 +432,7 @@ func test_thorn() -> void:
 	act.hit = 999
 	var hp := e.hp
 	b._enemy_strike(e, act, u)
-	t.eq(e.hp, hp - 4, "Sapphire: 4 back")
+	t.eq(e.hp, hp - 3, "Sapphire: 3 back")
 	hp = e.hp
 	b._enemy_strike(e, act, u, true)
 	t.eq(e.hp, hp, "not from a blow on the whole line")

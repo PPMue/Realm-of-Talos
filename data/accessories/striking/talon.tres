@@ -22,12 +22,12 @@ target_trait = "Flying|Large"
 [sub_resource type="Resource" id="Resource_jfoly"]
 script = ExtResource("1_kroh5")
 modifier = SubResource("Resource_xyb5b")
-by_rank = Array[float]([1.0, 2.0, 3.0, 4.0, 5.0])
+by_rank = Array[float]([1.0, 1.0, 2.0, 3.0, 3.0])
 
 [resource]
 script = ExtResource("3_j8olg")
 id = "talon"
 display_name = "Talon"
 family = 1
-gives = Array[String](["+4 Hit and +1 damage against Flying and Large enemies", "+8 Hit and +2 damage against Flying and Large enemies", "+12 Hit and +3 damage against Flying and Large enemies", "+16 Hit and +4 damage against Flying and Large enemies", "+20 Hit and +5 damage against Flying and Large enemies"])
+gives = Array[String](["+4 Hit and +1 damage against Flying and Large enemies", "+8 Hit and +1 damage against Flying and Large enemies", "+12 Hit and +2 damage against Flying and Large enemies", "+16 Hit and +3 damage against Flying and Large enemies", "+20 Hit and +3 damage against Flying and Large enemies"])
 effects = Array[ExtResource("1_kroh5")]([SubResource("Resource_33i8g"), SubResource("Resource_jfoly")])

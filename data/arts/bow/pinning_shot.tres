@@ -7,7 +7,7 @@
 script = ExtResource("2_fx")
 display_name = "Pinned"
 stat_mods = {
-"SPD": -5
+"SPD": -3
 }
 duration_ticks = 3
 

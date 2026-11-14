@@ -11,6 +11,6 @@ tier = 2
 stamina_cost = 9
 recovery = 3
 durability_cost = 2
-might_bonus = 4
+might_bonus = 3
 stagger_ticks = 1
 ignore_def_percent = 50

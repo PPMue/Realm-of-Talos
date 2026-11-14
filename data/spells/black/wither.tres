@@ -7,7 +7,7 @@
 script = ExtResource("2_fx")
 display_name = "Withered"
 stat_mods = {
-"DEF": -4
+"DEF": -3
 }
 duration_ticks = 3
 
@@ -20,6 +20,6 @@ tier = 2
 targeting = 0
 uses = 4
 recovery = 3
-might = 6
+might = 4
 hit = 90
 effect = SubResource("Resource_fx")

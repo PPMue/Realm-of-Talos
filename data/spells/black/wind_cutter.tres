@@ -11,6 +11,6 @@ tier = 1
 targeting = 0
 uses = 6
 recovery = 2
-might = 3
+might = 2
 hit = 100
 effective_against = Array[String](["Flying"])

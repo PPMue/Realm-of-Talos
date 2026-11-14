@@ -11,6 +11,6 @@ tier = 3
 stamina_cost = 15
 recovery = 4
 durability_cost = 3
-might_bonus = 9
+might_bonus = 6
 hit_bonus = 10
 ignore_def_percent = 60

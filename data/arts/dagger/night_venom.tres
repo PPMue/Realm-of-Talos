@@ -7,11 +7,11 @@
 script = ExtResource("2_fx")
 display_name = "Night Venom"
 stat_mods = {
-"DEF": -3,
-"STR": -3
+"DEF": -2,
+"STR": -2
 }
 duration_ticks = 4
-damage_per_tick = 5
+damage_per_tick = 3
 
 [resource]
 script = ExtResource("1_art")
@@ -22,5 +22,5 @@ tier = 3
 stamina_cost = 14
 recovery = 4
 durability_cost = 3
-might_bonus = 2
+might_bonus = 1
 target_effect = SubResource("Resource_target")

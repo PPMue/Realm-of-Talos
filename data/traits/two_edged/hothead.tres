@@ -6,7 +6,7 @@
 [sub_resource type="Resource" id="Resource_6inao"]
 script = ExtResource("1_qwouu")
 kind = 4
-amount = 3
+amount = 2
 action = 1
 
 [sub_resource type="Resource" id="Resource_sy6sx"]
@@ -20,6 +20,6 @@ id = "hothead"
 display_name = "Hothead"
 family = 3
 rarity = 1
-gives = Array[String](["+3 damage with a plain Attack"])
+gives = Array[String](["+2 damage with a plain Attack"])
 takes = Array[String](["Arts cost 1 more stamina"])
 modifiers = Array[ExtResource("1_qwouu")]([SubResource("Resource_6inao"), SubResource("Resource_sy6sx")])

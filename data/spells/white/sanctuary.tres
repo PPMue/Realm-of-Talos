@@ -12,5 +12,5 @@ targeting = 3
 uses = 2
 recovery = 4
 heals = true
-heal_power = 3
+heal_power = 2
 cleanse = true

@@ -7,8 +7,8 @@
 script = ExtResource("2_fx")
 display_name = "Hamstrung"
 stat_mods = {
-"SPD": -4,
-"STR": -2
+"SPD": -3,
+"STR": -1
 }
 duration_ticks = 3
 
@@ -21,6 +21,6 @@ tier = 2
 stamina_cost = 9
 recovery = 3
 durability_cost = 2
-might_bonus = 3
+might_bonus = 2
 stagger_ticks = 1
 target_effect = SubResource("Resource_target")

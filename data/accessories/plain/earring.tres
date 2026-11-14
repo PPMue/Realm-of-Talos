@@ -11,11 +11,11 @@ stat = "CRT"
 [sub_resource type="Resource" id="Resource_4vr30"]
 script = ExtResource("1_wenok")
 modifier = SubResource("Resource_o3ygm")
-by_rank = Array[float]([1.0, 2.0, 3.0, 4.0, 5.0])
+by_rank = Array[float]([1.0, 2.0, 2.0, 3.0, 4.0])
 
 [resource]
 script = ExtResource("3_vvidn")
 id = "earring"
 display_name = "Earring"
-gives = Array[String](["+1 Critical", "+2 Critical", "+3 Critical", "+4 Critical", "+5 Critical"])
+gives = Array[String](["+1 Critical", "+2 Critical", "+2 Critical", "+3 Critical", "+4 Critical"])
 effects = Array[ExtResource("1_wenok")]([SubResource("Resource_4vr30")])

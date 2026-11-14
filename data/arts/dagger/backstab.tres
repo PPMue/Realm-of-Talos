@@ -10,6 +10,6 @@ weapon_type = 4
 tier = 1
 recovery = 2
 durability_cost = 1
-might_bonus = 2
+might_bonus = 1
 hit_bonus = 5
 crit_bonus = 25

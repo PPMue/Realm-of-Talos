@@ -7,7 +7,7 @@
 script = ExtResource("2_fx")
 display_name = "Shadowstep"
 stat_mods = {
-"SPD": 4
+"SPD": 3
 }
 duration_ticks = 3
 
@@ -20,6 +20,6 @@ tier = 2
 stamina_cost = 9
 recovery = 3
 durability_cost = 2
-might_bonus = 3
+might_bonus = 2
 crit_bonus = 20
 self_effect = SubResource("Resource_self")

@@ -7,7 +7,7 @@
 script = ExtResource("1_minch")
 label = "Send the strongest down"
 result_text = "They come up bruised and grey with dust, holding a {gem}."
-companion_hp = -10
+companion_hp = -7
 gem_stone = 1
 
 [sub_resource type="Resource" id="Resource_mnprops"]

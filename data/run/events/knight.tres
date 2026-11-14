@@ -16,7 +16,7 @@ script = ExtResource("1_gairs")
 label = "Ask the knight to train your fighters"
 result_text = "A hard lesson. Bruised, but nobody forgets it."
 city_health = 4
-companion_hp = -4
+companion_hp = -3
 hp_target = 0
 
 [resource]

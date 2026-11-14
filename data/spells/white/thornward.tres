@@ -7,7 +7,7 @@
 script = ExtResource("2_fx")
 display_name = "Thornward"
 stat_mods = {
-"DEF": 2
+"DEF": 1
 }
 duration_ticks = 3
 reflect_percent = 40

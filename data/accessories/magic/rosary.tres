@@ -11,12 +11,12 @@ kind = 10
 [sub_resource type="Resource" id="Resource_kxgux"]
 script = ExtResource("1_1en62")
 modifier = SubResource("Resource_jjren")
-by_rank = Array[float]([2.0, 4.0, 6.0, 8.0, 10.0])
+by_rank = Array[float]([1.0, 3.0, 4.0, 5.0, 7.0])
 
 [resource]
 script = ExtResource("3_1s455")
 id = "rosary"
 display_name = "Rosary"
 family = 4
-gives = Array[String](["Heals they cast restore 2 more", "Heals they cast restore 4 more", "Heals they cast restore 6 more", "Heals they cast restore 8 more", "Heals they cast restore 10 more"])
+gives = Array[String](["Heals they cast restore 1 more", "Heals they cast restore 3 more", "Heals they cast restore 4 more", "Heals they cast restore 5 more", "Heals they cast restore 7 more"])
 effects = Array[ExtResource("1_1en62")]([SubResource("Resource_kxgux")])

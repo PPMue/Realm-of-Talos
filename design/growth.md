@@ -1,12 +1,12 @@
-# Growth: small numbers, few points, and each one stays (design; nothing built)
+# Growth: small numbers, few points, and each one stays (design; built)
 
 Written 2026-11-14. The user: "I want the overall growth rate (and maybe starting stats?) to be lower
 / slower, so it's more satisfying when the player sees a number go up (kind of like Fire Emblem).
 Might need to balance weapons as well." Then, on the first draft: "Lower starting stats as well. I
 want to see a companion become stronger at the end of a run (or weak if built wrong)", and that the
 callings should nudge growth as a class does (that part is in `design/callings.md`).
-To be built before the callings. Every proposed number is a first guess, to be tuned with the
-200-run playthrough when it is built.
+Built on 2026-11-14, before the callings. The sections below are the proposal as it was accepted;
+where the playthrough moved a number, "As built" at the end says so.
 
 ## What a level-up is worth today
 
@@ -66,7 +66,7 @@ does today, in smaller numbers.
   spell's Mt and a heal's power, an enemy action's Mt, poison and bleeding, the traits that are a
   number of damage or of a stat ("+3 damage" becomes +2, "+2 Strength" +1, "+4 Health" +3), an
   enchantment's points (1 to 6 by metal becomes 1, 1, 2, 3, 3, 4), the stat stones (a Ring's +1 to +5
-  Strength becomes 1, 1, 2, 2, 3).
+  Strength becomes 1, 2, 2, 3, 4).
 - **What is a percentage keeps its chance**: a point of Dexterity over the target's Speed is worth 7
   Hit where it was 5, a point of Critical 3 Crit where it was 2 (`ACCURACY_DEX_SPD_FACTOR`,
   `CRIT_CRT_FACTOR`). Traits and accessories written in percent or in Hit and Crit are untouched.
@@ -140,6 +140,57 @@ today (the Orc has grown as fast as her Defence); 5 of 24 and then 2 of 32 as pr
   difference between a good build and a poor one, come from the callings: a calling adds about 3.5
   points to its first stat by the end of a run, on a stat that began at 5 to 7.
 
+## As built, and what the playthrough changed
+
+A and B are built as written. Two things in them were set by hand because rounding broke them: the
+weights of the thirty ladder weapons (so that wooden is still the lightest of each type and the axe
+the heaviest of each metal), and the Whisper Fang's Mt (2, so it is still above the bronze dagger).
+
+C was not enough as written. With enemies growing as first proposed (Health 1.8% a day, +2 Strength,
++1 Defence, and nothing else changed) the automated player won 45% of 200 runs where it had won 14%:
+day-28 bosses were beaten 96 to 100% of the time and the day-20 elite 93%. The reason is in B and C
+together: Health keeps its old growth rates while a point of it is worth half as much again, and the
+enemy's Strength no longer climbs, so by the middle weeks the company is far sturdier than what it
+meets. More enemy Health barely moved it (2.8% and 3.4% a day were both tried), and neither did more
+Strength by the day (+3). What moved it was building the later enemies tougher in their own data,
+which is what "the rise in danger is carried by the tougher kinds" asks for:
+
+| | As built |
+|---|---|
+| An enemy's growth by the day | Health 2.8% a day (x2.15 on day 42); +1 Strength and Magic on days 19 and 37; +1 Defence, Speed and Dexterity on day 31 |
+| Middle band (weeks 3-4), every kind | +1 Strength, Magic and Defence on top of the two-thirds pass |
+| Late band (weeks 5-6), every kind | +2 Strength and Magic, +1 Defence |
+| Day-14 bosses | Health x1.1 |
+| Day-28 bosses | Health x1.4, +1 Strength and Magic |
+| Day-42 bosses | Health x1.2 |
+
+Six settings were tried, 200 runs each. With these:
+
+| | Before (old size) | As built |
+|---|---|---|
+| Runs won by the automated player | 14% | 20% |
+| Bosses reached, of 200 runs | 198 / 145 / 97 | 199 / 162 / 126 |
+| Bosses beaten: day 14, day 28, day 42 | 69-80%, 69-92%, 21-35% | 72-90%, 81-85%, 21-37% |
+| Elites won: days 6, 20, 34 | 61% / 57% / 31% | 68% / 79% / 37% |
+| Level of those still in the run at the end | 9.7 | 11.4 |
+| Turns a battle (the probe, 358 battles) | 19.0 | 18.6 |
+| Enemy blows taking half of max Health or more | 17% | 13% |
+| A fight the scouts call sure, won | 97% | 97% |
+
+What is true of it and what is not:
+
+- **A kind of enemy stays what it was.** An Orc has Defence 3 from day 1 to day 30 and 4 after; a
+  sword user who dealt 3 to it on day 1 deals about 6 at level 12 with the same wooden sword, and
+  about 9 with a steel one.
+- **The day's average enemy still keeps pace**, because the late kinds stand about 4 Defence
+  above the early ones (5.8 on day 36 against 1.5 on day 1, on average). The suite's table for a sword user with the same wooden sword against
+  the average enemy of the day reads 4.5, 6.5 and 3.7 (level 1 day 1, level 6 day 14, level 12 day
+  36). The gain shows on every enemy met before; a new kind is a new wall, on purpose.
+- **The middle of a run is easier than it was** (the day-20 elite 79% against 57%) and the last boss
+  about as hard. Whether that is the right shape is for play to say; the three boss lines of the
+  table above are the numbers to move.
+- Not measured: the user's own play. The screens were checked by screenshot, not played.
+
 ## What to watch when it is built
 
 - **Sameness.** At this size five of the fourteen start with Strength 5. What tells them apart is
@@ -152,7 +203,9 @@ today (the Orc has grown as fast as her Defence); 5 of 24 and then 2 of 32 as pr
 
 - Starting stats are lowered too (the user, 2026-11-14).
 
-## Yours to decide
+## Decided (the user, 2026-11-14): everything as proposed
+
+The choices as they were put:
 
 1. **How small.** Two thirds (proposed: Elena 24 Health and Strength 7). Or a half (18 and 6), which
    is nearer Fire Emblem's first levels but leaves the weakest with Strength 2 or 3 and Defence 1.

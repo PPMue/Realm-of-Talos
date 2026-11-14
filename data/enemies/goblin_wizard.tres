@@ -11,7 +11,7 @@ display_name = "Firebolt"
 damage_type = 1
 countdown = 3
 pick_weight = 3.0
-might = 8
+might = 5
 hit = 95
 
 [sub_resource type="Resource" id="Resource_2o7ts"]
@@ -21,14 +21,14 @@ damage_type = 1
 targeting = 1
 countdown = 5
 pick_weight = 2.0
-might = 5
+might = 3
 hit = 85
 
 [sub_resource type="Resource" id="Resource_5rfwp"]
 script = ExtResource("2_sjc23")
 display_name = "Hexed"
 stat_mods = {
-"DEF": -3
+"DEF": -2
 }
 
 [sub_resource type="Resource" id="Resource_l7uf8"]
@@ -48,13 +48,13 @@ display_name = "Goblin Wizard"
 portrait = ExtResource("3_6ic7l")
 color = Color(0.3, 0.42, 0.25, 1)
 stage_scale = 0.9
-max_hp = 22
-strength = 9
-magic = 6
-crit = 2
-dexterity = 8
-speed = 7
+max_hp = 15
+strength = 6
+magic = 4
+crit = 1
+dexterity = 5
+speed = 5
 defense = 1
-resistance = 6
-luck = 3
+resistance = 4
+luck = 2
 actions = Array[ExtResource("1_af1ub")]([SubResource("Resource_nft0s"), SubResource("Resource_2o7ts"), SubResource("Resource_l7uf8")])

@@ -5,12 +5,12 @@
 
 [sub_resource type="Resource" id="Resource_r3yih"]
 script = ExtResource("1_ev5ie")
-amount = 2
+amount = 1
 stat = "SPD"
 
 [resource]
 script = ExtResource("2_tbq2k")
 id = "fleet"
 display_name = "Fleet"
-gives = Array[String](["+2 Speed"])
+gives = Array[String](["+1 Speed"])
 modifiers = Array[ExtResource("1_ev5ie")]([SubResource("Resource_r3yih")])

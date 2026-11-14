@@ -6,9 +6,9 @@
 script = ExtResource("1_0gbou")
 weapon_type = 3
 tier = 4
-might = 7
+might = 4
 hit = 90
 effective_against = Array[String](["Flying"])
 required_grade = 8
 display_name = "Silver Bow"
-weight = 6
+weight = 4

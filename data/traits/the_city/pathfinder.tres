@@ -6,7 +6,7 @@
 [sub_resource type="Resource" id="Resource_aqjmn"]
 script = ExtResource("1_sci4q")
 kind = 50
-amount = 3
+amount = 2
 
 [resource]
 script = ExtResource("2_drxid")
@@ -14,5 +14,5 @@ id = "pathfinder"
 display_name = "Pathfinder"
 family = 8
 rarity = 1
-gives = Array[String](["Scavenging: counts as 3 higher in whatever is asked of them"])
+gives = Array[String](["Scavenging: counts as 2 higher in whatever is asked of them"])
 modifiers = Array[ExtResource("1_sci4q")]([SubResource("Resource_aqjmn")])

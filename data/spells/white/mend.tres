@@ -12,4 +12,4 @@ targeting = 2
 uses = 6
 recovery = 2
 heals = true
-heal_power = 4
+heal_power = 3

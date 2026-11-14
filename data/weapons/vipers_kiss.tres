@@ -7,7 +7,7 @@
 script = ExtResource("2_fx")
 display_name = "Venom"
 duration_ticks = 3
-damage_per_tick = 2
+damage_per_tick = 1
 
 [resource]
 script = ExtResource("1_w")
@@ -20,4 +20,4 @@ rare = true
 price = 180
 on_hit_effect = SubResource("Resource_venom")
 display_name = "Viper's Kiss"
-weight = 2
+weight = 1

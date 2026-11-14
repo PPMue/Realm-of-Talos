@@ -7,8 +7,8 @@
 script = ExtResource("2_fx")
 display_name = "Numbed"
 stat_mods = {
-"STR": -4,
-"MAG": -4
+"STR": -3,
+"MAG": -3
 }
 duration_ticks = 3
 

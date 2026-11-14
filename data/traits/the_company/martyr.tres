@@ -6,7 +6,7 @@
 [sub_resource type="Resource" id="Resource_f1jui"]
 script = ExtResource("1_bcobe")
 kind = 48
-amount = 5
+amount = 3
 
 [resource]
 script = ExtResource("2_501dt")
@@ -14,5 +14,5 @@ id = "martyr"
 display_name = "Martyr"
 family = 9
 rarity = 1
-gives = Array[String](["When they are injured, every ally heals 5"])
+gives = Array[String](["When they are injured, every ally heals 3"])
 modifiers = Array[ExtResource("1_bcobe")]([SubResource("Resource_f1jui")])

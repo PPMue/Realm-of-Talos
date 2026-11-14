@@ -7,7 +7,7 @@
 script = ExtResource("2_fx")
 display_name = "Sundered"
 stat_mods = {
-"DEF": -3
+"DEF": -2
 }
 duration_ticks = 3
 

@@ -9,4 +9,4 @@ might = 0
 hit = 90
 effective_against = Array[String](["Flying"])
 display_name = "Wooden Bow"
-weight = 3
+weight = 2

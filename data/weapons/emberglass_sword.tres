@@ -6,11 +6,11 @@
 script = ExtResource("1_w")
 weapon_type = 0
 tier = 1
-might = 3
+might = 2
 hit = 85
 damage_type = 1
 required_grade = 1
 rare = true
 price = 150
 display_name = "Emberglass Sword"
-weight = 5
+weight = 3

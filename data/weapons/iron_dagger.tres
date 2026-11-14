@@ -6,7 +6,7 @@
 script = ExtResource("1_0gbou")
 weapon_type = 4
 tier = 2
-might = 3
+might = 2
 hit = 95
 required_grade = 4
 display_name = "Iron Dagger"

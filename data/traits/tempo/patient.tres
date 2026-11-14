@@ -12,7 +12,7 @@ after_guard_or_focus = true
 [sub_resource type="Resource" id="Resource_jdjpw"]
 script = ExtResource("1_026rp")
 kind = 4
-amount = 2
+amount = 1
 after_guard_or_focus = true
 
 [resource]
@@ -21,5 +21,5 @@ id = "patient"
 display_name = "Patient"
 family = 5
 rarity = 1
-gives = Array[String](["After Guard or Focus, their next strike: +15 Hit, +2 damage"])
+gives = Array[String](["After Guard or Focus, their next strike: +15 Hit, +1 damage"])
 modifiers = Array[ExtResource("1_026rp")]([SubResource("Resource_uu11p"), SubResource("Resource_jdjpw")])

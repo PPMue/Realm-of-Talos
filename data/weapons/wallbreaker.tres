@@ -6,7 +6,7 @@
 script = ExtResource("1_w")
 weapon_type = 2
 tier = 2
-might = 3
+might = 2
 hit = 75
 effective_against = Array[String](["Large"])
 required_grade = 4
@@ -14,4 +14,4 @@ rare = true
 price = 280
 ignore_def_percent = 50
 display_name = "Wallbreaker"
-weight = 10
+weight = 7

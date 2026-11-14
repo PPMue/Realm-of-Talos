@@ -12,12 +12,12 @@ target_health = 1
 [sub_resource type="Resource" id="Resource_6a53w"]
 script = ExtResource("1_ybvfk")
 modifier = SubResource("Resource_veqj8")
-by_rank = Array[float]([2.0, 4.0, 6.0, 8.0, 10.0])
+by_rank = Array[float]([1.0, 3.0, 4.0, 5.0, 7.0])
 
 [resource]
 script = ExtResource("3_3c7gs")
 id = "fang"
 display_name = "Fang"
 family = 1
-gives = Array[String](["+2 damage to enemies below half Health", "+4 damage to enemies below half Health", "+6 damage to enemies below half Health", "+8 damage to enemies below half Health", "+10 damage to enemies below half Health"])
+gives = Array[String](["+1 damage to enemies below half Health", "+3 damage to enemies below half Health", "+4 damage to enemies below half Health", "+5 damage to enemies below half Health", "+7 damage to enemies below half Health"])
 effects = Array[ExtResource("1_ybvfk")]([SubResource("Resource_6a53w")])

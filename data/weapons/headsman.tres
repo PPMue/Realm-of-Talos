@@ -6,11 +6,11 @@
 script = ExtResource("1_w")
 weapon_type = 1
 tier = 2
-might = 7
+might = 5
 hit = 60
 required_grade = 4
 rare = true
 price = 280
 crit_bonus = 25
 display_name = "Headsman"
-weight = 13
+weight = 9

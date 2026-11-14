@@ -6,7 +6,7 @@
 [sub_resource type="Resource" id="Resource_01ki3"]
 script = ExtResource("1_d2q1e")
 kind = 4
-amount = 3
+amount = 2
 target_health = 1
 
 [resource]
@@ -15,5 +15,5 @@ id = "closer"
 display_name = "Closer"
 family = 5
 rarity = 1
-gives = Array[String](["+3 damage to enemies below half Health"])
+gives = Array[String](["+2 damage to enemies below half Health"])
 modifiers = Array[ExtResource("1_d2q1e")]([SubResource("Resource_01ki3")])

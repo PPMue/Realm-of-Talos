@@ -10,7 +10,7 @@ script = ExtResource("1_euppf")
 display_name = "Oathbreaker's Cleave"
 countdown = 3
 pick_weight = 3.0
-might = 12
+might = 8
 hit = 85
 
 [sub_resource type="Resource" id="Resource_nkrvh"]
@@ -20,14 +20,14 @@ targeting = 1
 countdown = 4
 pick_weight = 2.0
 damage_type = 1
-might = 6
+might = 4
 
 [sub_resource type="Resource" id="Resource_j36ms"]
 script = ExtResource("2_mt7r4")
 display_name = "Ruin"
 stat_mods = {
-"DEF": -3,
-"STR": -2
+"DEF": -2,
+"STR": -1
 }
 
 [sub_resource type="Resource" id="Resource_0pn8i"]
@@ -43,7 +43,7 @@ effect = SubResource("Resource_j36ms")
 script = ExtResource("2_mt7r4")
 display_name = "Dark Pact"
 stat_mods = {
-"STR": 4
+"STR": 3
 }
 
 [sub_resource type="Resource" id="Resource_bxx6j"]
@@ -79,13 +79,13 @@ color = Color(0.3, 0.3, 0.55, 1)
 stage_scale = 1.5
 band = 0
 role = "Its shield of broken oaths turns every blow back on the striker."
-max_hp = 156
-strength = 16
-magic = 14
-crit = 5
-dexterity = 12
-speed = 10
-defense = 10
-resistance = 7
-luck = 5
+max_hp = 146
+strength = 12
+magic = 10
+crit = 3
+dexterity = 8
+speed = 7
+defense = 7
+resistance = 5
+luck = 3
 actions = Array[ExtResource("1_euppf")]([SubResource("Resource_s13n1"), SubResource("Resource_nkrvh"), SubResource("Resource_0pn8i"), SubResource("Resource_bxx6j"), SubResource("Resource_4gbiv")])

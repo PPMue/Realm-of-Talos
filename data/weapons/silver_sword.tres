@@ -5,8 +5,8 @@
 [resource]
 script = ExtResource("1_0gbou")
 tier = 4
-might = 8
+might = 4
 hit = 90
 required_grade = 8
 display_name = "Silver Sword"
-weight = 7
+weight = 5

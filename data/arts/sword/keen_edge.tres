@@ -10,6 +10,6 @@ tier = 1
 stamina_cost = 5
 recovery = 2
 durability_cost = 1
-might_bonus = 2
+might_bonus = 1
 hit_bonus = 10
 crit_bonus = 15

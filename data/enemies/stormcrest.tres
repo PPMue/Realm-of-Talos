@@ -10,7 +10,7 @@ script = ExtResource("1_nro3u")
 display_name = "Thunderstrike"
 pick_weight = 3.0
 damage_type = 1
-might = 10
+might = 7
 hit = 85
 
 [sub_resource type="Resource" id="Resource_ykat2"]
@@ -20,14 +20,14 @@ targeting = 1
 countdown = 4
 pick_weight = 2.0
 damage_type = 1
-might = 6
+might = 4
 hit = 85
 
 [sub_resource type="Resource" id="Resource_bvds0"]
 script = ExtResource("2_tdhko")
 display_name = "Charged"
 stat_mods = {
-"MAG": 5
+"MAG": 3
 }
 
 [sub_resource type="Resource" id="Resource_ybyjj"]
@@ -49,14 +49,14 @@ color = Color(0.2, 0.35, 0.65, 1)
 stage_scale = 1.1
 band = 3
 role = "Storm caster: fast lightning on one or all."
-max_hp = 47
+max_hp = 31
 defense = 3
 strength = 6
-magic = 13
-crit = 4
-dexterity = 15
-speed = 16
-resistance = 10
-luck = 6
+magic = 11
+crit = 3
+dexterity = 10
+speed = 11
+resistance = 7
+luck = 4
 traits = Array[String](["Flying"])
 actions = Array[ExtResource("1_nro3u")]([SubResource("Resource_oo5js"), SubResource("Resource_ykat2"), SubResource("Resource_ybyjj")])

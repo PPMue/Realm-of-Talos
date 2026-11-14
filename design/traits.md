@@ -1,5 +1,8 @@
 # Traits (design; being built in waves)
 
+Numbers of a stat, of damage and of Health were brought to two thirds on 2026-11-14 with every stat in the
+game (design/growth.md); the tables below hold the numbers as they are now.
+
 A trait is something a companion is, not something they learn: it is rolled when they join and never changes. Every number below is a first guess to be tuned with the 200-run check.
 
 ## How they are handed out
@@ -23,7 +26,7 @@ One line of five for each weapon. The name is the weapon and the word.
 | | Effect |
 |---|---|
 | **Sure** | +10 Hit with it |
-| **Heavy** | +2 damage with it |
+| **Heavy** | +1 damage with it |
 | **Keen** | +8 Crit with it |
 | **Easy** | Arts of it cost 1 less stamina |
 | **Apt** | +50% proficiency points with it |
@@ -35,10 +38,10 @@ Sword, Axe, Spear, Bow, Dagger: "Sword: Sure", "Axe: Heavy", "Bow: Apt" and so o
 | Trait | Effect |
 |---|---|
 | Black: Sure | +10 Hit with black spells |
-| Black: Heavy | +2 damage with black spells |
+| Black: Heavy | +1 damage with black spells |
 | Black: Deep | +1 use of every tier I black spell |
 | Black: Apt | +50% black magic points |
-| White: Kind | Heals restore 3 more |
+| White: Kind | Heals restore 2 more |
 | White: Lasting | Blessings last 1 turn longer |
 | White: Deep | +1 use of every tier I white spell |
 | White: Apt | +50% white magic points |
@@ -47,17 +50,17 @@ Sword, Axe, Spear, Bow, Dagger: "Sword: Sure", "Axe: Heavy", "Bow: Apt" and so o
 
 | Trait | Effect |
 |---|---|
-| Hale | +4 Health |
+| Hale | +3 Health |
 | Deep-Winded | +3 Stamina |
-| Strong | +2 Strength |
-| Bright | +2 Magic |
-| Deft | +2 Dexterity |
-| Fleet | +2 Speed |
-| Hardy | +2 Defence |
-| Warded | +2 Resistance |
-| Sharp-Eyed | +3 Critical |
-| Lucky | +4 Luck |
-| Broad | +2 Build |
+| Strong | +1 Strength |
+| Bright | +1 Magic |
+| Deft | +1 Dexterity |
+| Fleet | +1 Speed |
+| Hardy | +1 Defence |
+| Warded | +1 Resistance |
+| Sharp-Eyed | +2 Critical |
+| Lucky | +3 Luck |
+| Broad | +1 Build |
 
 ## 4. Two-edged (22, uncommon)
 
@@ -67,39 +70,39 @@ Sword, Axe, Spear, Bow, Dagger: "Sword: Sure", "Axe: Heavy", "Bow: Apt" and so o
 | Wary | Avoid +10 | -5 Hit |
 | Wild Swing | +15 Crit | -10 Hit |
 | Measured | +10 Hit | -10 Crit |
-| Brittle Fury | +3 Strength | -3 Defence |
-| Stone-Footed | +3 Defence | -2 Speed |
-| Scholar's Frame | +3 Magic | -4 Health |
-| Ox | +2 Strength, +2 Build | -2 Dexterity |
-| Whip-Thin | +3 Speed | -2 Build |
-| Hothead | +3 damage with a plain Attack | Arts cost 1 more stamina |
+| Brittle Fury | +2 Strength | -2 Defence |
+| Stone-Footed | +2 Defence | -1 Speed |
+| Scholar's Frame | +2 Magic | -3 Health |
+| Ox | +1 Strength, +1 Build | -1 Dexterity |
+| Whip-Thin | +2 Speed | -1 Build |
+| Hothead | +2 damage with a plain Attack | Arts cost 1 more stamina |
 | Thrifty | Arts cost 1 less stamina | -1 damage with arts |
-| Proud | +2 Defence and Resistance in the front place | -2 of both anywhere else |
+| Proud | +1 Defence and Resistance in the front place | -1 of both anywhere else |
 | Shy | +10 Hit and Crit in the rear place | -10 of both in the front place |
 | Slow Starter | +10 Hit from their fourth action on | -10 Hit on their first |
-| Sprinter | +2 Speed and +10 Hit for their first three actions | -3 Stamina |
+| Sprinter | +1 Speed and +10 Hit for their first three actions | -3 Stamina |
 | Thin-Blooded | +15% XP | Infirmary stays are 1 day longer |
 | Daredevil | +20 Crit below half Health | Heals only half as much at day's end |
 | Showy | +10 Crit | Drawn more (x1.5) |
 | Skulker | Drawn less (x0.6) | -5 Crit |
-| Glutton for Blows | +4 Health, +1 Defence | -2 Speed, drawn more (x1.3) |
-| Faithless | +3 Resistance | White magic heals them 3 less |
+| Glutton for Blows | +3 Health, +1 Defence | -1 Speed, drawn more (x1.3) |
+| Faithless | +2 Resistance | White magic heals them 2 less |
 | Single-Minded | +15 Hit against the enemy they struck last | -5 Hit against any other |
 
 ## 5. The line (13, uncommon)
 
 | Trait | Effect |
 |---|---|
-| Vanguard | +2 Defence and Resistance in the front place |
+| Vanguard | +1 Defence and Resistance in the front place |
 | Rearguard | +10 Hit in the rear place |
 | Anchor | In a middle place, both neighbours take 1 less damage |
 | Shieldmate | The companion behind them takes 15% less damage |
 | File Leader | The companion behind them has +5 Hit |
 | Looming | Drawn more (x1.5) |
 | Unseen | Drawn less (x0.6) |
-| Lone Blade | +2 Strength and Dexterity while the line holds two or fewer |
+| Lone Blade | +1 Strength and Dexterity while the line holds two or fewer |
 | Full Rank | +5 Hit while the line is full |
-| Last Stand | +3 Strength and Defence while they are the only one standing |
+| Last Stand | +2 Strength and Defence while they are the only one standing |
 | Wall | Guarding, they take 65% less instead of 50% |
 | Sidestep | Blows that strike the whole line deal 25% less to them |
 | Front-Runner | Their first action in the front place each battle cannot miss |
@@ -108,21 +111,21 @@ Sword, Axe, Spear, Bow, Dagger: "Sword: Sure", "Axe: Heavy", "Bow: Apt" and so o
 
 | Trait | Effect |
 |---|---|
-| First Blood | Their first action of a battle: +20 Hit, +3 damage |
+| First Blood | Their first action of a battle: +20 Hit, +2 damage |
 | Second Wind | The first time they fall below half Health, their stamina is full again |
 | Steady Breath | Focus restores 3 more stamina |
 | Tireless | +1 stamina after each of their actions |
 | Quick Hands | The first art they use each battle has 1 less recovery |
 | Relentless | An action that fells an enemy has no recovery |
 | Bloodrush | +4 stamina when they fell an enemy |
-| Blood-Drinker | +2 Health when they fell an enemy |
-| Patient | After Guard or Focus, their next strike: +15 Hit, +2 damage |
-| Closer | +3 damage to enemies below half Health |
-| Opener | +3 damage to enemies at full Health |
-| Giant-Bane | +3 damage to Large enemies |
+| Blood-Drinker | +1 Health when they fell an enemy |
+| Patient | After Guard or Focus, their next strike: +15 Hit, +1 damage |
+| Closer | +2 damage to enemies below half Health |
+| Opener | +2 damage to enemies at full Health |
+| Giant-Bane | +2 damage to Large enemies |
 | Fowler | +15 Hit against Flying enemies |
-| Spell-Breaker | +3 damage to an enemy whose next action is magic |
-| Grudge | +3 damage to whoever hit them last |
+| Spell-Breaker | +2 damage to an enemy whose next action is magic |
+| Grudge | +2 damage to whoever hit them last |
 | Counter-Eye | +15 Hit against an enemy that has struck them since their last action |
 | Staggering Blow (rare) | Their critical hits push the target's next action back 1 turn (once per action, as spells do) |
 | Kingslayer (rare) | +10% damage to bosses |
@@ -134,10 +137,10 @@ Sword, Axe, Spear, Bow, Dagger: "Sword: Sure", "Axe: Heavy", "Bow: Apt" and so o
 | Thick Hide | Physical blows deal 1 less |
 | Spell-Scarred | Magic deals 1 less |
 | Brace | The first blow that lands on them each battle deals half |
-| Stubborn | At 5 Health or less: Avoid +15 |
+| Stubborn | At 3 Health or less: Avoid +15 |
 | Clean Blood | Damage over time cannot touch them |
 | Calm | Curses on them end 1 turn sooner |
-| Good Patient | White magic heals them 3 more |
+| Good Patient | White magic heals them 2 more |
 | Fast Healer | Heals 35% at day's end instead of 20% |
 | Field Dresser | Heals 15% after a battle won |
 | Quick to Mend | Infirmary stays are 1 day shorter |
@@ -178,7 +181,7 @@ These work while the companion is in the company and not in the Infirmary.
 | Camp Cook | Everyone heals 5% more at day's end |
 | Night Watch | From the bench: a lost battle costs the walls 3 less |
 | Silver Tongue | Event choices that cost gold cost 20% less |
-| Pathfinder | Scavenging: counts as 3 higher in whatever is asked of them |
+| Pathfinder | Scavenging: counts as 2 higher in whatever is asked of them |
 | Sure-Footed | Scavenging: never comes back injured |
 | Pack Mule | Scavenging: the party brings back 25% more |
 
@@ -188,11 +191,11 @@ These work while the companion is in the company and not in the Infirmary.
 |---|---|
 | Inspiring | Neighbours have +5 Hit |
 | Watchful | Neighbours have Avoid +10 |
-| Avenger | +3 damage for the rest of the battle once an ally is injured |
+| Avenger | +2 damage for the rest of the battle once an ally is injured |
 | Rival | +10 Crit while another companion has felled more enemies this battle |
 | Lead by Example | After they fell an enemy, the next ally to act has +15 Hit |
 | Mentor | The lowest-level companion in the line gets +20% XP |
-| Martyr | When they are injured, every ally heals 5 |
+| Martyr | When they are injured, every ally heals 3 |
 | Battle-Sister / Battle-Brother | +1 Strength and Defence for each neighbour |
 | Envied | Neighbours earn +25% proficiency points |
 | Standard-Bearer (rare) | Every ally has +3 Hit |

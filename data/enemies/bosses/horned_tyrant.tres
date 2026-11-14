@@ -10,13 +10,13 @@ script = ExtResource("1_3uc3q")
 display_name = "Gore Charge"
 countdown = 4
 pick_weight = 3.0
-might = 12
+might = 8
 
 [sub_resource type="Resource" id="Resource_7e2fo"]
 script = ExtResource("2_la717")
 display_name = "Staggered"
 stat_mods = {
-"SPD": -3
+"SPD": -2
 }
 duration_ticks = 2
 
@@ -26,7 +26,7 @@ display_name = "Earthshaker"
 targeting = 1
 countdown = 5
 pick_weight = 2.0
-might = 4
+might = 3
 hit = 85
 effect = SubResource("Resource_7e2fo")
 
@@ -34,7 +34,7 @@ effect = SubResource("Resource_7e2fo")
 script = ExtResource("2_la717")
 display_name = "Enraged"
 stat_mods = {
-"STR": 3
+"STR": 2
 }
 duration_ticks = 99
 max_stacks = 4
@@ -50,18 +50,19 @@ effect = SubResource("Resource_1bo41")
 
 [resource]
 script = ExtResource("4_7ffoc")
+magic = 0
 traits = Array[String](["Large"])
 band = 0
 display_name = "The Horned Tyrant"
 portrait = ExtResource("3_t7cxe")
 color = Color(0.5, 0.25, 0.2, 1)
 stage_scale = 1.45
-max_hp = 142
-strength = 14
-crit = 3
-dexterity = 8
-speed = 6
-defense = 7
-resistance = 2
-luck = 3
+max_hp = 105
+strength = 9
+crit = 2
+dexterity = 5
+speed = 4
+defense = 5
+resistance = 1
+luck = 2
 actions = Array[ExtResource("1_3uc3q")]([SubResource("Resource_st853"), SubResource("Resource_q3qel"), SubResource("Resource_rcpr0")])

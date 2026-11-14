@@ -7,7 +7,7 @@
 script = ExtResource("2_fx")
 display_name = "Barbed"
 duration_ticks = 3
-damage_per_tick = 2
+damage_per_tick = 1
 
 [resource]
 script = ExtResource("1_art")

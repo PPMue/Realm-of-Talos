@@ -5,17 +5,17 @@
 
 [sub_resource type="Resource" id="Resource_xprl4"]
 script = ExtResource("1_py1ai")
-amount = 2
+amount = 1
 stat = "STR"
 
 [sub_resource type="Resource" id="Resource_0ty58"]
 script = ExtResource("1_py1ai")
-amount = 2
+amount = 1
 stat = "BLD"
 
 [sub_resource type="Resource" id="Resource_qo3c3"]
 script = ExtResource("1_py1ai")
-amount = -2
+amount = -1
 stat = "DEX"
 
 [resource]
@@ -24,6 +24,6 @@ id = "ox"
 display_name = "Ox"
 family = 3
 rarity = 1
-gives = Array[String](["+2 Strength, +2 Build"])
-takes = Array[String](["-2 Dexterity"])
+gives = Array[String](["+1 Strength, +1 Build"])
+takes = Array[String](["-1 Dexterity"])
 modifiers = Array[ExtResource("1_py1ai")]([SubResource("Resource_xprl4"), SubResource("Resource_0ty58"), SubResource("Resource_qo3c3")])

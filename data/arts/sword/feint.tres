@@ -7,7 +7,7 @@
 script = ExtResource("2_fx")
 display_name = "Off Balance"
 stat_mods = {
-"DEX": -4
+"DEX": -3
 }
 duration_ticks = 3
 

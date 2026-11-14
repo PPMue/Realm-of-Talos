@@ -11,5 +11,5 @@ tier = 1
 stamina_cost = 6
 recovery = 2
 durability_cost = 1
-might_bonus = -3
+might_bonus = -2
 hits_all_enemies = true

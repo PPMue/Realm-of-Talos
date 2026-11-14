@@ -96,8 +96,8 @@ func _weapon_hands() -> void:
 		var C := TraitData.Rarity.COMMON
 		add("%s_sure" % low, "%s: Sure" % name, F, C, ["+10 Hit with %s" % plural[wt]], [],
 			[mod(TraitModifier.Kind.HIT, 10, w)], _with(tied, "line", "Sure"))
-		add("%s_heavy" % low, "%s: Heavy" % name, F, C, ["+2 damage with %s" % plural[wt]], [],
-			[mod(TraitModifier.Kind.DAMAGE, 2, w)], _with(tied, "line", "Heavy"))
+		add("%s_heavy" % low, "%s: Heavy" % name, F, C, ["+1 damage with %s" % plural[wt]], [],
+			[mod(TraitModifier.Kind.DAMAGE, 1, w)], _with(tied, "line", "Heavy"))
 		add("%s_keen" % low, "%s: Keen" % name, F, C, ["+8 Crit with %s" % plural[wt]], [],
 			[mod(TraitModifier.Kind.CRIT, 8, w)], _with(tied, "line", "Keen"))
 		add("%s_easy" % low, "%s: Easy" % name, F, C, ["%s arts cost 1 less stamina" % name], [],
@@ -121,14 +121,14 @@ func _schools() -> void:
 	var W := SpellData.School.WHITE
 	add("black_sure", "Black: Sure", F, C, ["+10 Hit with black spells"], [],
 		[mod(TraitModifier.Kind.HIT, 10, {"school": B})], {"school": B, "line": "Sure"})
-	add("black_heavy", "Black: Heavy", F, C, ["+2 damage with black spells"], [],
-		[mod(TraitModifier.Kind.DAMAGE, 2, {"school": B})], {"school": B, "line": "Heavy"})
+	add("black_heavy", "Black: Heavy", F, C, ["+1 damage with black spells"], [],
+		[mod(TraitModifier.Kind.DAMAGE, 1, {"school": B})], {"school": B, "line": "Heavy"})
 	add("black_deep", "Black: Deep", F, C, ["+1 use of every tier I black spell"], [],
 		[mod(TraitModifier.Kind.SPELL_USES, 1, {"school": B, "spell_tier": 1})], {"school": B, "line": "Deep"})
 	add("black_apt", "Black: Apt", F, C, ["+50% black magic points"], [],
 		[mod(TraitModifier.Kind.PROFICIENCY_PERCENT, 50, {"school": B})], {"school": B, "line": "Apt"})
-	add("white_kind", "White: Kind", F, C, ["Heals restore 3 more"], [],
-		[mod(TraitModifier.Kind.HEAL_GIVEN, 3, {"school": W})], {"school": W, "line": "Kind"})
+	add("white_kind", "White: Kind", F, C, ["Heals restore 2 more"], [],
+		[mod(TraitModifier.Kind.HEAL_GIVEN, 2, {"school": W})], {"school": W, "line": "Kind"})
 	add("white_lasting", "White: Lasting", F, C, ["Blessings last 1 turn longer"], [],
 		[mod(TraitModifier.Kind.BLESSING_TURNS, 1, {"school": W})], {"school": W, "line": "Lasting"})
 	add("white_deep", "White: Deep", F, C, ["+1 use of every tier I white spell"], [],
@@ -143,17 +143,17 @@ func _body_and_mind() -> void:
 	var F := TraitData.Family.BODY_AND_MIND
 	var C := TraitData.Rarity.COMMON
 	for row in [
-		["hale", "Hale", Stat.HP, 4, "+4 Health"],
+		["hale", "Hale", Stat.HP, 3, "+3 Health"],
 		["deep_winded", "Deep-Winded", Stat.STA, 3, "+3 Stamina"],
-		["strong", "Strong", Stat.STR, 2, "+2 Strength"],
-		["bright", "Bright", Stat.MAG, 2, "+2 Magic"],
-		["deft", "Deft", Stat.DEX, 2, "+2 Dexterity"],
-		["fleet", "Fleet", Stat.SPD, 2, "+2 Speed"],
-		["hardy", "Hardy", Stat.DEF, 2, "+2 Defence"],
-		["warded", "Warded", Stat.RES, 2, "+2 Resistance"],
-		["sharp_eyed", "Sharp-Eyed", Stat.CRT, 3, "+3 Critical"],
-		["lucky", "Lucky", Stat.LCK, 4, "+4 Luck"],
-		["broad", "Broad", Stat.BLD, 2, "+2 Build"],
+		["strong", "Strong", Stat.STR, 1, "+1 Strength"],
+		["bright", "Bright", Stat.MAG, 1, "+1 Magic"],
+		["deft", "Deft", Stat.DEX, 1, "+1 Dexterity"],
+		["fleet", "Fleet", Stat.SPD, 1, "+1 Speed"],
+		["hardy", "Hardy", Stat.DEF, 1, "+1 Defence"],
+		["warded", "Warded", Stat.RES, 1, "+1 Resistance"],
+		["sharp_eyed", "Sharp-Eyed", Stat.CRT, 2, "+2 Critical"],
+		["lucky", "Lucky", Stat.LCK, 3, "+3 Luck"],
+		["broad", "Broad", Stat.BLD, 1, "+1 Build"],
 	]:
 		add(row[0], row[1], F, C, [row[4]], [], [stat(row[2], row[3])])
 
@@ -170,34 +170,34 @@ func _two_edged() -> void:
 	add("wary", "Wary", F, U, ["Avoid +10"], ["-5 Hit"], [mod(TraitModifier.Kind.AVOID, 10), mod(TraitModifier.Kind.HIT, -5)])
 	add("wild_swing", "Wild Swing", F, U, ["+15 Crit"], ["-10 Hit"], [mod(TraitModifier.Kind.CRIT, 15), mod(TraitModifier.Kind.HIT, -10)])
 	add("measured", "Measured", F, U, ["+10 Hit"], ["-10 Crit"], [mod(TraitModifier.Kind.HIT, 10), mod(TraitModifier.Kind.CRIT, -10)])
-	add("brittle_fury", "Brittle Fury", F, U, ["+3 Strength"], ["-3 Defence"], [stat(Stat.STR, 3), stat(Stat.DEF, -3)])
-	add("stone_footed", "Stone-Footed", F, U, ["+3 Defence"], ["-2 Speed"], [stat(Stat.DEF, 3), stat(Stat.SPD, -2)])
-	add("scholars_frame", "Scholar's Frame", F, U, ["+3 Magic"], ["-4 Health"], [stat(Stat.MAG, 3), stat(Stat.HP, -4)])
-	add("ox", "Ox", F, U, ["+2 Strength, +2 Build"], ["-2 Dexterity"],
-		[stat(Stat.STR, 2), stat(Stat.BLD, 2), stat(Stat.DEX, -2)])
-	add("whip_thin", "Whip-Thin", F, U, ["+3 Speed"], ["-2 Build"], [stat(Stat.SPD, 3), stat(Stat.BLD, -2)])
-	add("hothead", "Hothead", F, U, ["+3 damage with a plain Attack"], ["Arts cost 1 more stamina"],
-		[mod(TraitModifier.Kind.DAMAGE, 3, {"action": TraitModifier.Action.ATTACK}), mod(TraitModifier.Kind.ART_STAMINA, 1)])
+	add("brittle_fury", "Brittle Fury", F, U, ["+2 Strength"], ["-2 Defence"], [stat(Stat.STR, 2), stat(Stat.DEF, -2)])
+	add("stone_footed", "Stone-Footed", F, U, ["+2 Defence"], ["-1 Speed"], [stat(Stat.DEF, 2), stat(Stat.SPD, -1)])
+	add("scholars_frame", "Scholar's Frame", F, U, ["+2 Magic"], ["-3 Health"], [stat(Stat.MAG, 2), stat(Stat.HP, -3)])
+	add("ox", "Ox", F, U, ["+1 Strength, +1 Build"], ["-1 Dexterity"],
+		[stat(Stat.STR, 1), stat(Stat.BLD, 1), stat(Stat.DEX, -1)])
+	add("whip_thin", "Whip-Thin", F, U, ["+2 Speed"], ["-1 Build"], [stat(Stat.SPD, 2), stat(Stat.BLD, -1)])
+	add("hothead", "Hothead", F, U, ["+2 damage with a plain Attack"], ["Arts cost 1 more stamina"],
+		[mod(TraitModifier.Kind.DAMAGE, 2, {"action": TraitModifier.Action.ATTACK}), mod(TraitModifier.Kind.ART_STAMINA, 1)])
 	add("thrifty", "Thrifty", F, U, ["Arts cost 1 less stamina"], ["-1 damage with arts"],
 		[mod(TraitModifier.Kind.ART_STAMINA, -1), mod(TraitModifier.Kind.DAMAGE, -1, {"action": TraitModifier.Action.ART})])
-	add("proud", "Proud", F, U, ["+2 Defence and Resistance in the front place"], ["-2 of both anywhere else"],
-		[stat(Stat.DEF, 2, front), stat(Stat.RES, 2, front), stat(Stat.DEF, -2, not_front), stat(Stat.RES, -2, not_front)])
+	add("proud", "Proud", F, U, ["+1 Defence and Resistance in the front place"], ["-1 of both anywhere else"],
+		[stat(Stat.DEF, 1, front), stat(Stat.RES, 1, front), stat(Stat.DEF, -1, not_front), stat(Stat.RES, -1, not_front)])
 	add("shy", "Shy", F, U, ["+10 Hit and Crit in the rear place"], ["-10 of both in the front place"],
 		[mod(TraitModifier.Kind.HIT, 10, rear), mod(TraitModifier.Kind.CRIT, 10, rear), mod(TraitModifier.Kind.HIT, -10, front), mod(TraitModifier.Kind.CRIT, -10, front)])
 	add("slow_starter", "Slow Starter", F, U, ["+10 Hit from their fourth action on"], ["-10 Hit on their first"],
 		[mod(TraitModifier.Kind.HIT, 10, {"action_from": 4}), mod(TraitModifier.Kind.HIT, -10, {"action_to": 1})])
-	add("sprinter", "Sprinter", F, U, ["+2 Speed and +10 Hit for their first three actions"], ["-3 Stamina"],
-		[stat(Stat.SPD, 2, {"action_to": 3}), mod(TraitModifier.Kind.HIT, 10, {"action_to": 3}), stat(Stat.STA, -3)])
+	add("sprinter", "Sprinter", F, U, ["+1 Speed and +10 Hit for their first three actions"], ["-3 Stamina"],
+		[stat(Stat.SPD, 1, {"action_to": 3}), mod(TraitModifier.Kind.HIT, 10, {"action_to": 3}), stat(Stat.STA, -3)])
 	add("thin_blooded", "Thin-Blooded", F, U, ["+15% XP"], ["Infirmary stays are 1 day longer"],
 		[mod(TraitModifier.Kind.XP_PERCENT, 15), mod(TraitModifier.Kind.INFIRMARY_DAYS, 1)])
 	add("daredevil", "Daredevil", F, U, ["+20 Crit below half Health"], ["Heals only half as much at day's end"],
 		[mod(TraitModifier.Kind.CRIT, 20, {"self_health": TraitModifier.Health.BELOW_HALF}), mod(TraitModifier.Kind.DAY_HEAL_PERCENT, -50)])
 	add("showy", "Showy", F, U, ["+10 Crit"], ["Drawn more (x1.5)"], [mod(TraitModifier.Kind.CRIT, 10), aim(1.5)])
 	add("skulker", "Skulker", F, U, ["Drawn less (x0.6)"], ["-5 Crit"], [aim(0.6), mod(TraitModifier.Kind.CRIT, -5)])
-	add("glutton_for_blows", "Glutton for Blows", F, U, ["+4 Health, +1 Defence"], ["-2 Speed, drawn more (x1.3)"],
-		[stat(Stat.HP, 4), stat(Stat.DEF, 1), stat(Stat.SPD, -2), aim(1.3)])
-	add("faithless", "Faithless", F, U, ["+3 Resistance"], ["White magic heals them 3 less"],
-		[stat(Stat.RES, 3), mod(TraitModifier.Kind.HEAL_RECEIVED, -3)])
+	add("glutton_for_blows", "Glutton for Blows", F, U, ["+3 Health, +1 Defence"], ["-1 Speed, drawn more (x1.3)"],
+		[stat(Stat.HP, 3), stat(Stat.DEF, 1), stat(Stat.SPD, -1), aim(1.3)])
+	add("faithless", "Faithless", F, U, ["+2 Resistance"], ["White magic heals them 2 less"],
+		[stat(Stat.RES, 2), mod(TraitModifier.Kind.HEAL_RECEIVED, -2)])
 	add("single_minded", "Single-Minded", F, U, ["+15 Hit against the enemy they struck last"], ["-5 Hit against any other"],
 		[mod(TraitModifier.Kind.HIT, 15, {"struck": TraitModifier.Struck.LAST_STRUCK}), mod(TraitModifier.Kind.HIT, -5, {"struck": TraitModifier.Struck.NOT_LAST_STRUCK})])
 
@@ -208,8 +208,8 @@ func _the_line() -> void:
 	var F := TraitData.Family.THE_LINE
 	var U := TraitData.Rarity.UNCOMMON
 	var front := {"place": TraitModifier.Place.FRONT}
-	add("vanguard", "Vanguard", F, U, ["+2 Defence and Resistance in the front place"], [],
-		[stat(Stat.DEF, 2, front), stat(Stat.RES, 2, front)])
+	add("vanguard", "Vanguard", F, U, ["+1 Defence and Resistance in the front place"], [],
+		[stat(Stat.DEF, 1, front), stat(Stat.RES, 1, front)])
 	add("rearguard", "Rearguard", F, U, ["+10 Hit in the rear place"], [], [mod(TraitModifier.Kind.HIT, 10, {"place": TraitModifier.Place.REAR})])
 	add("anchor", "Anchor", F, U, ["In a middle place, both neighbours take 1 less damage"], [],
 		[mod(TraitModifier.Kind.DAMAGE_TAKEN, -1, {"who": TraitModifier.Who.NEIGHBOURS, "place": TraitModifier.Place.MIDDLE})])
@@ -219,11 +219,11 @@ func _the_line() -> void:
 		[mod(TraitModifier.Kind.HIT, 5, {"who": TraitModifier.Who.BEHIND})])
 	add("looming", "Looming", F, U, ["Drawn more (x1.5)"], [], [aim(1.5)])
 	add("unseen", "Unseen", F, U, ["Drawn less (x0.6)"], [], [aim(0.6)])
-	add("lone_blade", "Lone Blade", F, U, ["+2 Strength and Dexterity while the line holds two or fewer"], [],
-		[stat(Stat.STR, 2, {"line_at_most": 2}), stat(Stat.DEX, 2, {"line_at_most": 2})])
+	add("lone_blade", "Lone Blade", F, U, ["+1 Strength and Dexterity while the line holds two or fewer"], [],
+		[stat(Stat.STR, 1, {"line_at_most": 2}), stat(Stat.DEX, 1, {"line_at_most": 2})])
 	add("full_rank", "Full Rank", F, U, ["+5 Hit while the line is full"], [], [mod(TraitModifier.Kind.HIT, 5, {"line_full": true})])
-	add("last_stand", "Last Stand", F, U, ["+3 Strength and Defence while they are the only one standing"], [],
-		[stat(Stat.STR, 3, {"only_standing": true}), stat(Stat.DEF, 3, {"only_standing": true})])
+	add("last_stand", "Last Stand", F, U, ["+2 Strength and Defence while they are the only one standing"], [],
+		[stat(Stat.STR, 2, {"only_standing": true}), stat(Stat.DEF, 2, {"only_standing": true})])
 	add("wall", "Wall", F, U, ["Guarding, they take 65% less instead of 50%"], [], [mod(TraitModifier.Kind.GUARD_PERCENT, 65)])
 	add("sidestep", "Sidestep", F, U, ["Blows that strike the whole line deal 25% less to them"], [],
 		[mod(TraitModifier.Kind.DAMAGE_TAKEN_PERCENT, -25, {"whole_line_blows": true})])
@@ -236,22 +236,22 @@ func _the_line() -> void:
 func _tempo() -> void:
 	var F := TraitData.Family.TEMPO
 	var U := TraitData.Rarity.UNCOMMON
-	add("first_blood", "First Blood", F, U, ["Their first action of a battle: +20 Hit, +3 damage"], [],
-		[mod(TraitModifier.Kind.HIT, 20, {"action_to": 1}), mod(TraitModifier.Kind.DAMAGE, 3, {"action_to": 1})])
-	add("patient", "Patient", F, U, ["After Guard or Focus, their next strike: +15 Hit, +2 damage"], [],
-		[mod(TraitModifier.Kind.HIT, 15, {"after_guard_or_focus": true}), mod(TraitModifier.Kind.DAMAGE, 2, {"after_guard_or_focus": true})])
-	add("closer", "Closer", F, U, ["+3 damage to enemies below half Health"], [],
-		[mod(TraitModifier.Kind.DAMAGE, 3, {"target_health": TraitModifier.Health.BELOW_HALF})])
-	add("opener", "Opener", F, U, ["+3 damage to enemies at full Health"], [],
-		[mod(TraitModifier.Kind.DAMAGE, 3, {"target_health": TraitModifier.Health.FULL})])
-	add("giant_bane", "Giant-Bane", F, U, ["+3 damage to Large enemies"], [],
-		[mod(TraitModifier.Kind.DAMAGE, 3, {"target_trait": EnemyTraits.LARGE})])
+	add("first_blood", "First Blood", F, U, ["Their first action of a battle: +20 Hit, +2 damage"], [],
+		[mod(TraitModifier.Kind.HIT, 20, {"action_to": 1}), mod(TraitModifier.Kind.DAMAGE, 2, {"action_to": 1})])
+	add("patient", "Patient", F, U, ["After Guard or Focus, their next strike: +15 Hit, +1 damage"], [],
+		[mod(TraitModifier.Kind.HIT, 15, {"after_guard_or_focus": true}), mod(TraitModifier.Kind.DAMAGE, 1, {"after_guard_or_focus": true})])
+	add("closer", "Closer", F, U, ["+2 damage to enemies below half Health"], [],
+		[mod(TraitModifier.Kind.DAMAGE, 2, {"target_health": TraitModifier.Health.BELOW_HALF})])
+	add("opener", "Opener", F, U, ["+2 damage to enemies at full Health"], [],
+		[mod(TraitModifier.Kind.DAMAGE, 2, {"target_health": TraitModifier.Health.FULL})])
+	add("giant_bane", "Giant-Bane", F, U, ["+2 damage to Large enemies"], [],
+		[mod(TraitModifier.Kind.DAMAGE, 2, {"target_trait": EnemyTraits.LARGE})])
 	add("fowler", "Fowler", F, U, ["+15 Hit against Flying enemies"], [],
 		[mod(TraitModifier.Kind.HIT, 15, {"target_trait": EnemyTraits.FLYING})])
-	add("spell_breaker", "Spell-Breaker", F, U, ["+3 damage to an enemy whose next action is magic"], [],
-		[mod(TraitModifier.Kind.DAMAGE, 3, {"target_next_magic": true})])
-	add("grudge", "Grudge", F, U, ["+3 damage to whoever hit them last"], [],
-		[mod(TraitModifier.Kind.DAMAGE, 3, {"struck": TraitModifier.Struck.HIT_ME_LAST})])
+	add("spell_breaker", "Spell-Breaker", F, U, ["+2 damage to an enemy whose next action is magic"], [],
+		[mod(TraitModifier.Kind.DAMAGE, 2, {"target_next_magic": true})])
+	add("grudge", "Grudge", F, U, ["+2 damage to whoever hit them last"], [],
+		[mod(TraitModifier.Kind.DAMAGE, 2, {"struck": TraitModifier.Struck.HIT_ME_LAST})])
 	add("counter_eye", "Counter-Eye", F, U, ["+15 Hit against an enemy that has struck them since their last action"], [],
 		[mod(TraitModifier.Kind.HIT, 15, {"struck": TraitModifier.Struck.STRUCK_ME_SINCE})])
 	add("kingslayer", "Kingslayer", F, TraitData.Rarity.RARE, ["+10% damage to bosses"], [],
@@ -273,7 +273,7 @@ func _wave_two() -> void:
 		[mod(K.RECOVERY, -1, {"action": TraitModifier.Action.ART, "first_art": true})])
 	add("relentless", "Relentless", T, U, ["An action that fells an enemy has no recovery"], [], [mod(K.KILL_NO_RECOVERY, 1)])
 	add("bloodrush", "Bloodrush", T, U, ["+4 stamina when they fell an enemy"], [], [mod(K.KILL_STAMINA, 4)])
-	add("blood_drinker", "Blood-Drinker", T, U, ["+2 Health when they fell an enemy"], [], [mod(K.KILL_HP, 2)])
+	add("blood_drinker", "Blood-Drinker", T, U, ["+1 Health when they fell an enemy"], [], [mod(K.KILL_HP, 1)])
 	add("staggering_blow", "Staggering Blow", T, R,
 		["Their critical hits push the target's next action back 1 turn (once per action, as spells do)"], [], [mod(K.CRIT_DELAY, 1)])
 	var S := TraitData.Family.STAYING_ALIVE
@@ -283,10 +283,10 @@ func _wave_two() -> void:
 		[mod(K.DAMAGE_TAKEN, -1, {"blow": TraitModifier.Blow.MAGIC})])
 	add("brace", "Brace", S, U, ["The first blow that lands on them each battle deals half"], [],
 		[mod(K.DAMAGE_TAKEN_PERCENT, -50, {"first_blow_taken": true})])
-	add("stubborn", "Stubborn", S, U, ["At 5 Health or less: Avoid +15"], [], [mod(K.AVOID, 15, {"self_hp_at_most": 5})])
+	add("stubborn", "Stubborn", S, U, ["At 3 Health or less: Avoid +15"], [], [mod(K.AVOID, 15, {"self_hp_at_most": 3})])
 	add("clean_blood", "Clean Blood", S, U, ["Damage over time cannot touch them"], [], [mod(K.DOT_IMMUNE, 1)])
 	add("calm", "Calm", S, U, ["Curses on them end 1 turn sooner"], [], [mod(K.CURSE_TURNS, -1)])
-	add("good_patient", "Good Patient", S, U, ["White magic heals them 3 more"], [], [mod(K.HEAL_RECEIVED, 3)])
+	add("good_patient", "Good Patient", S, U, ["White magic heals them 2 more"], [], [mod(K.HEAL_RECEIVED, 2)])
 	add("fast_healer", "Fast Healer", S, U, ["Heals 35% at day's end instead of 20%"], [], [mod(K.DAY_HEAL_SHARE, 15)])
 	add("field_dresser", "Field Dresser", S, U, ["Heals 15% after a battle won"], [], [mod(K.BATTLE_WON_HEAL_PERCENT, 15)])
 	add("quick_to_mend", "Quick to Mend", S, U, ["Infirmary stays are 1 day shorter"], [], [mod(K.INFIRMARY_DAYS, -1)])
@@ -329,23 +329,23 @@ func _wave_three() -> void:
 	var near := {"who": TraitModifier.Who.NEIGHBOURS}
 	add("inspiring", "Inspiring", F, U, ["Neighbours have +5 Hit"], [], [mod(K.HIT, 5, near)])
 	add("watchful", "Watchful", F, U, ["Neighbours have Avoid +10"], [], [mod(K.AVOID, 10, near)])
-	add("avenger", "Avenger", F, U, ["+3 damage for the rest of the battle once an ally is injured"], [],
-		[mod(K.DAMAGE, 3, {"ally_injured": true})])
+	add("avenger", "Avenger", F, U, ["+2 damage for the rest of the battle once an ally is injured"], [],
+		[mod(K.DAMAGE, 2, {"ally_injured": true})])
 	add("rival", "Rival", F, U, ["+10 Crit while another companion has felled more enemies this battle"], [],
 		[mod(K.CRIT, 10, {"rival_ahead": true})])
 	add("lead_by_example", "Lead by Example", F, U, ["After they fell an enemy, the next ally to act has +15 Hit"], [],
 		[mod(K.KILL_NEXT_ALLY_HIT, 15)])
 	add("mentor", "Mentor", F, U, ["The lowest-level companion in the line gets +20% XP"], [],
 		[mod(K.XP_PERCENT, 20, {"who": TraitModifier.Who.LOWEST})])
-	add("martyr", "Martyr", F, U, ["When they are injured, every ally heals 5"], [], [mod(K.INJURED_HEAL_ALLIES, 5)])
+	add("martyr", "Martyr", F, U, ["When they are injured, every ally heals 3"], [], [mod(K.INJURED_HEAL_ALLIES, 3)])
 	add("battle_kin", "Battle-Sister / Battle-Brother", F, U, ["+1 Strength and Defence for each neighbour"], [],
 		[stat(Stat.STR, 1, {"per_neighbour": true}), stat(Stat.DEF, 1, {"per_neighbour": true})])
 	add("envied", "Envied", F, U, ["Neighbours earn +25% proficiency points"], [], [mod(K.PROFICIENCY_PERCENT, 25, near)])
 	add("standard_bearer", "Standard-Bearer", F, TraitData.Rarity.RARE, ["Every ally has +3 Hit"], [],
 		[mod(K.HIT, 3, {"who": TraitModifier.Who.ALLIES})])
 	var C := TraitData.Family.THE_CITY
-	add("pathfinder", "Pathfinder", C, U, ["Scavenging: counts as 3 higher in whatever is asked of them"], [],
-		[mod(K.SCAVENGE_STAT, 3)])
+	add("pathfinder", "Pathfinder", C, U, ["Scavenging: counts as 2 higher in whatever is asked of them"], [],
+		[mod(K.SCAVENGE_STAT, 2)])
 	add("sure_footed", "Sure-Footed", C, U, ["Scavenging: never comes back injured"], [], [mod(K.SCAVENGE_NO_INJURY, 1)])
 	add("pack_mule", "Pack Mule", C, U, ["Scavenging: the party brings back 25% more"], [], [mod(K.SCAVENGE_HAUL_PERCENT, 25)])
 

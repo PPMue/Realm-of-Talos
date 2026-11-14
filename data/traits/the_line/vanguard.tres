@@ -5,13 +5,13 @@
 
 [sub_resource type="Resource" id="Resource_yu30s"]
 script = ExtResource("1_l4aig")
-amount = 2
+amount = 1
 stat = "DEF"
 place = 1
 
 [sub_resource type="Resource" id="Resource_4qxiw"]
 script = ExtResource("1_l4aig")
-amount = 2
+amount = 1
 stat = "RES"
 place = 1
 
@@ -21,5 +21,5 @@ id = "vanguard"
 display_name = "Vanguard"
 family = 4
 rarity = 1
-gives = Array[String](["+2 Defence and Resistance in the front place"])
+gives = Array[String](["+1 Defence and Resistance in the front place"])
 modifiers = Array[ExtResource("1_l4aig")]([SubResource("Resource_yu30s"), SubResource("Resource_4qxiw")])

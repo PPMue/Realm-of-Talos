@@ -13,7 +13,7 @@ gold = -45
 script = ExtResource("1_2etgq")
 label = "Let it run its course"
 result_text = "Everyone is weaker for a day or two."
-companion_hp = -6
+companion_hp = -4
 hp_target = 0
 
 [sub_resource type="Resource" id="Resource_1ldfc"]
@@ -23,7 +23,7 @@ result_text = "An apothecary takes iron ore for a cure, and adds a tonic."
 materials = {
 "iron_ore": -1
 }
-companion_hp = 5
+companion_hp = 3
 hp_target = 0
 
 [resource]

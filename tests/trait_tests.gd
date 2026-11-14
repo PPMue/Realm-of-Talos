@@ -308,7 +308,7 @@ func table() -> Array:
 		rows.append_array([
 			["%s_sure" % n, "hit", 10, w], ["%s_sure" % n, "art_hit", 10, w], ["%s_sure" % n, "hit", 0, other],
 			["%s_sure" % n, "spell_hit", 0, w],
-			["%s_heavy" % n, "damage", 2, w], ["%s_heavy" % n, "art_damage", 2, w], ["%s_heavy" % n, "damage", 0, other],
+			["%s_heavy" % n, "damage", 1, w], ["%s_heavy" % n, "art_damage", 1, w], ["%s_heavy" % n, "damage", 0, other],
 			["%s_keen" % n, "crit", 8, w], ["%s_keen" % n, "crit", 0, other],
 			["%s_easy" % n, "art_cost", -1, w], ["%s_easy" % n, "art_cost", 0, other],
 			["%s_apt" % n, "prof_cap", 4, w], ["%s_apt" % n, "prof_cap", 0, other], ["%s_apt" % n, "drill_weapon", 3, w],
@@ -316,54 +316,54 @@ func table() -> Array:
 		])
 	rows.append_array([
 		["black_sure", "spell_hit", 10, {}], ["black_sure", "hit", 0, {}],
-		["black_heavy", "spell_damage", 2, {}], ["black_heavy", "damage", 0, {}],
+		["black_heavy", "spell_damage", 1, {}], ["black_heavy", "damage", 0, {}],
 		["black_deep", "uses_black_1", 1, {}], ["black_deep", "uses_black_2", 0, {}], ["black_deep", "uses_white_1", 0, {}],
 		["black_apt", "magic_black", 2, {}], ["black_apt", "drill_magic", 3, {"school": SpellData.School.BLACK}],
 		["black_apt", "drill_magic", 0, {"school": SpellData.School.WHITE}],
-		["white_kind", "heal_given", 3, {}],
+		["white_kind", "heal_given", 2, {}],
 		["white_lasting", "blessing", 1, {}],
 		["white_deep", "uses_white_1", 1, {}], ["white_deep", "uses_black_1", 0, {}],
 		["white_apt", "magic_white", 2, {}], ["white_apt", "drill_magic", 3, {"school": SpellData.School.WHITE}],
 		# Body and mind: the stat in battle and on the sheet.
-		["hale", "stat:HP", 4, {}], ["hale", "max_hp", 4, {}], ["hale", "plain:HP", 4, {}],
-		["deep_winded", "max_sta", 3, {}], ["strong", "stat:STR", 2, {}], ["strong", "damage", 2, {}],
-		["bright", "stat:MAG", 2, {}], ["bright", "spell_damage", 2, {}], ["deft", "stat:DEX", 2, {}], ["deft", "hit", 10, {}],
-		["fleet", "stat:SPD", 2, {}], ["fleet", "enemy_hit", -10, {}], ["hardy", "stat:DEF", 2, {}], ["hardy", "taken", -2, {}],
-		["warded", "stat:RES", 2, {}], ["sharp_eyed", "stat:CRT", 3, {}], ["sharp_eyed", "crit", 6, {}],
-		["lucky", "stat:LCK", 4, {}], ["broad", "stat:BLD", 2, {}], ["broad", "plain:BLD", 2, {}],
+		["hale", "stat:HP", 3, {}], ["hale", "max_hp", 3, {}], ["hale", "plain:HP", 3, {}],
+		["deep_winded", "max_sta", 3, {}], ["strong", "stat:STR", 1, {}], ["strong", "damage", 1, {}],
+		["bright", "stat:MAG", 1, {}], ["bright", "spell_damage", 1, {}], ["deft", "stat:DEX", 1, {}], ["deft", "hit", 7, {}],
+		["fleet", "stat:SPD", 1, {}], ["fleet", "enemy_hit", -7, {}], ["hardy", "stat:DEF", 1, {}], ["hardy", "taken", -1, {}],
+		["warded", "stat:RES", 1, {}], ["sharp_eyed", "stat:CRT", 2, {}], ["sharp_eyed", "crit", 6, {}],
+		["lucky", "stat:LCK", 3, {}], ["broad", "stat:BLD", 1, {}], ["broad", "plain:BLD", 1, {}],
 		# Two-edged.
 		["reckless", "hit", 10, {}], ["reckless", "enemy_hit", 10, {}],
 		["wary", "enemy_hit", -10, {}], ["wary", "hit", -5, {}],
 		["wild_swing", "crit", 15, {}], ["wild_swing", "hit", -10, {}],
 		["measured", "hit", 10, {}], ["measured", "crit", -10, {}],
-		["brittle_fury", "stat:STR", 3, {}], ["brittle_fury", "stat:DEF", -3, {}],
-		["stone_footed", "stat:DEF", 3, {}], ["stone_footed", "stat:SPD", -2, {}],
-		["scholars_frame", "stat:MAG", 3, {}], ["scholars_frame", "max_hp", -4, {}],
-		["ox", "stat:STR", 2, {}], ["ox", "stat:BLD", 2, {}], ["ox", "stat:DEX", -2, {}],
-		["whip_thin", "stat:SPD", 3, {}], ["whip_thin", "stat:BLD", -2, {}],
-		["hothead", "damage", 3, {}], ["hothead", "art_damage", 0, {}], ["hothead", "art_cost", 1, {}],
+		["brittle_fury", "stat:STR", 2, {}], ["brittle_fury", "stat:DEF", -2, {}],
+		["stone_footed", "stat:DEF", 2, {}], ["stone_footed", "stat:SPD", -1, {}],
+		["scholars_frame", "stat:MAG", 2, {}], ["scholars_frame", "max_hp", -3, {}],
+		["ox", "stat:STR", 1, {}], ["ox", "stat:BLD", 1, {}], ["ox", "stat:DEX", -1, {}],
+		["whip_thin", "stat:SPD", 2, {}], ["whip_thin", "stat:BLD", -1, {}],
+		["hothead", "damage", 2, {}], ["hothead", "art_damage", 0, {}], ["hothead", "art_cost", 1, {}],
 		["thrifty", "art_cost", -1, {}], ["thrifty", "art_damage", -1, {}], ["thrifty", "damage", 0, {}],
-		["proud", "stat:DEF", 2, {"line": 2, "slot": 1}], ["proud", "stat:RES", 2, {"line": 2, "slot": 1}],
-		["proud", "stat:DEF", -2, {"line": 2, "slot": 0}], ["proud", "stat:RES", -2, {"line": 2, "slot": 0}],
+		["proud", "stat:DEF", 1, {"line": 2, "slot": 1}], ["proud", "stat:RES", 1, {"line": 2, "slot": 1}],
+		["proud", "stat:DEF", -1, {"line": 2, "slot": 0}], ["proud", "stat:RES", -1, {"line": 2, "slot": 0}],
 		["proud", "plain:DEF", 0, {}],
 		["shy", "hit", 10, {"line": 2, "slot": 0}], ["shy", "crit", 10, {"line": 2, "slot": 0}],
 		["shy", "hit", -10, {"line": 2, "slot": 1}], ["shy", "crit", -10, {"line": 2, "slot": 1}],
 		["shy", "hit", 0, {"line": 3, "slot": 1}],
 		["slow_starter", "hit", -10, {"actions": 0}], ["slow_starter", "hit", 0, {"actions": 1}],
 		["slow_starter", "hit", 0, {"actions": 2}], ["slow_starter", "hit", 10, {"actions": 3}], ["slow_starter", "hit", 10, {"actions": 7}],
-		["sprinter", "stat:SPD", 2, {"actions": 0}], ["sprinter", "hit", 10, {"actions": 2}],
+		["sprinter", "stat:SPD", 1, {"actions": 0}], ["sprinter", "hit", 10, {"actions": 2}],
 		["sprinter", "stat:SPD", 0, {"actions": 3}], ["sprinter", "hit", 0, {"actions": 3}], ["sprinter", "max_sta", -3, {}],
 		["thin_blooded", "xp", 15, {}], ["thin_blooded", "infirmary", 1, {}],
 		["daredevil", "crit", 20, {"self_low": true}], ["daredevil", "crit", 0, {}], ["daredevil", "day_heal", -4, {}],
 		["showy", "crit", 10, {}], ["showy", "aim", 50, {}],
 		["skulker", "aim", -40, {}], ["skulker", "crit", -5, {}],
-		["glutton_for_blows", "max_hp", 4, {}], ["glutton_for_blows", "stat:DEF", 1, {}],
-		["glutton_for_blows", "stat:SPD", -2, {}], ["glutton_for_blows", "aim", 30, {}],
-		["faithless", "stat:RES", 3, {}], ["faithless", "heal_received", -3, {"line": 2, "slot": 1}],
+		["glutton_for_blows", "max_hp", 3, {}], ["glutton_for_blows", "stat:DEF", 1, {}],
+		["glutton_for_blows", "stat:SPD", -1, {}], ["glutton_for_blows", "aim", 30, {}],
+		["faithless", "stat:RES", 2, {}], ["faithless", "heal_received", -2, {"line": 2, "slot": 1}],
 		["single_minded", "hit", 15, {"struck": "this"}], ["single_minded", "hit", -5, {"struck": "other"}],
 		["single_minded", "hit", 0, {}],
 		# The line.
-		["vanguard", "stat:DEF", 2, {"line": 2, "slot": 1}], ["vanguard", "stat:RES", 2, {"line": 2, "slot": 1}],
+		["vanguard", "stat:DEF", 1, {"line": 2, "slot": 1}], ["vanguard", "stat:RES", 1, {"line": 2, "slot": 1}],
 		["vanguard", "stat:DEF", 0, {"line": 2, "slot": 0}],
 		["rearguard", "hit", 10, {"line": 2, "slot": 0}], ["rearguard", "hit", 0, {"line": 2, "slot": 1}],
 		["anchor", "taken", -1, {"line": 3, "holder": 1, "slot": 0}], ["anchor", "taken", -1, {"line": 3, "holder": 1, "slot": 2}],
@@ -372,24 +372,24 @@ func table() -> Array:
 		["file_leader", "hit", 5, {"line": 2, "holder": 1, "slot": 0}], ["file_leader", "hit", 0, {"line": 2, "holder": 0, "slot": 1}],
 		["file_leader", "hit", 0, {"line": 2, "holder": 1, "slot": 1}],
 		["looming", "aim", 50, {}], ["unseen", "aim", -40, {}],
-		["lone_blade", "stat:STR", 2, {"line": 2}], ["lone_blade", "stat:DEX", 2, {"line": 2}], ["lone_blade", "stat:STR", 0, {"line": 3}],
+		["lone_blade", "stat:STR", 1, {"line": 2}], ["lone_blade", "stat:DEX", 1, {"line": 2}], ["lone_blade", "stat:STR", 0, {"line": 3}],
 		["full_rank", "hit", 5, {"line": 4}], ["full_rank", "hit", 0, {"line": 3}],
-		["last_stand", "stat:STR", 3, {"line": 2, "others_injured": true}], ["last_stand", "stat:DEF", 3, {"line": 2, "others_injured": true}],
+		["last_stand", "stat:STR", 2, {"line": 2, "others_injured": true}], ["last_stand", "stat:DEF", 2, {"line": 2, "others_injured": true}],
 		["last_stand", "stat:STR", 0, {"line": 2}],
 		["wall", "taken", -2, {"guarding": true}], ["wall", "taken", 0, {}],
 		["sidestep", "taken_all", -3, {}], ["sidestep", "taken", 0, {}],
 		["front_runner", "hit", 50, {"line": 2, "slot": 1}], ["front_runner", "spell_hit", 50, {}],
 		["front_runner", "hit", 0, {"line": 2, "slot": 1, "front_actions": 1}], ["front_runner", "hit", 0, {"line": 2, "slot": 0}],
 		# Tempo.
-		["first_blood", "hit", 20, {"actions": 0}], ["first_blood", "damage", 3, {"actions": 0}],
+		["first_blood", "hit", 20, {"actions": 0}], ["first_blood", "damage", 2, {"actions": 0}],
 		["first_blood", "hit", 0, {"actions": 1}], ["first_blood", "damage", 0, {"actions": 1}],
-		["patient", "hit", 15, {"after_guard": true}], ["patient", "damage", 2, {"after_guard": true}], ["patient", "hit", 0, {}],
-		["closer", "damage", 3, {"enemy_half": true}], ["closer", "damage", 0, {}],
-		["opener", "damage", 3, {}], ["opener", "damage", 0, {"enemy_half": true}],
-		["giant_bane", "damage", 3, {"enemy_traits": [EnemyTraits.LARGE]}], ["giant_bane", "damage", 0, {}],
+		["patient", "hit", 15, {"after_guard": true}], ["patient", "damage", 1, {"after_guard": true}], ["patient", "hit", 0, {}],
+		["closer", "damage", 2, {"enemy_half": true}], ["closer", "damage", 0, {}],
+		["opener", "damage", 2, {}], ["opener", "damage", 0, {"enemy_half": true}],
+		["giant_bane", "damage", 2, {"enemy_traits": [EnemyTraits.LARGE]}], ["giant_bane", "damage", 0, {}],
 		["fowler", "hit", 15, {"enemy_traits": [EnemyTraits.FLYING]}], ["fowler", "hit", 0, {}],
-		["spell_breaker", "damage", 3, {"enemy_magic": true}], ["spell_breaker", "damage", 0, {}],
-		["grudge", "damage", 3, {"struck": "hit_by"}], ["grudge", "damage", 0, {}],
+		["spell_breaker", "damage", 2, {"enemy_magic": true}], ["spell_breaker", "damage", 0, {}],
+		["grudge", "damage", 2, {"struck": "hit_by"}], ["grudge", "damage", 0, {}],
 		["counter_eye", "hit", 15, {"struck": "since"}], ["counter_eye", "hit", 0, {"struck": "hit_by"}],
 		["kingslayer", "damage", 1, {"band": 0}], ["kingslayer", "damage", 0, {}],
 	])
@@ -678,13 +678,13 @@ func test_apt_points_in_battle() -> void:
 func test_trait_stat_bonus_shown() -> void:
 	var c := RunCompanion.create(data())
 	c.traits = [trait_of("ox"), trait_of("hale")] as Array[TraitData]
-	t.eq(c.progress.trait_stat_bonus(Stat.STR), 2, "STR from traits")
-	t.eq(c.progress.trait_stat_bonus(Stat.DEX), -2, "DEX from traits")
-	t.eq(c.progress.trait_stat_bonus(Stat.HP), 4, "HP from traits")
+	t.eq(c.progress.trait_stat_bonus(Stat.STR), 1, "STR from traits")
+	t.eq(c.progress.trait_stat_bonus(Stat.DEX), -1, "DEX from traits")
+	t.eq(c.progress.trait_stat_bonus(Stat.HP), 3, "HP from traits")
 	t.eq(c.progress.trait_stat_bonus(Stat.DEF), 0, "nothing else")
-	t.eq(int(c.progress.stats()[Stat.STR]), 12, "in the stats the barracks shows")
-	t.eq(c.max_hp(), 44, "and max HP")
-	t.eq(c.attack(), 12 + 9, "and the Attack (STR + Mt for a sword)")
+	t.eq(int(c.progress.stats()[Stat.STR]), 11, "in the stats the barracks shows")
+	t.eq(c.max_hp(), 43, "and max HP")
+	t.eq(c.attack(), 11 + 9, "and the Attack (STR + Mt for a sword)")
 	c.traits = [trait_of("proud")] as Array[TraitData]
 	t.eq(c.progress.trait_stat_bonus(Stat.DEF), 0, "a bonus that needs a place in the line is not on the sheet")
 	# Art costs as the barracks would read them.

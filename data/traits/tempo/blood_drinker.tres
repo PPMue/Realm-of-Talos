@@ -6,7 +6,7 @@
 [sub_resource type="Resource" id="Resource_rjcin"]
 script = ExtResource("1_xh7id")
 kind = 26
-amount = 2
+amount = 1
 
 [resource]
 script = ExtResource("2_tpvf6")
@@ -14,5 +14,5 @@ id = "blood_drinker"
 display_name = "Blood-Drinker"
 family = 5
 rarity = 1
-gives = Array[String](["+2 Health when they fell an enemy"])
+gives = Array[String](["+1 Health when they fell an enemy"])
 modifiers = Array[ExtResource("1_xh7id")]([SubResource("Resource_rjcin")])

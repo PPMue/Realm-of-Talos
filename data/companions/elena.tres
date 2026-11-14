@@ -7,32 +7,34 @@
 
 [resource]
 script = ExtResource("2_o2ulh")
+luck = 2
+speed = 3
 display_name = "Elena"
 portrait = ExtResource("1_b42f8")
 color = Color(0.35, 0.3, 0.3, 1)
 portrait_focus = Vector2(0.522, 0.116)
 figure_scale = 1.2
-max_hp = 36
+max_hp = 24
 max_sta = 20
-strength = 11
-magic = 9
-crit = 4
-dexterity = 6
-defense = 7
-resistance = 2
-build = 9
+strength = 7
+magic = 6
+crit = 3
+dexterity = 4
+defense = 5
+resistance = 1
+build = 6
 weapon = ExtResource("3_1mcxf")
 start_grade_axe = 2
 signature_art = ExtResource("4_sig")
 growths = {
 "HP": 75,
-"STA": 45,
-"STR": 65,
-"MAG": 55,
-"CRT": 30,
-"DEX": 35,
-"SPD": 30,
-"DEF": 55,
-"RES": 25,
-"LCK": 30
+"STA": 30,
+"STR": 45,
+"MAG": 35,
+"CRT": 20,
+"DEX": 25,
+"SPD": 20,
+"DEF": 40,
+"RES": 20,
+"LCK": 20
 }

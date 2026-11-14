@@ -7,7 +7,7 @@
 script = ExtResource("1_xynxw")
 kind = 3
 amount = 15
-self_hp_at_most = 5
+self_hp_at_most = 3
 
 [resource]
 script = ExtResource("2_skxen")
@@ -15,5 +15,5 @@ id = "stubborn"
 display_name = "Stubborn"
 family = 6
 rarity = 1
-gives = Array[String](["At 5 Health or less: Avoid +15"])
+gives = Array[String](["At 3 Health or less: Avoid +15"])
 modifiers = Array[ExtResource("1_xynxw")]([SubResource("Resource_o4i5u")])

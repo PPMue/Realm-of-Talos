@@ -10,13 +10,13 @@ script = ExtResource("1_5gokv")
 display_name = "Maul"
 countdown = 4
 pick_weight = 3.0
-might = 16
+might = 11
 
 [sub_resource type="Resource" id="Resource_lyi0u"]
 script = ExtResource("2_eaxlu")
 display_name = "Frenzy"
 stat_mods = {
-"STR": 3
+"STR": 2
 }
 duration_ticks = 99
 max_stacks = 3
@@ -37,10 +37,12 @@ display_name = "Gore Sweep"
 targeting = 1
 countdown = 5
 pick_weight = 2.0
-might = 7
+might = 5
 
 [resource]
 script = ExtResource("4_q4y1p")
+speed = 3
+magic = 0
 traits = Array[String](["Large"])
 display_name = "Cursed Dweller"
 portrait = ExtResource("3_e3vvx")
@@ -48,11 +50,11 @@ color = Color(0.55, 0.5, 0.55, 1)
 stage_scale = 1.25
 band = 3
 role = "Slow heavy hitter that works itself into a frenzy."
-max_hp = 94
-strength = 16
-crit = 3
-dexterity = 8
-defense = 8
-resistance = 2
+max_hp = 63
+strength = 13
+crit = 2
+dexterity = 5
+defense = 6
+resistance = 1
 luck = 0
 actions = Array[ExtResource("1_5gokv")]([SubResource("Resource_gfsyq"), SubResource("Resource_54r74"), SubResource("Resource_ng4lr")])

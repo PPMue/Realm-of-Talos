@@ -5,13 +5,13 @@
 
 [sub_resource type="Resource" id="Resource_euvr3"]
 script = ExtResource("1_r0fil")
-amount = 3
+amount = 2
 stat = "RES"
 
 [sub_resource type="Resource" id="Resource_4cgyn"]
 script = ExtResource("1_r0fil")
 kind = 11
-amount = -3
+amount = -2
 
 [resource]
 script = ExtResource("2_7u7aq")
@@ -19,6 +19,6 @@ id = "faithless"
 display_name = "Faithless"
 family = 3
 rarity = 1
-gives = Array[String](["+3 Resistance"])
-takes = Array[String](["White magic heals them 3 less"])
+gives = Array[String](["+2 Resistance"])
+takes = Array[String](["White magic heals them 2 less"])
 modifiers = Array[ExtResource("1_r0fil")]([SubResource("Resource_euvr3"), SubResource("Resource_4cgyn")])

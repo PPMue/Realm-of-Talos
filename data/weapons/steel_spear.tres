@@ -6,9 +6,9 @@
 script = ExtResource("1_0gbou")
 weapon_type = 2
 tier = 3
-might = 7
+might = 4
 hit = 85
 effective_against = Array[String](["Large"])
 required_grade = 6
 display_name = "Steel Spear"
-weight = 9
+weight = 6

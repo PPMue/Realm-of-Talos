@@ -9,7 +9,7 @@
 script = ExtResource("1_qfhpo")
 display_name = "Raking Dive"
 pick_weight = 3.0
-might = 7
+might = 5
 hit = 85
 
 [sub_resource type="Resource" id="Resource_vxsjt"]
@@ -18,14 +18,14 @@ display_name = "Bluefire Plunge"
 countdown = 3
 pick_weight = 2.0
 damage_type = 1
-might = 10
+might = 7
 hit = 85
 
 [sub_resource type="Resource" id="Resource_22ol5"]
 script = ExtResource("2_vnq48")
 display_name = "Aloft"
 stat_mods = {
-"SPD": 5
+"SPD": 3
 }
 duration_ticks = 2
 
@@ -48,14 +48,14 @@ color = Color(0.25, 0.3, 0.5, 1)
 stage_scale = 1.1
 band = 2
 role = "Fast diver wreathed in blue fire; strikes often."
-max_hp = 34
-strength = 11
-magic = 7
-crit = 8
-dexterity = 13
-speed = 14
+max_hp = 23
+strength = 8
+magic = 6
+crit = 5
+dexterity = 9
+speed = 9
 defense = 2
-resistance = 4
-luck = 6
+resistance = 3
+luck = 4
 traits = Array[String](["Flying"])
 actions = Array[ExtResource("1_qfhpo")]([SubResource("Resource_f6jay"), SubResource("Resource_vxsjt"), SubResource("Resource_trsdu")])

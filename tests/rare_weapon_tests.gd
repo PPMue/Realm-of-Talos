@@ -7,16 +7,16 @@ var t   # the runner (run_tests.gd)
 
 ## name -> [file, type, grade, Mt, Hit, weight, price]
 const TEN := {
-	"Oathkeeper": ["oathkeeper", 0, 2, 2, 90, 5, 300],
-	"Twinfang Sabre": ["twinfang_sabre", 0, 4, 2, 80, 6, 280],
-	"Headsman": ["headsman", 1, 4, 7, 60, 13, 280],
-	"Bloodletter": ["bloodletter", 1, 2, 3, 70, 9, 180],
-	"Wallbreaker": ["wallbreaker", 2, 4, 3, 75, 10, 280],
-	"Sentinel's Pike": ["sentinels_pike", 2, 2, 3, 80, 9, 180],
-	"Galewing Bow": ["galewing_bow", 3, 2, 2, 90, 3, 180],
-	"Longwatch": ["longwatch", 3, 4, 5, 110, 7, 280],
-	"Viper's Kiss": ["vipers_kiss", 4, 2, 1, 95, 2, 180],
-	"Magpie": ["magpie", 4, 4, 3, 90, 3, 280],
+	"Oathkeeper": ["oathkeeper", 0, 2, 1, 90, 3, 300],
+	"Twinfang Sabre": ["twinfang_sabre", 0, 4, 1, 80, 4, 280],
+	"Headsman": ["headsman", 1, 4, 5, 60, 9, 280],
+	"Bloodletter": ["bloodletter", 1, 2, 2, 70, 6, 180],
+	"Wallbreaker": ["wallbreaker", 2, 4, 2, 75, 7, 280],
+	"Sentinel's Pike": ["sentinels_pike", 2, 2, 2, 80, 6, 180],
+	"Galewing Bow": ["galewing_bow", 3, 2, 1, 90, 2, 180],
+	"Longwatch": ["longwatch", 3, 4, 3, 110, 5, 280],
+	"Viper's Kiss": ["vipers_kiss", 4, 2, 1, 95, 1, 180],
+	"Magpie": ["magpie", 4, 4, 2, 90, 2, 280],
 }
 
 
@@ -131,9 +131,9 @@ func test_rare_holding_rule() -> void:
 
 func test_oathkeeper_might() -> void:
 	var oath := rare("oathkeeper")
-	var expected := {Proficiency.Grade.D: 2, Proficiency.Grade.D_PLUS: 2, Proficiency.Grade.C: 4, Proficiency.Grade.B: 6,
-		Proficiency.Grade.A: 8, Proficiency.Grade.A_PLUS: 8, Proficiency.Grade.S: 10}
-	t.eq(oath.trait_lines()[0], "Mt grows with the wielder's sword grade (2 at D up to 10 at S)", "its line")
+	var expected := {Proficiency.Grade.D: 1, Proficiency.Grade.D_PLUS: 1, Proficiency.Grade.C: 2, Proficiency.Grade.B: 3,
+		Proficiency.Grade.A: 4, Proficiency.Grade.A_PLUS: 4, Proficiency.Grade.S: 5}
+	t.eq(oath.trait_lines()[0], "Mt grows with the wielder's sword grade (1 at D up to 5 at S)", "its line")
 	var c := RunCompanion.create(fighter(oath))
 	for g: int in expected:
 		c.progress.points[WeaponData.WeaponType.SWORD] = Proficiency.points_for(g)
@@ -170,11 +170,11 @@ func test_crit_bonus() -> void:
 		d.crit = 5
 		var b: Battle = t.make_battle(cs1(d), one(target(0)))
 		var c := b.roster[0]
-		t.eq(b.forecast(c, b.enemies[0]).crit, 10 + int(pair[1]), "%s: Crit +%d on Attack" % [w.display_name, pair[1]])
+		t.eq(b.forecast(c, b.enemies[0]).crit, BattleConfig.CRIT_CRT_FACTOR * 5 + int(pair[1]), "%s: Crit +%d on Attack" % [w.display_name, pair[1]])
 		var art: CombatArtData = t.make_art("Art", 1, 1, 1, 0, w.weapon_type)
 		art.crit_bonus = 5
 		t.give_art(c, art)
-		t.eq(b.forecast(c, b.enemies[0], art).crit, 10 + 5 + int(pair[1]), "%s: and on its arts" % w.display_name)
+		t.eq(b.forecast(c, b.enemies[0], art).crit, BattleConfig.CRIT_CRT_FACTOR * 5 + 5 + int(pair[1]), "%s: and on its arts" % w.display_name)
 
 
 func test_bloodletter_lifesteal() -> void:
@@ -195,15 +195,15 @@ func test_wallbreaker_ignores_def() -> void:
 	var wb := rare("wallbreaker")
 	var b: Battle = t.make_battle(cs1(fighter(wb)), one(target(10)))
 	var c := b.roster[0]
-	t.eq(b.forecast(c, b.enemies[0]).damage, 10 + 3 - 5, "half of DEF 10 ignored")
+	t.eq(b.forecast(c, b.enemies[0]).damage, 10 + 2 - 5, "half of DEF 10 ignored")
 	var small: CombatArtData = t.make_art("Pierce", 1, 1, 1, 0, WeaponData.WeaponType.SPEAR)
 	small.ignore_def_percent = 20
 	t.give_art(c, small)
-	t.eq(b.forecast(c, b.enemies[0], small).damage, 10 + 3 - 5, "an art ignoring less: the weapon's half counts")
+	t.eq(b.forecast(c, b.enemies[0], small).damage, 10 + 2 - 5, "an art ignoring less: the weapon's half counts")
 	var big: CombatArtData = t.make_art("Skewer", 1, 1, 1, 0, WeaponData.WeaponType.SPEAR)
 	big.ignore_def_percent = 100
 	t.give_art(c, big)
-	t.eq(b.forecast(c, b.enemies[0], big).damage, 10 + 3 - 0, "an art ignoring more: the art's counts, no stacking")
+	t.eq(b.forecast(c, b.enemies[0], big).damage, 10 + 2 - 0, "an art ignoring more: the art's counts, no stacking")
 	var b2: Battle = t.make_battle(cs1(fighter(t.make_weapon(5, 999, 0, WeaponData.WeaponType.SPEAR))), one(target(10)))
 	t.eq(b2.forecast(b2.roster[0], b2.enemies[0]).damage, 10 + 5 - 10, "a plain spear: all of DEF")
 
@@ -217,12 +217,12 @@ func test_held_stats_and_aim() -> void:
 	d2.defense = 4
 	var cs: Array[CompanionData] = [d1, d2]
 	var b: Battle = t.make_battle(cs, one(target(0)))
-	t.eq(b.roster[0].stat(Stat.DEF), 7, "DEF +3 while held")
+	t.eq(b.roster[0].stat(Stat.DEF), 6, "DEF +2 while held")
 	t.eq(b.roster[1].stat(Stat.DEF), 4, "not for the other")
 	t.eq(b.target_weights(), [1.5, 2.0] as Array[float], "1.5x as likely to be aimed at")
 	var gw := rare("galewing_bow")
 	var b3: Battle = t.make_battle(cs1(fighter(gw)), one(target(0)))
-	t.eq(b3.roster[0].stat(Stat.SPD), 5 + 3, "SPD +3 while held")
+	t.eq(b3.roster[0].stat(Stat.SPD), 5 + 2, "SPD +2 while held")
 	# Between battles the Attack figure sees the held bonuses too.
 	var dg := fighter(gw)
 	var rc := RunCompanion.create(dg)
@@ -236,11 +236,11 @@ func test_vipers_kiss_poisons() -> void:
 	var e := b.enemies[0]
 	t.check(b.attack(c, e), "attack")
 	var venom := e.get_effect("Venom")
-	t.check(venom != null and venom.damage_per_tick == 2, "poisoned: 2 a turn")
+	t.check(venom != null and venom.damage_per_tick == 1, "poisoned: 1 a turn")
 	if venom != null:
 		t.eq(venom.ticks_left, 2, "for 3 turns, counting the one it landed in")
 	# The poison finishes it: the kill is the wielder's.
-	e.hp = 2
+	e.hp = 1
 	b._damage_over_time(e)
 	t.check(not e.is_alive(), "felled by the venom")
 	t.eq(b.kills_of(c), 1, "credited to the wielder")

@@ -8,7 +8,7 @@
 [sub_resource type="Resource" id="Resource_o30so"]
 script = ExtResource("2_t81in")
 display_name = "Poison"
-damage_per_tick = 2
+damage_per_tick = 1
 
 [sub_resource type="Resource" id="Resource_xiods"]
 script = ExtResource("1_mmu7p")
@@ -25,13 +25,13 @@ effect = SubResource("Resource_o30so")
 [sub_resource type="Resource" id="Resource_gbjbp"]
 script = ExtResource("2_t81in")
 display_name = "Poison"
-damage_per_tick = 2
+damage_per_tick = 1
 
 [sub_resource type="Resource" id="Resource_rv4ul"]
 script = ExtResource("1_mmu7p")
 display_name = "Toxic Peck"
 pick_weight = 3.0
-might = 5
+might = 3
 hit = 90
 effect = SubResource("Resource_gbjbp")
 
@@ -58,14 +58,14 @@ portrait = ExtResource("3_sfr62")
 color = Color(0.4, 0.25, 0.55, 1)
 band = 2
 role = "Poisoner: rains venom on the whole line."
-max_hp = 32
-strength = 8
+max_hp = 21
+strength = 6
 magic = 4
-crit = 2
-dexterity = 11
-speed = 12
+crit = 1
+dexterity = 7
+speed = 8
 defense = 2
-resistance = 5
-luck = 4
+resistance = 3
+luck = 3
 traits = Array[String](["Flying"])
 actions = Array[ExtResource("1_mmu7p")]([SubResource("Resource_xiods"), SubResource("Resource_rv4ul"), SubResource("Resource_8xjim")])

@@ -11,12 +11,12 @@ kind = 4
 [sub_resource type="Resource" id="Resource_ubxsj"]
 script = ExtResource("1_amg4r")
 modifier = SubResource("Resource_vmm3e")
-by_rank = Array[float]([2.0, 3.0, 4.0, 5.0, 6.0])
+by_rank = Array[float]([1.0, 2.0, 3.0, 3.0, 4.0])
 
 [sub_resource type="Resource" id="Resource_hybt7"]
 script = ExtResource("2_3tntm")
 kind = 18
-amount = 2
+amount = 1
 
 [sub_resource type="Resource" id="Resource_upfcp"]
 script = ExtResource("1_amg4r")
@@ -27,6 +27,6 @@ script = ExtResource("3_q2ypr")
 id = "skull"
 display_name = "Skull"
 family = 7
-gives = Array[String](["+2 damage on every blow", "+3 damage on every blow", "+4 damage on every blow", "+5 damage on every blow", "+6 damage on every blow"])
-takes = "Enemy blows deal 2 more to them"
+gives = Array[String](["+1 damage on every blow", "+2 damage on every blow", "+3 damage on every blow", "+3 damage on every blow", "+4 damage on every blow"])
+takes = "Enemy blows deal 1 more to them"
 effects = Array[ExtResource("1_amg4r")]([SubResource("Resource_ubxsj"), SubResource("Resource_upfcp")])

@@ -11,6 +11,6 @@ tier = 1
 targeting = 0
 uses = 6
 recovery = 2
-might = 4
+might = 3
 hit = 85
 ignore_res_percent = 60

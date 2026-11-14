@@ -6,7 +6,7 @@
 [sub_resource type="Resource" id="Resource_wvuao"]
 script = ExtResource("1_iij6u")
 kind = 4
-amount = 3
+amount = 2
 target_health = 2
 
 [resource]
@@ -15,5 +15,5 @@ id = "opener"
 display_name = "Opener"
 family = 5
 rarity = 1
-gives = Array[String](["+3 damage to enemies at full Health"])
+gives = Array[String](["+2 damage to enemies at full Health"])
 modifiers = Array[ExtResource("1_iij6u")]([SubResource("Resource_wvuao")])

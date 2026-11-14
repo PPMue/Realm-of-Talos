@@ -481,7 +481,7 @@ func test_gem_events() -> void:
 	var c: RunCompanion = run.hp_targets(mine.choices[0])[0]
 	var hp := c.hp
 	run.choose(mine.choices[0])
-	t.eq(c.hp, maxi(1, hp - 10), "the healthiest pays in HP")
+	t.eq(c.hp, maxi(1, hp - 7), "the healthiest pays in HP")
 	t.eq(run.gem_count(Gem.TOPAZ), 2, "a second Topaz")
 	t.eq(run.gems_taken, 2, "two taken")
 
@@ -889,10 +889,10 @@ func test_enchant_rules() -> void:
 
 func test_enchant_rolls() -> void:
 	var run := rich_run(15)
-	t.eq(RunConfig.ENCHANT_BUDGET_BY_TIER, [1, 2, 3, 4, 5, 6] as Array[int], "budgets by tier")
+	t.eq(RunConfig.ENCHANT_BUDGET_BY_TIER, [1, 1, 2, 3, 3, 4] as Array[int], "budgets by tier")
 	for tier in 6:
-		t.eq(Run.enchant_budget(owned(run, tier)), tier + 1, "tier %d: budget %d" % [tier, tier + 1])
-	t.eq(Run.enchant_budget(run.inventory.add(run.content.rare_weapons[0])), 4, "a rare weapon 4")
+		t.eq(Run.enchant_budget(owned(run, tier)), RunConfig.ENCHANT_BUDGET_BY_TIER[tier], "tier %d: budget %d" % [tier, RunConfig.ENCHANT_BUDGET_BY_TIER[tier]])
+	t.eq(Run.enchant_budget(run.inventory.add(run.content.rare_weapons[0])), 3, "a rare weapon 3")
 	var seen := {}
 	for budget in [1, 2, 3, 4, 5, 6]:
 		var edged := 0
@@ -941,7 +941,7 @@ func test_smithy_two_rolls() -> void:
 		var net := 0
 		for key: String in roll:
 			net += int(roll[key])
-		t.eq(net, 4, "each the steel budget")
+		t.eq(net, 3, "each the steel budget")
 	var second: Dictionary = offer.rolls[1]
 	t.check(run.take_enchant(1), "the second taken")
 	t.eq(w.enchant_stats, second, "the weapon has it")

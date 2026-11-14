@@ -6,7 +6,7 @@
 [sub_resource type="Resource" id="Resource_aiub6"]
 script = ExtResource("1_0fotp")
 kind = 4
-amount = 3
+amount = 2
 struck = 3
 
 [resource]
@@ -15,5 +15,5 @@ id = "grudge"
 display_name = "Grudge"
 family = 5
 rarity = 1
-gives = Array[String](["+3 damage to whoever hit them last"])
+gives = Array[String](["+2 damage to whoever hit them last"])
 modifiers = Array[ExtResource("1_0fotp")]([SubResource("Resource_aiub6")])

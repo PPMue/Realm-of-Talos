@@ -8,14 +8,14 @@
 [sub_resource type="Resource" id="Resource_wecvr"]
 script = ExtResource("2_aoqrs")
 display_name = "Deep Poison"
-damage_per_tick = 4
+damage_per_tick = 3
 
 [sub_resource type="Resource" id="Resource_26uyl"]
 script = ExtResource("1_q54r1")
 display_name = "Toxic Grip"
 countdown = 3
 pick_weight = 3.0
-might = 7
+might = 5
 hit = 85
 effect = SubResource("Resource_wecvr")
 
@@ -23,8 +23,8 @@ effect = SubResource("Resource_wecvr")
 script = ExtResource("2_aoqrs")
 display_name = "Corroded"
 stat_mods = {
-"DEF": -3,
-"RES": -3
+"DEF": -2,
+"RES": -2
 }
 
 [sub_resource type="Resource" id="Resource_4p83n"]
@@ -42,7 +42,7 @@ effect = SubResource("Resource_j54t5")
 script = ExtResource("2_aoqrs")
 display_name = "Swollen"
 stat_mods = {
-"STR": 3
+"STR": 2
 }
 duration_ticks = 4
 
@@ -58,18 +58,19 @@ effect = SubResource("Resource_tx16d")
 
 [resource]
 script = ExtResource("4_3ajte")
+luck = 1
 display_name = "Poison Spawn"
 portrait = ExtResource("3_cukxb")
 color = Color(0.3, 0.2, 0.45, 1)
 stage_scale = 1.05
 band = 2
 role = "Plague brute: a poisoned grip, and corrosion that strips armour."
-max_hp = 50
-strength = 11
+max_hp = 33
+strength = 8
 magic = 4
-crit = 2
-dexterity = 8
-speed = 8
-defense = 5
-resistance = 5
+crit = 1
+dexterity = 5
+speed = 5
+defense = 4
+resistance = 3
 actions = Array[ExtResource("1_q54r1")]([SubResource("Resource_26uyl"), SubResource("Resource_4p83n"), SubResource("Resource_imnti")])

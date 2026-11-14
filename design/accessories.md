@@ -1,5 +1,8 @@
 # Elite fights, gemstones and accessories (design; built on 2026-11-14)
 
+Numbers of a stat, of damage and of Health were brought to two thirds on 2026-11-14 with every stat in the
+game (design/growth.md); the tables below hold the numbers as they are now.
+
 Every number here is a first guess, to be tuned with the 200-run check. All of it is built; README.md describes the rules as they run, including how the six new rules were read.
 
 ## Elite fights
@@ -68,17 +71,17 @@ Types marked **new** needed a rule the game did not have (all built now); all th
 
 | Type | Effect | T / S / E / R / D |
 |---|---|---|
-| Ring | Strength | +1 / 2 / 3 / 4 / 5 |
-| Circlet | Magic | +1 / 2 / 3 / 4 / 5 |
-| Bracelet | Dexterity | +1 / 2 / 3 / 4 / 5 |
-| Anklet | Speed | +1 / 2 / 3 / 4 / 5 |
-| Armlet | Defence | +1 / 2 / 3 / 4 / 5 |
-| Amulet | Resistance | +1 / 2 / 3 / 4 / 5 |
-| Earring | Critical | +1 / 2 / 3 / 4 / 5 |
-| Buckle | Build | +1 / 2 / 3 / 4 / 5 |
-| Pendant | Health | +3 / 6 / 9 / 12 / 15 |
+| Ring | Strength | +1 / 2 / 2 / 3 / 4 |
+| Circlet | Magic | +1 / 2 / 2 / 3 / 4 |
+| Bracelet | Dexterity | +1 / 2 / 2 / 3 / 4 |
+| Anklet | Speed | +1 / 2 / 2 / 3 / 4 |
+| Armlet | Defence | +1 / 2 / 2 / 3 / 4 |
+| Amulet | Resistance | +1 / 2 / 2 / 3 / 4 |
+| Earring | Critical | +1 / 2 / 2 / 3 / 4 |
+| Buckle | Build | +1 / 2 / 2 / 3 / 4 |
+| Pendant | Health | +2 / 4 / 6 / 8 / 10 |
 | Girdle | Stamina | +2 / 4 / 6 / 8 / 10 |
-| Charm | Luck | +2 / 4 / 6 / 8 / 10 |
+| Charm | Luck | +1 / 3 / 4 / 5 / 7 |
 
 ### 2. Striking (9)
 
@@ -86,13 +89,13 @@ Types marked **new** needed a rule the game did not have (all built now); all th
 |---|---|---|
 | Signet | Hit | +5 / 10 / 15 / 20 / 25 |
 | Brooch | Crit while at full Health | +6 / 12 / 18 / 24 / 30 |
-| Fang | Damage to enemies below half Health | +2 / 4 / 6 / 8 / 10 |
-| Horn | Damage on their first two actions of a battle | +2 / 4 / 6 / 8 / 10 |
+| Fang | Damage to enemies below half Health | +1 / 3 / 4 / 5 / 7 |
+| Horn | Damage on their first two actions of a battle | +1 / 3 / 4 / 5 / 7 |
 | Torc | More damage while below half Health | +8% / 16% / 24% / 32% / 40% |
 | Sigil | More damage against a boss, and in an elite fight | +6% / 12% / 18% / 24% / 30% |
-| Talon | Against Flying and Large enemies: Hit, and damage | +4 and +1 / 8 and +2 / 12 and +3 / 16 and +4 / 20 and +5 |
+| Talon | Against Flying and Large enemies: Hit, and damage | +4 and +1 / 8 and +1 / 12 and +2 / 16 and +3 / 20 and +3 |
 | Pin (**new**) | Their strikes ignore part of the enemy's Defence | 8% / 16% / 24% / 32% / 40% |
-| Thorn (**new**) | An enemy that hits them takes damage | 2 / 4 / 6 / 8 / 10 |
+| Thorn (**new**) | An enemy that hits them takes damage | 1 / 3 / 4 / 5 / 7 |
 
 ### 3. Standing (8)
 
@@ -101,7 +104,7 @@ Types marked **new** needed a rule the game did not have (all built now); all th
 | Clasp | Avoid | +5 / 10 / 15 / 20 / 25 |
 | Gorget | Physical blows deal less to them | -6% / 12% / 18% / 24% / 30% |
 | Cameo | Guarding takes this much off a blow instead of 50% | 60% / 65% / 70% / 75% / 80% |
-| Bell | Enemies aim at them more often, and Defence | x1.5 and +1 / x2 and +1 / x2.5 and +2 / x3 and +2 / x3.5 and +3 |
+| Bell | Enemies aim at them more often, and Defence | x1.5 and +1 / x2 and +1 / x2.5 and +1 / x3 and +2 / x3.5 and +2 |
 | Veil | Enemies aim at them less often | x0.8 / 0.65 / 0.5 / 0.4 / 0.3 |
 | Scarab | After a battle won, still standing: heals this share of their Health | 10% / 20% / 30% / 40% / 50% |
 | Talisman (**new**) | Poison and burning deal less to them | -20% / 40% / 60% / 80% / 100% |
@@ -113,7 +116,7 @@ Types marked **new** needed a rule the game did not have (all built now); all th
 |---|---|---|
 | Beads | Focus restores more stamina | +2 / 4 / 6 / 8 / 10 |
 | Medal | Stamina when they fell an enemy | +2 / 4 / 6 / 8 / 10 |
-| Claw | Health when they fell an enemy | +2 / 4 / 6 / 8 / 10 |
+| Claw | Health when they fell an enemy | +1 / 3 / 4 / 5 / 7 |
 | Spur | Their first actions of a battle have 1 less recovery, where the action's recovery is 2 or more (a plain attack, Guard and Focus are not made free) | the first 1 / 2 / 3 / 4 / 5 actions |
 | Hourglass (**new**) | Their first hit of a battle pushes the target's next action back | 1 / 2 / 3 / 4 / 5 turns |
 
@@ -124,8 +127,8 @@ Types marked **new** needed a rule the game did not have (all built now); all th
 | Tiara | More uses of every tier I spell | +1 / 2 / 3 / 4 / 5 |
 | Lens | Hit with spells | +5 / 10 / 15 / 20 / 25 |
 | Prism | Spells deal more damage | +6% / 12% / 18% / 24% / 30% |
-| Rosary | Heals they cast restore more | +2 / 4 / 6 / 8 / 10 |
-| Reliquary | White magic heals them more | +2 / 4 / 6 / 8 / 10 |
+| Rosary | Heals they cast restore more | +1 / 3 / 4 / 5 / 7 |
+| Reliquary | White magic heals them more | +1 / 3 / 4 / 5 / 7 |
 
 ### 6. The line (4): for the others
 
@@ -134,7 +137,7 @@ Types marked **new** needed a rule the game did not have (all built now); all th
 | Lantern | Every other companion in the line has Hit | +3 / 6 / 9 / 12 / 15 |
 | Chain | The companions either side of them take less damage | -5% / 10% / 15% / 20% / 25% |
 | Whistle | After they fell an enemy, the next ally to act has Hit | +10 / 20 / 30 / 40 / 50 |
-| Dove | When they are injured, every ally standing heals | 4 / 8 / 12 / 16 / 20 |
+| Dove | When they are injured, every ally standing heals | 3 / 5 / 8 / 11 / 13 |
 
 ### 7. The road (6): outside the fight
 
@@ -144,7 +147,7 @@ Types marked **new** needed a rule the game did not have (all built now); all th
 | Plume | XP | +6% / 12% / 18% / 24% / 30% |
 | Tassel | Weapon and magic points | +20% / 40% / 60% / 80% / 100% |
 | Acorn | Every growth rate | +3 / 6 / 9 / 12 / 15 |
-| Compass | Scavenging: counts as this much higher in whatever is asked, and the party brings back more | +1 and 10% / +2 and 20% / +3 and 30% / +4 and 40% / +5 and 50% |
+| Compass | Scavenging: counts as this much higher in whatever is asked, and the party brings back more | +1 and 10% / +1 and 20% / +2 and 30% / +3 and 40% / +3 and 50% |
 | Poultice | Heals this much more of their Health at the day's end | +4% / 8% / 12% / 16% / 20% |
 
 ### 8. Two-edged (6): more than a plain one, at a fixed price
@@ -153,12 +156,12 @@ The price does not change with the stone, so a better stone is always simply bet
 
 | Type | Gives | T / S / E / R / D | Takes |
 |---|---|---|---|
-| Skull | Damage on every blow | +2 / 3 / 4 / 5 / 6 | Enemy blows deal 2 more to them |
+| Skull | Damage on every blow | +1 / 2 / 3 / 3 / 4 | Enemy blows deal 1 more to them |
 | Mask | Crit | +10 / 15 / 20 / 25 / 30 | -10 Hit |
 | Monocle | Hit | +10 / 15 / 20 / 25 / 30 | Avoid -10 |
-| Shackle | Defence | +2 / 3 / 4 / 5 / 6 | -2 Speed |
-| Wing | Speed | +2 / 3 / 4 / 5 / 6 | -2 Defence |
-| Crown | Magic | +2 / 3 / 4 / 5 / 6 | Every spell has 1 fewer use (never below 1) |
+| Shackle | Defence | +1 / 2 / 3 / 3 / 4 | -1 Speed |
+| Wing | Speed | +1 / 2 / 3 / 3 / 4 | -1 Defence |
+| Crown | Magic | +1 / 2 / 3 / 3 / 4 | Every spell has 1 fewer use (never below 1) |
 
 ## Notes on balance
 

@@ -10,14 +10,14 @@ script = ExtResource("1_j5blp")
 display_name = "Shadow Rend"
 countdown = 3
 pick_weight = 3.0
-might = 11
+might = 7
 hit = 85
 
 [sub_resource type="Resource" id="Resource_ti4ec"]
 script = ExtResource("2_tcydt")
 display_name = "Benighted"
 stat_mods = {
-"DEX": -4
+"DEX": -3
 }
 duration_ticks = 2
 
@@ -57,15 +57,15 @@ color = Color(0.4, 0.42, 0.5, 1)
 stage_scale = 1.2
 band = 3
 role = "Assassin: aims at the far (left) end of the line first."
-max_hp = 52
-strength = 14
-magic = 2
-crit = 12
-dexterity = 16
-speed = 18
+max_hp = 35
+strength = 11
+magic = 3
+crit = 8
+dexterity = 11
+speed = 12
 defense = 4
-resistance = 6
-luck = 8
+resistance = 4
+luck = 5
 traits = Array[String](["Flying"])
 reversed_targeting = true
 actions = Array[ExtResource("1_j5blp")]([SubResource("Resource_q08js"), SubResource("Resource_jageq"), SubResource("Resource_knp21")])

@@ -12,30 +12,30 @@ portrait = ExtResource("1_art")
 color = Color(0.85, 0.82, 0.95, 1)
 portrait_focus = Vector2(0.5, 0.2)
 figure_scale = 0.95
-max_hp = 29
+max_hp = 19
 max_sta = 13
-strength = 6
-magic = 8
-crit = 3
-dexterity = 7
-speed = 7
-defense = 3
-resistance = 8
-luck = 7
-build = 6
+strength = 4
+magic = 5
+crit = 2
+dexterity = 5
+speed = 5
+defense = 2
+resistance = 5
+luck = 5
+build = 4
 weapon = ExtResource("3_weapon")
 start_grade_sword = 1
 start_grade_white = 2
 signature_spell = ExtResource("4_spell")
 growths = {
 "HP": 45,
-"STA": 35,
-"STR": 55,
-"MAG": 65,
-"CRT": 20,
-"DEX": 40,
-"SPD": 40,
-"DEF": 20,
-"RES": 60,
-"LCK": 50
+"STA": 25,
+"STR": 35,
+"MAG": 45,
+"CRT": 15,
+"DEX": 30,
+"SPD": 30,
+"DEF": 15,
+"RES": 40,
+"LCK": 35
 }

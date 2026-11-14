@@ -5,12 +5,12 @@
 
 [sub_resource type="Resource" id="Resource_qegf6"]
 script = ExtResource("1_47ag6")
-amount = 3
+amount = 2
 stat = "SPD"
 
 [sub_resource type="Resource" id="Resource_8lkho"]
 script = ExtResource("1_47ag6")
-amount = -2
+amount = -1
 stat = "BLD"
 
 [resource]
@@ -19,6 +19,6 @@ id = "whip_thin"
 display_name = "Whip-Thin"
 family = 3
 rarity = 1
-gives = Array[String](["+3 Speed"])
-takes = Array[String](["-2 Build"])
+gives = Array[String](["+2 Speed"])
+takes = Array[String](["-1 Build"])
 modifiers = Array[ExtResource("1_47ag6")]([SubResource("Resource_qegf6"), SubResource("Resource_8lkho")])

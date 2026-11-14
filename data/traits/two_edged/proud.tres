@@ -5,25 +5,25 @@
 
 [sub_resource type="Resource" id="Resource_hmab8"]
 script = ExtResource("1_gst13")
-amount = 2
+amount = 1
 stat = "DEF"
 place = 1
 
 [sub_resource type="Resource" id="Resource_i5sc4"]
 script = ExtResource("1_gst13")
-amount = 2
+amount = 1
 stat = "RES"
 place = 1
 
 [sub_resource type="Resource" id="Resource_88esv"]
 script = ExtResource("1_gst13")
-amount = -2
+amount = -1
 stat = "DEF"
 place = 4
 
 [sub_resource type="Resource" id="Resource_xdfo1"]
 script = ExtResource("1_gst13")
-amount = -2
+amount = -1
 stat = "RES"
 place = 4
 
@@ -33,6 +33,6 @@ id = "proud"
 display_name = "Proud"
 family = 3
 rarity = 1
-gives = Array[String](["+2 Defence and Resistance in the front place"])
-takes = Array[String](["-2 of both anywhere else"])
+gives = Array[String](["+1 Defence and Resistance in the front place"])
+takes = Array[String](["-1 of both anywhere else"])
 modifiers = Array[ExtResource("1_gst13")]([SubResource("Resource_hmab8"), SubResource("Resource_i5sc4"), SubResource("Resource_88esv"), SubResource("Resource_xdfo1")])

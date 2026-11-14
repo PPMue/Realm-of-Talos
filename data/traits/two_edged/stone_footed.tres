@@ -5,12 +5,12 @@
 
 [sub_resource type="Resource" id="Resource_7mj7m"]
 script = ExtResource("1_fwhmm")
-amount = 3
+amount = 2
 stat = "DEF"
 
 [sub_resource type="Resource" id="Resource_cjspd"]
 script = ExtResource("1_fwhmm")
-amount = -2
+amount = -1
 stat = "SPD"
 
 [resource]
@@ -19,6 +19,6 @@ id = "stone_footed"
 display_name = "Stone-Footed"
 family = 3
 rarity = 1
-gives = Array[String](["+3 Defence"])
-takes = Array[String](["-2 Speed"])
+gives = Array[String](["+2 Defence"])
+takes = Array[String](["-1 Speed"])
 modifiers = Array[ExtResource("1_fwhmm")]([SubResource("Resource_7mj7m"), SubResource("Resource_cjspd")])

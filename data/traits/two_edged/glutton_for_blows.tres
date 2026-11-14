@@ -5,7 +5,7 @@
 
 [sub_resource type="Resource" id="Resource_5rqqt"]
 script = ExtResource("1_wrwxv")
-amount = 4
+amount = 3
 stat = "HP"
 
 [sub_resource type="Resource" id="Resource_tqw6x"]
@@ -15,7 +15,7 @@ stat = "DEF"
 
 [sub_resource type="Resource" id="Resource_nh085"]
 script = ExtResource("1_wrwxv")
-amount = -2
+amount = -1
 stat = "SPD"
 
 [sub_resource type="Resource" id="Resource_eb7i4"]
@@ -29,6 +29,6 @@ id = "glutton_for_blows"
 display_name = "Glutton for Blows"
 family = 3
 rarity = 1
-gives = Array[String](["+4 Health, +1 Defence"])
-takes = Array[String](["-2 Speed, drawn more (x1.3)"])
+gives = Array[String](["+3 Health, +1 Defence"])
+takes = Array[String](["-1 Speed, drawn more (x1.3)"])
 modifiers = Array[ExtResource("1_wrwxv")]([SubResource("Resource_5rqqt"), SubResource("Resource_tqw6x"), SubResource("Resource_nh085"), SubResource("Resource_eb7i4")])

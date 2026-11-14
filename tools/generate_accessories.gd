@@ -15,6 +15,11 @@ const TWO_TO_TEN := [2, 4, 6, 8, 10]
 const FIVE_TO_25 := [5, 10, 15, 20, 25]
 const SIX_TO_30 := [6, 12, 18, 24, 30]
 const TWO_TO_SIX := [2, 3, 4, 5, 6]
+# Numbers of a stat, of damage or of Health, at the size the stats have (two thirds of the lists above).
+const STAT_STEPS := [1, 2, 2, 3, 4]
+const SMALL_STEPS := [1, 1, 2, 3, 3]
+const POINT_STEPS := [1, 3, 4, 5, 7]
+const EDGED_STEPS := [1, 2, 3, 3, 4]
 
 var _all: Array[AccessoryTypeData] = []
 
@@ -99,39 +104,39 @@ func stat(id: String, display_name: String, key: String, values: Array) -> void:
 # ---------------------------------------------------------------- the eight families
 
 func _plain() -> void:
-	stat("ring", "Ring", Stat.STR, ONE_TO_FIVE)
-	stat("circlet", "Circlet", Stat.MAG, ONE_TO_FIVE)
-	stat("bracelet", "Bracelet", Stat.DEX, ONE_TO_FIVE)
-	stat("anklet", "Anklet", Stat.SPD, ONE_TO_FIVE)
-	stat("armlet", "Armlet", Stat.DEF, ONE_TO_FIVE)
-	stat("amulet", "Amulet", Stat.RES, ONE_TO_FIVE)
-	stat("earring", "Earring", Stat.CRT, ONE_TO_FIVE)
-	stat("buckle", "Buckle", Stat.BLD, ONE_TO_FIVE)
-	stat("pendant", "Pendant", Stat.HP, [3, 6, 9, 12, 15])
+	stat("ring", "Ring", Stat.STR, STAT_STEPS)
+	stat("circlet", "Circlet", Stat.MAG, STAT_STEPS)
+	stat("bracelet", "Bracelet", Stat.DEX, STAT_STEPS)
+	stat("anklet", "Anklet", Stat.SPD, STAT_STEPS)
+	stat("armlet", "Armlet", Stat.DEF, STAT_STEPS)
+	stat("amulet", "Amulet", Stat.RES, STAT_STEPS)
+	stat("earring", "Earring", Stat.CRT, STAT_STEPS)
+	stat("buckle", "Buckle", Stat.BLD, STAT_STEPS)
+	stat("pendant", "Pendant", Stat.HP, TWO_TO_TEN)
 	stat("girdle", "Girdle", Stat.STA, TWO_TO_TEN)
-	stat("charm", "Charm", Stat.LCK, TWO_TO_TEN)
+	stat("charm", "Charm", Stat.LCK, POINT_STEPS)
 
 
 func _striking() -> void:
 	add("signet", "Signet", F.STRIKING, lines("+%d Hit", FIVE_TO_25), [eff(K.HIT, FIVE_TO_25)])
 	add("brooch", "Brooch", F.STRIKING, lines("+%d Crit while at full Health", SIX_TO_30),
 		[eff(K.CRIT, SIX_TO_30, {"self_health": TraitModifier.Health.FULL})])
-	add("fang", "Fang", F.STRIKING, lines("+%d damage to enemies below half Health", TWO_TO_TEN),
-		[eff(K.DAMAGE, TWO_TO_TEN, {"target_health": TraitModifier.Health.BELOW_HALF})])
-	add("horn", "Horn", F.STRIKING, lines("+%d damage on their first two actions of a battle", TWO_TO_TEN),
-		[eff(K.DAMAGE, TWO_TO_TEN, {"action_to": 2})])
+	add("fang", "Fang", F.STRIKING, lines("+%d damage to enemies below half Health", POINT_STEPS),
+		[eff(K.DAMAGE, POINT_STEPS, {"target_health": TraitModifier.Health.BELOW_HALF})])
+	add("horn", "Horn", F.STRIKING, lines("+%d damage on their first two actions of a battle", POINT_STEPS),
+		[eff(K.DAMAGE, POINT_STEPS, {"action_to": 2})])
 	add("torc", "Torc", F.STRIKING, lines("+%d%% damage while below half Health", [8, 16, 24, 32, 40]),
 		[eff(K.DAMAGE_PERCENT, [8, 16, 24, 32, 40], {"self_health": TraitModifier.Health.BELOW_HALF})])
 	add("sigil", "Sigil", F.STRIKING, lines("+%d%% damage against a boss, and in an elite fight", SIX_TO_30),
 		[eff(K.DAMAGE_PERCENT, SIX_TO_30, {"big_fight": true})])
 	add("talon", "Talon", F.STRIKING,
-		lines("+%d Hit and +%d damage against Flying and Large enemies", [[4, 1], [8, 2], [12, 3], [16, 4], [20, 5]]),
+		lines("+%d Hit and +%d damage against Flying and Large enemies", [[4, 1], [8, 1], [12, 2], [16, 3], [20, 3]]),
 		[eff(K.HIT, [4, 8, 12, 16, 20], {"target_trait": "Flying|Large"}),
-		eff(K.DAMAGE, ONE_TO_FIVE, {"target_trait": "Flying|Large"})])
+		eff(K.DAMAGE, SMALL_STEPS, {"target_trait": "Flying|Large"})])
 	add("pin", "Pin", F.STRIKING, lines("Their strikes ignore %d%% of the enemy's Defence", [8, 16, 24, 32, 40]),
 		[eff(K.PIERCE_PERCENT, [8, 16, 24, 32, 40])])
-	add("thorn", "Thorn", F.STRIKING, lines("An enemy whose blow hits them takes %d damage", TWO_TO_TEN),
-		[eff(K.THORNS, TWO_TO_TEN)])
+	add("thorn", "Thorn", F.STRIKING, lines("An enemy whose blow hits them takes %d damage", POINT_STEPS),
+		[eff(K.THORNS, POINT_STEPS)])
 
 
 func _standing() -> void:
@@ -140,8 +145,8 @@ func _standing() -> void:
 		[eff(K.DAMAGE_TAKEN_PERCENT, [-6, -12, -18, -24, -30], {"blow": TraitModifier.Blow.PHYSICAL})])
 	add("cameo", "Cameo", F.STANDING, lines("Guard takes %d%% off a blow", [60, 65, 70, 75, 80]),
 		[eff(K.GUARD_PERCENT, [60, 65, 70, 75, 80])])
-	add("bell", "Bell", F.STANDING, lines("Drawn x%s, +%d Defence", [["1.5", 1], ["2", 1], ["2.5", 2], ["3", 2], ["3.5", 3]]),
-		[eff(K.AIM, [1.5, 2.0, 2.5, 3.0, 3.5], {}, AccessoryEffect.Field.MULT), eff(K.STAT, [1, 1, 2, 2, 3], {"stat": Stat.DEF})])
+	add("bell", "Bell", F.STANDING, lines("Drawn x%s, +%d Defence", [["1.5", 1], ["2", 1], ["2.5", 1], ["3", 2], ["3.5", 2]]),
+		[eff(K.AIM, [1.5, 2.0, 2.5, 3.0, 3.5], {}, AccessoryEffect.Field.MULT), eff(K.STAT, [1, 1, 1, 2, 2], {"stat": Stat.DEF})])
 	add("veil", "Veil", F.STANDING, lines("Enemies aim at them %s as often", ["0.8 times", "0.65 times", "half", "0.4 times", "0.3 times"]),
 		[eff(K.AIM, [0.8, 0.65, 0.5, 0.4, 0.3], {}, AccessoryEffect.Field.MULT)])
 	add("scarab", "Scarab", F.STANDING, lines("After a battle won, still standing: heals %d%% of their Health", [10, 20, 30, 40, 50]),
@@ -157,7 +162,7 @@ func _standing() -> void:
 func _tempo() -> void:
 	add("beads", "Beads", F.TEMPO, lines("Focus restores %d more stamina", TWO_TO_TEN), [eff(K.FOCUS_RESTORE, TWO_TO_TEN)])
 	add("medal", "Medal", F.TEMPO, lines("+%d stamina when they fell an enemy", TWO_TO_TEN), [eff(K.KILL_STAMINA, TWO_TO_TEN)])
-	add("claw", "Claw", F.TEMPO, lines("+%d Health when they fell an enemy", TWO_TO_TEN), [eff(K.KILL_HP, TWO_TO_TEN)])
+	add("claw", "Claw", F.TEMPO, lines("+%d Health when they fell an enemy", POINT_STEPS), [eff(K.KILL_HP, POINT_STEPS)])
 	var spur: Array[String] = ["First action: 1 less recovery (not below 2)"]
 	spur.append_array(lines("First %d actions: 1 less recovery (not below 2)", [2, 3, 4, 5]))
 	var spur_eff := eff(K.RECOVERY, ONE_TO_FIVE, {"recovery_at_least": 3}, AccessoryEffect.Field.ACTION_TO)
@@ -176,8 +181,8 @@ func _magic() -> void:
 		[eff(K.HIT, FIVE_TO_25, {"action": TraitModifier.Action.SPELL})])
 	add("prism", "Prism", F.MAGIC, lines("Spells deal %d%% more damage", SIX_TO_30),
 		[eff(K.DAMAGE_PERCENT, SIX_TO_30, {"action": TraitModifier.Action.SPELL})])
-	add("rosary", "Rosary", F.MAGIC, lines("Heals they cast restore %d more", TWO_TO_TEN), [eff(K.HEAL_GIVEN, TWO_TO_TEN)])
-	add("reliquary", "Reliquary", F.MAGIC, lines("White magic heals them %d more", TWO_TO_TEN), [eff(K.HEAL_RECEIVED, TWO_TO_TEN)])
+	add("rosary", "Rosary", F.MAGIC, lines("Heals they cast restore %d more", POINT_STEPS), [eff(K.HEAL_GIVEN, POINT_STEPS)])
+	add("reliquary", "Reliquary", F.MAGIC, lines("White magic heals them %d more", POINT_STEPS), [eff(K.HEAL_RECEIVED, POINT_STEPS)])
 
 
 func _the_line() -> void:
@@ -187,8 +192,8 @@ func _the_line() -> void:
 		[eff(K.DAMAGE_TAKEN_PERCENT, [-5, -10, -15, -20, -25], {"who": TraitModifier.Who.NEIGHBOURS})])
 	add("whistle", "Whistle", F.THE_LINE, lines("After they fell an enemy, the next ally to act has +%d Hit", [10, 20, 30, 40, 50]),
 		[eff(K.KILL_NEXT_ALLY_HIT, [10, 20, 30, 40, 50])])
-	add("dove", "Dove", F.THE_LINE, lines("When they are injured, every ally standing heals %d", [4, 8, 12, 16, 20]),
-		[eff(K.INJURED_HEAL_ALLIES, [4, 8, 12, 16, 20])])
+	add("dove", "Dove", F.THE_LINE, lines("When they are injured, every ally standing heals %d", [3, 5, 8, 11, 13]),
+		[eff(K.INJURED_HEAL_ALLIES, [3, 5, 8, 11, 13])])
 
 
 func _the_road() -> void:
@@ -200,23 +205,23 @@ func _the_road() -> void:
 	add("acorn", "Acorn", F.THE_ROAD, lines("+%d to every growth rate", [3, 6, 9, 12, 15]),
 		[eff(K.GROWTH, [3, 6, 9, 12, 15])])
 	add("compass", "Compass", F.THE_ROAD, lines("Scavenging: +%d to what is asked, %d%% more brought back",
-		[[1, 10], [2, 20], [3, 30], [4, 40], [5, 50]]),
-		[eff(K.SCAVENGE_STAT, ONE_TO_FIVE), eff(K.SCAVENGE_HAUL_PERCENT, [10, 20, 30, 40, 50])])
+		[[1, 10], [1, 20], [2, 30], [3, 40], [3, 50]]),
+		[eff(K.SCAVENGE_STAT, SMALL_STEPS), eff(K.SCAVENGE_HAUL_PERCENT, [10, 20, 30, 40, 50])])
 	add("poultice", "Poultice", F.THE_ROAD, lines("Heals %d%% more of their Health at day's end", [4, 8, 12, 16, 20]),
 		[eff(K.DAY_HEAL_SHARE, [4, 8, 12, 16, 20])])
 
 
 func _two_edged() -> void:
-	add("skull", "Skull", F.TWO_EDGED, lines("+%d damage on every blow", TWO_TO_SIX),
-		[eff(K.DAMAGE, TWO_TO_SIX), fixed(K.DAMAGE_TAKEN, 2)], "Enemy blows deal 2 more to them")
+	add("skull", "Skull", F.TWO_EDGED, lines("+%d damage on every blow", EDGED_STEPS),
+		[eff(K.DAMAGE, EDGED_STEPS), fixed(K.DAMAGE_TAKEN, 1)], "Enemy blows deal 1 more to them")
 	add("mask", "Mask", F.TWO_EDGED, lines("+%d Crit", [10, 15, 20, 25, 30]),
 		[eff(K.CRIT, [10, 15, 20, 25, 30]), fixed(K.HIT, -10)], "-10 Hit")
 	add("monocle", "Monocle", F.TWO_EDGED, lines("+%d Hit", [10, 15, 20, 25, 30]),
 		[eff(K.HIT, [10, 15, 20, 25, 30]), fixed(K.AVOID, -10)], "-10 Avoid")
-	add("shackle", "Shackle", F.TWO_EDGED, lines("+%d Defence", TWO_TO_SIX),
-		[eff(K.STAT, TWO_TO_SIX, {"stat": Stat.DEF}), fixed(K.STAT, -2, {"stat": Stat.SPD})], "-2 Speed")
-	add("wing", "Wing", F.TWO_EDGED, lines("+%d Speed", TWO_TO_SIX),
-		[eff(K.STAT, TWO_TO_SIX, {"stat": Stat.SPD}), fixed(K.STAT, -2, {"stat": Stat.DEF})], "-2 Defence")
-	add("crown", "Crown", F.TWO_EDGED, lines("+%d Magic", TWO_TO_SIX),
-		[eff(K.STAT, TWO_TO_SIX, {"stat": Stat.MAG}), fixed(K.SPELL_USES_LOSS, 1)],
+	add("shackle", "Shackle", F.TWO_EDGED, lines("+%d Defence", EDGED_STEPS),
+		[eff(K.STAT, EDGED_STEPS, {"stat": Stat.DEF}), fixed(K.STAT, -1, {"stat": Stat.SPD})], "-1 Speed")
+	add("wing", "Wing", F.TWO_EDGED, lines("+%d Speed", EDGED_STEPS),
+		[eff(K.STAT, EDGED_STEPS, {"stat": Stat.SPD}), fixed(K.STAT, -1, {"stat": Stat.DEF})], "-1 Defence")
+	add("crown", "Crown", F.TWO_EDGED, lines("+%d Magic", EDGED_STEPS),
+		[eff(K.STAT, EDGED_STEPS, {"stat": Stat.MAG}), fixed(K.SPELL_USES_LOSS, 1)],
 		"Every spell has 1 fewer use (never below 1)")

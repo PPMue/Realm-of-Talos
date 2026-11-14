@@ -7,8 +7,8 @@
 script = ExtResource("2_fx")
 display_name = "Beacon"
 stat_mods = {
-"DEF": 3,
-"RES": 3
+"DEF": 2,
+"RES": 2
 }
 target_weight_mult = 3.0
 duration_ticks = 3

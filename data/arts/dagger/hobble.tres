@@ -7,8 +7,8 @@
 script = ExtResource("2_fx")
 display_name = "Hobbled"
 stat_mods = {
-"SPD": -5,
-"DEX": -3
+"SPD": -3,
+"DEX": -2
 }
 duration_ticks = 3
 
@@ -21,6 +21,6 @@ tier = 2
 stamina_cost = 9
 recovery = 3
 durability_cost = 2
-might_bonus = 2
+might_bonus = 1
 stagger_ticks = 1
 target_effect = SubResource("Resource_target")

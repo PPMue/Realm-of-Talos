@@ -11,12 +11,12 @@ kind = 48
 [sub_resource type="Resource" id="Resource_785b0"]
 script = ExtResource("1_jjt25")
 modifier = SubResource("Resource_r2h07")
-by_rank = Array[float]([4.0, 8.0, 12.0, 16.0, 20.0])
+by_rank = Array[float]([3.0, 5.0, 8.0, 11.0, 13.0])
 
 [resource]
 script = ExtResource("3_72w8i")
 id = "dove"
 display_name = "Dove"
 family = 5
-gives = Array[String](["When they are injured, every ally standing heals 4", "When they are injured, every ally standing heals 8", "When they are injured, every ally standing heals 12", "When they are injured, every ally standing heals 16", "When they are injured, every ally standing heals 20"])
+gives = Array[String](["When they are injured, every ally standing heals 3", "When they are injured, every ally standing heals 5", "When they are injured, every ally standing heals 8", "When they are injured, every ally standing heals 11", "When they are injured, every ally standing heals 13"])
 effects = Array[ExtResource("1_jjt25")]([SubResource("Resource_785b0")])

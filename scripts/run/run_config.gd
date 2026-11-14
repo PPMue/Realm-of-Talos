@@ -58,10 +58,10 @@ const BAND_AGE_WEIGHT: Array[float] = [1.0, 0.3, 0.12]
 # blows are lighter against the Health they land on and a battle has more turns in it.
 const ENEMY_HP_MULT := 1.35             # every enemy of a normal front and a boss's escorts, on any day
 const BOSS_HP_MULT := 1.4               # the boss itself (Run.sized_boss)
-const ENEMY_HP_GROWTH_PER_DAY := 0.030  # then max HP x (1 + 0.030 x (day - 1)): day 42 is x2.23
-const ENEMY_STR_EVERY_DAYS := 5.5       # +1 STR and MAG on days 7, 12, 18, 23, 29, 34, 40 (+7)
-const ENEMY_DEF_EVERY_DAYS := 9         # +1 DEF on days 10, 19, 28, 37 (+4)
-const ENEMY_SPD_EVERY_DAYS := 11        # +1 SPD and DEX on days 12, 23, 34 (+3)
+const ENEMY_HP_GROWTH_PER_DAY := 0.028  # then max HP x (1 + 0.028 x (day - 1)): day 42 is x2.15
+const ENEMY_STR_EVERY_DAYS := 18        # +1 STR and MAG on days 19 and 37 (+2)
+const ENEMY_DEF_EVERY_DAYS := 30        # +1 DEF on day 31
+const ENEMY_SPD_EVERY_DAYS := 30        # +1 SPD and DEX on day 31
 
 # --- Levels and XP ---
 # A won battle grants an XP pool, shared among the fielded companions still in the run at its end:
@@ -196,13 +196,13 @@ const SCAVENGE_RISK_WEIGHTS: Array[int] = [40, 35, 25]
 ## Rounded to the nearest point.
 const SCAVENGE_LEVEL_PER_DAY := 0.27
 const SCAVENGE_STAT_BASE := {
-	"SPD": 8.3, "STR": 7.6, "BLD": 6.1, "DEX": 8.9, "LCK": 5.3, "DEF": 4.2, "RES": 4.6, "MAG": 6.8,
+	"SPD": 5.5, "STR": 5.1, "BLD": 4.1, "DEX": 6.0, "LCK": 3.6, "DEF": 2.9, "RES": 3.1, "MAG": 4.7,
 }
 const SCAVENGE_STAT_GROWTH := {
-	"SPD": 0.46, "STR": 0.49, "BLD": 0.0, "DEX": 0.50, "LCK": 0.39, "DEF": 0.30, "RES": 0.38, "MAG": 0.45,
+	"SPD": 0.32, "STR": 0.34, "BLD": 0.00, "DEX": 0.36, "LCK": 0.28, "DEF": 0.22, "RES": 0.27, "MAG": 0.29,
 }
 ## Added to every target, by risk (low, medium, high).
-const SCAVENGE_RISK_TARGET_SHIFT: Array[int] = [-1, 0, 2]
+const SCAVENGE_RISK_TARGET_SHIFT: Array[int] = [-1, 0, 1]
 ## A full haul's gold: this share of the day's danger-1 battle reward (REWARD_GOLD_BY_DANGER[0], grown
 ## by REWARD_GROWTH_PER_DAY), x the size's and the risk's multipliers. Rounded.
 const SCAVENGE_GOLD_SHARE := 0.4
@@ -221,9 +221,9 @@ const SCAVENGE_XP_SHARE := 0.3
 ## an empty slot scores EMPTY.
 const SCAVENGE_BASE_CHANCE: Array[int] = [60, 45, 30]
 const SCAVENGE_MEET := 15
-const SCAVENGE_PER_POINT_ABOVE := 3
+const SCAVENGE_PER_POINT_ABOVE := 5
 const SCAVENGE_SLOT_MAX := 30
-const SCAVENGE_PER_POINT_SHORT := 6
+const SCAVENGE_PER_POINT_SHORT := 9
 const SCAVENGE_SLOT_MIN := -30
 const SCAVENGE_EMPTY := -30
 const SCAVENGE_CHANCE_MIN := 25
@@ -269,8 +269,8 @@ const GATE_CITY_DAMAGE_LESS := 5
 # --- Enchanting (at the Smithy, from its level 1; see Run.enchant) ---
 ## A weapon is plain or enchanted, once. An enchantment's net stat points by tier (wooden .. platinum);
 ## a rare weapon RARE.
-const ENCHANT_BUDGET_BY_TIER: Array[int] = [1, 2, 3, 4, 5, 6]
-const ENCHANT_RARE_BUDGET := 4
+const ENCHANT_BUDGET_BY_TIER: Array[int] = [1, 1, 2, 3, 3, 4]
+const ENCHANT_RARE_BUDGET := 3
 ## Chance (percent) a roll is two-edged (one stat takes -k, k more points elsewhere), budget 2 or more.
 const ENCHANT_TWO_EDGED_PERCENT := 25
 ## Every attempt, first or again: ORE iron ore and GOLD_PER_TIER x the tier (at least 1) gold; a rare

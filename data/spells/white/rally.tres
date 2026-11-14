@@ -7,9 +7,9 @@
 script = ExtResource("2_fx")
 display_name = "Rallied"
 stat_mods = {
-"STR": 2,
-"DEX": 2,
-"SPD": 2
+"STR": 1,
+"DEX": 1,
+"SPD": 1
 }
 duration_ticks = 4
 

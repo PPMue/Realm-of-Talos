@@ -7,7 +7,7 @@
 script = ExtResource("2_fx")
 display_name = "Dazed"
 stat_mods = {
-"DEX": -3
+"DEX": -2
 }
 duration_ticks = 3
 
@@ -20,6 +20,6 @@ tier = 2
 targeting = 1
 uses = 4
 recovery = 3
-might = 4
+might = 3
 hit = 80
 effect = SubResource("Resource_fx")

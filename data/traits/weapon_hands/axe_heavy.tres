@@ -6,7 +6,7 @@
 [sub_resource type="Resource" id="Resource_1v21a"]
 script = ExtResource("1_h2eux")
 kind = 4
-amount = 2
+amount = 1
 weapon_type = 1
 
 [resource]
@@ -16,5 +16,5 @@ display_name = "Axe: Heavy"
 family = 0
 line = "Heavy"
 weapon_type = 1
-gives = Array[String](["+2 damage with axes"])
+gives = Array[String](["+1 damage with axes"])
 modifiers = Array[ExtResource("1_h2eux")]([SubResource("Resource_1v21a")])

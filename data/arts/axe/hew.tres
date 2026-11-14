@@ -7,7 +7,7 @@
 script = ExtResource("2_fx")
 display_name = "Hewn"
 stat_mods = {
-"DEF": -2
+"DEF": -1
 }
 duration_ticks = 4
 max_stacks = 3
@@ -21,5 +21,5 @@ tier = 2
 stamina_cost = 8
 recovery = 3
 durability_cost = 2
-might_bonus = 2
+might_bonus = 1
 target_effect = SubResource("Resource_target")

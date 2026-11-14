@@ -11,14 +11,14 @@ display_name = "Firebrand"
 countdown = 3
 pick_weight = 3.0
 damage_type = 1
-might = 9
+might = 6
 hit = 90
 
 [sub_resource type="Resource" id="Resource_wraw6"]
 script = ExtResource("2_n5fen")
 display_name = "Burning"
 duration_ticks = 2
-damage_per_tick = 2
+damage_per_tick = 1
 
 [sub_resource type="Resource" id="Resource_iai6g"]
 script = ExtResource("1_sqqmv")
@@ -27,7 +27,7 @@ targeting = 1
 countdown = 5
 pick_weight = 2.0
 damage_type = 1
-might = 5
+might = 3
 hit = 85
 effect = SubResource("Resource_wraw6")
 
@@ -35,7 +35,7 @@ effect = SubResource("Resource_wraw6")
 script = ExtResource("2_n5fen")
 display_name = "Kindled"
 stat_mods = {
-"MAG": 4
+"MAG": 3
 }
 duration_ticks = 4
 
@@ -57,14 +57,14 @@ color = Color(0.6, 0.25, 0.15, 1)
 stage_scale = 1.05
 band = 2
 role = "Fire caster: magic damage that leaves the line burning."
-max_hp = 32
+max_hp = 21
 strength = 4
-magic = 10
-crit = 3
-dexterity = 11
-speed = 12
+magic = 8
+crit = 2
+dexterity = 7
+speed = 8
 defense = 2
-resistance = 8
-luck = 3
+resistance = 5
+luck = 2
 traits = Array[String](["Flying"])
 actions = Array[ExtResource("1_sqqmv")]([SubResource("Resource_4b0as"), SubResource("Resource_iai6g"), SubResource("Resource_3c6e2")])

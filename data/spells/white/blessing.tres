@@ -7,8 +7,8 @@
 script = ExtResource("2_fx")
 display_name = "Blessed"
 stat_mods = {
-"STR": 3,
-"MAG": 3
+"STR": 2,
+"MAG": 2
 }
 duration_ticks = 4
 

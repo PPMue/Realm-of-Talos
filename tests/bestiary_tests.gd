@@ -484,7 +484,7 @@ func test_boss_mossback_troll_regenerates() -> void:
 
 func test_boss_rampart_golem_armour() -> void:
 	var golem := boss("rampart_golem")
-	t.check(golem.defense >= boss("horned_tyrant").defense + 4 and golem.resistance <= 2, "very high DEF, low RES")
+	t.check(golem.defense >= boss("horned_tyrant").defense + 2 and golem.resistance <= 2, "very high DEF, low RES")
 	t.check(golem.speed <= 3, "slow")
 	var shortest := 99
 	for a in golem.actions:
@@ -501,7 +501,7 @@ func test_boss_rampart_golem_armour() -> void:
 	var plain := b.forecast(c, b.enemies[0]).damage
 	var art: CombatArtData = t.make_art("Pierce", 1, 1, 1, 0)
 	art.ignore_def_percent = 100
-	t.check(b.forecast(c, b.enemies[0], art).damage > plain + 10, "a DEF-ignoring art gets through")
+	t.check(b.forecast(c, b.enemies[0], art).damage > plain + 5, "a DEF-ignoring art gets through")
 
 
 func test_boss_rimeclaw_wyvern_takes_wing() -> void:
@@ -753,7 +753,7 @@ func test_bestiary_content() -> void:
 			arts[e.portrait.resource_path] = true
 		t.check(not e.actions.is_empty(), "%s has actions" % n)
 		t.check(not n.to_lower().contains("wywern"), "%s: spelled wyvern" % n)
-		t.check(e.max_hp >= 20 and e.max_hp <= 400, "%s HP %d" % [n, e.max_hp])
+		t.check(e.max_hp >= 13 and e.max_hp <= 270, "%s HP %d" % [n, e.max_hp])
 		t.check(e.strength >= 0 and e.strength <= 30 and e.magic <= 30, "%s STR/MAG sane" % n)
 		t.check(e.defense >= 0 and e.defense <= 20 and e.resistance <= 20, "%s DEF/RES sane" % n)
 		t.check(e.speed >= 0 and e.speed <= 25 and e.dexterity <= 25, "%s SPD/DEX sane" % n)

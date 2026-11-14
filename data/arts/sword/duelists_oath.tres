@@ -7,8 +7,8 @@
 script = ExtResource("2_fx")
 display_name = "Oathbound"
 stat_mods = {
-"STR": 3,
-"SPD": 3
+"STR": 2,
+"SPD": 2
 }
 damage_taken_mult = 1.25
 duration_ticks = 5
@@ -21,6 +21,6 @@ tier = 3
 stamina_cost = 13
 recovery = 4
 durability_cost = 3
-might_bonus = 4
+might_bonus = 3
 crit_bonus = 20
 self_effect = SubResource("Resource_self")

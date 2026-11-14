@@ -7,8 +7,8 @@
 script = ExtResource("2_fx")
 display_name = "Venom"
 stat_mods = {
-"DEF": -2,
-"STR": -2
+"DEF": -1,
+"STR": -1
 }
 duration_ticks = 4
 

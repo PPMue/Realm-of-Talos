@@ -15,7 +15,7 @@ weapon = ExtResource("2_w")
 script = ExtResource("1_c")
 label = "Ask for her blessing"
 result_text = "She lays a hand on each of your companions. Old aches fade."
-companion_hp = 6
+companion_hp = 4
 hp_target = 0
 
 [sub_resource type="Resource" id="Resource_leave"]

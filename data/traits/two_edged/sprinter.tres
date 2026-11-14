@@ -5,7 +5,7 @@
 
 [sub_resource type="Resource" id="Resource_g0ybn"]
 script = ExtResource("1_pbvpo")
-amount = 2
+amount = 1
 stat = "SPD"
 action_to = 3
 
@@ -26,6 +26,6 @@ id = "sprinter"
 display_name = "Sprinter"
 family = 3
 rarity = 1
-gives = Array[String](["+2 Speed and +10 Hit for their first three actions"])
+gives = Array[String](["+1 Speed and +10 Hit for their first three actions"])
 takes = Array[String](["-3 Stamina"])
 modifiers = Array[ExtResource("1_pbvpo")]([SubResource("Resource_g0ybn"), SubResource("Resource_bja1r"), SubResource("Resource_qaob1")])

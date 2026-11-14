@@ -6,7 +6,7 @@
 [sub_resource type="Resource" id="Resource_2hcis"]
 script = ExtResource("1_pf6hr")
 kind = 4
-amount = 2
+amount = 1
 weapon_type = 3
 
 [resource]
@@ -16,5 +16,5 @@ display_name = "Bow: Heavy"
 family = 0
 line = "Heavy"
 weapon_type = 3
-gives = Array[String](["+2 damage with bows"])
+gives = Array[String](["+1 damage with bows"])
 modifiers = Array[ExtResource("1_pf6hr")]([SubResource("Resource_2hcis")])

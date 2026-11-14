@@ -11,7 +11,7 @@ display_name = "Baleful Ray"
 countdown = 3
 pick_weight = 3.0
 damage_type = 1
-might = 8
+might = 5
 hit = 90
 
 [sub_resource type="Resource" id="Resource_t3nv2"]
@@ -29,8 +29,8 @@ add_recovery = 2
 script = ExtResource("2_8a1py")
 display_name = "Entranced"
 stat_mods = {
-"DEX": -3,
-"SPD": -2
+"DEX": -2,
+"SPD": -1
 }
 
 [sub_resource type="Resource" id="Resource_sgexa"]
@@ -51,14 +51,14 @@ portrait = ExtResource("3_6qiek")
 color = Color(0.55, 0.5, 0.6, 1)
 band = 2
 role = "Debuffer: its stare holds a companion in place (longer recovery)."
-max_hp = 35
+max_hp = 23
 defense = 3
 strength = 2
-magic = 9
-crit = 2
-dexterity = 12
-speed = 7
-resistance = 9
-luck = 5
+magic = 7
+crit = 1
+dexterity = 8
+speed = 5
+resistance = 6
+luck = 3
 traits = Array[String](["Flying"])
 actions = Array[ExtResource("1_qarvs")]([SubResource("Resource_5fl4w"), SubResource("Resource_t3nv2"), SubResource("Resource_sgexa")])

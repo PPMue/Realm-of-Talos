@@ -18,5 +18,5 @@ tier = 2
 stamina_cost = 9
 recovery = 3
 durability_cost = 2
-might_bonus = 2
+might_bonus = 1
 target_effect = SubResource("Resource_target")

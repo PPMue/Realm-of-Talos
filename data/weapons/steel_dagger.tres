@@ -4,9 +4,10 @@
 
 [resource]
 script = ExtResource("1_0gbou")
+might = 3
 weapon_type = 4
 tier = 3
 hit = 95
 required_grade = 6
 display_name = "Steel Dagger"
-weight = 3
+weight = 2

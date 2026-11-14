@@ -4,9 +4,10 @@ Written 2026-11-14 after the user's play reports: "When I get a companion, I can
 and it will grow stronger... and I can do the same like this in every run. There is nothing that
 forces the player out of this comfort zone", and "I want to be able to take the same companion to a
 different path in a different run". Then: "design the callings to also help nudge growth, similar
-to a class in Fire Emblem". Every number here is a first guess. `design/growth.md` is built first; the stats
-in "What a calling does to growth" are at the size it proposes (two thirds of today's), the stats
-named elsewhere in this note are today's.
+to a class in Fire Emblem". Every number here is a first guess. `design/growth.md` is built (2026-11-14): the stats
+in "What a calling does to growth" are at the size the game now has; the stats named elsewhere in
+this note (Elena's Strength 11, 36 Health, a Mend of 15) were written before it and are half as
+large again as they are now.
 
 ## What is wrong, from the rules and the data
 

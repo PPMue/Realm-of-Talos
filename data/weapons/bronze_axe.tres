@@ -6,7 +6,7 @@
 script = ExtResource("1_0gbou")
 weapon_type = 1
 tier = 1
-might = 2
+might = 1
 required_grade = 2
 display_name = "Bronze Axe"
-weight = 9
+weight = 6

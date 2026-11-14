@@ -11,12 +11,12 @@ kind = 26
 [sub_resource type="Resource" id="Resource_2xqof"]
 script = ExtResource("1_qf8ry")
 modifier = SubResource("Resource_nhexd")
-by_rank = Array[float]([2.0, 4.0, 6.0, 8.0, 10.0])
+by_rank = Array[float]([1.0, 3.0, 4.0, 5.0, 7.0])
 
 [resource]
 script = ExtResource("3_4xwgh")
 id = "claw"
 display_name = "Claw"
 family = 3
-gives = Array[String](["+2 Health when they fell an enemy", "+4 Health when they fell an enemy", "+6 Health when they fell an enemy", "+8 Health when they fell an enemy", "+10 Health when they fell an enemy"])
+gives = Array[String](["+1 Health when they fell an enemy", "+3 Health when they fell an enemy", "+4 Health when they fell an enemy", "+5 Health when they fell an enemy", "+7 Health when they fell an enemy"])
 effects = Array[ExtResource("1_qf8ry")]([SubResource("Resource_2xqof")])

@@ -5,10 +5,10 @@ extends RefCounted
 
 # --- Damage, accuracy, crit ---
 const MIN_DAMAGE := 1
-const ACCURACY_DEX_SPD_FACTOR := 5      # Hit% = weapon Hit + 5 x (attacker DEX - target SPD) - target LCK
+const ACCURACY_DEX_SPD_FACTOR := 7      # Hit% = weapon Hit + 7 x (attacker DEX - target SPD) - target LCK
 const ACCURACY_MIN := 20
 const ACCURACY_MAX := 100
-const CRIT_CRT_FACTOR := 2              # Crit% = 2 x attacker CRT - target LCK
+const CRIT_CRT_FACTOR := 3              # Crit% = 3 x attacker CRT - target LCK
 const CRIT_MIN := 0
 const CRIT_MAX := 100
 const CRIT_DAMAGE_MULT := 2
@@ -54,17 +54,17 @@ const MIN_ACTION_COUNTDOWN := 1
 
 # --- The weapon ladder ---
 # Six tiers: wooden, bronze, iron, steel, silver, platinum (WeaponData.Tier). Every weapon type exists
-# in every tier. Mt = the tier's base + the type's offset in that tier, never below 0: 2 a tier. The axe
+# in every tier. Mt = the tier's base + the type's offset in that tier, never below 0: 1 a tier. The axe
 # has no edge in Mt early: its heft comes from BLD (see CombatMath.attack_power) and it pulls ahead late.
 # Hit and weight are in each weapon's data (README, Weapons, has the table).
-const WEAPON_TIER_BASE_MIGHT: Array[int] = [0, 2, 4, 6, 8, 10]
+const WEAPON_TIER_BASE_MIGHT: Array[int] = [0, 1, 2, 3, 4, 5]
 # By WeaponData.WeaponType (sword, axe, spear, bow, dagger), then by tier.
 const WEAPON_TYPE_MIGHT_OFFSET := [
 	[0, 0, 0, 0, 0, 0],      # sword
-	[0, 0, 0, 1, 1, 2],      # axe
+	[0, 0, 0, 0, 1, 1],      # axe
 	[1, 1, 1, 1, 1, 1],      # spear
-	[-1, -1, -1, -1, -1, -1], # bow
-	[-1, -1, -1, -1, -1, -1], # dagger
+	[0, 0, 0, 0, 0, 0],      # bow
+	[0, 0, 0, 0, 0, 0],      # dagger
 ]
 # Grade (Proficiency.Grade) needed to hold each tier: E, D, C, B, A, S.
 const WEAPON_TIER_GRADE: Array[int] = [0, 2, 4, 6, 8, 10]
@@ -74,9 +74,9 @@ const WEAPON_TIER_GRADE: Array[int] = [0, 2, 4, 6, 8, 10]
 # lower than the tier's (2 steps = one letter), but never below HYBRID_SECOND_GRADE_MIN: everyone has E
 # in everything, so E would be no requirement. Bronze D + E+, iron C + D, steel B + C, silver A + B.
 const HYBRID_MIGHT_TIERS_UP := 1
-const HYBRID_WEIGHT_BONUS := 2
+const HYBRID_WEIGHT_BONUS := 1
 ## Twinblades were ahead of the sword with no cost: they carry more weight.
-const HYBRID_WEIGHT_BONUS_BY_FAMILY := {"Twinblades": 4}
+const HYBRID_WEIGHT_BONUS_BY_FAMILY := {"Twinblades": 3}
 const HYBRID_SECOND_GRADE_STEPS_BELOW := 2
 const HYBRID_SECOND_GRADE_MIN := 1   # Proficiency.Grade.E_PLUS
 

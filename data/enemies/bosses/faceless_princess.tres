@@ -8,7 +8,7 @@
 [sub_resource type="Resource" id="Resource_1dyti"]
 script = ExtResource("2_wdmcc")
 display_name = "Royal Venom"
-damage_per_tick = 4
+damage_per_tick = 3
 
 [sub_resource type="Resource" id="Resource_far7m"]
 script = ExtResource("1_aun4q")
@@ -16,7 +16,7 @@ display_name = "Hollow Kiss"
 countdown = 3
 pick_weight = 3.0
 damage_type = 1
-might = 13
+might = 9
 hit = 90
 effect = SubResource("Resource_1dyti")
 
@@ -24,13 +24,13 @@ effect = SubResource("Resource_1dyti")
 script = ExtResource("1_aun4q")
 display_name = "Scepter Blow"
 pick_weight = 2.0
-might = 10
+might = 7
 hit = 90
 
 [sub_resource type="Resource" id="Resource_nmg8l"]
 script = ExtResource("2_wdmcc")
 display_name = "Royal Venom"
-damage_per_tick = 4
+damage_per_tick = 3
 
 [sub_resource type="Resource" id="Resource_0j453"]
 script = ExtResource("1_aun4q")
@@ -52,14 +52,14 @@ color = Color(0.45, 0.2, 0.5, 1)
 stage_scale = 1.5
 band = 0
 role = "Aims at the far (left) end of your line first, and poisons."
-max_hp = 258
-strength = 12
-magic = 19
-crit = 6
-dexterity = 15
-speed = 13
-defense = 8
-resistance = 12
-luck = 8
+max_hp = 206
+strength = 8
+magic = 13
+crit = 4
+dexterity = 10
+speed = 9
+defense = 5
+resistance = 8
+luck = 5
 reversed_targeting = true
 actions = Array[ExtResource("1_aun4q")]([SubResource("Resource_far7m"), SubResource("Resource_msca8"), SubResource("Resource_0j453")])

@@ -9,7 +9,7 @@
 script = ExtResource("1_7ukbm")
 display_name = "Stab"
 pick_weight = 3.0
-might = 4
+might = 3
 hit = 90
 
 [sub_resource type="Resource" id="Resource_stsnd"]
@@ -18,7 +18,7 @@ display_name = "Fire Bomb"
 targeting = 1
 countdown = 4
 pick_weight = 2.0
-might = 5
+might = 3
 
 [sub_resource type="Resource" id="Resource_aua6b"]
 script = ExtResource("2_50c7f")
@@ -38,7 +38,7 @@ effect = SubResource("Resource_aua6b")
 script = ExtResource("2_50c7f")
 display_name = "Blinded"
 stat_mods = {
-"DEX": -4
+"DEX": -3
 }
 
 [sub_resource type="Resource" id="Resource_3jau8"]
@@ -56,13 +56,13 @@ display_name = "Goblin Thief"
 portrait = ExtResource("3_ooh7f")
 color = Color(0.45, 0.4, 0.2, 1)
 stage_scale = 0.86
-max_hp = 28
-strength = 8
+max_hp = 19
+strength = 5
 magic = 0
-crit = 2
-dexterity = 9
-speed = 11
-defense = 2
-resistance = 3
-luck = 4
+crit = 1
+dexterity = 6
+speed = 7
+defense = 1
+resistance = 2
+luck = 3
 actions = Array[ExtResource("1_7ukbm")]([SubResource("Resource_s7voq"), SubResource("Resource_stsnd"), SubResource("Resource_n2jib"), SubResource("Resource_3jau8")])

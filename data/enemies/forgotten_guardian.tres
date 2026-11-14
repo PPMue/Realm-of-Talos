@@ -27,14 +27,14 @@ script = ExtResource("1_onxhh")
 display_name = "Guardian's Verdict"
 countdown = 3
 pick_weight = 3.0
-might = 12
+might = 8
 hit = 85
 
 [sub_resource type="Resource" id="Resource_6c1v3"]
 script = ExtResource("2_muphx")
 display_name = "Frost Aegis"
 stat_mods = {
-"DEF": 4
+"DEF": 3
 }
 duration_ticks = 2
 reflect_percent = 40
@@ -57,14 +57,14 @@ color = Color(0.25, 0.3, 0.5, 1)
 stage_scale = 1.25
 band = 3
 role = "Protector: wards every enemy, and its frost aegis turns blows back."
-max_hp = 81
-strength = 13
+max_hp = 54
+strength = 11
 magic = 6
-crit = 3
-dexterity = 10
-speed = 9
-defense = 10
-resistance = 9
-luck = 4
+crit = 2
+dexterity = 7
+speed = 6
+defense = 8
+resistance = 6
+luck = 3
 traits = Array[String](["Flying"])
 actions = Array[ExtResource("1_onxhh")]([SubResource("Resource_rog37"), SubResource("Resource_1128u"), SubResource("Resource_37tpe")])

@@ -11,6 +11,6 @@ tier = 2
 targeting = 0
 uses = 3
 recovery = 3
-might = 2
+might = 1
 hit = 95
 delay_ticks = 2

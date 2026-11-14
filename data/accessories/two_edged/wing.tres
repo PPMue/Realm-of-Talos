@@ -11,11 +11,11 @@ stat = "SPD"
 [sub_resource type="Resource" id="Resource_6egrw"]
 script = ExtResource("1_mr5hx")
 modifier = SubResource("Resource_nxof5")
-by_rank = Array[float]([2.0, 3.0, 4.0, 5.0, 6.0])
+by_rank = Array[float]([1.0, 2.0, 3.0, 3.0, 4.0])
 
 [sub_resource type="Resource" id="Resource_jqlyv"]
 script = ExtResource("2_vkvvm")
-amount = -2
+amount = -1
 stat = "DEF"
 
 [sub_resource type="Resource" id="Resource_6tyfv"]
@@ -27,6 +27,6 @@ script = ExtResource("3_wjl3h")
 id = "wing"
 display_name = "Wing"
 family = 7
-gives = Array[String](["+2 Speed", "+3 Speed", "+4 Speed", "+5 Speed", "+6 Speed"])
-takes = "-2 Defence"
+gives = Array[String](["+1 Speed", "+2 Speed", "+3 Speed", "+3 Speed", "+4 Speed"])
+takes = "-1 Defence"
 effects = Array[ExtResource("1_mr5hx")]([SubResource("Resource_6egrw"), SubResource("Resource_6tyfv")])

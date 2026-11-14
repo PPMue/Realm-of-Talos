@@ -6,7 +6,7 @@
 [sub_resource type="Resource" id="Resource_mlcw7"]
 script = ExtResource("1_bry7r")
 kind = 4
-amount = 3
+amount = 2
 ally_injured = true
 
 [resource]
@@ -15,5 +15,5 @@ id = "avenger"
 display_name = "Avenger"
 family = 9
 rarity = 1
-gives = Array[String](["+3 damage for the rest of the battle once an ally is injured"])
+gives = Array[String](["+2 damage for the rest of the battle once an ally is injured"])
 modifiers = Array[ExtResource("1_bry7r")]([SubResource("Resource_mlcw7")])

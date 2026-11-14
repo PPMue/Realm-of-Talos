@@ -9,7 +9,7 @@ script = ExtResource("1_lssrf")
 display_name = "Fallen Light"
 pick_weight = 3.0
 damage_type = 1
-might = 10
+might = 7
 hit = 90
 
 [sub_resource type="Resource" id="Resource_yko4v"]
@@ -18,7 +18,7 @@ display_name = "Void Orb"
 countdown = 3
 pick_weight = 2.0
 damage_type = 1
-might = 15
+might = 10
 hit = 85
 
 [sub_resource type="Resource" id="Resource_egu7t"]
@@ -29,7 +29,7 @@ countdown = 7
 pick_weight = 2.0
 no_repeat = true
 damage_type = 1
-might = 16
+might = 11
 hit = 100
 
 [resource]
@@ -40,14 +40,14 @@ color = Color(0.4, 0.3, 0.55, 1)
 stage_scale = 1.55
 band = 0
 role = "Charges Judgement, a devastating blow on every companion."
-max_hp = 234
-strength = 8
-magic = 23
-crit = 4
-dexterity = 15
-speed = 14
-defense = 9
-resistance = 14
-luck = 8
+max_hp = 187
+strength = 5
+magic = 15
+crit = 3
+dexterity = 10
+speed = 9
+defense = 6
+resistance = 9
+luck = 5
 traits = Array[String](["Flying"])
 actions = Array[ExtResource("1_lssrf")]([SubResource("Resource_qro1v"), SubResource("Resource_yko4v"), SubResource("Resource_egu7t")])

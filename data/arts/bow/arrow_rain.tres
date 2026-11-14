@@ -7,7 +7,7 @@
 script = ExtResource("2_fx")
 display_name = "Pinned"
 stat_mods = {
-"SPD": -5
+"SPD": -3
 }
 duration_ticks = 3
 
@@ -20,7 +20,7 @@ tier = 3
 stamina_cost = 14
 recovery = 4
 durability_cost = 3
-might_bonus = 3
+might_bonus = 2
 hit_bonus = -10
 hits_all_enemies = true
 target_effect = SubResource("Resource_target")

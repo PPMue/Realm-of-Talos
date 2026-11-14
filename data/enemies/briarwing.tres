@@ -9,7 +9,7 @@
 script = ExtResource("1_sjl2y")
 display_name = "Raking Talons"
 pick_weight = 3.0
-might = 5
+might = 3
 hit = 90
 
 [sub_resource type="Resource" id="Resource_unt6y"]
@@ -18,7 +18,7 @@ display_name = "Thorn Volley"
 targeting = 1
 countdown = 4
 pick_weight = 2.0
-might = 3
+might = 2
 
 [sub_resource type="Resource" id="Resource_w3hjh"]
 script = ExtResource("2_jfh0k")
@@ -44,14 +44,14 @@ portrait = ExtResource("3_l7u2h")
 color = Color(0.25, 0.45, 0.25, 1)
 stage_scale = 0.95
 role = "Thorned flyer: its bramble mantle hurts whoever strikes it."
-max_hp = 24
-strength = 8
+max_hp = 16
+strength = 5
 magic = 0
-crit = 3
-dexterity = 10
-speed = 11
-defense = 2
-resistance = 4
-luck = 3
+crit = 2
+dexterity = 7
+speed = 7
+defense = 1
+resistance = 3
+luck = 2
 traits = Array[String](["Flying"])
 actions = Array[ExtResource("1_sjl2y")]([SubResource("Resource_x73ho"), SubResource("Resource_unt6y"), SubResource("Resource_klswt")])

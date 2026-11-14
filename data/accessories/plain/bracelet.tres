@@ -11,11 +11,11 @@ stat = "DEX"
 [sub_resource type="Resource" id="Resource_n5m5i"]
 script = ExtResource("1_6v3t0")
 modifier = SubResource("Resource_8r8va")
-by_rank = Array[float]([1.0, 2.0, 3.0, 4.0, 5.0])
+by_rank = Array[float]([1.0, 2.0, 2.0, 3.0, 4.0])
 
 [resource]
 script = ExtResource("3_casky")
 id = "bracelet"
 display_name = "Bracelet"
-gives = Array[String](["+1 Dexterity", "+2 Dexterity", "+3 Dexterity", "+4 Dexterity", "+5 Dexterity"])
+gives = Array[String](["+1 Dexterity", "+2 Dexterity", "+2 Dexterity", "+3 Dexterity", "+4 Dexterity"])
 effects = Array[ExtResource("1_6v3t0")]([SubResource("Resource_n5m5i")])

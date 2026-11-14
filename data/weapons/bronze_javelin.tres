@@ -4,6 +4,7 @@
 
 [resource]
 script = ExtResource("1_w")
+might = 3
 weapon_type = 2
 tier = 1
 hit = 85
@@ -13,4 +14,4 @@ second_type = 3
 second_grade = 1
 family = "Javelin"
 display_name = "Bronze Javelin"
-weight = 9
+weight = 6

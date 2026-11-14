@@ -11,15 +11,15 @@ display_name = "Frost Lance"
 countdown = 3
 pick_weight = 3.0
 damage_type = 1
-might = 10
+might = 7
 hit = 85
 
 [sub_resource type="Resource" id="Resource_ktutl"]
 script = ExtResource("2_d0aek")
 display_name = "Frozen"
 stat_mods = {
-"DEX": -2,
-"SPD": -4
+"DEX": -1,
+"SPD": -3
 }
 duration_ticks = 2
 
@@ -30,7 +30,7 @@ targeting = 1
 countdown = 5
 pick_weight = 2.0
 damage_type = 1
-might = 5
+might = 3
 hit = 85
 effect = SubResource("Resource_ktutl")
 
@@ -52,7 +52,7 @@ effect = SubResource("Resource_g0f1c")
 script = ExtResource("2_d0aek")
 display_name = "Airborne"
 stat_mods = {
-"SPD": 10
+"SPD": 7
 }
 
 [sub_resource type="Resource" id="Resource_arjpp"]
@@ -74,14 +74,14 @@ color = Color(0.3, 0.45, 0.6, 1)
 stage_scale = 1.5
 band = 0
 role = "Frost breath, and it takes to the air where it is very hard to hit."
-max_hp = 194
-strength = 16
-magic = 16
-crit = 3
-dexterity = 10
-speed = 8
-defense = 9
-resistance = 6
-luck = 4
+max_hp = 181
+strength = 12
+magic = 12
+crit = 2
+dexterity = 7
+speed = 5
+defense = 6
+resistance = 4
+luck = 3
 traits = Array[String](["Flying"])
 actions = Array[ExtResource("1_tdh4c")]([SubResource("Resource_wk037"), SubResource("Resource_4jeww"), SubResource("Resource_kl01o"), SubResource("Resource_arjpp")])

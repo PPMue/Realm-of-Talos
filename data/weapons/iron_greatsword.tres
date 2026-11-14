@@ -6,11 +6,11 @@
 script = ExtResource("1_w")
 weapon_type = 0
 tier = 2
-might = 6
+might = 3
 hit = 90
 required_grade = 4
 second_type = 1
 second_grade = 2
 family = "Greatsword"
 display_name = "Iron Greatsword"
-weight = 8
+weight = 5

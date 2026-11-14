@@ -6,7 +6,7 @@
 script = ExtResource("1_w")
 weapon_type = 0
 tier = 1
-might = 4
+might = 2
 hit = 90
 damage_type = 1
 required_grade = 2
@@ -14,4 +14,4 @@ second_school = 0
 second_grade = 1
 family = "Runeblade"
 display_name = "Bronze Runeblade"
-weight = 7
+weight = 4

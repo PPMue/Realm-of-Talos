@@ -10,7 +10,7 @@ script = ExtResource("1_ox6u3")
 display_name = "Grave Cleave"
 countdown = 3
 pick_weight = 3.0
-might = 8
+might = 5
 hit = 85
 
 [sub_resource type="Resource" id="Resource_mhh5i"]
@@ -19,13 +19,13 @@ display_name = "Death Sweep"
 targeting = 1
 countdown = 4
 pick_weight = 2.0
-might = 4
+might = 3
 
 [sub_resource type="Resource" id="Resource_1reke"]
 script = ExtResource("2_4nt6a")
 display_name = "Dread"
 stat_mods = {
-"STR": -3
+"STR": -2
 }
 
 [sub_resource type="Resource" id="Resource_bbgj5"]
@@ -44,13 +44,13 @@ display_name = "Cursed Warrior"
 portrait = ExtResource("3_w6ut4")
 color = Color(0.25, 0.3, 0.45, 1)
 stage_scale = 1.05
-max_hp = 51
-strength = 12
+max_hp = 34
+strength = 9
 magic = 0
-crit = 4
-dexterity = 8
-speed = 6
-defense = 7
-resistance = 4
+crit = 3
+dexterity = 5
+speed = 4
+defense = 6
+resistance = 3
 luck = 0
 actions = Array[ExtResource("1_ox6u3")]([SubResource("Resource_h0b0e"), SubResource("Resource_mhh5i"), SubResource("Resource_bbgj5")])

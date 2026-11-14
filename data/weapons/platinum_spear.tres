@@ -6,9 +6,9 @@
 script = ExtResource("1_0gbou")
 weapon_type = 2
 tier = 5
-might = 11
+might = 6
 hit = 90
 effective_against = Array[String](["Large"])
 required_grade = 10
 display_name = "Platinum Spear"
-weight = 9
+weight = 6

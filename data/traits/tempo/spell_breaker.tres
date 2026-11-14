@@ -6,7 +6,7 @@
 [sub_resource type="Resource" id="Resource_2a0rq"]
 script = ExtResource("1_ru81t")
 kind = 4
-amount = 3
+amount = 2
 target_next_magic = true
 
 [resource]
@@ -15,5 +15,5 @@ id = "spell_breaker"
 display_name = "Spell-Breaker"
 family = 5
 rarity = 1
-gives = Array[String](["+3 damage to an enemy whose next action is magic"])
+gives = Array[String](["+2 damage to an enemy whose next action is magic"])
 modifiers = Array[ExtResource("1_ru81t")]([SubResource("Resource_2a0rq")])

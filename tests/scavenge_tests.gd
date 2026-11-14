@@ -217,11 +217,11 @@ func test_scavenge_one_site_fillable() -> void:
 
 func test_scavenge_targets() -> void:
 	# Day 1: the fourteen companions' average base stat, rounded; medium risk is no shift.
-	t.eq(Run.scavenge_target(Stat.SPD, ScavengeSite.Risk.MEDIUM, 1), 8, "SPD day 1")
-	t.eq(Run.scavenge_target(Stat.DEX, ScavengeSite.Risk.MEDIUM, 1), 9, "DEX day 1")
-	t.eq(Run.scavenge_target(Stat.MAG, ScavengeSite.Risk.MEDIUM, 1), 7, "MAG day 1")
-	t.eq(Run.scavenge_target(Stat.SPD, ScavengeSite.Risk.LOW, 1), 7, "low risk -1")
-	t.eq(Run.scavenge_target(Stat.SPD, ScavengeSite.Risk.HIGH, 1), 10, "high risk +2")
+	t.eq(Run.scavenge_target(Stat.SPD, ScavengeSite.Risk.MEDIUM, 1), 6, "SPD day 1")
+	t.eq(Run.scavenge_target(Stat.DEX, ScavengeSite.Risk.MEDIUM, 1), 6, "DEX day 1")
+	t.eq(Run.scavenge_target(Stat.MAG, ScavengeSite.Risk.MEDIUM, 1), 5, "MAG day 1")
+	t.eq(Run.scavenge_target(Stat.SPD, ScavengeSite.Risk.LOW, 1), 5, "low risk -1")
+	t.eq(Run.scavenge_target(Stat.SPD, ScavengeSite.Risk.HIGH, 1), 7, "high risk +1")
 	for key in ScavengeSite.ROLE_STATS:
 		var prev := -99
 		for d in range(1, 43):
@@ -252,14 +252,14 @@ func test_scavenge_chance_arithmetic() -> void:
 	var b := run.roster[1]
 	var site := make_site(run, ScavengeSite.Risk.LOW, [Stat.SPD, Stat.STR] as Array[String], [10, 10] as Array[int])
 	# Slot scores.
-	for case in [[10, 15], [11, 18], [15, 30], [20, 30], [9, -6], [7, -18], [5, -30], [1, -30]]:
+	for case in [[10, 15], [11, 20], [13, 30], [20, 30], [9, -9], [7, -27], [5, -30], [1, -30]]:
 		set_stat(a, Stat.SPD, case[0])
 		t.eq(run.scavenge_slot_score(site, 0, a), case[1], "SPD %d against 10 scores %d" % case)
 	t.eq(run.scavenge_slot_score(site, 0, null), -30, "an empty place -30")
 	# Low risk: 60 + the average.
 	set_stat(a, Stat.SPD, 10)   # +15
-	set_stat(b, Stat.STR, 9)    # -6
-	t.eq(run.scavenge_chance(site, [a, b]), 60 + roundi(4.5), "60 + (15 - 6) / 2, rounded")
+	set_stat(b, Stat.STR, 9)    # -9
+	t.eq(run.scavenge_chance(site, [a, b]), 60 + roundi(3.0), "60 + (15 - 9) / 2, rounded")
 	t.eq(run.scavenge_chance(site, [a]), 60 + roundi(-7.5), "a missing place counts as empty")
 	t.eq(run.scavenge_chance(site, [a, null]), 60 + roundi(-7.5), "and so does a null")
 	set_stat(a, Stat.SPD, 20)
@@ -345,7 +345,7 @@ func test_scavenge_full_haul() -> void:
 	var run: Run = got[0]
 	var site: ScavengeSite = got[1]
 	var r: ScavengeResult = got[3]
-	t.eq(r.chance, 30 + roundi((15 - 18) / 2.0), "the chance shown")
+	t.eq(r.chance, maxi(RunConfig.SCAVENGE_CHANCE_MIN, 30 + roundi((15 - 27) / 2.0)), "the chance shown")
 	t.check(r.roll <= r.chance, "the roll is under it")
 	t.eq(run.gold, 50 + 101, "the whole gold")
 	t.eq(r.gold, 101, "reported")

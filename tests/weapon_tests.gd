@@ -11,11 +11,11 @@ const TYPES := ["sword", "axe", "spear", "bow", "dagger"]
 const TIERS := ["wooden", "bronze", "iron", "steel", "silver", "platinum"]
 ## Mt by type (rows: sword, axe, spear, bow, dagger) and tier (wooden ... platinum), as approved.
 const MIGHT_TABLE := [
-	[0, 2, 4, 6, 8, 10],
-	[0, 2, 4, 7, 9, 12],
-	[1, 3, 5, 7, 9, 11],
-	[0, 1, 3, 5, 7, 9],
-	[0, 1, 3, 5, 7, 9],
+	[0, 1, 2, 3, 4, 5],
+	[0, 1, 2, 3, 5, 6],
+	[1, 2, 3, 4, 5, 6],
+	[0, 1, 2, 3, 4, 5],
+	[0, 1, 2, 3, 4, 5],
 ]
 ## Hit and weight by type and tier, as approved: steel no worse than iron and silver, bows at 90.
 const HIT_TABLE := [
@@ -26,11 +26,11 @@ const HIT_TABLE := [
 	[95, 95, 95, 95, 95, 100],
 ]
 const WEIGHT_TABLE := [
-	[4, 5, 6, 7, 7, 7],
-	[7, 9, 10, 11, 11, 11],
-	[6, 7, 8, 9, 9, 9],
-	[3, 4, 5, 6, 6, 6],
-	[1, 2, 2, 3, 3, 3],
+	[2, 3, 4, 5, 5, 5],
+	[5, 6, 7, 7, 7, 7],
+	[4, 5, 5, 6, 6, 6],
+	[2, 3, 3, 4, 4, 4],
+	[1, 2, 2, 2, 2, 2],
 ]
 ## Health before this change, to check every companion kept their standing.
 const OLD_HP := {"Elena": 30, "Asterion": 29, "Ingrid": 27, "Aina": 26, "Shiro": 25, "Sylas": 24,
@@ -137,14 +137,14 @@ func weapon(kind: WeaponData.WeaponType, might: int = 0, magic: bool = false, we
 
 # ---------------------------------------------------------------- starting stats and Focus
 
-## Every companion's Strength and Magic stand 2 apart and grow 10 points apart, the one they are known
+## Every companion's Strength and Magic stand 1 apart and grow 10 points apart, the one they are known
 ## for ahead: either craft is open to anyone (design/callings.md).
 func test_strength_and_magic_stand_close() -> void:
 	var mages := 0
 	for d in content().companions:
 		var gs := Levels.growth_rate(d, Stat.STR)
 		var gm := Levels.growth_rate(d, Stat.MAG)
-		t.eq(absi(d.strength - d.magic), 2, "%s: Strength %d and Magic %d are 2 apart" % [d.display_name, d.strength, d.magic])
+		t.eq(absi(d.strength - d.magic), 1, "%s: Strength %d and Magic %d are 1 apart" % [d.display_name, d.strength, d.magic])
 		t.eq(absi(gs - gm), 10, "%s: their growth rates %d and %d are 10 apart" % [d.display_name, gs, gm])
 		t.eq(d.strength > d.magic, gs > gm, "%s: the higher one grows faster" % d.display_name)
 		t.eq(d.magic > d.strength, d.signature_spell != null, "%s: Magic leads for the mages and nobody else" % d.display_name)
@@ -157,7 +157,7 @@ func test_starting_health_and_stamina() -> void:
 	var cs := content().companions
 	t.eq(cs.size(), 14, "fourteen companions")
 	for d in cs:
-		t.check(d.max_hp >= 24 and d.max_hp <= 36, "%s: health %d in 24-36" % [d.display_name, d.max_hp])
+		t.check(d.max_hp >= 16 and d.max_hp <= 24, "%s: health %d in 16-24" % [d.display_name, d.max_hp])
 		t.check(d.max_sta >= 12 and d.max_sta <= 20, "%s: stamina %d in 12-20" % [d.display_name, d.max_sta])
 		t.check(OLD_HP.has(d.display_name), "%s: known" % d.display_name)
 		t.check(d.weapon != null and d.weapon.tier == WeaponData.Tier.WOODEN and not d.weapon.is_magic(),
@@ -352,20 +352,20 @@ func test_run_companion_attack() -> void:
 	for d in rc.companions:
 		by_name[d.display_name] = d
 	var elena := RunCompanion.create(by_name["Elena"])
-	t.eq(elena.attack_power(), 11 + 9 / 2, "Elena: STR 11 + BLD 9 / 2")
-	t.eq(elena.attack(), 11 + 4 + 0, "with a wooden axe (Mt 0)")
+	t.eq(elena.attack_power(), 7 + 6 / 2, "Elena: STR 7 + BLD 6 / 2")
+	t.eq(elena.attack(), 7 + 3 + 0, "with a wooden axe (Mt 0)")
 	var yuzu := RunCompanion.create(by_name["Yuzu"])
-	t.eq(yuzu.attack_power(), (6 + 12) / 2, "Yuzu: (STR 6 + SPD 12) / 2")
-	# With another weapon in mind: Yuzu (BLD 4) with a steel dagger (weight 3): no penalty.
+	t.eq(yuzu.attack_power(), (4 + 8) / 2, "Yuzu: (STR 4 + SPD 8) / 2")
+	# With another weapon in mind: Yuzu (BLD 3) with a steel dagger (weight 2): no penalty.
 	var steel := rc.ladder_weapon(WeaponData.Tier.STEEL, WeaponData.WeaponType.DAGGER)
-	t.eq(yuzu.attack(steel), 9 + 5, "a steel dagger's Mt")
-	# Elena (BLD 9) with a steel axe (weight 13): BLD is not lowered by weight.
+	t.eq(yuzu.attack(steel), 6 + 3, "a steel dagger's Mt")
+	# Elena (BLD 6) with a steel axe (weight 7): BLD is not lowered by weight.
 	var steel_axe := rc.ladder_weapon(WeaponData.Tier.STEEL, WeaponData.WeaponType.AXE)
-	t.eq(elena.attack(steel_axe), 15 + 7, "steel axe")
-	# Erik (BLD 5) with a heavy bow would lose DEX: steel bow weight 7 costs 2 DEX.
+	t.eq(elena.attack(steel_axe), 10 + 3, "steel axe")
+	# Erik (BLD 3) with a heavy bow would lose DEX: steel bow weight 4 costs 1 DEX.
 	var erik := RunCompanion.create(by_name["Erik"])
 	var steel_bow := rc.ladder_weapon(WeaponData.Tier.STEEL, WeaponData.WeaponType.BOW)
-	t.eq(erik.attack_power(steel_bow), (7 + 11 - 2) / 2, "the weight penalty lowers a bow's DEX part")
+	t.eq(erik.attack_power(steel_bow), (5 + 7 - 1) / 2, "the weight penalty lowers a bow's DEX part")
 	# The same number the battle uses.
 	var b := Battle.new([elena.data] as Array[CompanionData], one(target(0)), t.make_rng(1), [elena.progress] as Array[CompanionProgress])
 	t.eq(b.roster[0].attack_power(), elena.attack_power(), "matches the battle's attack power")
@@ -767,7 +767,7 @@ func test_hybrid_families() -> void:
 			t.eq(w.weapon_type, main, "%s: main type" % name)
 			t.eq(w.might, WeaponData.ladder_might(ti + BattleConfig.HYBRID_MIGHT_TIERS_UP, main), "%s: Mt of the main type one tier up" % name)
 			t.eq(w.might, rc.ladder_weapon(ti + 1, main).might, "%s: as the next tier's %s" % [name, TYPES[main]])
-			t.eq(w.weight, plain.weight + (4 if fam == "Twinblades" else 2), "%s: weight +2 (Twinblades +4)" % name)
+			t.eq(w.weight, plain.weight + (3 if fam == "Twinblades" else 1), "%s: weight +1 (Twinblades +3)" % name)
 			t.eq(w.weight, plain.weight + WeaponData.hybrid_weight_bonus(fam), "%s: weight by the rule" % name)
 			t.eq(w.hit, plain.hit, "%s: Hit as the tier's %s" % [name, TYPES[main]])
 			t.eq(w.required_grade, WeaponData.ladder_grade(ti), "%s: the tier's grade in the main type" % name)

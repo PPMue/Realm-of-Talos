@@ -366,7 +366,7 @@ func test_enemy_scaling() -> void:
 	t.eq(d1.strength, orc.strength, "day 1 unchanged STR")
 	t.check(d1 != orc, "a copy, not the data itself")
 	var d42 := Run.scaled_enemy(orc, 42)
-	t.eq(d42.max_hp, roundi(42 * RunConfig.ENEMY_HP_MULT * (1.0 + RunConfig.ENEMY_HP_GROWTH_PER_DAY * 41)), "day 42 HP")
+	t.eq(d42.max_hp, roundi(orc.max_hp * RunConfig.ENEMY_HP_MULT * (1.0 + RunConfig.ENEMY_HP_GROWTH_PER_DAY * 41)), "day 42 HP")
 	var tyrant: EnemyData = load("res://data/enemies/bosses/horned_tyrant.tres")
 	t.eq(Run.sized_boss(tyrant).max_hp, roundi(tyrant.max_hp * RunConfig.BOSS_HP_MULT), "a boss: its HP times the boss multiplier")
 	t.check(Run.sized_boss(tyrant) != tyrant, "a copy too")
@@ -374,14 +374,14 @@ func test_enemy_scaling() -> void:
 	t.eq(d42.defense, orc.defense + floori(41.0 / RunConfig.ENEMY_DEF_EVERY_DAYS), "day 42 DEF")
 	t.eq(d42.speed, orc.speed + floori(41.0 / RunConfig.ENEMY_SPD_EVERY_DAYS), "day 42 SPD")
 	t.check(d42.strength > orc.strength and d42.defense > orc.defense, "day 42 enemies are stronger")
-	# Fitted so day 42 is about what day 30 was with the old 30-day growth (+7 STR, +4 DEF, +3 SPD); Health
-	# x2.23 by the day (lowered from x2.44 when the whole line came to fight, battle step 2), on top of
-	# the multiplier every enemy has since companions' Health went up by half (battle step 3).
-	t.check(absf(d42.max_hp / (42.0 * RunConfig.ENEMY_HP_MULT) - 2.23) < 0.05, "day 42 HP is about x2.23 of the base (%d)" % d42.max_hp)
-	t.eq(d42.strength - orc.strength, 7, "day 42: +7 STR")
-	t.eq(d42.defense - orc.defense, 4, "day 42: +4 DEF")
-	t.eq(d42.speed - orc.speed, 3, "day 42: +3 SPD")
-	t.eq(orc.max_hp, 42, "the data is not changed")
+	# An enemy grows little by the day (design/growth.md): what a companion gains is not taken back. By
+	# day 42: Health x2.15, +2 STR and MAG, +1 DEF, +1 SPD and DEX, on top of the multiplier every enemy
+	# has since companions' Health went up by half (battle step 3).
+	t.check(absf(d42.max_hp / (orc.max_hp * RunConfig.ENEMY_HP_MULT) - 2.15) < 0.05, "day 42 HP is about x2.15 of the base (%d)" % d42.max_hp)
+	t.eq(d42.strength - orc.strength, 2, "day 42: +2 STR")
+	t.eq(d42.defense - orc.defense, 1, "day 42: +1 DEF")
+	t.eq(d42.speed - orc.speed, 1, "day 42: +1 SPD")
+	t.eq(orc.max_hp, 28, "the data is not changed")
 	var run := make_run(5)
 	run.day = 15
 	force_day(run, RunCalendar.DayType.BATTLE)
@@ -1075,13 +1075,13 @@ func test_growth_rates() -> void:
 			var seen: float = 100.0 * int(counts.get(key, 0)) / rolls
 			t.check(absf(seen - rate) < 3.0, "%s %s: rolled %.1f%% against a %d%% rate" % [n, key, seen, rate])
 		var avg := sum / Levels.GROWTH_STATS.size()
-		t.check(avg >= 35.0 and avg <= 45.0, "%s averages about 40%% (%.1f)" % [n, avg])
+		t.check(avg >= 27.0 and avg <= 36.0, "%s averages about 31%% (%.1f)" % [n, avg])
 		t.eq(d.growths.size(), Levels.GROWTH_STATS.size(), "%s has a rate for every stat but BLD" % n)
 	# Character: the axe user is high in HP and STR, the archer in DEX.
 	var elena := companion("elena")
 	var erik := companion("erik")
-	t.check(Levels.growth_rate(elena, Stat.HP) >= 70 and Levels.growth_rate(elena, Stat.STR) >= 60, "Elena: HP and STR")
-	t.check(Levels.growth_rate(erik, Stat.DEX) >= 70, "Erik: DEX")
+	t.check(Levels.growth_rate(elena, Stat.HP) >= 70 and Levels.growth_rate(elena, Stat.STR) >= 45, "Elena: HP and STR")
+	t.check(Levels.growth_rate(erik, Stat.DEX) >= 50, "Erik: DEX")
 	# The same seed gives the same level-ups.
 	var a := CompanionProgress.create(elena)
 	var b := CompanionProgress.create(elena)

@@ -25,7 +25,7 @@ script = ExtResource("1_2wjsx")
 display_name = "Gore"
 countdown = 3
 pick_weight = 3.0
-might = 9
+might = 6
 
 [sub_resource type="Resource" id="Resource_3qnew"]
 script = ExtResource("1_2wjsx")
@@ -33,21 +33,24 @@ display_name = "Tail Sweep"
 targeting = 1
 countdown = 4
 pick_weight = 2.0
-might = 5
+might = 3
 hit = 75
 
 [resource]
 script = ExtResource("4_hrr7b")
+luck = 1
+dexterity = 3
+magic = 0
 traits = Array[String](["Large"])
 band = 2
 display_name = "Armored Beast"
 portrait = ExtResource("3_31c6e")
 color = Color(0.25, 0.35, 0.5, 1)
 stage_scale = 1.1
-max_hp = 64
-strength = 11
+max_hp = 43
+strength = 8
 crit = 1
-speed = 3
-defense = 11
-resistance = 2
+speed = 2
+defense = 8
+resistance = 1
 actions = Array[ExtResource("1_2wjsx")]([SubResource("Resource_glxaj"), SubResource("Resource_05a18"), SubResource("Resource_3qnew")])

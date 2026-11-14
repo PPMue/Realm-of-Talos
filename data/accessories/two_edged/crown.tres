@@ -11,7 +11,7 @@ stat = "MAG"
 [sub_resource type="Resource" id="Resource_negwi"]
 script = ExtResource("1_ojnd8")
 modifier = SubResource("Resource_tptdq")
-by_rank = Array[float]([2.0, 3.0, 4.0, 5.0, 6.0])
+by_rank = Array[float]([1.0, 2.0, 3.0, 3.0, 4.0])
 
 [sub_resource type="Resource" id="Resource_h64aw"]
 script = ExtResource("2_r8vbr")
@@ -27,6 +27,6 @@ script = ExtResource("3_i771o")
 id = "crown"
 display_name = "Crown"
 family = 7
-gives = Array[String](["+2 Magic", "+3 Magic", "+4 Magic", "+5 Magic", "+6 Magic"])
+gives = Array[String](["+1 Magic", "+2 Magic", "+3 Magic", "+3 Magic", "+4 Magic"])
 takes = "Every spell has 1 fewer use (never below 1)"
 effects = Array[ExtResource("1_ojnd8")]([SubResource("Resource_negwi"), SubResource("Resource_d4opy")])

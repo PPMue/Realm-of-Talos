@@ -6,7 +6,7 @@
 script = ExtResource("1_w")
 weapon_type = 2
 tier = 4
-might = 11
+might = 6
 hit = 85
 effective_against = Array[String](["Large"])
 required_grade = 8
@@ -14,4 +14,4 @@ second_type = 3
 second_grade = 6
 family = "Javelin"
 display_name = "Silver Javelin"
-weight = 11
+weight = 7

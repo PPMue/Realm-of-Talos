@@ -11,30 +11,30 @@ display_name = "Ingrid"
 portrait = ExtResource("1_t8c8j")
 color = Color(0.15, 0.5, 0.4, 1)
 portrait_focus = Vector2(0.453, 0.184)
-max_hp = 33
+max_hp = 22
 max_sta = 19
-strength = 9
-magic = 7
-crit = 5
-dexterity = 8
-speed = 7
-defense = 6
-resistance = 3
-luck = 4
-build = 7
+strength = 6
+magic = 5
+crit = 3
+dexterity = 5
+speed = 5
+defense = 4
+resistance = 2
+luck = 3
+build = 5
 weapon = ExtResource("3_03pa1")
 start_grade_sword = 1
 start_grade_spear = 2
 signature_art = ExtResource("4_sig")
 growths = {
 "HP": 65,
-"STA": 45,
-"STR": 50,
-"MAG": 40,
-"CRT": 30,
-"DEX": 45,
-"SPD": 35,
-"DEF": 50,
-"RES": 30,
-"LCK": 35
+"STA": 30,
+"STR": 35,
+"MAG": 25,
+"CRT": 20,
+"DEX": 30,
+"SPD": 25,
+"DEF": 35,
+"RES": 20,
+"LCK": 25
 }

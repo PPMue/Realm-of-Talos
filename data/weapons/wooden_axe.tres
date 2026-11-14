@@ -7,4 +7,4 @@ script = ExtResource("1_0gbou")
 weapon_type = 1
 might = 0
 display_name = "Wooden Axe"
-weight = 7
+weight = 5

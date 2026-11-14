@@ -7,7 +7,7 @@
 script = ExtResource("2_fx")
 display_name = "Suppressed"
 stat_mods = {
-"STR": -2
+"STR": -1
 }
 duration_ticks = 3
 
@@ -20,7 +20,7 @@ tier = 2
 stamina_cost = 9
 recovery = 3
 durability_cost = 2
-might_bonus = -2
+might_bonus = -1
 stagger_ticks = 1
 hits_all_enemies = true
 target_effect = SubResource("Resource_target")

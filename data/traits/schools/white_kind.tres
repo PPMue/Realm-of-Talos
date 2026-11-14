@@ -6,7 +6,7 @@
 [sub_resource type="Resource" id="Resource_3om8c"]
 script = ExtResource("1_o4tmo")
 kind = 10
-amount = 3
+amount = 2
 school = 1
 
 [resource]
@@ -16,5 +16,5 @@ display_name = "White: Kind"
 family = 1
 line = "Kind"
 school = 1
-gives = Array[String](["Heals restore 3 more"])
+gives = Array[String](["Heals restore 2 more"])
 modifiers = Array[ExtResource("1_o4tmo")]([SubResource("Resource_3om8c")])

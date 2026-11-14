@@ -10,21 +10,21 @@ script = ExtResource("1_r3j41")
 display_name = "Pounce"
 countdown = 1
 pick_weight = 4.0
-might = 2
+might = 1
 hit = 85
 
 [sub_resource type="Resource" id="Resource_rqm5w"]
 script = ExtResource("2_4lb1j")
 display_name = "Bleeding"
 stat_mods = {
-"DEF": -2
+"DEF": -1
 }
 
 [sub_resource type="Resource" id="Resource_bjk06"]
 script = ExtResource("1_r3j41")
 display_name = "Rend"
 pick_weight = 2.0
-might = 5
+might = 3
 hit = 85
 effect = SubResource("Resource_rqm5w")
 
@@ -46,15 +46,16 @@ effect = SubResource("Resource_ft06e")
 
 [resource]
 script = ExtResource("4_mmofi")
+magic = 0
 display_name = "Stalker"
 portrait = ExtResource("3_51h2k")
 color = Color(0.32, 0.35, 0.22, 1)
-max_hp = 25
-strength = 9
-crit = 9
-dexterity = 12
-speed = 14
-defense = 2
-resistance = 2
-luck = 6
+max_hp = 17
+strength = 6
+crit = 6
+dexterity = 8
+speed = 9
+defense = 1
+resistance = 1
+luck = 4
 actions = Array[ExtResource("1_r3j41")]([SubResource("Resource_83v00"), SubResource("Resource_bjk06"), SubResource("Resource_ig24l")])

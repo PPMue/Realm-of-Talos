@@ -6,12 +6,12 @@
 script = ExtResource("1_w")
 weapon_type = 3
 tier = 1
-might = 3
+might = 2
 hit = 95
 damage_type = 1
 required_grade = 2
 rare = true
 price = 150
 display_name = "Moonthread Bow"
-weight = 4
+weight = 3
 effective_against = Array[String](["Flying"])

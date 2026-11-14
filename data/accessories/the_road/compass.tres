@@ -11,7 +11,7 @@ kind = 50
 [sub_resource type="Resource" id="Resource_bksqw"]
 script = ExtResource("1_vdsg7")
 modifier = SubResource("Resource_16xs7")
-by_rank = Array[float]([1.0, 2.0, 3.0, 4.0, 5.0])
+by_rank = Array[float]([1.0, 1.0, 2.0, 3.0, 3.0])
 
 [sub_resource type="Resource" id="Resource_6s1pv"]
 script = ExtResource("2_l34sa")
@@ -27,5 +27,5 @@ script = ExtResource("3_livm3")
 id = "compass"
 display_name = "Compass"
 family = 6
-gives = Array[String](["Scavenging: +1 to what is asked, 10% more brought back", "Scavenging: +2 to what is asked, 20% more brought back", "Scavenging: +3 to what is asked, 30% more brought back", "Scavenging: +4 to what is asked, 40% more brought back", "Scavenging: +5 to what is asked, 50% more brought back"])
+gives = Array[String](["Scavenging: +1 to what is asked, 10% more brought back", "Scavenging: +1 to what is asked, 20% more brought back", "Scavenging: +2 to what is asked, 30% more brought back", "Scavenging: +3 to what is asked, 40% more brought back", "Scavenging: +3 to what is asked, 50% more brought back"])
 effects = Array[ExtResource("1_vdsg7")]([SubResource("Resource_bksqw"), SubResource("Resource_vhyp8")])

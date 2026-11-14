@@ -7,8 +7,8 @@
 script = ExtResource("2_fx")
 display_name = "Sword Dance"
 stat_mods = {
-"SPD": 4,
-"DEX": 3
+"SPD": 3,
+"DEX": 2
 }
 duration_ticks = 4
 
@@ -20,6 +20,6 @@ tier = 2
 stamina_cost = 9
 recovery = 3
 durability_cost = 2
-might_bonus = 2
+might_bonus = 1
 stagger_ticks = 1
 self_effect = SubResource("Resource_self")

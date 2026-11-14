@@ -151,8 +151,8 @@ func test_spell_hit_and_crit_use_spell_hit() -> void:
 	e.luck = 3
 	var b := battle_with(cs1(d), one(e))
 	var f := b.spell_forecast(b.roster[0], bolt, b.enemies[0])
-	t.eq(f.hit, 70 + 5 * (12 - 10) - 3, "spell Hit + 5 x (DEX - SPD) - LCK")
-	t.eq(f.crit, 2 * 6 - 3 + 10, "2 x CRT - LCK + the spell's crit bonus")
+	t.eq(f.hit, 70 + BattleConfig.ACCURACY_DEX_SPD_FACTOR * (12 - 10) - 3, "spell Hit + 7 x (DEX - SPD) - LCK")
+	t.eq(f.crit, BattleConfig.CRIT_CRT_FACTOR * 6 - 3 + 10, "3 x CRT - LCK + the spell's crit bonus")
 	bolt.hit = 0
 	t.eq(b.spell_forecast(b.roster[0], bolt, b.enemies[0]).hit, BattleConfig.ACCURACY_MIN, "clamped like any strike")
 	t.eq(f.crit_damage, f.damage * 2, "a crit doubles")
@@ -684,8 +684,8 @@ func test_enemy_magic_uses_res_and_guard_halves() -> void:
 	for act in oath.actions:
 		if act.display_name == "Black Tide":
 			t.eq(act.damage_type, CombatMath.DamageType.MAGIC, "Black Tide is magic")
-	t.eq(Run.scaled_enemy(wiz, 12).magic, wiz.magic + 2, "MAG grows with the day like STR")
-	t.eq(Run.scaled_enemy(wiz, 12).magic - wiz.magic, Run.scaled_enemy(wiz, 12).strength - wiz.strength, "by the same amount")
+	t.eq(Run.scaled_enemy(wiz, 42).magic, wiz.magic + 2, "MAG grows with the day like STR")
+	t.eq(Run.scaled_enemy(wiz, 42).magic - wiz.magic, Run.scaled_enemy(wiz, 42).strength - wiz.strength, "by the same amount")
 
 
 func test_magic_weapon_uses_mag_and_res() -> void:
@@ -861,7 +861,7 @@ func test_thornward_reflects_like_a_stance() -> void:
 	t.eq([thorn.school, thorn.tier, thorn.targeting, thorn.uses, thorn.recovery],
 		[SpellData.School.WHITE, 2, SpellData.Targeting.ONE_ALLY, 4, 3], "Thornward: white, tier 2, one ally, 4 uses, recovery 3")
 	t.eq([thorn.effect.display_name, thorn.effect.reflect_percent, int(thorn.effect.stat_mods.get(Stat.DEF, 0)), thorn.effect.duration_ticks],
-		["Thornward", 40, 2, 3], "reflects 40%, DEF +2, 3 turns")
+		["Thornward", 40, 1, 3], "reflects 40%, DEF +1, 3 turns")
 	# The brute hits everyone, left to right, for STR 10 + Mt 20 every turn.
 	var a: CompanionData = t.make_companion("A", 100)
 	var mage := caster("Mage", 10, [thorn], 100)
@@ -870,9 +870,9 @@ func test_thornward_reflects_like_a_stance() -> void:
 	var bearer := b.roster[0]
 	var e := b.enemies[0]
 	t.check(b.cast(b.roster[1], thorn, bearer), "Thornward cast on A")
-	t.eq(bearer.stat(Stat.DEF), 2, "DEF +2")
-	t.eq(bearer.hp, 100 - 28, "the blow lands, less 2 for the DEF")
-	t.eq(e.hp, 1000 - 11, "40% of 28 comes back")
+	t.eq(bearer.stat(Stat.DEF), 1, "DEF +1")
+	t.eq(bearer.hp, 100 - 29, "the blow lands, less 1 for the DEF")
+	t.eq(e.hp, 1000 - 11, "40% of 29 comes back")
 	t.eq(t.count_events(b, "riposte"), 1, "a riposte event for playback")
 	t.check(t.log_has(b, "A's Thornward strikes back at Brute!"), "the log names the ward")
 	# Magic is never reflected.
@@ -896,17 +896,17 @@ func test_thornward_reflects_like_a_stance() -> void:
 func test_blight_kills_and_credits_the_caster() -> void:
 	var blight := load_spell("black/blight")
 	t.eq([blight.school, blight.tier, blight.targeting, blight.uses, blight.recovery, blight.might, blight.hit],
-		[SpellData.School.BLACK, 2, SpellData.Targeting.ONE_ENEMY, 4, 3, 3, 90], "Blight: black, tier 2, one enemy, 4 uses, recovery 3, Mt 3, Hit 90")
-	t.eq([blight.effect.display_name, blight.effect.damage_per_tick, blight.effect.duration_ticks], ["Blighted", 4, 4], "Blighted: 4 a turn for 4 turns")
+		[SpellData.School.BLACK, 2, SpellData.Targeting.ONE_ENEMY, 4, 3, 2, 90], "Blight: black, tier 2, one enemy, 4 uses, recovery 3, Mt 2, Hit 90")
+	t.eq([blight.effect.display_name, blight.effect.damage_per_tick, blight.effect.duration_ticks], ["Blighted", 3, 4], "Blighted: 3 a turn for 4 turns")
 	var a: CompanionData = t.make_companion("A", 100)
 	var mage := caster("Mage", 10, [blight], 100)
 	var cs: Array[CompanionData] = [a, mage]
-	# MAG 10 + Mt 3 = 13 on the cast, then 4 at the end of the turn: 17. One more turn of it kills.
+	# MAG 10 + Mt 2 = 12 on the cast, then 3 at the end of the turn: 15. One more turn of it kills.
 	var b := battle_with(cs, one(enemy_with(0, 18)), [blight])
 	var e := b.enemies[0]
 	t.check(b.cast(b.roster[1], blight, e), "Blight cast")
-	t.eq(e.hp, 18 - 13 - 4, "13 from the spell, 4 from the blight")
-	t.check(t.log_has(b, "Dummy loses 4 HP to Blighted"), "the log names the blight")
+	t.eq(e.hp, 18 - 12 - 3, "12 from the spell, 3 from the blight")
+	t.check(t.log_has(b, "Dummy loses 3 HP to Blighted"), "the log names the blight")
 	t.check(b.guard(b.roster[0]), "A guards")
 	t.check(not e.is_alive(), "the blight kills")
 	t.eq(b.outcome, Battle.Outcome.VICTORY, "and the battle is won")
@@ -920,7 +920,7 @@ func test_blight_kills_and_credits_the_caster() -> void:
 func test_sanctuary_heals_and_cleanses_everyone() -> void:
 	var sanctuary := load_spell("white/sanctuary")
 	t.eq([sanctuary.school, sanctuary.tier, sanctuary.targeting, sanctuary.uses, sanctuary.recovery, sanctuary.heals, sanctuary.heal_power, sanctuary.cleanse],
-		[SpellData.School.WHITE, 3, SpellData.Targeting.ALL_ALLIES, 2, 4, true, 3, true], "Sanctuary: white, tier 3, every ally, 2 uses, recovery 4, heals MAG + 3, cleanses")
+		[SpellData.School.WHITE, 3, SpellData.Targeting.ALL_ALLIES, 2, 4, true, 2, true], "Sanctuary: white, tier 3, every ally, 2 uses, recovery 4, heals MAG + 2, cleanses")
 	var cs: Array[CompanionData] = [t.make_companion("A", 50), t.make_companion("B", 50), caster("Mage", 9, [sanctuary], 50)]
 	var b := battle_with(cs, one(enemy_with(0)), [sanctuary])
 	for c in b.roster:
@@ -932,17 +932,17 @@ func test_sanctuary_heals_and_cleanses_everyone() -> void:
 		c.add_effect(StatusEffect.from_data(t.make_effect("Blessed", {"STR": 3})))
 	t.check(b.cast(b.roster[2], sanctuary), "no target needed")
 	for c in b.roster:
-		t.eq(c.hp, 10 + 9 + 3, "%s healed by MAG 9 + 3, and no poison afterwards" % c.display_name)
+		t.eq(c.hp, 10 + 9 + 2, "%s healed by MAG 9 + 2, and no poison afterwards" % c.display_name)
 		t.check(not c.has_effect("Hexed") and not c.has_effect("Poison"), "%s cleansed" % c.display_name)
 		t.check(c.has_effect("Blessed"), "%s keeps the buff" % c.display_name)
 	t.eq(t.count_events(b, "cleanse"), 3, "one cleanse per ally")
 
 
-## Entomb: tier 3, Mt 8, and a delay of 3 turns, once per pending action like every delay.
+## Entomb: tier 3, Mt 5, and a delay of 3 turns, once per pending action like every delay.
 func test_entomb_delays_once() -> void:
 	var entomb := load_spell("black/entomb")
 	t.eq([entomb.school, entomb.tier, entomb.targeting, entomb.uses, entomb.recovery, entomb.might, entomb.hit, entomb.delay_ticks],
-		[SpellData.School.BLACK, 3, SpellData.Targeting.ONE_ENEMY, 2, 4, 8, 90, 3], "Entomb: black, tier 3, one enemy, 2 uses, recovery 4, Mt 8, Hit 90, delay 3")
+		[SpellData.School.BLACK, 3, SpellData.Targeting.ONE_ENEMY, 2, 4, 5, 90, 3], "Entomb: black, tier 3, one enemy, 2 uses, recovery 4, Mt 5, Hit 90, delay 3")
 	var acts: Array[EnemyActionData] = [t.make_action("Slam", 6)]
 	var foe: EnemyData = t.make_enemy("Foe", acts, 500)
 	foe.resistance = 0
@@ -950,7 +950,7 @@ func test_entomb_delays_once() -> void:
 	var b := battle_with(cs, one(foe), [entomb])
 	var e := b.enemies[0]
 	t.check(b.cast(b.roster[0], entomb, e), "Entomb cast")
-	t.eq(e.hp, 500 - 18, "MAG 10 + Mt 8")
+	t.eq(e.hp, 500 - 15, "MAG 10 + Mt 5")
 	t.eq(e.countdown, 6 + 3 - 1, "pushed back 3, then the turn passes")
 	t.check(b.cast(b.roster[1], entomb, e), "a second Entomb")
 	t.eq(e.countdown, 6 + 3 - 2, "the same action cannot be delayed twice")
@@ -1042,13 +1042,13 @@ func test_magic_content() -> void:
 		var s: SpellData.School = d.signature_spell.school
 		t.eq(d.starting_magic_grade(s), Proficiency.Grade.D, "%s starts at D" % d.display_name)
 		t.check(d.starting_grade(d.weapon.weapon_type) <= Proficiency.Grade.E_PLUS, "%s: low weapon grade" % d.display_name)
-		t.check(d.magic >= 8 and d.resistance >= 7 and d.strength == d.magic - 2 and d.defense <= 3, "%s: a caster's stats" % d.display_name)
+		t.check(d.magic >= 5 and d.resistance >= 5 and d.strength == d.magic - 1 and d.defense <= 2, "%s: a caster's stats" % d.display_name)
 		var total := 0
 		for key in Levels.GROWTH_STATS:
 			total += Levels.growth_rate(d, key)
 		var avg := total / float(Levels.GROWTH_STATS.size())
-		t.check(avg >= 37.0 and avg <= 47.0, "%s: growths average 37-47%% (%.1f)" % [d.display_name, avg])
-		t.check(Levels.growth_rate(d, Stat.MAG) >= 60 and Levels.growth_rate(d, Stat.STR) == Levels.growth_rate(d, Stat.MAG) - 10, "%s grows as a caster" % d.display_name)
+		t.check(avg >= 27.0 and avg <= 36.0, "%s: growths average 27-36%% (%.1f)" % [d.display_name, avg])
+		t.check(Levels.growth_rate(d, Stat.MAG) >= 45 and Levels.growth_rate(d, Stat.STR) == Levels.growth_rate(d, Stat.MAG) - 10, "%s grows as a caster" % d.display_name)
 		var p := CompanionProgress.create(d)
 		t.check(p.knows_spell(d.signature_spell) and p.uses_left(d.signature_spell) == d.signature_spell.uses, "%s knows the signature spell" % d.display_name)
 		t.check(p.can_equip_weapon(d.weapon), "%s can hold their weapon" % d.display_name)
