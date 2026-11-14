@@ -20,6 +20,7 @@ The folder must exist. Each script prints what it did and quits; look for `SCRIP
 | `jeweler_room.gd` | The Jeweler's room: the tray, setting a stone, the designs, who wears it, the case |
 | `barracks_accessories.gd` | Accessories in the Barracks (worn, the case, putting on, taking off) and on the battle sheet |
 | `mason_plan.gd` | The Mason's plan with all ten facilities |
+| `battle_aims.gd` | A battle with the enemy's hand shown: each enemy's coming action, target and figures, what is aimed at each portrait, the threads, the sheets, and three turns played (a day to fight on may follow the folder; default 16) |
 
 How they are written, for the next one:
 

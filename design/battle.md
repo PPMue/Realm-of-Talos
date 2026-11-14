@@ -164,6 +164,24 @@ fight. Against today's figures:
 
 And the user's own word after playing each step, which outranks the table.
 
+**After step 1** (2026-11-14; 30 runs, 434 battles, 20 replays each; the reader guards whoever would
+fall this turn or fells an enemy about to bring them down):
+
+| | Before | After step 1 |
+|---|---|---|
+| Battles won: automated player / strongest acts / random Attacks | 72 / 76 / 53% | 78 / 83 / 58% |
+| Battles won: reader | none | 82% |
+| Reader's (before: automated player's) win share over random Attacks | 19 points | 24 points |
+| Actions by the busiest two | 94% | 93% (reader 88%) |
+| Guard, share of actions | 3% | 6% (reader 9%) |
+| Blows taking half of max Health or more | 49% | 46% (reader 41%) |
+| Injured a battle | 1.3 | 1.2 (reader 0.9) |
+| Whole runs won by the automated player (200 runs) | 21% | 20% |
+
+Step 1 makes a battle readable and Guard worth using, and it leaves the rest where it was: reading
+the enemy's hand wins no more than letting the strongest act, because with only Guard on oneself
+there is little to answer a blow with. That is what step 2 is for.
+
 ## Yours to decide
 
 1. Show the target and the damage (proposed), or the target only.

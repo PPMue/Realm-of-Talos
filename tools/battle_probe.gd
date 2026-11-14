@@ -3,17 +3,21 @@ extends SceneTree
 ## Run:  godot --headless --path . -s res://tools/battle_probe.gd
 ## PROBE_RUNS (default 12) whole runs are played by the automated player (tests/run_policy.gd). Every
 ## battle it meets is also replayed PROBE_REPLAYS (default 6) times from the same starting state, with
-## fresh dice, by each of three players:
+## fresh dice, by each of four players:
 ##   greedy    the automated player's battle play: the first ready companion acts
 ##   strongest the same, but whoever of the ready would deal the most acts (a healer when someone is hurt)
 ##   random    a random ready companion makes a plain Attack on a random enemy
+##   reader    strongest, but it reads the enemy's hand (Battle.incoming, falls_on_turn): when someone
+##             would fall this turn it fells an enemy whose blow lands on them if it can, else has them
+##             guard if that saves them
 ## It prints: how long battles are, how the actions are shared along the line, how hard single enemy
 ## blows are, how often the same battle is won on a replay, and how the three players compare.
 
 const RunPolicyScript := preload("res://tests/run_policy.gd")
 
-enum Mode { GREEDY, STRONGEST, RANDOM }
-const MODE_NAMES := ["greedy", "strongest", "random"]
+enum Mode { GREEDY, STRONGEST, RANDOM, READER }
+const MODE_NAMES := ["greedy", "strongest", "random", "reader"]
+const MODES := 4
 
 var _replays := 6
 var _held: Array[Resource] = []
@@ -41,7 +45,7 @@ func _init() -> void:
 	if OS.get_environment("PROBE_REPLAYS") != "":
 		_replays = int(OS.get_environment("PROBE_REPLAYS"))
 	_hold("res://data")
-	for m in 3:
+	for m in MODES:
 		_stats.append({"battles": 0, "ticks": 0, "actions": 0, "waits": 0, "guards": 0, "top1": 0.0, "top2": 0.0,
 			"blows": 0, "blows_half": 0, "blows_fell": 0, "blows_fell_full": 0, "misses": 0, "strikes": 0,
 			"injured": 0, "fielded": 0, "idle": 0, "attacks": 0, "arts": 0, "spells": 0, "focuses": 0})
@@ -74,8 +78,8 @@ func _hold(dir: String) -> void:
 func measure(run: Run, b: Battle) -> void:
 	var front := run.committed_front
 	var kind := "boss" if front.is_boss else ("elite" if front.is_elite else "battle")
-	var row := {"day": run.day, "kind": kind, "size": b.roster.size(), "p": [0.0, 0.0, 0.0]}
-	for mode in 3:
+	var row := {"day": run.day, "kind": kind, "size": b.roster.size(), "p": [0.0, 0.0, 0.0, 0.0]}
+	for mode in MODES:
 		var wins := 0
 		for k in _replays:
 			var datas: Array[CompanionData] = []
@@ -116,8 +120,11 @@ func _play(b: Battle, mode: int, policy: RefCounted) -> bool:
 			st.attacks += 1
 			_scan(b, st)
 			continue
+		if mode == Mode.READER and _read(b, ready, st):
+			_scan(b, st)
+			continue
 		var c: CompanionUnit = ready[0]
-		if mode == Mode.STRONGEST:
+		if mode == Mode.STRONGEST or mode == Mode.READER:
 			c = _strongest(b, ready)
 		if policy.cast_spell(b, c):
 			st.spells += 1
@@ -181,6 +188,34 @@ func _play(b: Battle, mode: int, policy: RefCounted) -> bool:
 	return b.outcome == Battle.Outcome.VICTORY
 
 
+## The reader's answer to a blow on the table: for whoever would fall this turn if everything lands,
+## fell an enemy whose blow lands on them now (a sure enough strike that kills), else have them guard
+## if they are free and half the damage leaves them standing. Returns true if it gave an order.
+func _read(b: Battle, ready: Array[CompanionUnit], st: Dictionary) -> bool:
+	for victim in b.active_companions():
+		if b.falls_on_turn(victim) != 1:
+			continue
+		var due := 0
+		for m in b.incoming(victim):
+			if int(m.turns) > 1 or not m.action.deals_damage:
+				continue
+			due += int(m.forecast.damage)
+			var e: EnemyUnit = m.enemy
+			if e.reflect_percent() > 0:
+				continue
+			for c in ready:
+				var f := b.forecast(c, e)
+				if f.damage * f.strikes >= e.hp and f.hit >= 75:
+					b.attack(c, e)
+					st.attacks += 1
+					return true
+		if ready.has(victim) and not b.is_lone_companion(victim) and not victim.has_effect("Guard") 				and ceili(due * BattleConfig.GUARD_DAMAGE_TAKEN_MULT) < victim.hp:
+			b.guard(victim)
+			st.guards += 1
+			return true
+	return false
+
+
 ## Of the ready, a healer when someone is below half and they can heal; else whoever's plain Attack on
 ## the weakest enemy is worth most.
 func _strongest(b: Battle, ready: Array[CompanionUnit]) -> CompanionUnit:
@@ -240,7 +275,7 @@ func _scan(b: Battle, st: Dictionary) -> void:
 func _report() -> void:
 	print("")
 	print("=== %d battles met, each replayed %d times by each player ===" % [_rows.size(), _replays])
-	for m in 3:
+	for m in MODES:
 		var st: Dictionary = _stats[m]
 		var n := maxi(1, int(st.battles))
 		print("")
@@ -258,22 +293,22 @@ func _report() -> void:
 			100.0 * st.blows_fell_full / maxi(1, int(st.blows))])
 		print("  injured a battle %.2f" % (float(st.injured) / n))
 	print("")
-	print("Win share over the replays, all battles: greedy %.0f%%, strongest %.0f%%, random %.0f%%" % [
-		100.0 * _mean(0, ""), 100.0 * _mean(1, ""), 100.0 * _mean(2, "")])
+	print("Win share over the replays, all battles: greedy %.0f%%, strongest %.0f%%, random %.0f%%, reader %.0f%%" % [
+		100.0 * _mean(0, ""), 100.0 * _mean(1, ""), 100.0 * _mean(2, ""), 100.0 * _mean(3, "")])
 	for kind in ["battle", "elite", "boss"]:
-		print("  %s (%d): greedy %.0f%%, strongest %.0f%%, random %.0f%%" % [kind, _count(kind), 100.0 * _mean(0, kind),
-			100.0 * _mean(1, kind), 100.0 * _mean(2, kind)])
+		print("  %s (%d): greedy %.0f%%, strongest %.0f%%, random %.0f%%, reader %.0f%%" % [kind, _count(kind), 100.0 * _mean(0, kind),
+			100.0 * _mean(1, kind), 100.0 * _mean(2, kind), 100.0 * _mean(3, kind)])
 	for week in range(1, 7):
 		var n := 0
-		var sums := [0.0, 0.0, 0.0]
+		var sums := [0.0, 0.0, 0.0, 0.0]
 		for r in _rows:
 			if (int(r.day) - 1) / 7 + 1 == week:
 				n += 1
-				for m in 3:
+				for m in MODES:
 					sums[m] += float(r.p[m])
 		if n > 0:
-			print("  week %d (%d): greedy %.0f%%, strongest %.0f%%, random %.0f%%" % [week, n, 100.0 * sums[0] / n,
-				100.0 * sums[1] / n, 100.0 * sums[2] / n])
+			print("  week %d (%d): greedy %.0f%%, strongest %.0f%%, random %.0f%%, reader %.0f%%" % [week, n, 100.0 * sums[0] / n,
+				100.0 * sums[1] / n, 100.0 * sums[2] / n, 100.0 * sums[3] / n])
 	print("")
 	print("How settled a battle is before it begins (greedy, share of battles by win share over the replays):")
 	var sure_win := 0

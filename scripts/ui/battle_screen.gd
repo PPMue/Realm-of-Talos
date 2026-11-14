@@ -6,6 +6,12 @@ extends Control
 ## Layout: the chosen companion's art and actions on the left, enemies standing on the stage,
 ## the party as a row of panels along the bottom (rightmost = nearest the enemies).
 ##
+## The enemy's hand is shown: under each enemy its coming action by name, who it is aimed at, the
+## damage and the chance to hit (_show_enemy_aim); on each portrait what is aimed at them in the order
+## it lands, and in red the blow they would fall to (_refresh_party, Battle.incoming and
+## falls_on_turn); a thread from an enemy to its target for every blow that lands this turn, and for
+## whatever is pointed at (_draw_threads).
+##
 ## It plays a battle prepared by the run (Run.start_battle) and does not own the game loop: when the
 ## battle is over it emits `finished`; the owner applies the result to the run and hands the report
 ## back with show_report(), and the result screen's button emits `closed`.
@@ -38,6 +44,8 @@ var _art: CombatArtData
 var _spell: SpellData
 var _hot_enemy: EnemyUnit
 var _hot_ally: CompanionUnit
+## The enemy or companion under the pointer, whose aims are drawn as threads (see _draw_threads).
+var _aim_focus: Combatant
 ## The action menu shows the selected companion's spells instead of their actions.
 var _spell_menu := false
 var _spell_page := 0
@@ -58,6 +66,8 @@ var _banner := SlantPanel.new()
 var _banner_label: Label
 var _banner_tween: Tween
 var _popups := Control.new()
+## Threads from an enemy to whoever its coming action is aimed at.
+var _threads := Control.new()
 var _log_panel := PanelContainer.new()
 var _log := RichTextLabel.new()
 var _overlay := BattleResult.new()
@@ -123,6 +133,7 @@ func start(p_battle: Battle, title: String) -> void:
 	_selected = null
 	_hot_enemy = null
 	_hot_ally = null
+	_aim_focus = null
 	_spell = null
 	_art = null
 	_spell_menu = false
@@ -378,6 +389,7 @@ func _targets_all() -> bool:
 
 
 func _on_ally_hover(inside: bool, c: CompanionUnit) -> void:
+	_set_aim_focus(c if inside else null, c)
 	if _busy or _mode != Mode.TARGET_ALLY:
 		return
 	if inside:
@@ -387,12 +399,78 @@ func _on_ally_hover(inside: bool, c: CompanionUnit) -> void:
 
 
 func _on_enemy_hover(inside: bool, e: EnemyUnit) -> void:
+	_set_aim_focus(e if inside else null, e)
 	if _busy:
 		return
 	if inside:
 		point_at_enemy(e)
 	elif _hot_enemy == e and battle.living_enemies().size() > 1:
 		point_at_enemy(null)
+
+
+## Pointing at an enemy shows whom it aims at; pointing at a companion, who aims at them. `from`: the
+## unit the pointer entered or left (leaving one only clears the focus if it was theirs).
+func _set_aim_focus(u: Combatant, from: Combatant) -> void:
+	if u == null and _aim_focus != from:
+		return
+	_aim_focus = u
+	_refresh_aimed()
+	_threads.queue_redraw()
+
+
+## Marks the portraits the pointed-at enemy aims at.
+func _refresh_aimed() -> void:
+	var e := _aim_focus as EnemyUnit
+	for c: CompanionUnit in _party_panels:
+		var aimed := false
+		if e != null and e.is_alive() and not _busy and battle != null and not battle.is_over():
+			for m in battle.incoming(c):
+				if m.enemy == e:
+					aimed = true
+		(_party_panels[c] as PartyPanel).set_aimed(aimed)
+
+
+## Every aim there is a reason to draw: [enemy, companion, turns]. Always those that land this turn;
+## besides them, the aims of whatever is pointed at.
+func _aims_to_draw() -> Array[Array]:
+	var out: Array[Array] = []
+	if battle == null or _busy or battle.is_over() or _overlay.visible:
+		return out
+	for c in battle.active_companions():
+		for m in battle.incoming(c):
+			var e: EnemyUnit = m.enemy
+			var turns := int(m.turns)
+			if turns <= 1 or _aim_focus == e or _aim_focus == c:
+				out.append([e, c, turns])
+	return out
+
+
+## A thread from each enemy to whoever its coming action is aimed at: an arc from the enemy's body down
+## to the head of the portrait, red when it lands this turn.
+func _draw_threads() -> void:
+	for aim in _aims_to_draw():
+		var view: EnemyView = _enemy_views.get(aim[0])
+		var panel: PartyPanel = _party_panels.get(aim[1])
+		if view == null or panel == null:
+			continue
+		var from := view.aim_anchor() - global_position
+		var to := panel.aim_anchor() - global_position
+		var soon := int(aim[2]) <= 1
+		var focused: bool = _aim_focus == aim[0] or _aim_focus == aim[1]
+		var color := Color(UiTheme.INJURED if soon else UiTheme.DANGER, 0.9 if focused else 0.5)
+		var top := Vector2(lerpf(from.x, to.x, 0.45), minf(from.y, to.y) - 90.0)
+		var pts := PackedVector2Array()
+		for i in 25:
+			var t := i / 24.0
+			pts.append(from.lerp(top, t).lerp(top.lerp(to, t), t))
+		_threads.draw_polyline(pts, Color(UiTheme.INK, color.a * 0.8), 6.0 if focused else 5.0, true)
+		_threads.draw_polyline(pts, color, 3.0 if focused else 2.0, true)
+		# The head of the arrow, on the portrait.
+		var dir := (pts[24] - pts[22]).normalized()
+		var side := Vector2(-dir.y, dir.x)
+		_threads.draw_colored_polygon(PackedVector2Array([to + dir * 4.0, to - dir * 14.0 + side * 8.0, to - dir * 14.0 - side * 8.0]),
+			Color(color, minf(1.0, color.a + 0.2)))
+		_threads.draw_circle(from, 5.0, color)
 
 
 ## _input rather than _unhandled_input: right-click must cancel even over an enemy or a panel.
@@ -488,6 +566,8 @@ func _commit(actor: CompanionUnit) -> void:
 		var panel: PartyPanel = _party_panels[c]
 		panel.set_selection(false, false)
 		panel.set_spell_target(false, false)
+		panel.set_aimed(false)
+	_threads.queue_redraw()
 	if actor != null:
 		var panel: PartyPanel = _party_panels[actor]
 		panel.set_stamina(actor.stamina, actor.max_stamina())
@@ -613,7 +693,19 @@ func _show_event(ev: Dictionary) -> float:
 		"intent":
 			var view: EnemyView = _enemy_views[ev.enemy]
 			view.refresh(false, false, view.details)
+			_show_enemy_aim(ev.enemy)
 			return 0.0
+		"aim":
+			# A blow already aimed turns to someone else: its first target fell, or someone drew or left the eye.
+			var view: EnemyView = _enemy_views[ev.enemy]
+			_show_enemy_aim(ev.enemy)
+			var to: CompanionUnit = ev.get("target")
+			if to == null or not _party_panels.has(to):
+				return 0.0
+			_popup(view.popup_anchor() + Vector2(0, 60), "TURNS ON %s" % to.display_name.to_upper(),
+				UiTheme.INTENT_COLORS[EnemyActionData.Intent.ATTACK], 36)
+			(_party_panels[to] as PartyPanel).play_pulse(UiTheme.DANGER)
+			return 0.34
 		"dot":
 			var text := "-%d %s" % [ev.amount, String(ev.name).to_upper()]
 			if ev.target is EnemyUnit:
@@ -814,6 +906,8 @@ func _refresh() -> void:
 	_tick_label.text = _turn_text()
 	_refresh_party()
 	_refresh_enemies()
+	_refresh_aimed()
+	_threads.queue_redraw()
 	_refresh_menu()
 	_draw_log()
 
@@ -854,7 +948,47 @@ func _refresh_party() -> void:
 		if index >= 0 and total > 0.0:
 			share = roundi(weights[index] / total * 100.0)
 			rev_share = roundi(rev_weights[index] / rev_total * 100.0)
-		var aim_tip := "Enemies aim at this spot %d%% of the time." % share
+		# What the enemy has aimed at them, in the order it lands, and the blow they would fall to.
+		var coming: Array[Dictionary] = []
+		if not c.is_injured() and not battle.is_over():
+			coming = battle.incoming(c)
+		var falls := 0
+		if not c.is_injured() and not battle.is_over():
+			falls = battle.falls_on_turn(c)
+		var marks: Array[Dictionary] = []
+		var coming_lines: Array[String] = []
+		var marked_fall := false
+		var left := c.hp
+		var last_on_fall := -1
+		for m in coming:
+			var f: AttackForecast = m.forecast
+			var action: EnemyActionData = m.action
+			var turns := int(m.turns)
+			var dmg := f.damage if action.deals_damage else 0
+			# The blow that brings them down: the one that takes the last of their Health.
+			left -= dmg
+			var fells := falls > 0 and turns == falls and dmg > 0 and left <= 0 and not marked_fall
+			marked_fall = marked_fall or fells
+			if turns == falls and dmg > 0:
+				last_on_fall = marks.size()
+			marks.append({"turns": turns, "damage": dmg, "intent": action.intent, "fells": fells})
+			coming_lines.append("%s's %s in %d: %s" % [m.enemy.display_name, action.display_name, turns,
+				"%d damage, %d%% to hit" % [dmg, f.hit] if dmg > 0 else _action_note(action, false)])
+		if falls > 0 and not marked_fall:
+			if last_on_fall >= 0:
+				# What is already on them (poison, say) does part of it: the last blow of that turn ends it.
+				marks[last_on_fall].fells = true
+			else:
+				# Brought down between blows, by what is already on them.
+				marks.append({"turns": falls, "damage": 0, "intent": EnemyActionData.Intent.DEBUFF, "fells": true})
+		panel.set_incoming(marks)
+		var coming_text := ""
+		if not coming_lines.is_empty():
+			coming_text = "\n\nComing at them:\n" + "\n".join(coming_lines)
+		if falls > 0:
+			coming_text += "%sIf it all lands, they fall in %d turn%s." % ["\n" if coming_text != "" else "\n\n", falls,
+				"" if falls == 1 else "s"]
+		var aim_tip := "An enemy choosing whom to strike next picks this spot %d%% of the time." % share
 		# Nobody aims at someone who is down.
 		if c.is_injured() or index < 0 or battle.is_over():
 			panel.set_threat("")
@@ -862,10 +996,10 @@ func _refresh_party() -> void:
 			panel.set_threat("%d%%" % share)
 		elif aim.x == 0:
 			panel.set_threat("%d%%" % rev_share, true)
-			aim_tip = "Every enemy here aims from the left (mirrored): its single attacks hit this spot %d%% of the time." % rev_share
+			aim_tip = "Every enemy here aims from the left (mirrored): choosing whom to strike next, it picks this spot %d%% of the time." % rev_share
 		else:
 			panel.set_threat("%d%% · %d%%" % [share, rev_share])
-			aim_tip = ("Most enemies aim at this spot %d%% of the time; those that aim from the left (mirrored) %d%% of the time." %
+			aim_tip = ("Choosing whom to strike next, most enemies pick this spot %d%% of the time; those that aim from the left (mirrored) %d%% of the time." %
 				[share, rev_share])
 		var kind := c.weapon().weapon_type
 		var step := c.progress.progress_to_next(kind)
@@ -903,7 +1037,7 @@ func _refresh_party() -> void:
 			c.display_name, c.progress.level, held, _stat_sheet(c, Stat.COMPANION_KEYS), WeaponData.type_name(kind),
 			Proficiency.grade_name(c.progress.grade(kind)),
 			"" if step.y == 0 else "  (%d / %d to %s)" % [step.x, step.y, Proficiency.grade_name(c.progress.grade(kind) + 1)],
-			", ".join(arts) if not arts.is_empty() else "none", magic, aim_tip]
+			", ".join(arts) if not arts.is_empty() else "none", magic, aim_tip + coming_text]
 		if c == _inspected:
 			_fill_inspect()
 		panel.set_selection(c == _selected, not _busy and battle.can_act(c))
@@ -957,6 +1091,7 @@ func _refresh_enemies() -> void:
 		var view: EnemyView = _enemy_views[e]
 		var hot := targeting and (e == _hot_enemy or (_targets_all() and e.is_alive()))
 		view.refresh(targeting, hot, _enemy_tooltip(e))
+		_show_enemy_aim(e)
 		if e == _inspected:
 			# The sheet follows what happens to the enemy, and goes when the enemy does.
 			if e.is_alive():
@@ -977,6 +1112,80 @@ func _refresh_enemies() -> void:
 			view.set_forecast(null)
 
 
+## Writes under an enemy's coming action who it is aimed at and what it would do, as things stand.
+func _show_enemy_aim(e: EnemyUnit) -> void:
+	var view: EnemyView = _enemy_views[e]
+	var a := e.pending_action
+	if a == null or not e.is_alive() or battle.is_over():
+		view.set_aim("", "", "", "")
+		return
+	match a.targeting:
+		EnemyActionData.Targeting.SINGLE:
+			var t: CompanionUnit = e.pending_target
+			if t == null or not t.is_active():
+				view.set_aim("", "", "", _action_note(a, true))
+			elif a.deals_damage:
+				var f := battle.enemy_forecast(e, a, t)
+				view.set_aim(t.display_name, str(f.damage), "%d%%" % f.hit, _action_note(a, true), f.damage >= t.hp)
+			else:
+				view.set_aim(t.display_name, "", "", _action_note(a, true))
+		EnemyActionData.Targeting.ALL_COMPANIONS:
+			var lo := 0
+			var hi := 0
+			var fells := false
+			var first := true
+			for c in battle.active_companions():
+				var f := battle.enemy_forecast(e, a, c, true)
+				lo = f.damage if first else mini(lo, f.damage)
+				hi = f.damage if first else maxi(hi, f.damage)
+				fells = fells or (a.deals_damage and f.damage >= c.hp)
+				first = false
+			var dmg := ""
+			if a.deals_damage and not first:
+				dmg = str(lo) if lo == hi else "%d-%d" % [lo, hi]
+			view.set_aim("Everyone", dmg, "", _action_note(a, true), fells)
+		_:
+			view.set_aim("", "", "", _action_note(a, true))
+
+
+## What an enemy's action does besides its damage, in a few words: the effect it leaves, the healing,
+## an order to the others, recovery added. `brief`: for the line under the action (the first thing
+## only); otherwise everything, for a sheet.
+func _action_note(a: EnemyActionData, brief: bool) -> String:
+	var parts: Array[String] = []
+	if a.heal_percent > 0:
+		parts.append("heals %d%%" % a.heal_percent)
+	if a.effect != null:
+		parts.append(_effect_words(a.effect) if brief else a.effect.summary())
+	if a.hasten_allies > 0:
+		parts.append("the others act %d sooner" % a.hasten_allies)
+	if a.add_recovery > 0:
+		parts.append("+%d recovery" % a.add_recovery)
+	if a.targeting == EnemyActionData.Targeting.ALL_ALLIES and not parts.is_empty():
+		parts[0] += ", every enemy"
+	if parts.is_empty():
+		return ""
+	return parts[0] if brief else "; ".join(parts)
+
+
+## A lasting effect in three or four words: what it changes, without how long.
+func _effect_words(fx: StatusEffectData) -> String:
+	var parts: Array[String] = []
+	for key: String in fx.stat_mods:
+		parts.append("%s %+d" % [key, int(fx.stat_mods[key])])
+	if fx.damage_taken_mult < 1.0:
+		parts.append("takes %d%% less" % roundi((1.0 - fx.damage_taken_mult) * 100.0))
+	elif fx.damage_taken_mult > 1.0:
+		parts.append("takes %d%% more" % roundi((fx.damage_taken_mult - 1.0) * 100.0))
+	if fx.damage_per_tick > 0:
+		parts.append("%d a turn" % fx.damage_per_tick)
+	if fx.reflect_percent > 0:
+		parts.append("reflects %d%%" % fx.reflect_percent)
+	if parts.is_empty():
+		return fx.display_name
+	return ", ".join(parts.slice(0, 2))
+
+
 func _enemy_tooltip(e: EnemyUnit) -> String:
 	var tip := "%s\n%s" % [e.display_name, _stat_sheet(e, Stat.ENEMY_KEYS)]
 	if e.data.role != "":
@@ -985,6 +1194,27 @@ func _enemy_tooltip(e: EnemyUnit) -> String:
 		tip += "\n\n" + EnemyTraits.describe(t)
 	if e.ever_aims_reversed():
 		tip += "\n\nAims from the left: its single-target attacks use the position weights mirrored."
+	# Everything it can do, so its hand can be learned.
+	if e.is_alive() and not e.actions().is_empty():
+		tip += "\n\nWhat it can do:"
+		for a in e.actions():
+			var who := ""
+			match a.targeting:
+				EnemyActionData.Targeting.SINGLE:
+					who = "one companion"
+				EnemyActionData.Targeting.ALL_COMPANIONS:
+					who = "the whole line"
+				EnemyActionData.Targeting.SELF:
+					who = "itself"
+				EnemyActionData.Targeting.ALL_ALLIES:
+					who = "every enemy"
+			var line := "\n%s  ·  after %d turn%s  ·  %s" % [a.display_name, a.countdown, "" if a.countdown == 1 else "s", who]
+			if a.deals_damage:
+				line += "  ·  Mt %d, Hit %d%s" % [a.might, a.hit, ", magic" if a.damage_type == CombatMath.DamageType.MAGIC else ""]
+			var note := _action_note(a, false)
+			if note != "":
+				line += "  ·  " + note
+			tip += line
 	var effects: Array[String] = []
 	for fx in e.effects:
 		effects.append(fx.describe())
@@ -1220,6 +1450,13 @@ func _build_ui() -> void:
 	_grade_detail.size = Vector2(760, 34)
 	_grade_detail.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_grade_banner.add_child(_grade_detail)
+
+	# Threads of aim: above the enemies and the line, under the banners.
+	_threads.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_threads.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_threads.z_index = 4
+	_threads.draw.connect(_draw_threads)
+	add_child(_threads)
 
 	_popups.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_popups.mouse_filter = Control.MOUSE_FILTER_IGNORE

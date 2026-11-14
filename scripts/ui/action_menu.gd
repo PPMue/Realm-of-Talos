@@ -233,8 +233,7 @@ func show_companion(c: CompanionUnit, battle: Battle, active_id: String, enabled
 	var w := c.weapon()
 	_descriptions[ATTACK] = "Strike one enemy with %s%s. No cost. Recovery 1." % [w.display_name,
 		" (magic: MAG against RES)" if w.is_magic() else ""]
-	_descriptions[GUARD] = "Until this turn ends: take half damage, and enemies are %dx as likely to aim at %s. Recovery 1." % [
-		roundi(BattleConfig.GUARD_TARGET_WEIGHT_MULT), c.display_name]
+	_descriptions[GUARD] = "Until this turn ends: take half damage. Use it on the turn a blow lands. Recovery 1."
 	_descriptions[FOCUS] = "Gain %d stamina. Recovery 1." % battle.focus_amount(c)
 	(_buttons[FOCUS] as ActionButton).detail = "+%d stamina" % battle.focus_amount(c)
 	if not c.spells().is_empty():

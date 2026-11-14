@@ -1,7 +1,8 @@
 class_name EnemyView
 extends Control
-## One enemy standing on the stage: its art, and below it name, HP, countdown and intent.
-## Display only. The player never sees who an attack will hit, only the kind of action coming.
+## One enemy standing on the stage: its art, and below it name, HP, and what it is about to do: the
+## turns left, the action's name, and under that who it is aimed at with the damage and the chance to
+## hit (set_aim; the battle screen works the figures out). Display only.
 ##
 ## The battle screen gives each enemy a slot (a column of the stage) and calls layout().
 ## The art may be wider than the slot: with several enemies they overlap, every second one
@@ -13,7 +14,7 @@ signal hover_changed(inside: bool)
 ## Art size of a normal-sized enemy when there is room.
 const BASE_SIDE := 600.0
 const MAX_SLOT := 640.0
-const PLATE_H := 134.0
+const PLATE_H := 168.0
 ## How much higher (further away) the back row stands.
 const BACK_RAISE := 58.0
 const BACK_TINT := Color(0.8, 0.82, 0.9)
@@ -21,6 +22,8 @@ const BACK_TINT := Color(0.8, 0.82, 0.9)
 const REFLECT_TINT := Color(1.25, 0.82, 1.08)
 ## Below this slot width the intent chip drops its word and shows the icon only.
 const COMPACT_BELOW := 262.0
+## Below this slot width a delayed or hastened action is marked with a short bar, not the word.
+const SHORT_TAG_BELOW := 400.0
 
 var unit: EnemyUnit
 ## Name, stats, traits and what is on it now, as text (see refresh).
@@ -55,6 +58,13 @@ var _intent := EnemyActionData.Intent.ATTACK
 var _has_intent := false
 var _delayed := false
 var _hastened := false
+## The coming action's name, and the line under it (see set_aim).
+var _action_name := ""
+var _aim_target := ""
+var _aim_damage := ""
+var _aim_hit := ""
+var _aim_note := ""
+var _aim_fells := false
 var _back := false
 ## Share of weapon and art damage reflected right now (0: none).
 var _reflect := 0
@@ -101,7 +111,7 @@ func setup(p_unit: EnemyUnit) -> void:
 		_traits.add_child(_trait_tag(t))
 	if unit.data.ever_reversed():
 		_traits.add_child(_trait_tag("AIMS LEFT", UiTheme.DANGER,
-			"Aims at the far end of the line: its single-target attacks use the position weights mirrored, so the leftmost companion is aimed at most. Guard, Veil and injury still count as usual."))
+			"Aims at the far end of the line: when it chooses whom to strike, the leftmost companion is the likeliest. A Veil or a Beacon still counts as usual."))
 	_reflect_tag = _trait_tag("REFLECTING", UiTheme.REFLECT, "")
 	_reflect_label = _reflect_tag.get_child(0) as Label
 	_reflect_tag.visible = false
@@ -189,6 +199,7 @@ func refresh(targetable: bool, hot: bool, sheet: String) -> void:
 	_has_intent = unit.pending_action != null
 	if _has_intent:
 		_intent = unit.pending_action.intent
+		_action_name = unit.pending_action.display_name
 	_countdown = unit.countdown
 	_delayed = unit.delayed
 	_hastened = unit.hastened
@@ -237,6 +248,23 @@ func _tint() -> Color:
 
 func clear_targeting() -> void:
 	_set_target_state(false, false)
+
+
+## The line under the coming action: who it is aimed at (`target`, "" for none), the `damage` and the
+## chance to `hit` as figures ("" where there is none), and `note` for anything else it does.
+## `fells`: the blow alone would bring its target down.
+func set_aim(target: String, damage: String, hit: String, note: String, fells: bool = false) -> void:
+	_aim_target = target
+	_aim_damage = damage
+	_aim_hit = hit
+	_aim_note = note
+	_aim_fells = fells
+	_plate.queue_redraw()
+
+
+## Where a thread to whoever it aims at starts (global): the middle of the art.
+func aim_anchor() -> Vector2:
+	return global_position + _home + Vector2(_side * 0.5, _side * 0.62)
 
 
 func show_countdown(value: int) -> void:
@@ -395,7 +423,8 @@ func _draw() -> void:
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
-## Hourglass, turns left, and the kind of action that is coming.
+## Hourglass and turns left, the coming action by name, and under it who it is aimed at and what it
+## would do.
 func _draw_plate() -> void:
 	if not _has_intent or _defeated:
 		return
@@ -403,19 +432,26 @@ func _draw_plate() -> void:
 	var number := str(maxi(_countdown, 0))
 	var number_size := 50
 	var number_w := font.get_string_size(number, HORIZONTAL_ALIGNMENT_LEFT, -1, number_size).x
-	var word := "" if _compact else EnemyActionData.intent_name(_intent)
-	var word_size := 24
-	var word_w := font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, word_size).x
-	var chip_w := (word_w + 78.0) if not _compact else 66.0
 	var chip_h := 40.0
-	# A delayed action: a "DELAYED" tag after the intent (a short bar in compact slots).
+	# A delayed action: a "DELAYED" tag after the name (a short bar where there is no room).
 	# Brought forward by an order: a "HASTENED" tag instead (both cannot fit; the delay mark wins).
 	var marked := _delayed or _hastened
+	var short_tag := _compact or _plate.size.x < SHORT_TAG_BELOW
 	var mark_color := UiTheme.WHITE_MAGIC if _delayed else UiTheme.HASTE
-	var delay_word := "" if _compact else ("DELAYED" if _delayed else "HASTENED")
+	var delay_word := "" if short_tag else ("DELAYED" if _delayed else "HASTENED")
 	var delay_w := 0.0
 	if marked:
-		delay_w = 14.0 + (font.get_string_size(delay_word, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x + 30.0 if not _compact else 22.0)
+		delay_w = 14.0 + (font.get_string_size(delay_word, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x + 30.0 if not short_tag else 22.0)
+	# The name takes what the slot leaves, smaller and then cut short if it must.
+	var word := "" if _compact else _action_name.to_upper()
+	var word_size := 24
+	var room := maxf(48.0, _plate.size.x + 28.0 - (34.0 + 10.0 + number_w + 16.0 + 78.0 + delay_w))
+	while word_size > 15 and font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, word_size).x > room:
+		word_size -= 1
+	while word.length() > 4 and font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, word_size).x > room:
+		word = word.substr(0, word.length() - 2).strip_edges() + "."
+	var word_w := font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, word_size).x
+	var chip_w := (word_w + 78.0) if not _compact else 66.0
 	var total := 34.0 + 10.0 + number_w + 16.0 + chip_w + delay_w
 	var x := (_plate.size.x - total) * 0.5
 	var mid := 100.0
@@ -431,7 +467,7 @@ func _draw_plate() -> void:
 
 	var color: Color = UiTheme.INTENT_COLORS[_intent]
 	var chip := Rect2(x, mid - chip_h * 0.5, chip_w, chip_h)
-	# A dark plate with the kind of action in its own colour, not a bright tag.
+	# A dark plate with the action in its kind's colour, not a bright tag.
 	UiTheme.fill_para(_plate, chip, Color(UiTheme.INK, 0.86))
 	UiTheme.stroke_para(_plate, chip, Color(color, 0.9), 2.0)
 	UiTheme.draw_intent_icon(_plate, _intent, Vector2(x + 34.0, mid), 22.0, color.lightened(0.15))
@@ -442,9 +478,53 @@ func _draw_plate() -> void:
 		var tag := Rect2(x + chip_w + 14.0, mid - 15.0, delay_w - 14.0, 30.0)
 		UiTheme.fill_para(_plate, tag, Color(UiTheme.INK, 0.92))
 		UiTheme.stroke_para(_plate, tag, mark_color, 2.0)
-		if not _compact:
+		if not short_tag:
 			UiTheme.draw_text(_plate, font, Vector2(tag.position.x, mid - font.get_height(18) * 0.5), delay_word, 18,
 				mark_color, 0, tag.size.x, HORIZONTAL_ALIGNMENT_CENTER)
+	_draw_aim(font, color)
+
+
+## The line under the action: an arrow and who it is aimed at, the damage and the chance to hit as
+## figures with one word each, then anything else it does. Shrinks to the slot.
+func _draw_aim(font: Font, color: Color) -> void:
+	# Each piece: text, font size, colour, gap before it.
+	var pieces: Array[Array] = []
+	var hurt := UiTheme.INJURED.lightened(0.25) if _aim_fells else UiTheme.TEXT
+	if _aim_target != "":
+		pieces.append([_aim_target.to_upper(), 21, hurt, 26.0])
+	if _aim_damage != "":
+		pieces.append([_aim_damage, 30, hurt, 16.0])
+		pieces.append(["DMG", 14, UiTheme.MUTED, 5.0])
+	if _aim_hit != "":
+		pieces.append([_aim_hit, 22, UiTheme.TEXT, 14.0])
+		pieces.append(["HIT", 14, UiTheme.MUTED, 5.0])
+	if _aim_note != "":
+		pieces.append([_aim_note.to_upper(), 18, color.lightened(0.35), 14.0 if not pieces.is_empty() else 0.0])
+	if pieces.is_empty():
+		return
+	var shrink := 1.0
+	var total := 0.0
+	for pass_index in 2:
+		total = 0.0
+		for p in pieces:
+			total += float(p[3]) * shrink + font.get_string_size(String(p[0]), HORIZONTAL_ALIGNMENT_LEFT, -1,
+				roundi(int(p[1]) * shrink)).x
+		if pass_index == 0 and total > _plate.size.x - 10.0:
+			shrink = maxf(0.6, (_plate.size.x - 10.0) / total)
+	var x := (_plate.size.x - total) * 0.5
+	var base := 158.0   # every piece sits on this line
+	for i in pieces.size():
+		var p: Array = pieces[i]
+		var fs := roundi(int(p[1]) * shrink)
+		x += float(p[3]) * shrink
+		if i == 0 and _aim_target != "":
+			# An arrow toward the line of companions.
+			var c := Vector2(x - 14.0 * shrink, base - 9.0 * shrink)
+			var a := 7.0 * shrink
+			_plate.draw_colored_polygon(PackedVector2Array([c + Vector2(-a, -a), c + Vector2(a, 0), c + Vector2(-a, a)]),
+				Color(p[2], 0.9))
+		UiTheme.draw_text(_plate, font, Vector2(x, base - font.get_ascent(fs)), String(p[0]), fs, p[2], 6)
+		x += font.get_string_size(String(p[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 
 
 ## A small tag above the name. Traits use the effectiveness colour and explain themselves.
