@@ -44,10 +44,12 @@ var art_pool: Array[CombatArtData] = []
 var spell_pool: Array[SpellData] = []
 ## Every trait that can be handed out (TraitLibrary). See _roll_traits.
 var trait_pool: Array[TraitData] = []
-## Traits on someone in the company or on this week's tavern offers: no trait twice in a run.
+## Traits on someone in the company or on anyone offered at the tavern this run, hired or not: no
+## trait twice in a run.
 var _traits_taken: Array[TraitData] = []
-## This week's tavern offers' traits: CompanionData -> Array[TraitData] (see offer_traits).
-var _offer_traits: Dictionary = {}
+## The traits of everyone offered at the tavern this run: CompanionData -> Array[TraitData], rolled the
+## first time they are offered and theirs for the rest of the run (see offer_traits, _offer).
+var _rolled_traits: Dictionary = {}
 
 ## 1-based. After the run ends it stays on the last day played.
 var day: int = 1
@@ -693,11 +695,11 @@ func hire(data: CompanionData) -> RunCompanion:
 	if hire_block_reason(data) != "":
 		return null
 	gold -= hire_cost()
+	var traits := offer_traits(data)
 	tavern_offers.erase(data)
 	var level := hire_level()
 	var c := _join(data)
-	c.traits = offer_traits(data)
-	_offer_traits.erase(data)
+	c.traits = traits
 	while c.level() < level:
 		Levels.level_up(c.progress, rng)
 	c.hp = c.max_hp()
@@ -1500,11 +1502,12 @@ static func _cost_with_gold(cost: Dictionary) -> String:
 
 # ---------------------------------------------------------------- traits
 
-## The traits of `data` standing in the tavern this week (rolled with the week's offers; shown before
-## hiring). Empty if they are not offered.
+## The traits of `data` standing in the tavern this week (shown before hiring): rolled the first time
+## they were offered this run and the same every week after. Empty if they are not offered now.
 func offer_traits(data: CompanionData) -> Array[TraitData]:
 	var out: Array[TraitData] = []
-	out.assign(_offer_traits.get(data, []))
+	if tavern_offers.has(data):
+		out.assign(_rolled_traits.get(data, []))
 	return out
 
 
@@ -1927,11 +1930,7 @@ static func scaled_enemy(e: EnemyData, on_day: int) -> EnemyData:
 
 ## The weekly refresh: the tavern's offers and the smithy's stock for the week that begins today.
 func _restock_week() -> void:
-	# Unhired offers' traits go back into the pool.
-	for d: CompanionData in _offer_traits:
-		for t: TraitData in _offer_traits[d]:
-			_traits_taken.erase(t)
-	_offer_traits.clear()
+	# Unhired offers keep their traits (in _rolled_traits) for when they are offered again.
 	tavern_offers.clear()
 	shop_week.clear()
 	_make_tavern_offers()
@@ -2000,9 +1999,15 @@ func _make_tavern_offers() -> void:
 	var extra := RunConfig.TAVERN_EXTRA_OFFERS if facility_level(Facility.TAVERN) >= 1 else 0
 	var count := mini(rng.randi_range(RunConfig.TAVERN_OFFERS_MIN, RunConfig.TAVERN_OFFERS_MAX) + extra, pool.size())
 	for i in count:
-		var d: CompanionData = pool.pop_at(rng.randi_range(0, pool.size() - 1))
-		tavern_offers.append(d)
-		_offer_traits[d] = _roll_traits(CompanionProgress.create(d))
+		_offer(pool.pop_at(rng.randi_range(0, pool.size() - 1)))
+
+
+## Puts `d` among this week's tavern offers. Their traits are rolled the first time they are offered
+## in the run (from CompanionProgress.create(d)); offered again, they keep them and nothing is rolled.
+func _offer(d: CompanionData) -> void:
+	tavern_offers.append(d)
+	if not _rolled_traits.has(d):
+		_rolled_traits[d] = _roll_traits(CompanionProgress.create(d))
 
 
 ## When the run begins: one wooden weapon (the ladder's tier 0) of every weapon type the starters'
@@ -2024,9 +2029,7 @@ func _offer_more(n: int) -> void:
 		if not _in_roster(d) and not tavern_offers.has(d):
 			pool.append(d)
 	for i in mini(n, pool.size()):
-		var d: CompanionData = pool.pop_at(rng.randi_range(0, pool.size() - 1))
-		tavern_offers.append(d)
-		_offer_traits[d] = _roll_traits(CompanionProgress.create(d))
+		_offer(pool.pop_at(rng.randi_range(0, pool.size() - 1)))
 
 
 ## The week's stock: with RunConfig.SHOP_RARE_CHANCE one rare weapon whose grade fits the week

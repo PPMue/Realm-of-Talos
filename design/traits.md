@@ -6,7 +6,9 @@ A trait is something a companion is, not something they learn: it is rolled when
 
 - Every companion has 1 to 3 traits: 1 trait 75%, 2 traits 22%, 3 traits 3%.
 - Rolled when the companion first appears: the two starters when the run begins, a tavern hire when the week's offers are rolled. The hire's paper shows them before you pay, so two offers of the same companion in different runs are different people.
-- No trait appears twice in a run. A trait shown on a hire nobody took goes back into the pool when the week ends.
+- No trait appears twice in a run. Revised on 2026-11-14: a companion's traits are rolled the first time they
+  are offered at the tavern and stay theirs for the run, hired or not: offered again they show the same ones,
+  and those traits never go back into the pool.
 - Each trait has a rarity: common (weight 10), uncommon (5), rare (1). A companion's second and third traits are drawn the same way.
 - A trait tied to a weapon or a school of magic goes to someone who can already use it 4 times in 5. The fifth time it lands on anyone: an axe trait on a swordsman is a reason to send them to the drill yard.
 - A companion never gets two traits from the same line of a family (not both Sword: Sure and Axe: Sure) and never two two-edged traits.

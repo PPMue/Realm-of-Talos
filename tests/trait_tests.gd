@@ -31,7 +31,7 @@ func tests() -> Array[Callable]:
 		test_traits_unique_in_a_run,
 		test_trait_lines_and_two_edged,
 		test_trait_fit,
-		test_unhired_offer_traits_return,
+		test_unhired_offer_keeps_traits,
 		test_hire_keeps_offer_traits,
 		test_trait_table,
 		test_trait_table_covers_library,
@@ -546,25 +546,66 @@ func test_trait_fit() -> void:
 	t.check(Run._trait_fits(trait_of("hale"), p), "an untied trait fits anyone")
 
 
-func test_unhired_offer_traits_return() -> void:
+## Traits are rolled once a run: someone offered at the tavern and not hired keeps theirs, out of the
+## pool, and shows the same ones when offered again, without a new roll.
+func test_unhired_offer_keeps_traits() -> void:
 	var run := make_run(8)
-	run._restock_week()
-	t.check(not run.tavern_offers.is_empty(), "someone is offered")
-	var offered: Array[TraitData] = []
-	for d in run.tavern_offers:
-		offered.append_array(run.offer_traits(d))
-	for x in offered:
-		t.check(run._traits_taken.has(x), "an offer's traits are out of the pool while offered")
-	var old_offers := run.tavern_offers.duplicate()
-	run._restock_week()   # the week ends, nobody hired
-	for x in offered:
-		var still_offered := false
+	var first: Dictionary = {}   # CompanionData -> the traits shown the first time
+	var reoffers := 0
+	var taken_before := -1   # the pool's taken count when the last week ended
+	for week in 12:
+		var fresh := 0
 		for d in run.tavern_offers:
-			still_offered = still_offered or run.offer_traits(d).has(x)
-		t.eq(run._traits_taken.has(x), still_offered, "%s back in the pool unless drawn again" % x.id)
-	for d in old_offers:
-		if not run.tavern_offers.has(d):
-			t.check(run.offer_traits(d).is_empty(), "the old offer is gone")
+			var shown := run.offer_traits(d)
+			t.check(shown.size() >= 1 and shown.size() <= 3, "week %d: an offer shows 1-3 traits" % week)
+			if first.has(d):
+				t.eq(shown, first[d], "week %d: %s shows the same traits again" % [week, d.display_name])
+				reoffers += 1
+			else:
+				first[d] = shown
+				fresh += shown.size()
+		for d: CompanionData in first:
+			for x: TraitData in first[d]:
+				t.check(run._traits_taken.has(x), "week %d: %s stays out of the pool" % [week, x.id])
+				if not run.tavern_offers.has(d):
+					t.check(run.offer_traits(d).is_empty(), "week %d: not offered, no offer traits" % week)
+		if taken_before >= 0:
+			t.eq(run._traits_taken.size(), taken_before + fresh, "week %d: only first-time offers take traits" % week)
+		# Nobody else carries them meanwhile: every list seen so far, the roster's and the offers', disjoint.
+		var seen := {}
+		var lists: Array = first.values()
+		for c in run.roster:
+			lists.append(c.traits)
+		for list: Array in lists:
+			for x: TraitData in list:
+				t.check(not seen.has(x), "week %d: %s on one person only" % [week, x.id])
+				seen[x] = true
+		taken_before = run._traits_taken.size()
+		run._restock_week()   # the week ends, nobody hired
+	t.check(reoffers > 0, "someone was offered again (%d)" % reoffers)
+	# A re-offer rolls nothing: the generator is where it was.
+	run = make_run(81)
+	var d: CompanionData = run.tavern_offers[0]
+	var shown := run.offer_traits(d)
+	run.tavern_offers.erase(d)
+	var state := run.rng.state
+	var taken := run._traits_taken.size()
+	run._offer(d)
+	t.eq(run.rng.state, state, "offered again: no rolls")
+	t.eq(run._traits_taken.size(), taken, "and nothing more taken")
+	t.eq(run.offer_traits(d), shown, "the same traits")
+	# Hired after a week unhired: they keep them.
+	run.gold = 100000
+	run.day = 2
+	run.calendar[1] = RunCalendar.DayType.FREE
+	run.event_days.erase(2)
+	run._begin_day()
+	run.tavern_offers.erase(d)
+	run._offer(d)
+	var c := run.hire(d)
+	t.check(c != null, "hired")
+	t.eq(c.traits, shown, "hired later, the traits first shown")
+	t.check(run.offer_traits(d).is_empty(), "no longer offered")
 
 
 func test_hire_keeps_offer_traits() -> void:
