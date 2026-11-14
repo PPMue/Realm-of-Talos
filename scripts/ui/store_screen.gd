@@ -13,7 +13,8 @@ extends Control
 ## having the smith work it, and for an enchanted one the way to move its enchantment to a plain
 ## weapon of the same kind. The smith's work is an offer (Run.enchant_offer): it is held up over the
 ## whole room, beside the weapon as it is, and stays there until one of them is chosen.
-## Hiring and buying cost gold only, never the day's action; the rules decide (see Run).
+## Hiring and buying cost gold only, never the day's action, and both rooms are open on battle and
+## boss days too, until the company marches out; the rules decide (see Run.visit_block_reason).
 
 signal closed
 
@@ -36,6 +37,13 @@ const PAPER_GROWTH_ROW := 30.0
 const SAID_X := 214.0
 const SAID_Y := 250.0
 const SAID_W := 240.0
+## With three at the counter each has a narrower stretch of it: the figure stands a little left of
+## the middle of theirs and the traits keep to its right edge, so nothing runs into the next hire.
+const CROWD := 3
+const CROWD_ROOM := 1872.0
+const CROWD_SHIFT := 100.0
+const CROWD_SAID_W := 236.0
+const PAPER_GAP := 12.0
 ## Smithy: the price list, and the company beside it.
 const PAGE := Rect2(770, 110, 1110, 946)
 const PAGE_PAD := 36.0
@@ -101,6 +109,11 @@ func close() -> void:
 		return   # the smith is waiting for an answer
 	visible = false
 	closed.emit()
+
+
+## True on a battle or boss day: the smithy and the tavern are open until the company marches out.
+func _before_battle() -> bool:
+	return run != null and run.day_type() != RunCalendar.DayType.FREE
 
 
 ## The smith's open offer, if there is one.
@@ -174,12 +187,12 @@ func refresh() -> void:
 	if mode == Mode.SHOP:
 		_title.text = "THE SMITHY"
 		_backdrop.kind = InteriorBackdrop.Kind.SMITHY
-		_hint.text = "\"Mind the grade, Commander: a blade is no use to a hand that cannot hold it.\""
+		_hint.text = "\"The horns are sounding, Commander. Take what you need before you march.\"" if _before_battle() else "\"Mind the grade, Commander: a blade is no use to a hand that cannot hold it.\""
 		_refresh_smithy()
 	else:
 		_title.text = "THE TAVERN"
 		_backdrop.kind = InteriorBackdrop.Kind.TAVERN
-		_hint.text = "\"These are the ones looking for work. They bring their own steel.\""
+		_hint.text = "\"These will march with you today, if you will have them. They bring their own steel.\"" if _before_battle() else "\"These are the ones looking for work. They bring their own steel.\""
 		_refresh_tavern()
 
 
@@ -192,7 +205,7 @@ func _refresh_tavern() -> void:
 	_tavern.queue_redraw()
 	var offers := run.tavern_offers
 	for i in offers.size():
-		_papers.add_child(_paper_for(offers[i], _hire_x(i, offers.size())))
+		_papers.add_child(_paper_for(offers[i], _hire_x(i, offers.size()), _paper_w(offers.size())))
 	if offers.is_empty():
 		var nobody := UiTheme.label("Nobody else is looking for work.", 26, UiTheme.TEXT.lerp(UiTheme.MUTED, 0.4), false, 5)
 		nobody.add_theme_font_override("font", UiTheme.italic_font())
@@ -202,10 +215,31 @@ func _refresh_tavern() -> void:
 		_papers.add_child(nobody)
 
 
-## Where hire `i` of `n` stands: spread about the middle of the room.
+## How much of the counter each of `n` hires has.
+static func _hire_step(n: int) -> float:
+	return minf(HIRE_STEP, CROWD_ROOM / maxi(1, n))
+
+
+## The middle of hire `i` of `n`'s stretch of the counter (their paper is centred on it).
 func _hire_x(i: int, n: int) -> float:
-	var step := minf(HIRE_STEP, 1700.0 / maxi(1, n))
-	return 960.0 + (i - (n - 1) * 0.5) * step
+	return 960.0 + (i - (n - 1) * 0.5) * _hire_step(n)
+
+
+## Where the figure of hire `i` of `n` stands.
+func _figure_x(i: int, n: int) -> float:
+	return _hire_x(i, n) - (CROWD_SHIFT if n >= CROWD else 0.0)
+
+
+## A hire's paper is as wide as their stretch of the counter allows.
+static func _paper_w(n: int) -> float:
+	return minf(PAPER.x, _hire_step(n) - PAPER_GAP)
+
+
+## Where what is said of hire `i` of `n` is written (its left edge), and how wide.
+func _said_rect(i: int, n: int) -> Vector2:
+	if n >= CROWD:
+		return Vector2(_hire_x(i, n) + _hire_step(n) * 0.5 - CROWD_SAID_W - 20.0, CROWD_SAID_W)
+	return Vector2(_hire_x(i, n) + SAID_X, SAID_W)
 
 
 ## The room behind the papers: light on the wall, the hires as cut-outs, and the counter in front.
@@ -215,7 +249,7 @@ func _draw_tavern() -> void:
 	var offers := run.tavern_offers
 	var lit := Color("7a6046")
 	for i in offers.size():
-		var x := _hire_x(i, offers.size())
+		var x := _figure_x(i, offers.size())
 		for k in 12:
 			var f := 1.0 - k / 12.0
 			var pts := PackedVector2Array()
@@ -230,7 +264,7 @@ func _draw_tavern() -> void:
 		var ts := tex.get_size()
 		var h := HIRE_ART * data.figure_scale
 		var art := Vector2(h * ts.x / maxf(1.0, ts.y), h)
-		var top_left := Vector2(_hire_x(i, offers.size()), HIRE_FACE_Y) - data.portrait_focus * art
+		var top_left := Vector2(_figure_x(i, offers.size()), HIRE_FACE_Y) - data.portrait_focus * art
 		top_left.y = maxf(top_left.y, COUNTER_Y - art.y)
 		var shown := clampf((COUNTER_Y - top_left.y) / art.y, 0.0, 1.0)
 		_tavern.draw_texture_rect_region(tex, Rect2(top_left, Vector2(art.x, art.y * shown)), Rect2(0, 0, ts.x, ts.y * shown))
@@ -239,14 +273,20 @@ func _draw_tavern() -> void:
 		var traits := run.offer_traits(offers[i])
 		if traits.is_empty():
 			continue
-		var at := Vector2(_hire_x(i, offers.size()) + SAID_X, SAID_Y)
-		var tall := ArtFacts.traits_height(SAID_W, traits, 1.1) + 34.0
+		var said := _said_rect(i, offers.size())
+		var said_w := said.y
+		var k := 1.0 if offers.size() >= CROWD else 1.1
+		var at := Vector2(said.x, SAID_Y)
+		var tall := ArtFacts.traits_height(said_w, traits, k) + 34.0
+		# With three at the counter the words lie over the figure's arm or hair: the shadow is deeper.
+		var crowd := offers.size() >= CROWD
 		for g in 12:
-			_tavern.draw_rect(Rect2(at - Vector2(10.0, 6.0), Vector2(SAID_W + 20.0, tall + 10.0)).grow(g * 4.0), Color(0, 0, 0, 0.055))
+			_tavern.draw_rect(Rect2(at - Vector2(10.0, 6.0), Vector2(said_w + 20.0, tall + 10.0)).grow(g * (3.0 if crowd else 4.0)),
+				Color(0, 0, 0, 0.1 if crowd else 0.055))
 		UiTheme.draw_text(_tavern, UiTheme.display_font(), at, "TRAITS" if traits.size() > 1 else "TRAIT", 15, UiTheme.MUTED, 4)
-		_tavern.draw_line(at + Vector2(0, 24.0), at + Vector2(SAID_W, 24.0), Color(UiTheme.GOLD_DEEP, 0.7), 1.0)
-		ArtFacts.draw_traits(_tavern, at + Vector2(0, 32.0), SAID_W, traits, UiTheme.GOLD, UiTheme.TEXT.lerp(UiTheme.MUTED, 0.25),
-			UiTheme.INJURED.lightened(0.15), 1.1, 4)
+		_tavern.draw_line(at + Vector2(0, 24.0), at + Vector2(said_w, 24.0), Color(UiTheme.GOLD_DEEP, 0.7), 1.0)
+		ArtFacts.draw_traits(_tavern, at + Vector2(0, 32.0), said_w, traits, UiTheme.GOLD, UiTheme.TEXT.lerp(UiTheme.MUTED, 0.25),
+			UiTheme.INJURED.lightened(0.15), k, 4)
 	# The counter: a long board across the room.
 	var w := maxf(size.x, 1920.0)
 	var board := Rect2(0, COUNTER_Y, w, COUNTER_H)
@@ -265,13 +305,14 @@ static func _paper_stats_end() -> float:
 
 
 ## A hire's paper, laid on the counter under them.
-func _paper_for(data: CompanionData, x: float) -> Control:
+func _paper_for(data: CompanionData, x: float, wide: float = PAPER.x) -> Control:
 	var paper := Control.new()
-	paper.position = Vector2(x - PAPER.x * 0.5, PAPER_Y)
-	paper.size = PAPER
+	var sheet := Vector2(wide, PAPER.y)
+	paper.position = Vector2(x - wide * 0.5, PAPER_Y)
+	paper.size = sheet
 	paper.mouse_filter = Control.MOUSE_FILTER_STOP
 	paper.tooltip_text = _skills_text(data)
-	var inner := PAPER.x - PAPER_PAD * 2.0
+	var inner := wide - PAPER_PAD * 2.0
 	var level := run.hire_level()
 	# Their numbers with their traits counted, as they will be once hired.
 	var traits := run.offer_traits(data)
@@ -284,7 +325,7 @@ func _paper_for(data: CompanionData, x: float) -> Control:
 	for key in Levels.GROWTH_STATS:
 		rates[key] = clampi(Levels.growth_rate(data, key) + TraitRules.total(traits, TraitModifier.Kind.GROWTH, -1, -1, 0, level + 1, key), 0, 100)
 	paper.draw.connect(func() -> void:
-		UiTheme.draw_parchment(paper, Rect2(Vector2.ZERO, PAPER), 0.45)
+		UiTheme.draw_parchment(paper, Rect2(Vector2.ZERO, sheet), 0.45)
 		var display := UiTheme.display_font()
 		var body := UiTheme.body_font()
 		var italic := UiTheme.italic_font()
