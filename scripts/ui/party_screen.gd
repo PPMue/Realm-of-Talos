@@ -609,7 +609,7 @@ func _draw_sheet() -> void:
 	var heavy := c.weapon().weight - c.data.build
 	StatTable.head(_sheet, Vector2(C2_X, TOP), C2_W, "IN HAND")
 	var attack := "Attack %d" % c.attack()
-	UiTheme.draw_text(_sheet, display, Vector2(C2_X, TOP - 5.0), attack, 22, UiTheme.WAX.darkened(0.2) if heavy > 0 else ink, 0, C2_W,
+	UiTheme.draw_text(_sheet, display, Vector2(C2_X, TOP - 1.0), attack, 22, UiTheme.WAX.darkened(0.2) if heavy > 0 else ink, 0, C2_W,
 		HORIZONTAL_ALIGNMENT_RIGHT)
 	StatTable.head(_sheet, Vector2(C2_X, _armory_y), C2_W, "THE ARMORY", "%d more  ·  click one to take it in hand" % (run.inventory.weapons.size() - 1))
 	StatTable.head(_sheet, Vector2(C2_X, GRADES_Y), C2_W, "SKILL", "weapon and magic grades")
