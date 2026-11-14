@@ -189,10 +189,7 @@ func _before_battle() -> bool:
 ## Days until the smithy and the tavern have something new (the first day of the next week), or -1
 ## when nothing more comes before the run ends.
 func _days_to_restock() -> int:
-	for d in range(run.day + 1, RunConfig.DAYS + 1):
-		if RunCalendar.is_week_start(d):
-			return d - run.day
-	return -1
+	return RunCalendar.days_until_restock(run.day)
 
 
 ## "New stock in 3 days": when what is offered here changes, or `never` if it will not again.
@@ -551,7 +548,9 @@ func _paper_for(data: CompanionData, x: float, wide: float = PAPER.x) -> Control
 	paper.position = Vector2(x - wide * 0.5, PAPER_Y)
 	paper.size = sheet
 	paper.mouse_filter = Control.MOUSE_FILTER_STOP
-	paper.tooltip_text = _skills_text(data)
+	# What they would join with: grades, arts and spells grown over the weeks they were not hired.
+	var p := _progress_of(data)
+	paper.tooltip_text = _skills_text(p)
 	# Whose it is and where it lies, for what is played on it (_apply_hire, _apply_slide).
 	paper.set_meta("data", data)
 	paper.set_meta("home_x", paper.position.x)
@@ -578,9 +577,10 @@ func _paper_for(data: CompanionData, x: float, wide: float = PAPER.x) -> Control
 		UiTheme.draw_text(paper, italic, Vector2(PAPER_PAD, 34.0), "joins at level %d" % level, 17, muted, 0, inner, HORIZONTAL_ALIGNMENT_RIGHT)
 		paper.draw_line(Vector2(PAPER_PAD, 74.0), Vector2(PAPER_PAD + inner, 74.0), Color(ink, 0.45), 1.0)
 		var sx := PAPER_PAD
-		for skill: Array in _skills(data):
+		for skill: Array in _skills(p):
 			sx += UiIcons.proficiency(paper, Vector2(sx, 78.0), skill[1], skill[2], skill[3], 20, Color(ink, 0.85), ink) + 22.0
-		UiTheme.draw_text(paper, italic, Vector2(PAPER_PAD, 110.0), _brings_text(data), 15, muted)
+		_draw_known_count(paper, Vector2(PAPER_PAD + inner, 78.0), p)
+		_draw_brings(paper, Vector2(PAPER_PAD, 110.0), inner, p)
 		var half := (inner - 30.0) * 0.5
 		var top := PAPER_STATS_Y + StatTable.HEAD_H
 		StatTable.head(paper, Vector2(PAPER_PAD, PAPER_STATS_Y), half, "STATS")
@@ -605,38 +605,104 @@ func _paper_for(data: CompanionData, x: float, wide: float = PAPER.x) -> Control
 	return paper
 
 
+## What someone at the counter would join with (Run.offer_progress): their grades, arts and spells as
+## the weeks outside the company have left them. Someone no longer offered: as they began.
+func _progress_of(data: CompanionData) -> CompanionProgress:
+	var p := run.offer_progress(data)
+	return p if p != null else CompanionProgress.create(data)
+
+
 ## Every skill above the lowest grade, best first, magic before weapons:
 ## [[sort key, weapon type or -1, school or -1, grade name], ...].
-static func _skills(data: CompanionData) -> Array:
+static func _skills(p: CompanionProgress) -> Array:
+	var data := p.data
 	var parts: Array = []
 	for s: int in SpellData.School.values():
-		var g := data.starting_magic_grade(s)
+		var g: int = p.magic_grade(s)
 		if g > 0 or (data.signature_spell != null and data.signature_spell.school == s):
 			parts.append([g + 100, -1, s, Proficiency.grade_name(g)])
 	for t: int in WeaponData.WeaponType.values():
-		var g := data.starting_grade(t)
-		if g > 0 or (data.weapon != null and data.weapon.weapon_type == t):
+		var g: int = p.grade(t)
+		if g > 0 or (p.weapon != null and p.weapon.weapon_type == t):
 			parts.append([g, t, -1, Proficiency.grade_name(g)])
 	parts.sort_custom(func(a: Array, b: Array) -> bool: return a[0] > b[0])
 	return parts
 
 
-## The same in words, for a tooltip: "White magic D+, Dagger E".
-static func _skills_text(data: CompanionData) -> String:
+## For a tooltip: the skills in words ("White magic D+, Dagger E"), then every art and spell they know
+## with what it does.
+static func _skills_text(p: CompanionProgress) -> String:
 	var words: Array[String] = []
-	for skill: Array in _skills(data):
+	for skill: Array in _skills(p):
 		words.append("%s %s" % [WeaponData.type_name(skill[1]) if skill[1] >= 0 else SpellData.school_name(skill[2]), skill[3]])
-	return ",  ".join(words)
+	var text := ",  ".join(words)
+	for art in p.known_arts:
+		text += "\n\n%s  (%s, tier %s)\n%s" % [art.display_name, art.type_name().to_lower(), CombatArtData.tier_numeral(art.tier),
+			"\n".join(ArtFacts.art_lines(art))]
+	for sp in p.known_spells:
+		text += "\n\n%s  (%s, tier %s)\n%s" % [sp.display_name, sp.school_text().to_lower(), CombatArtData.tier_numeral(sp.tier),
+			"\n".join(ArtFacts.spell_lines(sp))]
+	return text
 
 
-## What they walk in with: the weapon, and the art or spell they already know.
-static func _brings_text(data: CompanionData) -> String:
-	var text := "Brings %s" % data.weapon.display_name.to_lower() if data.weapon != null else "Brings nothing"
-	if data.signature_spell != null:
-		text += " and the spell %s" % data.signature_spell.display_name
-	elif data.signature_art != null:
-		text += " and the art %s" % data.signature_art.display_name
-	return text + "."
+## The weapon they walk in with.
+static func _brings_text(p: CompanionProgress) -> String:
+	return "Brings %s" % p.weapon.display_name.to_lower() if p.weapon != null else "Brings nothing"
+
+
+## What they already know, by name: arts first, then spells.
+static func _known_names(p: CompanionProgress) -> Array[String]:
+	var names: Array[String] = []
+	for art in p.known_arts:
+		names.append(art.display_name)
+	for sp in p.known_spells:
+		names.append(sp.display_name)
+	return names
+
+
+## How much they know, at the right end of the line of seals: "6 ARTS", "2 ARTS  5 SPELLS".
+func _draw_known_count(ci: CanvasItem, right: Vector2, p: CompanionProgress) -> void:
+	var display := UiTheme.display_font()
+	var x := right.x
+	for part: Array in [[p.known_spells.size(), "SPELL"], [p.known_arts.size(), "ART"]]:
+		var n: int = part[0]
+		if n == 0:
+			continue
+		var word := String(part[1]) + ("S" if n != 1 else "")
+		x -= display.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
+		UiTheme.draw_text(ci, display, Vector2(x, right.y + 10.0), word, 13, UiTheme.PARCHMENT_MUTED)
+		x -= display.get_string_size(str(n), HORIZONTAL_ALIGNMENT_LEFT, -1, 24).x + 6.0
+		UiTheme.draw_text(ci, display, Vector2(x, right.y - 3.0), str(n), 24, UiTheme.PARCHMENT_INK)
+		x -= 20.0
+
+
+## One line on a hire's paper: what they bring, in grey, and what they know, in ink. It shrinks to fit
+## `wide`, and past that the last names give way to "+2" (the paper's tooltip has them all).
+func _draw_brings(ci: CanvasItem, at: Vector2, wide: float, p: CompanionProgress) -> void:
+	var italic := UiTheme.italic_font()
+	var brings := _brings_text(p)
+	var names := _known_names(p)
+	if names.is_empty():
+		UiTheme.draw_text(ci, italic, at, brings + ".", 15, UiTheme.PARCHMENT_MUTED)
+		return
+	var lead := brings + "  ·  knows "
+	var shown := names.size()
+	var size := 15
+	var known := ", ".join(names)
+	while true:
+		var more := names.size() - shown
+		known = ", ".join(names.slice(0, shown)) + ("  +%d" % more if more > 0 else "")
+		if italic.get_string_size(lead + known, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x <= wide:
+			break
+		if size > 13:
+			size -= 1
+		elif shown > 1:
+			shown -= 1
+		else:
+			break
+	UiTheme.draw_text(ci, italic, at, lead, size, UiTheme.PARCHMENT_MUTED)
+	UiTheme.draw_text(ci, italic, at + Vector2(italic.get_string_size(lead, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x, 0.0), known, size,
+		UiTheme.PARCHMENT_INK)
 
 
 # ---------------------------------------------------------------- the smithy
