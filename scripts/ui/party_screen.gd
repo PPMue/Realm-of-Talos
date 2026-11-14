@@ -51,6 +51,8 @@ const GRADES_Y := SHEET.size.y - PAD - StatTable.HEAD_H - GRADE_ROW * 4.0
 ## Column 3.
 const FOOT_H := 204.0
 const FOOT_Y := SHEET.size.y - PAD - FOOT_H
+## Height of a line for something to wear.
+const ACCESSORY_ROW := 56.0
 const DEFAULT_FOOT := "Point at an art or a spell to read it. Click an art to carry it into battle, or to leave it behind."
 
 var run: Run
@@ -70,6 +72,13 @@ var _foot_facts := Control.new()
 var _reading: Dictionary = {}
 ## Where the armory's heading sits (under the weapon in hand, whose row varies in height).
 var _armory_y := 0.0
+## Where the heading over what they wear stands on the sheet; 0 while the company owns nothing to wear.
+var _worn_y := 0.0
+## Where the heading over the case stands; 0 likewise.
+var _case_y := 0.0
+var _worn := Control.new()
+var _case_scroll := ScrollContainer.new()
+var _case := VBoxContainer.new()
 
 
 func _init() -> void:
@@ -168,6 +177,17 @@ func equip(w: OwnedWeapon) -> void:
 
 
 ## Carries the art into battle if it is known and there is room, or leaves it behind if it is carried.
+## Puts `a` on the selected companion (taking it from whoever wears it), or takes it off them.
+func wear(a: Accessory) -> void:
+	if _selected != null and run.wear(_selected, a):
+		refresh()
+
+
+func take_off(a: Accessory) -> void:
+	if run.take_off(a):
+		refresh()
+
+
 func toggle_art(art: CombatArtData) -> void:
 	if _selected == null:
 		return
@@ -244,12 +264,15 @@ func _refresh_sheet() -> void:
 	_clear(_orders)
 	_clear(_held)
 	_clear(_armory)
+	_clear(_worn)
+	_clear(_case)
 	_clear(_grades)
 	_clear(_arts)
 	_read({})
 	_sheet.queue_redraw()
 	var c := _selected
 	_armory_scroll.visible = c != null
+	_case_scroll.visible = false
 	_arts_scroll.visible = c != null
 	_foot.visible = c != null
 	if c == null:
@@ -286,9 +309,47 @@ func _refresh_sheet() -> void:
 			others.append(item)
 	if held_row != null:
 		_held.add_child(held_row)
-	_armory_y = TOP + StatTable.HEAD_H + (held_row.size.y if held_row != null else 0.0) + 16.0
+	var held_end := TOP + StatTable.HEAD_H + (held_row.size.y if held_row != null else 0.0)
+	_armory_y = held_end + 16.0
+	var armory_end := GRADES_Y - 16.0
+	# What they wear and the case, under the armory: shown once the company owns anything to wear.
+	_worn_y = 0.0
+	_case_y = 0.0
+	_case_scroll.visible = not run.accessories.is_empty()
+	if not run.accessories.is_empty():
+		var worn := run.accessories_of(c)
+		var case: Array[Accessory] = []
+		for a: Accessory in run.accessories:
+			if run.wearer_of(a) != c:
+				case.append(a)
+		case.sort_custom(func(a: Accessory, b: Accessory) -> bool:
+			# What lies free first, then the finer stone.
+			var fa := 0 if run.wearer_of(a) == null else 1
+			var fb := 0 if run.wearer_of(b) == null else 1
+			return fa < fb if fa != fb else a.rank > b.rank)
+		# The case takes what its rows need, up to three; the armory keeps the rest of the column
+		# (two, once both their places are taken: nothing more can be put on.)
+		var case_rows := 3 if worn.size() < RunConfig.MAX_ACCESSORIES else 2
+		var case_h := clampf(case.size() * ACCESSORY_ROW, 30.0, ACCESSORY_ROW * case_rows)
+		var worn_h := maxf(30.0, worn.size() * ACCESSORY_ROW)
+		_case_y = GRADES_Y - 16.0 - case_h - StatTable.HEAD_H
+		_worn_y = _case_y - 12.0 - worn_h - StatTable.HEAD_H
+		armory_end = _worn_y - 14.0
+		_worn.position = Vector2(C2_X, _worn_y + StatTable.HEAD_H)
+		for i in worn.size():
+			var row := _accessory_row(c, worn[i])
+			row.position = Vector2(0, i * ACCESSORY_ROW)
+			_worn.add_child(row)
+		if worn.is_empty():
+			_worn.add_child(_section("Nothing worn.", C2_W - 14.0))
+		_case_scroll.position = Vector2(C2_X, _case_y + StatTable.HEAD_H)
+		_case_scroll.size = Vector2(C2_W, case_h)
+		for a in case:
+			_case.add_child(_accessory_row(c, a))
+		if case.is_empty():
+			_case.add_child(_section("Everything the company owns is on them.", C2_W - 14.0))
 	_armory_scroll.position = Vector2(C2_X, _armory_y + StatTable.HEAD_H)
-	_armory_scroll.size = Vector2(C2_W, GRADES_Y - 16.0 - _armory_scroll.position.y)
+	_armory_scroll.size = Vector2(C2_W, armory_end - _armory_scroll.position.y)
 	others.sort_custom(func(a: OwnedWeapon, b: OwnedWeapon) -> bool:
 		# What could be taken in hand comes first, then what they cannot hold, then what others hold.
 		var ka := [_armory_rank(c, a), 0 if a.data.weapon_type == t else 1, a.data.weapon_type, -a.data.might_for(p), a.data.display_name]
@@ -393,6 +454,53 @@ func _weapon_row(c: RunCompanion, item: OwnedWeapon) -> RowButton:
 		row.tooltip_text = "Take the %s in hand: Attack %d (now %d). Needs %s." % [d.display_name, c.attack(d), c.attack(),
 			d.requirement_text().replace(" · ", " and ")]
 		row.pressed.connect(equip.bind(item))
+	return row
+
+
+## Something to wear, as it stands for `c`: what they have on (click to take it off), what lies in the
+## case or on someone else (click to put it on, taking it from them), or why they cannot wear it.
+func _accessory_row(c: RunCompanion, a: Accessory) -> RowButton:
+	var lines := a.lines()
+	var row := RowButton.new(C2_W - 14.0, ACCESSORY_ROW)
+	row.paper = true
+	row.title = a.title()
+	row.gem_icon = a.rank
+	row.sub = "  ·  ".join(lines)
+	var who := run.wearer_of(a)
+	var what := "%s
+%s" % [a.title(), "
+".join(lines)]
+	if who == c:
+		var why := run.take_off_block_reason(a)
+		row.active = true
+		row.detail = "take off"
+		row.disabled = why != ""
+		row.tooltip_text = "%s
+
+%s" % [what, why if why != "" else "Click to take it off; it goes back into the case."]
+		row.pressed.connect(take_off.bind(a))
+		return row
+	var why := run.wear_block_reason(c, a)
+	if why != "":
+		row.disabled = true
+		# "Freya already wears a Ring." -> "already wears a Ring"
+		var short := why.trim_suffix(".").trim_prefix(c.display_name() + " ")
+		row.detail = short if short.length() <= 26 else "cannot wear it"
+		row.tooltip_text = "%s
+
+%s" % [what, why]
+	elif who != null:
+		row.detail = "from %s" % who.display_name()
+		row.tooltip_text = "%s
+
+%s wears it now. Click, and %s takes it." % [what, who.display_name(), c.display_name()]
+		row.pressed.connect(wear.bind(a))
+	else:
+		row.detail = "put on"
+		row.tooltip_text = "%s
+
+Click, and %s puts it on." % [what, c.display_name()]
+		row.pressed.connect(wear.bind(a))
 	return row
 
 
@@ -596,7 +704,7 @@ func _draw_sheet() -> void:
 	# What their traits and the held weapon's enchantment add to a number is written small before it.
 	var from_traits := {}
 	for key: String in values:
-		from_traits[key] = p.trait_stat_bonus(key) + p.enchant_stat_bonus(key)
+		from_traits[key] = p.trait_stat_bonus(key) + p.enchant_stat_bonus(key) + p.accessory_stat_bonus(key)
 	StatTable.draw_values(_sheet, Vector2(C1_X, STATS_Y + StatTable.HEAD_H), C1_W, 2, values, "", STAT_ROW, from_traits)
 	StatTable.head(_sheet, Vector2(C1_X, GROWTH_Y), C1_W, "GROWTH", "the chance to rise with a level")
 	StatTable.draw_growth(_sheet, Vector2(C1_X, GROWTH_Y + StatTable.HEAD_H), C1_W, 2, c.data, GROWTH_ROW, Levels.rates(c.data, p))
@@ -611,6 +719,10 @@ func _draw_sheet() -> void:
 
 	# Column 2.
 	StatTable.head(_sheet, Vector2(C2_X, TOP), C2_W, "IN HAND")
+	if _worn_y > 0.0:
+		StatTable.head(_sheet, Vector2(C2_X, _worn_y), C2_W, "WORN", "%d of %d  ·  never two of a kind" % [run.accessories_of(c).size(),
+			RunConfig.MAX_ACCESSORIES])
+		StatTable.head(_sheet, Vector2(C2_X, _case_y), C2_W, "THE CASE", "click one to put it on")
 	StatTable.head(_sheet, Vector2(C2_X, _armory_y), C2_W, "THE ARMORY", "%d more  ·  click one to take it in hand" % (run.inventory.weapons.size() - 1))
 	StatTable.head(_sheet, Vector2(C2_X, GRADES_Y), C2_W, "SKILL", "weapon and magic grades")
 
@@ -710,6 +822,14 @@ func _build() -> void:
 	_sheet.add_child(_armory_scroll)
 	_armory.add_theme_constant_override("separation", 0)
 	_armory_scroll.add_child(_armory)
+	_worn.size = Vector2(C2_W, 60)
+	_worn.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_sheet.add_child(_worn)
+	_case_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_case_scroll.visible = false
+	_sheet.add_child(_case_scroll)
+	_case.add_theme_constant_override("separation", 0)
+	_case_scroll.add_child(_case)
 	_grades.position = Vector2(C2_X, GRADES_Y + StatTable.HEAD_H + 2.0)
 	_grades.size = Vector2(C2_W, GRADE_ROW * 4.0)
 	_grades.mouse_filter = Control.MOUSE_FILTER_IGNORE

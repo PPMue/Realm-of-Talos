@@ -75,6 +75,11 @@ var school_icon := -1:
 	set(v):
 		school_icon = v
 		queue_redraw()
+## Paper rows only. A cut stone of this rank (Gem, 1-5) before the title (0: none), where no seal is set.
+var gem_icon := 0:
+	set(v):
+		gem_icon = v
+		queue_redraw()
 ## Paper rows only. Proficiencies set after the small print as a sign and a grade each, after the
 ## word "needs": [{"weapon": type} or {"school": school}, "grade": "D", "short": bool], `short` when
 ## whoever the row is read for does not have it (drawn in red).
@@ -229,6 +234,11 @@ func _draw_paper() -> void:
 			30.0, type_icon, school_icon, Color(UiTheme.PARCHMENT_INK, 0.4 if disabled else 0.82))
 		x += 40.0
 		room -= 40.0
+	elif gem_icon > 0:
+		UiIcons.gem(self, Vector2(x + 14.0, (h * 0.5 - 9.0) if notes.is_empty() and sub != "" else (21.0 if not notes.is_empty() else h * 0.5)),
+			26.0, gem_icon, 0.5 if disabled else 1.0)
+		x += 38.0
+		room -= 38.0
 	var title_size := 21
 	while title_size > 15 and display.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size).x > room:
 		title_size -= 1

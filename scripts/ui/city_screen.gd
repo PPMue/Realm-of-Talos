@@ -49,6 +49,7 @@ var _training_screen := TrainingScreen.new()
 var _infirmary_screen := InfirmaryScreen.new()
 var _scavenge_screen := ScavengeScreen.new()
 var _mason_screen := MasonScreen.new()
+var _jeweler_screen := JewelerScreen.new()
 var _battle_screen := BattleScreen.new()
 var _end_screen := RunEndScreen.new()
 
@@ -73,7 +74,7 @@ func new_run(seed_value: int = 0, opening: bool = true) -> void:
 		rng.randomize()
 	run = Run.create(rng, RunContent.load_default(), _art_pool, _spell_pool)
 	for screen: Control in [_end_screen, _battle_screen, _party_screen, _store_screen, _training_screen, _infirmary_screen, _scavenge_screen,
-			_mason_screen, _war_table, _letter]:
+			_mason_screen, _jeweler_screen, _war_table, _letter]:
 		screen.visible = false
 	_begin_day(_day_title(), _day_text())
 	if opening:
@@ -248,7 +249,11 @@ func visit(kind: CityBuilding.Kind) -> void:
 			# Open on any day: the plan of the city's works can always be read.
 			_mason_screen.open(run)
 		CityBuilding.Kind.JEWELER:
-			_say("The Jeweler", "The shutters are up. The masons have not built the workshop yet.")
+			# Once built it can be entered on any day, to look in the case; setting a stone takes a free day.
+			if run.facility_level(Run.Facility.JEWELER) >= 1:
+				_jeweler_screen.open(run)
+			else:
+				_say("The Jeweler", "The shutters are up: there is no workshop behind them yet. The masons can build one.")
 
 
 # ---------------------------------------------------------------- the gate, the watch, events, the opening
@@ -666,8 +671,13 @@ func _refresh_buildings() -> void:
 				b.open = true
 				b.status = "Mend the walls, trade, build up the city"
 			CityBuilding.Kind.JEWELER:
-				b.open = false
-				b.status = "Not built yet"
+				b.open = run.facility_level(Run.Facility.JEWELER) >= 1
+				if not b.open:
+					b.status = "Not built yet"
+				elif run.gem_total() <= 0:
+					b.status = "No stones to set"
+				else:
+					b.status = "%d stone%s to set" % [run.gem_total(), "" if run.gem_total() == 1 else "s"]
 
 
 ## A building's reason for being shut, short enough for its board.
@@ -754,7 +764,7 @@ func _hide_news() -> void:
 
 func _overlay_open() -> bool:
 	return _battle_screen.visible or _party_screen.visible or _store_screen.visible or _training_screen.visible or _infirmary_screen.visible \
-		or _scavenge_screen.visible or _mason_screen.visible \
+		or _scavenge_screen.visible or _mason_screen.visible or _jeweler_screen.visible \
 		or _end_screen.visible \
 		or _letter.visible or _war_table.visible
 
@@ -851,7 +861,7 @@ func _build() -> void:
 
 	# Screens that open over the city.
 	for screen: Control in [_war_table, _party_screen, _store_screen, _training_screen, _infirmary_screen, _scavenge_screen, _mason_screen,
-			_letter, _battle_screen, _end_screen]:
+			_jeweler_screen, _letter, _battle_screen, _end_screen]:
 		screen.visible = false
 		screen.z_index = 10
 		add_child(screen)
@@ -864,6 +874,7 @@ func _build() -> void:
 	_infirmary_screen.closed.connect(refresh)
 	_scavenge_screen.closed.connect(refresh)
 	_mason_screen.closed.connect(refresh)
+	_jeweler_screen.closed.connect(refresh)
 	_battle_screen.finished.connect(_on_battle_finished)
 	_battle_screen.closed.connect(_on_battle_closed)
 	_end_screen.closed.connect(func() -> void: left_run.emit())

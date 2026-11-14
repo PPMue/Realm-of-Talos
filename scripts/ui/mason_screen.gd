@@ -17,7 +17,7 @@ const TRADE_Y := 520.0
 const PAGE := Rect2(700, 110, 1180, 946)
 const PAD := 36.0
 const ROWS_Y := 84.0
-const ROW_H := 92.0
+const ROW_H := 84.0
 const NAME_W := 214.0
 const CELL_GAP := 14.0
 

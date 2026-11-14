@@ -885,6 +885,14 @@ func _refresh_party() -> void:
 			magic += "%s%s: %s" % ["\n\n" if t == c.traits()[0] else "\n", t.display_name, ", ".join(t.lines())]
 			if not t.drawback_lines().is_empty():
 				magic += "; " + ", ".join(t.drawback_lines())
+		# What they wear: each piece and what it does.
+		var worn: Array = c.progress.accessories
+		for i in worn.size():
+			var piece: Accessory = worn[i]
+			magic += "%s%s: %s" % ["
+
+" if i == 0 else "
+", piece.title(), ", ".join(piece.lines())]
 		# Not a tooltip: the battle screen shows it while Shift is held (see inspect).
 		var held := StoreScreen.held_name(c.weapon(), c.progress)
 		for note in StoreScreen.weapon_notes(c.weapon()):
