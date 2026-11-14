@@ -376,6 +376,10 @@ func _weapon_row(c: RunCompanion, item: OwnedWeapon) -> RowButton:
 	if item.holder == c:
 		row.active = true
 		row.mouse_default_cursor_shape = Control.CURSOR_ARROW
+		# The Attack as it stands, on the weapon's own line like the others', only larger.
+		row.detail = "Attack %d" % c.attack()
+		row.detail_strong = true
+		row.detail_color = UiTheme.WAX.darkened(0.2) if too_heavy > 0 else UiTheme.PARCHMENT_INK
 	elif item.holder != null:
 		row.disabled = true
 		row.detail = "held by %s" % item.holder.display_name()
@@ -606,11 +610,7 @@ func _draw_sheet() -> void:
 	_sheet.draw_line(Vector2(C1_X, ORDERS_Y - 6.0), Vector2(C1_X + C1_W, ORDERS_Y - 6.0), Color(ink, 0.3), 1.0)
 
 	# Column 2.
-	var heavy := c.weapon().weight - c.data.build
 	StatTable.head(_sheet, Vector2(C2_X, TOP), C2_W, "IN HAND")
-	var attack := "Attack %d" % c.attack()
-	UiTheme.draw_text(_sheet, display, Vector2(C2_X, TOP - 1.0), attack, 22, UiTheme.WAX.darkened(0.2) if heavy > 0 else ink, 0, C2_W,
-		HORIZONTAL_ALIGNMENT_RIGHT)
 	StatTable.head(_sheet, Vector2(C2_X, _armory_y), C2_W, "THE ARMORY", "%d more  ·  click one to take it in hand" % (run.inventory.weapons.size() - 1))
 	StatTable.head(_sheet, Vector2(C2_X, GRADES_Y), C2_W, "SKILL", "weapon and magic grades")
 

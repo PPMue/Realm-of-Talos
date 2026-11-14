@@ -24,6 +24,12 @@ var detail_color := UiTheme.GOLD:
 	set(v):
 		detail_color = v
 		queue_redraw()
+## Paper rows only. The tag is the figure that matters (the Attack of the weapon in hand): larger, in
+## the display face and in `detail_color`, where the usual tag is small italics.
+var detail_strong := false:
+	set(v):
+		detail_strong = v
+		queue_redraw()
 ## Paper rows only. Lines written under the small print, one to a line, in red-brown italics: what a
 ## rare weapon does that others do not. The row must be made NOTE_STEP taller for each (see
 ## height_with).
@@ -202,14 +208,18 @@ func _draw_paper() -> void:
 	var right := w - 10.0
 	var room := right - x
 	if detail != "":
-		var dw := minf(italic.get_string_size(detail, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x, w * 0.45)
+		var tag_font := display if detail_strong else italic
+		var tag_size := 22 if detail_strong else 16
+		var dw := minf(tag_font.get_string_size(detail, HORIZONTAL_ALIGNMENT_LEFT, -1, tag_size).x, w * 0.45)
 		room -= dw + 14.0
 		var dc := UiTheme.WAX if (disabled or active) else UiTheme.PARCHMENT_MUTED
 		if lit:
 			dc = UiTheme.WAX.darkened(0.2)
+		if detail_strong:
+			dc = detail_color
 		# With notes under it the tag sits beside the title, and the lines below have the whole width.
-		UiTheme.draw_text(self, italic, Vector2(right - dw, (h - italic.get_height(16)) * 0.5 if notes.is_empty() else 11.0), detail, 16, dc, 0, dw,
-			HORIZONTAL_ALIGNMENT_RIGHT)
+		UiTheme.draw_text(self, tag_font, Vector2(right - dw, (h - tag_font.get_height(tag_size)) * 0.5 if notes.is_empty() else (
+			6.0 if detail_strong else 11.0)), detail, tag_size, dc, 0, dw, HORIZONTAL_ALIGNMENT_RIGHT)
 	if marked:
 		UiIcons.diamond(self, Vector2(x + 6.0, (h * 0.5 - 10.0) if notes.is_empty() else 21.0), 6.0, Color(UiTheme.WAX, 0.6 if disabled else 1.0))
 		x += 20.0
