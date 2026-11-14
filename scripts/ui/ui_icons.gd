@@ -54,6 +54,22 @@ static func coin(ci: CanvasItem, c: Vector2, size: float, color: Color) -> void:
 	ci.draw_arc(c, h * 0.4, PI * 0.9, PI * 1.6, 8, color.lightened(0.4), 1.5, true)
 
 
+## A covered cart: what comes in when the smithy and the tavern have something new.
+static func wagon(ci: CanvasItem, c: Vector2, size: float, color: Color) -> void:
+	var h := size * 0.5
+	var wood := color.darkened(0.3)
+	var cover := PackedVector2Array()
+	for i in 9:
+		var a := PI + PI * i / 8.0
+		cover.append(c + Vector2(-h * 0.12, h * 0.1) + Vector2(cos(a) * h * 0.72, sin(a) * h * 0.78))
+	ci.draw_colored_polygon(cover, color)
+	ci.draw_rect(Rect2(c.x - h * 0.9, c.y + h * 0.1, h * 1.56, h * 0.26), wood)
+	ci.draw_line(c + Vector2(h * 0.64, h * 0.22), c + Vector2(h, 0.0), wood, maxf(1.5, size * 0.08), true)
+	for x: float in [-0.52, 0.28]:
+		ci.draw_circle(c + Vector2(x * h, h * 0.56), h * 0.3, wood)
+		ci.draw_circle(c + Vector2(x * h, h * 0.56), h * 0.11, color)
+
+
 ## A lump of ore.
 static func ore(ci: CanvasItem, c: Vector2, size: float, color: Color) -> void:
 	var h := size * 0.5

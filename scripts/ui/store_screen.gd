@@ -186,6 +186,36 @@ func _before_battle() -> bool:
 
 
 ## The smith's open offer, if there is one.
+## Days until the smithy and the tavern have something new (the first day of the next week), or -1
+## when nothing more comes before the run ends.
+func _days_to_restock() -> int:
+	for d in range(run.day + 1, RunConfig.DAYS + 1):
+		if RunCalendar.is_week_start(d):
+			return d - run.day
+	return -1
+
+
+## "New stock in 3 days": when what is offered here changes, or `never` if it will not again.
+func _restock_words(what: String, never: String) -> String:
+	var n := _days_to_restock()
+	if n < 0:
+		return never
+	return "%s tomorrow" % what if n == 1 else "%s in %d days" % [what, n]
+
+
+## The wagon and when it next comes, its right end at `right`. `paper`: in ink, else in light.
+func _draw_restock(ci: CanvasItem, right: Vector2, text: String, paper: bool) -> void:
+	var italic := UiTheme.italic_font()
+	var size := 18 if paper else 20
+	var ink := UiTheme.PARCHMENT_MUTED if paper else UiTheme.TEXT.lerp(UiTheme.MUTED, 0.35)
+	var tw := italic.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+	UiTheme.draw_text(ci, italic, right - Vector2(tw, 0.0), text, size, ink, 0 if paper else 4)
+	var at := right + Vector2(-tw - 22.0, italic.get_height(size) * 0.5)
+	if not paper:
+		UiIcons.wagon(ci, at + Vector2(1.0, 2.0), 24.0, Color(0, 0, 0, 0.6))
+	UiIcons.wagon(ci, at, 24.0, UiTheme.PARCHMENT_INK.lerp(UiTheme.PARCHMENT_MUTED, 0.5) if paper else UiTheme.GOLD.lerp(UiTheme.MUTED, 0.3))
+
+
 func _offer() -> EnchantOffer:
 	return run.enchant_offer if run != null and mode == Mode.SHOP else null
 
@@ -440,6 +470,7 @@ func _draw_tavern() -> void:
 	var offers := _offers_shown()
 	var n := offers.size()
 	var lit := Color("7a6046")
+	_draw_restock(_tavern, Vector2(1890.0, 96.0), _restock_words("New faces", "Nobody else is on the road"), false)
 	for i in n:
 		var x := _figure_x(i, n)
 		x += _dx(offers[i], "figure", x)
@@ -616,6 +647,7 @@ func _refresh_smithy() -> void:
 		child.queue_free()
 	var stock := run.shop_stock()
 	_stock_head.text = "ON THE RACKS  ·  %d" % stock.size()
+	_page.queue_redraw()
 	for item in stock:
 		_list.add_child(_shop_row(item))
 	if stock.is_empty():
@@ -1198,6 +1230,8 @@ func _draw_page() -> void:
 	UiTheme.draw_parchment(_page, Rect2(Vector2.ZERO, _page.size))
 	var w := _page.size.x - PAGE_PAD * 2.0
 	_page.draw_line(Vector2(PAGE_PAD, 70.0), Vector2(PAGE_PAD + w, 70.0), Color(UiTheme.PARCHMENT_INK, 0.45), 1.0)
+	if run != null:
+		_draw_restock(_page, Vector2(PAGE_PAD + w, 34.0), _restock_words("New stock", "The last wagon has come"), true)
 
 
 ## The company's gold, as a coin and a number.

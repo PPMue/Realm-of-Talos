@@ -2,7 +2,8 @@ class_name DayStrip
 extends Control
 ## The days ahead, as a row of small medallions at the top of the city: today, larger, then the next
 ## days, each with a picture of what it holds (swords, sun, horned skull; a free day that begins with
-## an event shows a letter in the sun's place). When the next boss
+## an event shows a letter in the sun's place). A small wagon at a day's rim says the smithy and the
+## tavern have something new that morning (the first day of a week). When the next boss
 ## lies beyond the days shown, one more medallion after a gap marks it. Hovering one says what the day
 ## is; a boss day also names every boss still ahead.
 
@@ -22,6 +23,10 @@ const TYPE_COLORS := {
 const EVENT_COLOR := Color("cdbb96")
 const EVENT_WORDS := "A free day, and someone will ask for you"
 const EVENT_HINT := "The day begins with a matter to answer at the gate; then the day is yours as usual."
+## The first day of a week: the smithy's racks and the tavern's hires are new.
+const WAGON_WORDS := "A wagon comes in: new arms at the smithy, new faces at the tavern."
+const WAGON_TODAY := "A wagon came in this morning: the smithy and the tavern have what is new."
+const WAGON_R := 12.0
 const TYPE_WORDS := {
 	RunCalendar.DayType.BATTLE: "A battle",
 	RunCalendar.DayType.FREE: "A free day",
@@ -107,6 +112,8 @@ func _get_tooltip(at_position: Vector2) -> String:
 			var event := t == RunCalendar.DayType.FREE and _event_days.has(d)
 			var text := "%s, day %d: %s\n%s" % [when, d, (EVENT_WORDS if event else String(TYPE_WORDS.get(t, ""))).to_lower(),
 				EVENT_HINT if event else TYPE_HINTS.get(t, "")]
+			if i < _types.size() and RunCalendar.is_week_start(d):
+				text += "\n" + (WAGON_TODAY if ahead == 0 else WAGON_WORDS)
 			if t == RunCalendar.DayType.BOSS:
 				text += "\n\n" + bosses_ahead_text(d)
 			return text
@@ -153,6 +160,13 @@ func _draw() -> void:
 			UiIcons.scroll(self, c, r * 1.15, icon_color)
 		else:
 			draw_type_icon(self, t, c, r * 1.15, icon_color)
+		if not extra and RunCalendar.is_week_start(d):
+			# A wagon at the rim: the smithy and the tavern have something new that morning.
+			var at := c + Vector2(r * 0.85, -r * 0.6)
+			draw_circle(at + Vector2(0, 1.5), WAGON_R + 1.0, Color(0, 0, 0, 0.5))
+			draw_circle(at, WAGON_R, UiTheme.INK)
+			draw_arc(at, WAGON_R, 0.0, TAU, 24, UiTheme.GOLD if today else UiTheme.GOLD_DEEP, 1.5, true)
+			UiIcons.wagon(self, at + Vector2(0.5, -1.0), 18.0, UiTheme.TEXT if today else UiTheme.TEXT.lerp(UiTheme.MUTED, 0.3))
 		var label := "today" if today else str(d)
 		UiTheme.draw_text(self, font, Vector2(c.x - 40.0, c.y + r + 3.0), label, 13, UiTheme.GOLD if today else UiTheme.MUTED, 3, 80.0,
 			HORIZONTAL_ALIGNMENT_CENTER)
