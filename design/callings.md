@@ -89,25 +89,26 @@ Each is written as it would stand on a screen: one line.
 - **The four of magic open their school.** Mender opens White Magic, Hexer and Spellblade Black, Sage
   either (the player picks): the grade is raised to D if it is lower, and one tier I spell of the
   school is learned, chosen from two drawn.
-- **Led by the higher of the two, both ways.** For a holder of Mender, Hexer, Sage or Spellblade,
-  spells are cast with whichever is higher, Strength or Magic. For a holder of any of the other
-  eight, the callings of arms, weapon strikes are led by whichever is higher (in the weapon's own
-  formula, Magic standing where Strength does), and the grade of the weapon in their hand is raised to
-  D if it is lower. A Spellblade has both. This is the rule that takes the wall between arms and magic
-  down, and it has to come down from both sides: with only the first half a fighter could take up
-  magic and keep the weapon, while a mage could never take up a weapon, and the mages would simply be
-  the worse companions.
-  - A fighter with a calling of magic: at their starting stats Elena the Mender heals 15 with Mend
-    (Strength 11 + 4) where Aveline heals 12, and still swings her axe.
-  - A mage with a calling of arms: Freya the Skirmisher strikes with a dagger at 9 ((Magic 10 +
-    Speed 8) / 2), the same as Yuzu, and still casts.
-  - Whoever stays on their own side (Elena the Champion, Freya the Sage) has one craft, not two, and
-    is ahead in it: a companion fielded from day 1 is about a week and a half of grades, arts or
-    spells ahead of someone who opens the craft at level 4.
-  - What is left between them is the body, as between any two companions today: Elena has 36 Health
-    and 7 Defence, Freya 7 Resistance against Elena's 2 and more Speed and Dexterity. The mages'
-    bodies are those of the light fighters (Freya 27 Health, Yuzu 27, Koharu 26).
-  - The stat table still says Magic 1 for Elena: the forecasts show the truth.
+- **Strength and Magic stand close together** (the user's rule, in place of any rule about which
+  stat leads a strike or a spell). In the companions' data, whichever of the two is lower is raised
+  to 2 under the other, and its growth rate to 10 under the other's: Elena Strength 11 and Magic 9
+  (65% and 55% a level), Freya Magic 10 and Strength 8 (75% and 65%). Nothing else about anyone
+  changes and no rule is added: Strength leads weapons, Magic leads spells, and the stat table says
+  what will happen.
+  - Either craft is open to anyone in any run, about 2 points behind at level 1 and 3 by the end.
+  - Which is the better one this run is moved by things the game already hands out, most of them
+    worth nothing to a fighter today: the Bright trait and Growing: Magic, Magic on an enchanted axe,
+    a magic weapon or a Runeblade found, a school as second hand (step 3), and the level-ups
+    themselves. By the rolls alone the lesser stat has caught up or passed by level 13 in about one
+    run in eight (worked out from the growth rates, not measured).
+  - The grades are still a wall, and the callings take it down from both sides: a calling of magic
+    opens its school as above, and a calling of arms raises the grade of the weapon in the holder's
+    hand to D if it is lower.
+  - What it costs: the four mages are no longer the only ones who cast well. What sets them apart is
+    a school and a spell from day 1, and the body they have (Freya 7 Resistance against Elena's 2,
+    more Speed and Dexterity; Elena 36 Health and 7 Defence).
+  - Someone who uses both crafts has more to choose from each turn than anyone has today. Whether
+    that makes the company too strong is for the playthrough to say.
 - **Written so that most of them work for anyone.** "Strike or spell" wherever it can be, so a mage is
   served by Executioner, Harrier, Hunter and Captain as a fighter is. Two are poor for anyone frail,
   mage or not (Warden, Champion); at most two of the three drawn can be those.
@@ -190,6 +191,10 @@ automated player has to choose callings and use them (a rough score by stats for
 the Mender's raising and the Hunter's timing in `run_policy.gd`), or the 200-run check says nothing
 about them.
 
+The stats are data: fourteen `data/companions/*.tres` files, the tests that name starting stats, and
+the scavenging targets, which are set from the companions' averages (`SCAVENGE_STAT_BASE`,
+`SCAVENGE_STAT_GROWTH`: Magic's rise, Strength's a little).
+
 **What to check after step 1**, in the playthrough:
 
 | | Target |
@@ -212,11 +217,11 @@ The user's own play outranks all four.
    change one (proposed). Or the whole list open to everyone, which lets you choose any path but ends
    in the same choice every run. Or drawn with no way to change them.
 2. **One holder each** (proposed), or any number of the same calling in a company.
-3. **Arms and magic.** Led by the higher of Strength and Magic, both ways: spells for the four
-   callings of magic, weapon strikes for the eight of arms (proposed; whoever crosses over has both
-   crafts, late). Or Strength and Magic change places for good when someone crosses over, which gives
-   one craft only and leaves the other useless. Or the stats are left alone and whoever crosses over
-   stays weak at it.
+3. **Arms and magic.** Settled by the user: Strength and Magic stand close together in every
+   companion's data, with no rule about which leads. Still open is how close: 2 points and 10% of
+   growth apart (proposed: the lesser stat catches up by the rolls alone in about one run in eight), or
+   3 and 15% (about one in thirty: the companion's nature shows more, the other craft is taken up only
+   when a trait, a find or a calling points to it).
 4. **The Mender's raising**, which reverses "nothing in battle undoes an injury": keep it (proposed),
    or give the Mender another rule.
 5. **When.** Levels 4 and 8 for each companion on their own (proposed), or everyone at once after the
