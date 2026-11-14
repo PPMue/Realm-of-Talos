@@ -44,7 +44,7 @@ static func describe(c: RunCompanion) -> String:
 	for a in c.progress.equipped_arts:
 		arts.append(a.display_name)
 	var text := "%s  ·  level %d  ·  HP %d / %d\n%s (Mt %d, Hit %d, weight %d)\n%s grade %s\nArts: %s" % [
-		c.display_name(), c.level(), c.hp, c.max_hp(), w.display_name, w.might_for(c.progress), w.hit, w.weight,
+		c.display_name(), c.level(), c.hp, c.max_hp(), StoreScreen.held_name(w, c.progress), w.might_for(c.progress), w.hit, w.weight,
 		WeaponData.type_name(t), Proficiency.grade_name(c.progress.grade(t)), ", ".join(arts) if not arts.is_empty() else "none"]
 	if not c.progress.known_spells.is_empty():
 		var spells: Array[String] = []

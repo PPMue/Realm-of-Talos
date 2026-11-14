@@ -355,8 +355,13 @@ func _weapon_row(c: RunCompanion, item: OwnedWeapon) -> RowButton:
 	var too_heavy := d.weight - c.data.build
 	if too_heavy > 0:
 		notes.append("Too heavy for %s: -%d Dexterity and Speed" % [c.display_name(), too_heavy])
-	if item.enchant_level > 0:
-		notes.insert(0, "Enchanted: " + ",  ".join(item.enchant_lines()))
+	if item.is_enchanted():
+		# A fine weapon's enchantment can run to ten stats: four to a line.
+		var gives := item.enchant_lines()
+		var at := 0
+		for i in range(0, gives.size(), 4):
+			notes.insert(at, ("Enchanted: " if i == 0 else "    ") + ",  ".join(gives.slice(i, i + 4)))
+			at += 1
 	var row := RowButton.new(C2_W - 14.0, RowButton.height_with(56.0, notes.size()))
 	row.paper = true
 	row.title = item.title()

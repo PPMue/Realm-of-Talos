@@ -428,7 +428,7 @@ func _show_weapon_lines(c: CompanionUnit) -> void:
 	var w := c.weapon()
 	var penalty := c.weight_penalty()
 	_weapon.text = "%s  ·  Mt %d  ·  Hit %d%s\nWeight %d / Build %d" % [
-		w.display_name, c.weapon_might(), w.hit, "  ·  MAGIC" if w.is_magic() else "", c.total_weight(), c.stat(Stat.BLD)]
+		StoreScreen.held_name(w, c.progress), c.weapon_might(), w.hit, "  ·  MAGIC" if w.is_magic() else "", c.total_weight(), c.stat(Stat.BLD)]
 	# What a rare weapon does is a pointer away, on the weapon's own line.
 	var notes := StoreScreen.weapon_notes(w)
 	_weapon.tooltip_text = "\n".join(notes)

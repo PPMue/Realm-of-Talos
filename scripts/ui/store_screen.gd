@@ -10,8 +10,9 @@ extends Control
 ## bought lies on the counter over the company: click whoever should take it (what they held goes
 ## back to the armory), or send it to the armory. Under the racks, on the same sheet, is the anvil
 ## (once the Smithy is built up): every weapon the company owns with its enchantment, the price of
-## the next attempt, and for an enchanted one the way to move its enchantment to a plain weapon of
-## the same kind.
+## having the smith work it, and for an enchanted one the way to move its enchantment to a plain
+## weapon of the same kind. The smith's work is an offer (Run.enchant_offer): it is held up over the
+## whole room, beside the weapon as it is, and stays there until one of them is chosen.
 ## Hiring and buying cost gold only, never the day's action; the rules decide (see Run).
 
 signal closed
@@ -44,6 +45,15 @@ const CREW_W := 660.0
 const CREW_ROW := 84.0
 ## The slip over the company for a weapon just bought.
 const COUNTER := Vector2(660, 96)
+## The smith's offer: the weapon as it is and what the smith has made, a paper each.
+## CARD.y is the tallest a paper gets; it is as tall as its lines need (head, a row a stat, foot).
+const CARD := Vector2(400, 560)
+const CARD_GAP := 40.0
+const CARD_Y := 300.0
+const CARD_PAD := 30.0
+const CARD_HEAD := 96.0
+const CARD_ROW := 46.0
+const CARD_FOOT := 112.0
 
 var run: Run
 var mode := Mode.SHOP
@@ -68,6 +78,8 @@ var _bought: OwnedWeapon
 ## kind takes it.
 var _moving: OwnedWeapon
 var _counter := Control.new()
+## The smith's offer, over everything else until it is answered.
+var _bench := Control.new()
 
 
 func _init() -> void:
@@ -85,8 +97,15 @@ func open_tavern(p_run: Run) -> void:
 
 
 func close() -> void:
+	if _offer() != null:
+		return   # the smith is waiting for an answer
 	visible = false
 	closed.emit()
+
+
+## The smith's open offer, if there is one.
+func _offer() -> EnchantOffer:
+	return run.enchant_offer if run != null and mode == Mode.SHOP else null
 
 
 func buy(item: ShopItemData) -> void:
@@ -151,6 +170,7 @@ func refresh() -> void:
 	_purse.queue_redraw()
 	_tavern.visible = mode == Mode.TAVERN
 	_smithy.visible = mode == Mode.SHOP
+	_refresh_bench()
 	if mode == Mode.SHOP:
 		_title.text = "THE SMITHY"
 		_backdrop.kind = InteriorBackdrop.Kind.SMITHY
@@ -353,14 +373,35 @@ func _refresh_smithy() -> void:
 
 # ---------------------------------------------------------------- the anvil
 
-## Tries to enchant `w` once more.
+## Has the smith work `w`: the price is paid and the offer is held up (see _refresh_bench).
 func enchant(w: OwnedWeapon) -> void:
-	var r := run.enchant(w)
-	if r == null:
+	if run.enchant(w) == null:
 		return
-	_note.text = "%s%s comes out %s: %s." % ["A fine piece of work! " if r.double and r.levels_gained > 1 else "", w.data.display_name,
-		w.title().trim_prefix(w.data.display_name).strip_edges(), ", ".join(r.lines())]
+	_moving = null
+	_note.text = ""
 	refresh()
+
+
+## The weapon stays as it was; the smith's work is set aside.
+func keep_enchant() -> void:
+	var offer := _offer()
+	if offer == null:
+		return
+	var w := offer.weapon
+	if run.keep_enchant():
+		_note.text = "The %s stays as it was." % w.data.display_name.to_lower()
+		refresh()
+
+
+## The weapon takes the smith's work (`index` of the offer's rolls).
+func take_enchant(index: int) -> void:
+	var offer := _offer()
+	if offer == null:
+		return
+	var w := offer.weapon
+	if run.take_enchant(index):
+		_note.text = "%s:  %s." % [w.title(), ",  ".join(w.enchant_lines())]
+		refresh()
 
 
 ## Picks `w` up to move its enchantment, or puts it down again.
@@ -388,7 +429,7 @@ func _refresh_anvil() -> void:
 	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var open := run.facility_level(Run.Facility.SMITHY) >= 1
 	head.draw.connect(func() -> void:
-		StatTable.head(head, Vector2(0, 38.0), w, "AT THE ANVIL", "each level is +1 to a stat, as it comes" if open else ""))
+		StatTable.head(head, Vector2(0, 38.0), w, "AT THE ANVIL", "finer metal holds more; you choose what to keep" if open else ""))
 	_list.add_child(head)
 	if not open:
 		var shut := UiTheme.label("\"I have no anvil fit for that work, Commander. Have the masons build the smithy up.\"", 18, UiTheme.PARCHMENT_MUTED)
@@ -404,25 +445,27 @@ func _refresh_anvil() -> void:
 			owned.append(item)
 	for item in owned:
 		_list.add_child(_anvil_row(item, w))
-		if item.enchant_level > 0 and (_moving == item or (_moving == null and _can_move(item))):
+		if item.is_enchanted() and (_moving == item or (_moving == null and _can_move(item))):
 			_list.add_child(_move_row(item, w))
 
 
-## A weapon on the anvil: what it has, and the price of the next attempt (click to make it). While an
-## enchantment is being moved, a plain weapon of the same kind takes it with a click.
+## A weapon on the anvil: what it has, and the price of having it worked (click to pay; the smith's
+## work is then offered beside it). While an enchantment is being moved, a plain weapon of the same
+## kind takes it with a click.
 func _anvil_row(item: OwnedWeapon, w: float) -> RowButton:
+	# What it gives, seven stats to a line (a fine weapon's enchantment can run to ten).
 	var lines := item.enchant_lines()
-	var row := RowButton.new(w, RowButton.height_with(58.0, 1 if not lines.is_empty() else 0))
+	var gives: Array[String] = []
+	for i in range(0, lines.size(), 7):
+		gives.append(",  ".join(lines.slice(i, i + 7)))
+	var row := RowButton.new(w, RowButton.height_with(58.0, gives.size()))
 	row.paper = true
 	row.type_icon = item.data.weapon_type
 	row.title = item.title()
 	row.marked = item.data.is_rare()
-	var cap := Run.enchant_cap(item)
 	row.sub = "%s  ·  %s" % ["held by %s" % item.holder.display_name() if item.holder != null else "in the armory",
-		"plain, to +%d" % cap if item.enchant_level == 0 else "+%d of +%d" % [item.enchant_level, cap]]
-	if not lines.is_empty():
-		var notes: Array[String] = [",  ".join(lines)]
-		row.notes = notes
+		"enchanted" if item.is_enchanted() else "plain"]
+	row.notes = gives
 	if _moving != null:
 		if item == _moving:
 			row.active = true
@@ -432,28 +475,37 @@ func _anvil_row(item: OwnedWeapon, w: float) -> RowButton:
 		var move_why := run.move_enchant_block_reason(_moving, item)
 		row.disabled = move_why != ""
 		row.detail = "takes it  ·  %s" % Run.cost_text(run.move_enchant_cost()).to_lower() if move_why == "" else ""
-		row.tooltip_text = move_why if move_why != "" else "The whole enchantment passes to this one. Levels above +%d are lost." % cap
+		row.tooltip_text = move_why if move_why != "" else "The whole enchantment passes to this one."
 		row.pressed.connect(move_to.bind(item))
 		return row
 	var why := run.enchant_block_reason(item)
 	var cost := run.enchant_cost(item)
 	var price: Array[String] = []
+	if item.is_enchanted():
+		price.append("again")
 	for m in RunConfig.MATERIAL_ORDER:
 		if int(cost.get(m, 0)) > 0:
 			price.append("%d %s" % [int(cost[m]), String(RunConfig.MATERIAL_NAMES[m]).to_lower()])
 	if int(cost.get("gold", 0)) > 0:
 		price.append("%d gold" % int(cost["gold"]))
 	row.disabled = why != ""
-	row.detail = "  ·  ".join(price) if why == "" else ("as fine as it can be made" if item.enchant_level >= cap else why.trim_suffix(".").to_lower())
-	row.tooltip_text = why if why != "" else "One attempt: +1, or +2 when it goes very well. Each level is +1 to a stat, as it comes."
+	row.detail = "  ·  ".join(price) if why == "" else why.trim_suffix(".").to_lower()
+	var points := Run.enchant_budget(item)
+	var worth := "%d point%s of stats, as they come" % [points, "" if points == 1 else "s"]
+	row.tooltip_text = why if why != "" else (
+		"The smith makes a new enchantment worth %s. You then keep this one or take the new one; the price is paid either way." % worth
+		if item.is_enchanted() else
+		"The smith makes an enchantment worth %s. You then take it or leave the weapon plain; the price is paid either way." % worth)
 	row.pressed.connect(enchant.bind(item))
 	return row
 
 
-## Whether some other weapon the company owns could take `item`'s enchantment (gold and ore aside).
+## Whether some other weapon the company owns could take `item`'s enchantment (gold and ore aside):
+## a plain one of the same kind that can hold as much.
 func _can_move(item: OwnedWeapon) -> bool:
 	for other in run.inventory.weapons:
-		if other != item and other.data.weapon_type == item.data.weapon_type and other.enchant_level == 0:
+		if other != item and other.data.weapon_type == item.data.weapon_type and not other.is_enchanted() \
+				and Run.enchant_budget(other) >= Run.enchant_budget(item):
 			return true
 	return false
 
@@ -467,10 +519,118 @@ func _move_row(item: OwnedWeapon, w: float) -> RowButton:
 	else:
 		row.title = "      move its enchantment to another %s" % WeaponData.type_name(item.data.weapon_type).to_lower()
 		row.detail = Run.cost_text(run.move_enchant_cost()).to_lower()
-	row.tooltip_text = "Then click a plain %s under the anvil. Levels above what that weapon can hold are lost." % WeaponData.type_name(
+	row.tooltip_text = "Then click a plain %s under the anvil that is at least as fine a metal." % WeaponData.type_name(
 		item.data.weapon_type).to_lower()
 	row.pressed.connect(start_move.bind(item))
 	return row
+
+
+# ---------------------------------------------------------------- the smith's offer
+
+## The offer held up over the room: the weapon as it is, then each thing the smith has made. Nothing
+## else can be done until one is chosen.
+func _refresh_bench() -> void:
+	for child in _bench.get_children():
+		_bench.remove_child(child)
+		child.queue_free()
+	var offer := _offer()
+	_bench.visible = offer != null
+	_bench.queue_redraw()
+	if offer == null:
+		return
+	var n := offer.rolls.size() + 1
+	var total := n * CARD.x + (n - 1) * CARD_GAP
+	var x := (1920.0 - total) * 0.5
+	# The papers are as tall as the longest of them needs, all alike.
+	var most := maxi(1, offer.current.size())
+	for roll in offer.rolls:
+		most = maxi(most, roll.size())
+	var h := clampf(CARD_HEAD + most * CARD_ROW + CARD_FOOT, 330.0, CARD.y)
+	_bench.add_child(_bench_card(offer, -1, Vector2(x, CARD_Y), h))
+	for i in offer.rolls.size():
+		_bench.add_child(_bench_card(offer, i, Vector2(x + (i + 1) * (CARD.x + CARD_GAP), CARD_Y), h))
+
+
+func _draw_bench() -> void:
+	var offer := _offer()
+	if offer == null:
+		return
+	_bench.draw_rect(Rect2(Vector2.ZERO, _bench.size), Color(0.03, 0.02, 0.015, 0.9))
+	var display := UiTheme.display_font()
+	var italic := UiTheme.italic_font()
+	var w := offer.weapon
+	UiTheme.draw_text(_bench, display, Vector2(0, 150.0), "ON THE ANVIL", 22, UiTheme.GOLD, 6, 1920.0, HORIZONTAL_ALIGNMENT_CENTER)
+	UiTheme.draw_text(_bench, display, Vector2(0, 178.0), w.data.display_name, 52, UiTheme.TEXT, 8, 1920.0, HORIZONTAL_ALIGNMENT_CENTER)
+	var whose := "%s holds it." % w.holder.display_name() if w.holder != null else "It lies in the armory."
+	UiTheme.draw_text(_bench, italic, Vector2(0, 244.0), "%s  Which shall it be?" % whose, 22, UiTheme.TEXT.lerp(UiTheme.MUTED, 0.4), 5,
+		1920.0, HORIZONTAL_ALIGNMENT_CENTER)
+
+
+## One paper of the offer: the weapon as it is (`index` -1) or the smith's work offer.rolls[index].
+func _bench_card(offer: EnchantOffer, index: int, at: Vector2, h: float) -> Control:
+	var card := Control.new()
+	card.position = at
+	var sheet := Vector2(CARD.x, h)
+	card.size = sheet
+	card.mouse_filter = Control.MOUSE_FILTER_STOP
+	var w := offer.weapon
+	var stats: Dictionary = offer.current if index < 0 else offer.rolls[index]
+	var ordinals: Array[String] = ["THE FIRST", "THE SECOND", "THE THIRD"]
+	var head: String = "AS IT IS" if index < 0 else ("THE SMITH'S WORK" if offer.rolls.size() == 1 else ordinals[mini(index, 2)])
+	var title: String = w.data.display_name + ("+" if not stats.is_empty() else "")
+	# Positives in stat order, what it takes away last.
+	var rows: Array = []
+	for key in Stat.COMPANION_KEYS:
+		if int(stats.get(key, 0)) > 0:
+			rows.append([key, int(stats[key])])
+	for key in Stat.COMPANION_KEYS:
+		if int(stats.get(key, 0)) < 0:
+			rows.append([key, int(stats[key])])
+	# What it would make of the holder's Attack, beside what it is now.
+	var attack := ""
+	if w.holder != null:
+		var now := w.holder.attack()
+		var then := now if index < 0 else w.holder.attack(w.data, stats if not stats.is_empty() else {"": 0})
+		attack = "%s's Attack %d" % [w.holder.display_name(), now] if index < 0 else "Attack %d → %d" % [now, then]
+	var inner := CARD.x - CARD_PAD * 2.0
+	var top := CARD_HEAD
+	var foot := h - CARD_FOOT
+	var step := minf(CARD_ROW, (foot - top) / maxi(1, rows.size()))
+	var k := step / CARD_ROW
+	card.draw.connect(func() -> void:
+		card.draw_rect(Rect2(Vector2(6, 7), sheet), Color(0, 0, 0, 0.35))
+		UiTheme.draw_parchment(card, Rect2(Vector2.ZERO, sheet), 0.45)
+		var display := UiTheme.display_font()
+		var body := UiTheme.body_font()
+		var italic := UiTheme.italic_font()
+		var ink := UiTheme.PARCHMENT_INK
+		var muted := UiTheme.PARCHMENT_MUTED
+		UiTheme.draw_text(card, display, Vector2(CARD_PAD, 18.0), head, 15, muted)
+		UiTheme.draw_text(card, display, Vector2(CARD_PAD, 36.0), title, 32, ink, 0, inner)
+		card.draw_line(Vector2(CARD_PAD, 84.0), Vector2(CARD_PAD + inner, 84.0), Color(ink, 0.45), 1.0)
+		if rows.is_empty():
+			UiTheme.draw_text(card, italic, Vector2(CARD_PAD, top + 8.0), "Plain: it adds nothing.", 20, muted)
+		for i in rows.size():
+			var y := top + i * step
+			var amount: int = rows[i][1]
+			var color := UiTheme.WAX if amount < 0 else ink
+			UiTheme.draw_text(card, display, Vector2(CARD_PAD, y), "%+d" % amount, roundi(34 * k), color, 0, 62.0, HORIZONTAL_ALIGNMENT_RIGHT)
+			UiTheme.draw_text(card, body, Vector2(CARD_PAD + 80.0, y + 9.0 * k), Stat.name_of(rows[i][0]), roundi(22 * k), color)
+		if attack != "":
+			UiTheme.draw_text(card, italic, Vector2(CARD_PAD, foot + 8.0), attack, 18, muted))
+	var seal := ActionButton.new()
+	seal.paper = true
+	seal.title = ("Keep it" if offer.current.is_empty() == false else "Leave it plain") if index < 0 else "Take it"
+	seal.h = 50.0
+	seal.position = Vector2(CARD_PAD - 6.0, h - 70.0)
+	seal.tooltip_text = "The %s stays as it is; the smith's work is set aside." % w.data.display_name.to_lower() if index < 0 else (
+		"The %s takes this enchantment%s." % [w.data.display_name.to_lower(), "" if offer.current.is_empty() else " in place of the one it has"])
+	if index < 0:
+		seal.pressed.connect(keep_enchant)
+	else:
+		seal.pressed.connect(take_enchant.bind(index))
+	card.add_child(seal)
+	return card
 
 
 func _shop_row(item: ShopItemData) -> RowButton:
@@ -521,6 +681,14 @@ static func weapon_needs(w: WeaponData, p: CompanionProgress = null) -> Array:
 			second["short"] = p != null and p.magic_grade(w.second_school) < w.second_grade
 		out.append(second)
 	return out
+
+
+## The weapon in a companion's hand as it is named: "Iron Sword+" when it is enchanted
+## (CompanionProgress.enchant carries the held weapon's enchantment). Shared with other screens.
+static func held_name(w: WeaponData, p: CompanionProgress) -> String:
+	if w == null:
+		return ""
+	return w.display_name + ("+" if p != null and not p.enchant.is_empty() else "")
 
 
 ## What a weapon does that others of its kind do not, one short line each (WeaponData.trait_lines,
@@ -737,6 +905,13 @@ func _build() -> void:
 	back.size = Vector2(300, 58)
 	back.pressed.connect(close)
 	add_child(back)
+
+	# The smith's offer covers the room, the way out included, until it is answered.
+	_bench.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_bench.mouse_filter = Control.MOUSE_FILTER_STOP
+	_bench.visible = false
+	_bench.draw.connect(_draw_bench)
+	add_child(_bench)
 
 
 func _unhandled_input(event: InputEvent) -> void:

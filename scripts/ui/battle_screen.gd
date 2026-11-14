@@ -886,9 +886,11 @@ func _refresh_party() -> void:
 			if not t.drawback_lines().is_empty():
 				magic += "; " + ", ".join(t.drawback_lines())
 		# Not a tooltip: the battle screen shows it while Shift is held (see inspect).
-		var held := c.weapon().display_name
+		var held := StoreScreen.held_name(c.weapon(), c.progress)
 		for note in StoreScreen.weapon_notes(c.weapon()):
 			held += "\n  " + note
+		if not c.progress.enchant.is_empty():
+			held += "\n  Enchanted: " + ", ".join(OwnedWeapon.stat_lines(c.progress.enchant))
 		_party_sheets[c] = "%s\nLevel %d  ·  %s\n%s\n\n%s %s%s\nArts: %s%s\n\n%s" % [
 			c.display_name, c.progress.level, held, _stat_sheet(c, Stat.COMPANION_KEYS), WeaponData.type_name(kind),
 			Proficiency.grade_name(c.progress.grade(kind)),

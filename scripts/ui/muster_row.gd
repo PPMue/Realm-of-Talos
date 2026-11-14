@@ -152,7 +152,7 @@ func _draw() -> void:
 	UiTheme.draw_text(self, display, Vector2(x, h * 0.5 - display.get_height(name_size) + 3.0), c.display_name(), name_size, ink, 4,
 		right - gauge - 10.0 - x)
 	var w := c.weapon()
-	var small := "Level %d" % c.level() + ("  ·  %s" % w.display_name if w != null else "")
+	var small := "Level %d" % c.level() + ("  ·  %s" % StoreScreen.held_name(w, c.progress) if w != null else "")
 	UiTheme.draw_text(self, body, Vector2(x, h * 0.5 + 4.0), small, 15, UiTheme.TEXT.lerp(UiTheme.MUTED, 0.5), 4, right - x)
 	if note != "":
 		UiTheme.draw_text(self, italic, Vector2(right - gauge, h * 0.5 - 22.0), note, 17, UiTheme.INJURED.lightened(0.25), 4, gauge,
