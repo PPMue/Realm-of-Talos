@@ -1,6 +1,6 @@
 # Elite fights, gemstones and accessories (design; built on 2026-11-14)
 
-Every number here is a first guess, to be tuned with the 200-run check.
+Every number here is a first guess, to be tuned with the 200-run check. All of it is built; README.md describes the rules as they run, including how the six new rules were read.
 
 ## Elite fights
 
@@ -62,7 +62,7 @@ A tenth facility, paid in iron ore like the Smithy (3 for level 1, 5 for level 2
 
 Each line gives the effect at Topaz / Sapphire / Emerald / Ruby / Diamond. **Hit**, **Crit** and **Avoid** are percentage points, as with traits (1 Dexterity is 5 Hit, 1 Critical is 2 Crit).
 
-Types marked **new** need a rule the game does not have yet; all the others use numbers traits already change.
+Types marked **new** needed a rule the game did not have (all built now); all the others use numbers traits already change.
 
 ### 1. Plain (11): a stat, always
 
@@ -165,7 +165,7 @@ The price does not change with the stone, so a better stone is always simply bet
 - A Diamond Ring is +5 Strength, about two and a half weapon tiers of Might. It comes on day 34 with eight days and one boss left, so it is a reward for the hardest elite and not something a run is built around.
 - A Topaz of a "road" type (Acorn, Plume, Tassel) is worth most early; a Topaz Ring is worth little by week 4. That is the trade the random draw sets up: an early stone made at once, or kept in the hope of a better use.
 - The plain types make up a fifth of the draws. With the Jeweler's second level (pick one of two) the chance that neither design suits anyone in the company is small.
-- Six types need new rules (Pin, Thorn, Talisman, Locket, Hourglass, and the "elite fight" half of Sigil). They can be left out of a first build without changing anything else.
+- Six types needed new rules (Pin, Thorn, Talisman, Locket, Hourglass, and the "elite fight" half of Sigil). All six are built.
 
 ## Changed after the first 200-run check (2026-11-14)
 
@@ -174,8 +174,20 @@ The price does not change with the stone, so a better stone is always simply bet
 - Bell also gives Defence: drawing blows did nothing for the wearer on its own.
 - Compass also raises the haul: one scavenging check was too little.
 
-## Open questions
+## Decided when it was built
 
-- Should a type be drawn at most once in a run (as traits are), or can the same type come up again? The rule against wearing two of one type suggests it can.
-- Can an accessory be broken up to get the stone back, or sold? Not in this design.
-- Does a companion who leaves the line for the Infirmary keep their accessories locked to them? This design lets them be taken off.
+- The same type can be drawn more than once in a run.
+- An accessory cannot be broken up to get the stone back, nor sold.
+- Someone in the Infirmary keeps theirs on, and it can be taken off them or put on them.
+- A lost elite costs the walls what a lost danger-3 front does.
+
+## Still open (after the second 200-run check, 2026-11-14)
+
+Nothing below has been tuned.
+
+- The automated player sets fewer than two stones a run (1.92) and ends with about one unspent: gold and the day's action are both short.
+- The day 34 elite, the one that gives the Diamond, is won 29% of the time (day 6: 73%, day 20: 60%).
+- The five Magic types and the Crown do nothing in a company with no caster: about one draw in nine.
+- A Topaz Locket is the same as the trait Clings to Life. Talisman and Cameo are narrow.
+- In the Barracks, with two pieces worn and the case full, the armory list shows only about two and a half weapons before it scrolls.
+- None of the accessory screens has been played by hand: they were checked with scripted clicks and screenshots (tools/screen_checks).
