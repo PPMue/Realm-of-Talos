@@ -14,7 +14,7 @@ portrait_focus = Vector2(0.478, 0.209)
 figure_scale = 0.8
 max_hp = 24
 max_sta = 12
-strength = 2
+strength = 7
 magic = 9
 crit = 3
 dexterity = 7
@@ -29,7 +29,7 @@ signature_spell = ExtResource("4_spell")
 growths = {
 "HP": 30,
 "STA": 45,
-"STR": 5,
+"STR": 60,
 "MAG": 70,
 "CRT": 25,
 "DEX": 40,

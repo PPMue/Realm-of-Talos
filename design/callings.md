@@ -1,4 +1,4 @@
-# Callings: a companion becomes something, and not the same thing every run (design; nothing built)
+# Callings: a companion becomes something, and not the same thing every run (design; only the stats are built)
 
 Written 2026-11-14 after the user's play reports: "When I get a companion, I can just keep using it
 and it will grow stronger... and I can do the same like this in every run. There is nothing that
@@ -191,9 +191,10 @@ automated player has to choose callings and use them (a rough score by stats for
 the Mender's raising and the Hunter's timing in `run_policy.gd`), or the 200-run check says nothing
 about them.
 
-The stats are data: fourteen `data/companions/*.tres` files, the tests that name starting stats, and
-the scavenging targets, which are set from the companions' averages (`SCAVENGE_STAT_BASE`,
-`SCAVENGE_STAT_GROWTH`: Magic's rise, Strength's a little).
+The stats are data, and are built: the fourteen `data/companions/*.tres` files, a test that holds
+every companion to the rule (`weapon_tests.gd` `test_strength_and_magic_stand_close`), and the
+scavenging targets, which are set from the companions' averages (`SCAVENGE_STAT_BASE`,
+`SCAVENGE_STAT_GROWTH`: a Seer's place asks for Magic 7 on day 1 where it asked for 4).
 
 **What to check after step 1**, in the playthrough:
 
@@ -217,11 +218,10 @@ The user's own play outranks all four.
    change one (proposed). Or the whole list open to everyone, which lets you choose any path but ends
    in the same choice every run. Or drawn with no way to change them.
 2. **One holder each** (proposed), or any number of the same calling in a company.
-3. **Arms and magic.** Settled by the user: Strength and Magic stand close together in every
-   companion's data, with no rule about which leads. Still open is how close: 2 points and 10% of
-   growth apart (proposed: the lesser stat catches up by the rolls alone in about one run in eight), or
-   3 and 15% (about one in thirty: the companion's nature shows more, the other craft is taken up only
-   when a trait, a find or a calling points to it).
+3. **Arms and magic.** Settled by the user and built (2026-11-14): Strength and Magic stand close
+   together in every companion's data, 2 points and 10% of growth apart, with no rule about which
+   leads. (3 and 15% was the other choice: by the rolls alone the lesser stat would catch up in about
+   one run in thirty, not one in eight.)
 4. **The Mender's raising**, which reverses "nothing in battle undoes an injury": keep it (proposed),
    or give the Mender another rule.
 5. **When.** Levels 4 and 8 for each companion on their own (proposed), or everyone at once after the

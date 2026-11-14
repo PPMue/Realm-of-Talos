@@ -196,10 +196,10 @@ const SCAVENGE_RISK_WEIGHTS: Array[int] = [40, 35, 25]
 ## Rounded to the nearest point.
 const SCAVENGE_LEVEL_PER_DAY := 0.27
 const SCAVENGE_STAT_BASE := {
-	"SPD": 8.3, "STR": 6.6, "BLD": 6.1, "DEX": 8.9, "LCK": 5.3, "DEF": 4.2, "RES": 4.6, "MAG": 3.7,
+	"SPD": 8.3, "STR": 7.6, "BLD": 6.1, "DEX": 8.9, "LCK": 5.3, "DEF": 4.2, "RES": 4.6, "MAG": 6.8,
 }
 const SCAVENGE_STAT_GROWTH := {
-	"SPD": 0.46, "STR": 0.36, "BLD": 0.0, "DEX": 0.50, "LCK": 0.39, "DEF": 0.30, "RES": 0.38, "MAG": 0.27,
+	"SPD": 0.46, "STR": 0.49, "BLD": 0.0, "DEX": 0.50, "LCK": 0.39, "DEF": 0.30, "RES": 0.38, "MAG": 0.45,
 }
 ## Added to every target, by risk (low, medium, high).
 const SCAVENGE_RISK_TARGET_SHIFT: Array[int] = [-1, 0, 2]

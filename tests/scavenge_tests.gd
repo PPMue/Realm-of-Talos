@@ -219,7 +219,7 @@ func test_scavenge_targets() -> void:
 	# Day 1: the fourteen companions' average base stat, rounded; medium risk is no shift.
 	t.eq(Run.scavenge_target(Stat.SPD, ScavengeSite.Risk.MEDIUM, 1), 8, "SPD day 1")
 	t.eq(Run.scavenge_target(Stat.DEX, ScavengeSite.Risk.MEDIUM, 1), 9, "DEX day 1")
-	t.eq(Run.scavenge_target(Stat.MAG, ScavengeSite.Risk.MEDIUM, 1), 4, "MAG day 1")
+	t.eq(Run.scavenge_target(Stat.MAG, ScavengeSite.Risk.MEDIUM, 1), 7, "MAG day 1")
 	t.eq(Run.scavenge_target(Stat.SPD, ScavengeSite.Risk.LOW, 1), 7, "low risk -1")
 	t.eq(Run.scavenge_target(Stat.SPD, ScavengeSite.Risk.HIGH, 1), 10, "high risk +2")
 	for key in ScavengeSite.ROLE_STATS:

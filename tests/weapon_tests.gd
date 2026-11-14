@@ -57,6 +57,7 @@ func _init(runner: Object) -> void:
 func tests() -> Array[Callable]:
 	return [
 		test_starting_health_and_stamina,
+		test_strength_and_magic_stand_close,
 		test_focus_pays_for_a_tier_one_art,
 		test_weapon_ladder,
 		test_rare_magic_weapons_on_the_ladder,
@@ -135,6 +136,22 @@ func weapon(kind: WeaponData.WeaponType, might: int = 0, magic: bool = false, we
 
 
 # ---------------------------------------------------------------- starting stats and Focus
+
+## Every companion's Strength and Magic stand 2 apart and grow 10 points apart, the one they are known
+## for ahead: either craft is open to anyone (design/callings.md).
+func test_strength_and_magic_stand_close() -> void:
+	var mages := 0
+	for d in content().companions:
+		var gs := Levels.growth_rate(d, Stat.STR)
+		var gm := Levels.growth_rate(d, Stat.MAG)
+		t.eq(absi(d.strength - d.magic), 2, "%s: Strength %d and Magic %d are 2 apart" % [d.display_name, d.strength, d.magic])
+		t.eq(absi(gs - gm), 10, "%s: their growth rates %d and %d are 10 apart" % [d.display_name, gs, gm])
+		t.eq(d.strength > d.magic, gs > gm, "%s: the higher one grows faster" % d.display_name)
+		t.eq(d.magic > d.strength, d.signature_spell != null, "%s: Magic leads for the mages and nobody else" % d.display_name)
+		if d.magic > d.strength:
+			mages += 1
+	t.eq(mages, 4, "four mages")
+
 
 func test_starting_health_and_stamina() -> void:
 	var cs := content().companions

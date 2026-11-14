@@ -15,7 +15,7 @@ figure_scale = 1.15
 max_hp = 26
 max_sta = 16
 strength = 5
-magic = 2
+magic = 3
 crit = 5
 dexterity = 9
 speed = 11
@@ -31,7 +31,7 @@ growths = {
 "HP": 40,
 "STA": 50,
 "STR": 35,
-"MAG": 20,
+"MAG": 25,
 "CRT": 35,
 "DEX": 45,
 "SPD": 60,

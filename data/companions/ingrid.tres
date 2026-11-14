@@ -14,7 +14,7 @@ portrait_focus = Vector2(0.453, 0.184)
 max_hp = 33
 max_sta = 19
 strength = 9
-magic = 2
+magic = 7
 crit = 5
 dexterity = 8
 speed = 7
@@ -30,7 +30,7 @@ growths = {
 "HP": 65,
 "STA": 45,
 "STR": 50,
-"MAG": 10,
+"MAG": 40,
 "CRT": 30,
 "DEX": 45,
 "SPD": 35,

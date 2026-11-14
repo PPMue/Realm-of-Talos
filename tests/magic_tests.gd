@@ -1042,13 +1042,13 @@ func test_magic_content() -> void:
 		var s: SpellData.School = d.signature_spell.school
 		t.eq(d.starting_magic_grade(s), Proficiency.Grade.D, "%s starts at D" % d.display_name)
 		t.check(d.starting_grade(d.weapon.weapon_type) <= Proficiency.Grade.E_PLUS, "%s: low weapon grade" % d.display_name)
-		t.check(d.magic >= 8 and d.resistance >= 7 and d.strength <= 4 and d.defense <= 3, "%s: a caster's stats" % d.display_name)
+		t.check(d.magic >= 8 and d.resistance >= 7 and d.strength == d.magic - 2 and d.defense <= 3, "%s: a caster's stats" % d.display_name)
 		var total := 0
 		for key in Levels.GROWTH_STATS:
 			total += Levels.growth_rate(d, key)
 		var avg := total / float(Levels.GROWTH_STATS.size())
-		t.check(avg >= 37.0 and avg <= 43.0, "%s: growths average about 40%% (%.1f)" % [d.display_name, avg])
-		t.check(Levels.growth_rate(d, Stat.MAG) >= 60 and Levels.growth_rate(d, Stat.STR) <= 20, "%s grows as a caster" % d.display_name)
+		t.check(avg >= 37.0 and avg <= 47.0, "%s: growths average 37-47%% (%.1f)" % [d.display_name, avg])
+		t.check(Levels.growth_rate(d, Stat.MAG) >= 60 and Levels.growth_rate(d, Stat.STR) == Levels.growth_rate(d, Stat.MAG) - 10, "%s grows as a caster" % d.display_name)
 		var p := CompanionProgress.create(d)
 		t.check(p.knows_spell(d.signature_spell) and p.uses_left(d.signature_spell) == d.signature_spell.uses, "%s knows the signature spell" % d.display_name)
 		t.check(p.can_equip_weapon(d.weapon), "%s can hold their weapon" % d.display_name)
