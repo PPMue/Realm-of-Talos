@@ -89,6 +89,9 @@ const HYBRID_SECOND_GRADE_MIN := 1   # Proficiency.Grade.E_PLUS
 const PROFICIENCY_GRADE_POINTS: Array[int] = [0, 5, 11, 17, 25, 35, 47, 62, 80, 102, 130]
 const PROFICIENCY_POINTS_ATTACK := 1
 const PROFICIENCY_POINTS_ART := 2      # Guard, Focus and Wait give none
+# Every weapon point earned in a battle counts this many percent (fractions carry over to the next
+# action): the pace of weapon grades, set against how many actions a battle has.
+const PROFICIENCY_PACE_PERCENT := 100
 # Most points one companion can gain in a single battle, so stalling a safe fight is no way to train.
 const PROFICIENCY_CAP_PER_BATTLE := 8
 

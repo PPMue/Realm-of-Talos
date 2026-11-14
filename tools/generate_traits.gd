@@ -287,7 +287,7 @@ func _wave_two() -> void:
 	add("clean_blood", "Clean Blood", S, U, ["Damage over time cannot touch them"], [], [mod(K.DOT_IMMUNE, 1)])
 	add("calm", "Calm", S, U, ["Curses on them end 1 turn sooner"], [], [mod(K.CURSE_TURNS, -1)])
 	add("good_patient", "Good Patient", S, U, ["White magic heals them 2 more"], [], [mod(K.HEAL_RECEIVED, 2)])
-	add("fast_healer", "Fast Healer", S, U, ["Heals 35% at day's end instead of 20%"], [], [mod(K.DAY_HEAL_SHARE, 15)])
+	add("fast_healer", "Fast Healer", S, U, ["Heals 20% at day's end instead of 10%"], [], [mod(K.DAY_HEAL_SHARE, 10)])
 	add("field_dresser", "Field Dresser", S, U, ["Heals 15% after a battle won"], [], [mod(K.BATTLE_WON_HEAL_PERCENT, 15)])
 	add("quick_to_mend", "Quick to Mend", S, U, ["Infirmary stays are 1 day shorter"], [], [mod(K.INFIRMARY_DAYS, -1)])
 	add("healers_favourite", "Healer's Favourite", S, U, ["The healer charges half for them"], [], [mod(K.CURE_PERCENT, -50)])
@@ -314,8 +314,8 @@ func _wave_two() -> void:
 		[mod(K.BATTLE_MATERIAL, 1, {"material": RunConfig.TIMBER})])
 	add("prospector", "Prospector", C, U, ["+1 iron ore after a battle in which they fought"], [],
 		[mod(K.BATTLE_MATERIAL, 1, {"material": RunConfig.IRON_ORE})])
-	add("camp_cook", "Camp Cook", C, U, ["Everyone heals 5% more at day's end"], [],
-		[mod(K.DAY_HEAL_SHARE, 5, {"who": TraitModifier.Who.COMPANY})])
+	add("camp_cook", "Camp Cook", C, U, ["Everyone heals 3% more at day's end"], [],
+		[mod(K.DAY_HEAL_SHARE, 3, {"who": TraitModifier.Who.COMPANY})])
 	add("night_watch", "Night Watch", C, U, ["From the bench: a lost battle costs the walls 3 less"], [], [mod(K.CITY_DAMAGE, -3)])
 	add("silver_tongue", "Silver Tongue", C, U, ["Event choices that cost gold cost 20% less"], [], [mod(K.EVENT_GOLD_PERCENT, -20)])
 

@@ -550,7 +550,7 @@ func test_daily_heal() -> void:
 	a.hp = 3
 	b.hp = b.max_hp() - 1
 	run.end_free_day()
-	t.eq(a.hp, 3 + heal_amount(a), "heals 20% of max HP (rounded up)")
+	t.eq(a.hp, 3 + heal_amount(a), "heals 10% of max HP (rounded up)")
 	t.eq(b.hp, b.max_hp(), "never above max")
 	t.eq(run.day, 2, "next day")
 
@@ -1420,6 +1420,13 @@ func test_playthrough() -> void:
 	var rouses := 0
 	var raises := 0
 	var fight_turns := {}     # kind of fight -> [won, turns in those won, lost, turns in those lost]
+	var mast_taken := {}      # mastery id -> times taken
+	var mast_battles := {}    # mastery id -> [fought, won] with it in the line
+	var mast_days := [0, 0]   # days masteries were taken on, summed; how many
+	var rests := 0
+	var waits := 0
+	var turns := 0
+	var gained := [0, 0, 0]   # weapon points, magic points, companions (one for each in each battle)
 	for s in runs:
 		var run := make_run(1000 + s)
 		var policy := RunPolicy.new(_seeded(5000 + s))
@@ -1471,6 +1478,18 @@ func test_playthrough() -> void:
 			mine[policy.calling_of[who]] = int(mine.get(policy.calling_of[who], 0)) + 1
 		rouses += policy.rouses
 		raises += policy.raises
+		for id: String in policy.masteries_taken:
+			mast_taken[id] = int(mast_taken.get(id, 0)) + int(policy.masteries_taken[id])
+		for id: String in policy.mastery_battles:
+			var mb: Array = mast_battles.get(id, [0, 0])
+			mast_battles[id] = [int(mb[0]) + int(policy.mastery_battles[id][0]), int(mb[1]) + int(policy.mastery_battles[id][1])]
+		mast_days[0] += policy.mastery_days[0]
+		mast_days[1] += policy.mastery_days[1]
+		rests += policy.rests
+		waits += policy.waits
+		turns += policy.turns
+		for i in 3:
+			gained[i] += policy.points_gained[i]
 		for kind: String in policy.fight_turns:
 			var ft: Array = fight_turns.get(kind, [0, 0, 0, 0])
 			for i in 4:
@@ -1595,11 +1614,29 @@ func test_playthrough() -> void:
 		most.sort()
 		print("    each companion's most-taken calling: %s" % "; ".join(most))
 		print("    per run: %.2f rouses, %.2f raised" % [float(rouses) / runs, float(raises) / runs])
+	if not mast_taken.is_empty():
+		print("    masteries: %.2f taken a run, on day %.1f on average (taken; battles with it in the line, won):" % [
+			float(mast_days[1]) / runs, float(mast_days[0]) / maxf(1, mast_days[1])])
+		for calling in CallingLibrary.load_default().callings:
+			var parts: Array[String] = []
+			for m in calling.masteries:
+				var mb: Array = mast_battles.get(m.id, [0, 0])
+				parts.append("%-16s %3d  %4d battles %3d%%" % [m.display_name, int(mast_taken.get(m.id, 0)), int(mb[0]),
+					roundi(100.0 * int(mb[1]) / maxf(1, int(mb[0])))])
+			print("      %-12s %s" % [calling.display_name, "   |   ".join(parts)])
+	print("    rests at the Inn per run: %.1f; turns that were a wait: %d%%" % [float(rests) / runs, roundi(100.0 * waits / maxf(1, turns))])
+	print("    points a companion a battle: %.2f weapon, %.2f magic" % [float(gained[0]) / maxf(1, gained[2]), float(gained[1]) / maxf(1, gained[2])])
 	var lengths: Array[String] = []
 	for kind: String in ["battle", "elite 6", "boss 14", "elite 20", "boss 28", "elite 34", "boss 42"]:
 		var ft: Array = fight_turns.get(kind, [0, 0, 0, 0])
 		lengths.append("%s %.0f / %.0f" % [kind, float(ft[1]) / maxf(1, int(ft[0])), float(ft[3]) / maxf(1, int(ft[2]))])
 	print("    turns a fight takes (won / lost): %s" % ", ".join(lengths))
+	var by_danger: Array[String] = []
+	for danger in [1, 2, 3]:
+		var ft: Array = fight_turns.get("danger %d" % danger, [0, 0, 0, 0])
+		by_danger.append("danger %d: %d fought, %.0f / %.0f" % [danger, int(ft[0]) + int(ft[2]), float(ft[1]) / maxf(1, int(ft[0])),
+			float(ft[3]) / maxf(1, int(ft[2]))])
+	print("    battles by the front's danger (turns won / lost): %s" % ", ".join(by_danger))
 	print("    bosses (faced / beaten / beaten %):")
 	for g in content().bosses:
 		var f: int = faced.get(g, 0)

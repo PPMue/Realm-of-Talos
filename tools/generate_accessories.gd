@@ -207,8 +207,8 @@ func _the_road() -> void:
 	add("compass", "Compass", F.THE_ROAD, lines("Scavenging: +%d to what is asked, %d%% more brought back",
 		[[1, 10], [1, 20], [2, 30], [3, 40], [3, 50]]),
 		[eff(K.SCAVENGE_STAT, SMALL_STEPS), eff(K.SCAVENGE_HAUL_PERCENT, [10, 20, 30, 40, 50])])
-	add("poultice", "Poultice", F.THE_ROAD, lines("Heals %d%% more of their Health at day's end", [4, 8, 12, 16, 20]),
-		[eff(K.DAY_HEAL_SHARE, [4, 8, 12, 16, 20])])
+	add("poultice", "Poultice", F.THE_ROAD, lines("Heals %d%% more of their Health at day's end", [2, 4, 6, 8, 10]),
+		[eff(K.DAY_HEAL_SHARE, [2, 4, 6, 8, 10])])
 
 
 func _two_edged() -> void:

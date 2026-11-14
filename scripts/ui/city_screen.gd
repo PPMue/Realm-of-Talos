@@ -413,7 +413,7 @@ func _after_day(title: String = "", text: String = "") -> void:
 		refresh(false)
 		_end_screen.open(run)
 		return
-	var heal := "Overnight the company recovered a fifth of its strength. "
+	var heal := "Overnight the company recovered a little of its strength. "
 	if not run.released_today.is_empty():
 		var up := _names(run.released_today)
 		heal = "%s %s out of the infirmary and back on the bench. %s" % [" and ".join(up), "is" if up.size() == 1 else "are", heal]
@@ -459,7 +459,8 @@ func _on_battle_closed() -> void:
 	_check_callings(_after_day)   # whoever reached their calling in the battle chooses before the day turns
 
 
-## Puts the choice of a calling in front of the commander if anyone's is due (Run.callings_due): a level
+## Puts the choice of a calling, or of a calling's mastery, in front of the commander if anyone's is due
+## (Run.callings_due, masteries_due): a level
 ## reached in a battle, a drill or beyond the walls, or a hire who joined above it. `then` runs once
 ## everyone has chosen, or at once when nobody is due. It cannot be put off: nothing else answers until
 ## it is made.

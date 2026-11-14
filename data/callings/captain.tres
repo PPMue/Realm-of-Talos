@@ -1,19 +1,46 @@
 [gd_resource type="Resource" script_class="CallingData" format=3]
 
-[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_g2vm0"]
-[ext_resource type="Script" path="res://scripts/data/calling_data.gd" id="2_oymwk"]
+[ext_resource type="Script" path="res://scripts/data/mastery_data.gd" id="1_oymwk"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_50536"]
+[ext_resource type="Script" path="res://scripts/data/calling_data.gd" id="3_oeyje"]
 
-[sub_resource type="Resource" id="Resource_50536"]
-script = ExtResource("1_g2vm0")
+[sub_resource type="Resource" id="Resource_f37f2"]
+script = ExtResource("2_50536")
+kind = 73
+amount = 1
+
+[sub_resource type="Resource" id="Resource_8mkcg"]
+script = ExtResource("1_oymwk")
+id = "captain_clear_order"
+display_name = "Clear Order"
+rule = "The one roused cannot miss with their next action."
+modifiers = Array[ExtResource("2_50536")]([SubResource("Resource_f37f2")])
+
+[sub_resource type="Resource" id="Resource_o7hb8"]
+script = ExtResource("2_50536")
+kind = 23
+amount = -1
+action = 5
+
+[sub_resource type="Resource" id="Resource_vnp2s"]
+script = ExtResource("1_oymwk")
+id = "captain_quick_word"
+display_name = "Quick Word"
+rule = "Rouse has Recovery 1."
+modifiers = Array[ExtResource("2_50536")]([SubResource("Resource_o7hb8")])
+
+[sub_resource type="Resource" id="Resource_be0x1"]
+script = ExtResource("2_50536")
 kind = 61
 amount = 1
 
 [resource]
-script = ExtResource("2_oymwk")
+script = ExtResource("3_oeyje")
 id = "captain"
 display_name = "Captain"
 rule = "A new order, Rouse: a companion who is recovering is ready at once."
 first_stat = "RES"
 second_stat = "DEF"
 slow_stat = "CRT"
-modifiers = Array[ExtResource("1_g2vm0")]([SubResource("Resource_50536")])
+modifiers = Array[ExtResource("2_50536")]([SubResource("Resource_be0x1")])
+masteries = Array[ExtResource("1_oymwk")]([SubResource("Resource_8mkcg"), SubResource("Resource_vnp2s")])

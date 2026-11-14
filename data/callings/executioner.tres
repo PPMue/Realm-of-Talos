@@ -1,19 +1,45 @@
 [gd_resource type="Resource" script_class="CallingData" format=3]
 
-[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_k6k85"]
-[ext_resource type="Script" path="res://scripts/data/calling_data.gd" id="2_u84pi"]
+[ext_resource type="Script" path="res://scripts/data/mastery_data.gd" id="1_u84pi"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_2bjkj"]
+[ext_resource type="Script" path="res://scripts/data/calling_data.gd" id="3_sruwx"]
 
-[sub_resource type="Resource" id="Resource_2bjkj"]
-script = ExtResource("1_k6k85")
+[sub_resource type="Resource" id="Resource_mahee"]
+script = ExtResource("2_2bjkj")
+kind = 60
+amount = 5
+
+[sub_resource type="Resource" id="Resource_rs6al"]
+script = ExtResource("1_u84pi")
+id = "executioner_deep_cut"
+display_name = "Deep Cut"
+rule = "At a quarter of its Health or less (a boss: an eighth)."
+modifiers = Array[ExtResource("2_2bjkj")]([SubResource("Resource_mahee")])
+
+[sub_resource type="Resource" id="Resource_871uy"]
+script = ExtResource("2_2bjkj")
+kind = 24
+amount = 1
+
+[sub_resource type="Resource" id="Resource_ao88f"]
+script = ExtResource("1_u84pi")
+id = "executioner_next_one"
+display_name = "The Next One"
+rule = "Felling an enemy, they are ready at once."
+modifiers = Array[ExtResource("2_2bjkj")]([SubResource("Resource_871uy")])
+
+[sub_resource type="Resource" id="Resource_isxr1"]
+script = ExtResource("2_2bjkj")
 kind = 60
 amount = 20
 
 [resource]
-script = ExtResource("2_u84pi")
+script = ExtResource("3_sruwx")
 id = "executioner"
 display_name = "Executioner"
 rule = "A strike or spell that leaves an enemy at a fifth of its Health or less fells it (a boss: a tenth)."
 first_stat = "LEAD"
 second_stat = "CRT"
 slow_stat = "DEF"
-modifiers = Array[ExtResource("1_k6k85")]([SubResource("Resource_2bjkj")])
+modifiers = Array[ExtResource("2_2bjkj")]([SubResource("Resource_isxr1")])
+masteries = Array[ExtResource("1_u84pi")]([SubResource("Resource_rs6al"), SubResource("Resource_ao88f")])

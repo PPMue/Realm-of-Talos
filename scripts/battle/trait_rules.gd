@@ -223,6 +223,10 @@ static func _battle_holds(m: TraitModifier, q: Query, holder: CompanionUnit) -> 
 		return false
 	if m.first_art and holder.arts_used > 0:
 		return false
+	if m.first_spell and holder.spells_cast > 0:
+		return false
+	if m.after_spell and not holder.after_spell:
+		return false
 	if m.ally_injured and not b.injured_ever.any(func(c: CompanionUnit) -> bool: return c != holder):
 		return false
 	if m.rival_ahead and not l.any(func(c: CompanionUnit) -> bool: return c != holder and b.kills_of(c) > b.kills_of(holder)):
@@ -230,7 +234,7 @@ static func _battle_holds(m: TraitModifier, q: Query, holder: CompanionUnit) -> 
 	if m.big_fight and not b.elite and (q.target == null or q.target.data.band != 0):
 		return false
 	var needs_target := m.target_health != TraitModifier.Health.ANY or m.target_trait != "" or m.target_boss \
-		or m.target_next_magic or m.struck != TraitModifier.Struck.ANY or m.target_turns_at_most > 0
+		or m.target_next_magic or m.struck != TraitModifier.Struck.ANY or m.target_turns_at_most > 0 or m.aim_turned
 	if not needs_target:
 		return true
 	var e := q.target
@@ -245,6 +249,8 @@ static func _battle_holds(m: TraitModifier, q: Query, holder: CompanionUnit) -> 
 	if m.target_boss and e.data.band != 0:
 		return false
 	if m.target_turns_at_most > 0 and (e.pending_action == null or e.countdown > m.target_turns_at_most):
+		return false
+	if m.aim_turned and e.turned_by_id != holder.get_instance_id():
 		return false
 	if m.target_next_magic and (e.pending_action == null or not e.pending_action.deals_damage
 			or e.pending_action.damage_type != CombatMath.DamageType.MAGIC):

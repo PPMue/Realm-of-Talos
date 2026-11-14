@@ -1,15 +1,49 @@
 [gd_resource type="Resource" script_class="CallingData" format=3]
 
-[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_gfqva"]
-[ext_resource type="Script" path="res://scripts/data/calling_data.gd" id="2_n0t42"]
+[ext_resource type="Script" path="res://scripts/data/mastery_data.gd" id="1_n0t42"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_prri7"]
+[ext_resource type="Script" path="res://scripts/data/calling_data.gd" id="3_w2euy"]
 
-[sub_resource type="Resource" id="Resource_prri7"]
-script = ExtResource("1_gfqva")
+[sub_resource type="Resource" id="Resource_q805m"]
+script = ExtResource("2_prri7")
+kind = 23
+amount = -9
+action = 1
+after_spell = true
+
+[sub_resource type="Resource" id="Resource_j80v7"]
+script = ExtResource("2_prri7")
+kind = 23
+amount = -9
+action = 2
+after_spell = true
+
+[sub_resource type="Resource" id="Resource_rec10"]
+script = ExtResource("1_n0t42")
+id = "spellblade_spell_into_steel"
+display_name = "Spell into Steel"
+rule = "A weapon strike right after a spell has no recovery."
+modifiers = Array[ExtResource("2_prri7")]([SubResource("Resource_q805m"), SubResource("Resource_j80v7")])
+
+[sub_resource type="Resource" id="Resource_16hyw"]
+script = ExtResource("2_prri7")
+kind = 81
+amount = 1
+
+[sub_resource type="Resource" id="Resource_bon3t"]
+script = ExtResource("1_n0t42")
+id = "spellblade_steel_into_spell"
+display_name = "Steel into Spell"
+rule = "A weapon strike that fells an enemy gives one spell use back."
+modifiers = Array[ExtResource("2_prri7")]([SubResource("Resource_16hyw")])
+
+[sub_resource type="Resource" id="Resource_nfh4e"]
+script = ExtResource("2_prri7")
 kind = 68
 amount = 1
 
 [resource]
-script = ExtResource("2_n0t42")
+script = ExtResource("3_w2euy")
 id = "spellblade"
 display_name = "Spellblade"
 rule = "Their weapon strikes are against the lower of the target's Defence and Resistance."
@@ -17,4 +51,5 @@ school = 0
 first_stat = "OTHER"
 second_stat = "LEAD"
 slow_stat = "HP"
-modifiers = Array[ExtResource("1_gfqva")]([SubResource("Resource_prri7")])
+modifiers = Array[ExtResource("2_prri7")]([SubResource("Resource_nfh4e")])
+masteries = Array[ExtResource("1_n0t42")]([SubResource("Resource_rec10"), SubResource("Resource_bon3t")])

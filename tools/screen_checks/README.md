@@ -27,6 +27,7 @@ The folder must exist. Each script prints what it did and quits; look for `SCRIP
 | `calling_moment.gd` | A calling taken: the three cards, one picked, the gains; another's card closed; a Sage's schools and spells |
 | `calling_sheets.gd` | Callings on the Barracks sheet (the three drawn, one read, the one taken, another's closed) and on the Tavern's wall |
 | `calling_yard.gd` | A day to look elsewhere at the Drill Yard: the callings at the chosen companion's feet, one picked, the one drawn in its place |
+| `calling_mastery.gd` | A calling's mastery: the Barracks sheet with the two still to come and one read, the moment of choosing (two cards, one picked), the sheet after, and in a battle the mastery over the name and a Warden's Guard reaching anyone |
 | `calling_battle.gd` | Callings in a battle: the calling over the name, Rouse asking whom, an Executioner's FELLS, a Mender's heal raising someone injured |
 | `battle_breath.gd` | A staggering art aimed (STAGGERS +1) and landed (the action DELAYED), the same art aimed again (ALREADY DELAYED); stamina coming back over the turns, then Focus (a day may follow the folder; default 16) |
 

@@ -81,12 +81,26 @@ enum Kind {
 	EFFECTS_PASS_ON,      ## when an enemy carrying a harmful effect of theirs falls, it passes to another enemy (Hexer)
 	FIRST_SPELL_FREE,     ## their first spell of each battle costs no use, and can be cast with none left (Sage)
 	STRIKE_LOWER_DEFENSE, ## their weapon strikes are worked out against the lower of the target's DEF and RES (Spellblade)
+	# --- masteries (design/callings.md, step 2): one more line each ---
+	GUARD_ANYONE,         ## Guard can cover anyone standing in the line, not only a neighbour (Warden)
+	COVER_ANSWERS,        ## a blow they catch for another is answered with their plain Attack (Warden)
+	OPENING_AIM,          ## when the battle begins, every single blow already aimed is aimed at them (Champion)
+	RECOVERY_AT_MOST,     ## the action's recovery is at most `amount` (Skirmisher: arts of `spell_tier`)
+	ROUSE_SURE_HIT,       ## the one they rouse cannot miss with their next action (Captain)
+	DELAY_AGAIN,          ## their HIT_DELAY push lands on an action already pushed back, once more (Harrier)
+	STAGGERED_DAMAGE_PERCENT, ## while they stand, an enemy whose action has been pushed back takes `amount` percent more from every strike and spell, until it acts (Harrier)
+	KILL_HP_PERCENT,      ## felling an enemy: `amount` percent of their max Health (Berserker)
+	HEAL_SPREADS,         ## their heal on one ally also heals that ally's standing neighbours, `amount` percent as much (Mender)
+	RAISE_MORE,           ## RAISE_ONCE can be used `amount` more times a battle (Mender)
+	HEX_TURNS,            ## a harmful effect they lay on an enemy lasts `amount` turns longer (Hexer)
+	HEXED_HIT,            ## an enemy carrying a harmful effect of theirs has `amount` less Hit (Hexer)
+	STRIKE_KILL_SPELL_USE, ## a weapon strike of theirs that fells an enemy gives `amount` spell use back (Spellblade)
 }
 
 ## Where in the line the holder stands, counted as in the barracks (rear to front).
 enum Place { ANY, FRONT, REAR, MIDDLE, NOT_FRONT }
-## What kind of action the number is for. GUARD: only where the rules ask for Guard by name (its recovery).
-enum Action { ANY, ATTACK, ART, SPELL, GUARD }
+## What kind of action the number is for. GUARD, ROUSE: only where the rules ask for them by name (their recovery).
+enum Action { ANY, ATTACK, ART, SPELL, GUARD, ROUSE }
 ## Who the number is for: the holder, the companions either side of them, the one behind them,
 ## everyone in the company not in the Infirmary (out of battle), every other companion in the line,
 ## the lowest-level companion in the line (XP).
@@ -110,7 +124,7 @@ enum Struck { ANY, LAST_STRUCK, NOT_LAST_STRUCK, HIT_ME_LAST, STRUCK_ME_SINCE }
 @export var weapon_type: int = -1
 ## A school (SpellData.School) of the spell cast or points earned; -1 any.
 @export var school: int = -1
-## SPELL_USES: spells of this tier only; 0 every tier.
+## SPELL_USES: spells of this tier only; RECOVERY_AT_MOST: arts of this tier only; 0 every tier.
 @export var spell_tier: int = 0
 @export var action: Action = Action.ANY
 ## GROWTH: level-ups reaching at most / at least this level (0: no limit).
@@ -166,6 +180,13 @@ enum Struck { ANY, LAST_STRUCK, NOT_LAST_STRUCK, HIT_ME_LAST, STRUCK_ME_SINCE }
 @export var per_neighbour: bool = false
 ## The enemy's pending action comes in at most this many turns (0: no limit). 1: it acts after this action.
 @export var target_turns_at_most: int = 0
+## DAMAGE_TAKEN_PERCENT: only from an enemy whose pending single blow the holder turned on themselves
+## (a Champion's strike: EnemyUnit.turned_by_id).
+@export var aim_turned: bool = false
+## The holder has cast no spell yet this battle.
+@export var first_spell: bool = false
+## The holder's last action was a spell.
+@export var after_spell: bool = false
 
 
 ## True if no battle condition is set: the modifier also counts outside a battle.
@@ -174,7 +195,7 @@ func is_battle_only() -> bool:
 		or target_health != Health.ANY or target_trait != "" or target_boss or big_fight or target_next_magic \
 		or struck != Struck.ANY or action_from > 0 or action_to > 0 or after_guard_or_focus or first_front_action \
 		or first_blow_taken or self_hp_at_most > 0 or first_art or ally_injured or rival_ahead or per_neighbour \
-		or target_turns_at_most > 0
+		or target_turns_at_most > 0 or aim_turned or first_spell or after_spell
 
 
 ## True if nothing at all limits it: it always counts (a plain stat bonus, a growth rate for every level).

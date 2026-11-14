@@ -10,6 +10,11 @@ var pending_target: CompanionUnit
 var countdown: int = 0
 ## True once a spell has delayed the pending action; cleared when the next action is picked.
 var delayed: bool = false
+## True once a Harrier's mastery has pushed the already delayed action back once more; cleared with it.
+var delayed_again: bool = false
+## Instance id of the companion who turned the pending single blow on themselves (a Champion's strike),
+## 0 for none; cleared when the aim moves for another reason or the next action is picked.
+var turned_by_id: int = 0
 ## True once an order lowered the pending action's countdown; cleared when the next action is picked.
 var hastened: bool = false
 ## 0 until the enemy switches to its second action list (EnemyData.phase_actions), then 1.

@@ -33,6 +33,8 @@ const OTHER := "OTHER"
 @export var slow_stat: String = ""
 ## The rule (TraitModifier), read wherever traits are read.
 @export var modifiers: Array[TraitModifier] = []
+## The two masteries its holder chooses between at RunConfig.MASTERY_LEVEL (MasteryData).
+@export var masteries: Array[MasteryData] = []
 
 
 func is_magic() -> bool:
@@ -95,14 +97,19 @@ func growth_for(lead: String) -> Dictionary:
 	return out
 
 
-## The calling as the rules read it for a holder whose lead is `lead`: its rule and its growth rates,
-## as one list of modifiers (CompanionProgress.all_traits).
-func effect_for(lead: String) -> TraitData:
+## The calling as the rules read it for a holder whose lead is `lead`: its rule, the rule of the
+## `mastery` taken (null: none yet) and its growth rates, as one list of modifiers
+## (CompanionProgress.all_traits).
+func effect_for(lead: String, mastery: MasteryData = null) -> TraitData:
 	var t := TraitData.new()
 	t.id = "calling_%s" % id
 	t.display_name = display_name
 	t.gives = [rule]
 	t.modifiers = modifiers.duplicate()
+	if mastery != null:
+		t.id = "calling_%s_%s" % [id, mastery.id]
+		t.gives.append(mastery.rule)
+		t.modifiers.append_array(mastery.modifiers)
 	var growth := growth_for(lead)
 	for key: String in growth:
 		var m := TraitModifier.new()

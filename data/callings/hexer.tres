@@ -1,15 +1,40 @@
 [gd_resource type="Resource" script_class="CallingData" format=3]
 
-[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_vet4j"]
-[ext_resource type="Script" path="res://scripts/data/calling_data.gd" id="2_syg55"]
+[ext_resource type="Script" path="res://scripts/data/mastery_data.gd" id="1_syg55"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_eyypc"]
+[ext_resource type="Script" path="res://scripts/data/calling_data.gd" id="3_lkynl"]
 
-[sub_resource type="Resource" id="Resource_eyypc"]
-script = ExtResource("1_vet4j")
+[sub_resource type="Resource" id="Resource_mo8m2"]
+script = ExtResource("2_eyypc")
+kind = 79
+amount = 2
+
+[sub_resource type="Resource" id="Resource_b21dn"]
+script = ExtResource("1_syg55")
+id = "hexer_long_curse"
+display_name = "Long Curse"
+rule = "Their effects on enemies last 2 turns longer."
+modifiers = Array[ExtResource("2_eyypc")]([SubResource("Resource_mo8m2")])
+
+[sub_resource type="Resource" id="Resource_14rw0"]
+script = ExtResource("2_eyypc")
+kind = 80
+amount = 20
+
+[sub_resource type="Resource" id="Resource_pmsh5"]
+script = ExtResource("1_syg55")
+id = "hexer_clouded_eyes"
+display_name = "Clouded Eyes"
+rule = "Enemies under their effects have 20 less Hit."
+modifiers = Array[ExtResource("2_eyypc")]([SubResource("Resource_14rw0")])
+
+[sub_resource type="Resource" id="Resource_xdgjh"]
+script = ExtResource("2_eyypc")
 kind = 66
 amount = 1
 
 [resource]
-script = ExtResource("2_syg55")
+script = ExtResource("3_lkynl")
 id = "hexer"
 display_name = "Hexer"
 rule = "When an enemy carrying their poison, bleeding or curse falls, it passes to another enemy."
@@ -17,4 +42,5 @@ school = 0
 first_stat = "MAG"
 second_stat = "DEX"
 slow_stat = "STR"
-modifiers = Array[ExtResource("1_vet4j")]([SubResource("Resource_eyypc")])
+modifiers = Array[ExtResource("2_eyypc")]([SubResource("Resource_xdgjh")])
+masteries = Array[ExtResource("1_syg55")]([SubResource("Resource_b21dn"), SubResource("Resource_pmsh5")])

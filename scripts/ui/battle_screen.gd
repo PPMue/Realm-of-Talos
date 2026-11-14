@@ -771,6 +771,11 @@ func _show_event(ev: Dictionary) -> float:
 	match ev.type:
 		"strike":
 			var art: CombatArtData = ev.get("art")
+			if bool(ev.get("answer", false)):
+				# A Warden's mastery: the blow caught for another is answered.
+				_show_banner("%s  -  ANSWERS" % ev.actor.display_name.to_upper(), UiTheme.GOLD)
+				(_party_panels[ev.actor] as PartyPanel).play_pulse(UiTheme.GOLD)
+				return 0.3
 			if art == null:
 				return 0.0
 			_show_banner("%s  -  %s" % [ev.actor.display_name.to_upper(), art.display_name.to_upper()], UiTheme.GOLD)
@@ -806,6 +811,13 @@ func _show_event(ev: Dictionary) -> float:
 			view.show_delay(ev.countdown)
 			_popup(view.popup_anchor() + Vector2(0, 60), "DELAYED +%d" % ev.ticks, UiTheme.WHITE_MAGIC, 46)
 			return 0.42
+		"spell_use":
+			# A Spellblade's mastery: a weapon's kill gives a spell use back.
+			var caster: PartyPanel = _party_panels[ev.actor]
+			var tone := UiTheme.school_color((ev.spell as SpellData).school)
+			caster.play_pulse(tone)
+			_popup(caster.popup_anchor() + Vector2(0, -50), "%s +1" % (ev.spell as SpellData).display_name.to_upper(), tone, 40)
+			return 0.35
 		"delay_blocked":
 			var view: EnemyView = _enemy_views[ev.target]
 			_popup(view.popup_anchor() + Vector2(0, 60), "ALREADY DELAYED", UiTheme.MUTED, 34)
@@ -839,7 +851,7 @@ func _show_event(ev: Dictionary) -> float:
 			var roused: PartyPanel = _party_panels[ev.target]
 			roused.set_status(PartyPanel.Status.NONE)
 			roused.play_pulse(UiTheme.GOLD)
-			_popup(roused.popup_anchor() + Vector2(0, -50), "ROUSED", UiTheme.GOLD, 46)
+			_popup(roused.popup_anchor() + Vector2(0, -50), "ROUSED, SURE" if bool(ev.get("sure", false)) else "ROUSED", UiTheme.GOLD, 46)
 			(_party_panels[ev.actor] as PartyPanel).play_pulse(UiTheme.GOLD)
 			return 0.36
 		"raise":
@@ -1264,6 +1276,8 @@ func _refresh_party() -> void:
 			held += "\n  Enchanted: " + ", ".join(OwnedWeapon.stat_lines(c.progress.enchant))
 		# What they have become, with its rule, under their name.
 		var called := "" if c.calling() == null else "\n%s: %s" % [c.calling().display_name, c.calling().rule]
+		if c.mastery() != null:
+			called += "\n%s: %s" % [c.mastery().display_name, c.mastery().rule]
 		_party_sheets[c] = "%s%s\nLevel %d  ·  %s\n%s\n\n%s %s%s\nArts: %s%s\n\n%s" % [
 			c.display_name, called, c.progress.level, held, _stat_sheet(c, Stat.COMPANION_KEYS), WeaponData.type_name(kind),
 			Proficiency.grade_name(c.progress.grade(kind)),

@@ -354,7 +354,7 @@ func table() -> Array:
 		["sprinter", "stat:SPD", 1, {"actions": 0}], ["sprinter", "hit", 10, {"actions": 2}],
 		["sprinter", "stat:SPD", 0, {"actions": 3}], ["sprinter", "hit", 0, {"actions": 3}], ["sprinter", "max_sta", -3, {}],
 		["thin_blooded", "xp", 15, {}], ["thin_blooded", "infirmary", 1, {}],
-		["daredevil", "crit", 20, {"self_low": true}], ["daredevil", "crit", 0, {}], ["daredevil", "day_heal", -4, {}],
+		["daredevil", "crit", 20, {"self_low": true}], ["daredevil", "crit", 0, {}], ["daredevil", "day_heal", -2, {}],
 		["showy", "crit", 10, {}], ["showy", "aim", 50, {}],
 		["skulker", "aim", -40, {}], ["skulker", "crit", -5, {}],
 		["glutton_for_blows", "max_hp", 3, {}], ["glutton_for_blows", "stat:DEF", 1, {}],

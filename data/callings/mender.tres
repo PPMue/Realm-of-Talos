@@ -1,15 +1,40 @@
 [gd_resource type="Resource" script_class="CallingData" format=3]
 
-[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_rmhft"]
-[ext_resource type="Script" path="res://scripts/data/calling_data.gd" id="2_bvo80"]
+[ext_resource type="Script" path="res://scripts/data/mastery_data.gd" id="1_bvo80"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_ul4rs"]
+[ext_resource type="Script" path="res://scripts/data/calling_data.gd" id="3_1jl0x"]
 
-[sub_resource type="Resource" id="Resource_ul4rs"]
-script = ExtResource("1_rmhft")
+[sub_resource type="Resource" id="Resource_xuimk"]
+script = ExtResource("2_ul4rs")
+kind = 77
+amount = 50
+
+[sub_resource type="Resource" id="Resource_5l74g"]
+script = ExtResource("1_bvo80")
+id = "mender_open_hands"
+display_name = "Open Hands"
+rule = "Their heal on one ally reaches that ally's neighbours, at half."
+modifiers = Array[ExtResource("2_ul4rs")]([SubResource("Resource_xuimk")])
+
+[sub_resource type="Resource" id="Resource_cnfvj"]
+script = ExtResource("2_ul4rs")
+kind = 78
+amount = 1
+
+[sub_resource type="Resource" id="Resource_taa2q"]
+script = ExtResource("1_bvo80")
+id = "mender_second_breath"
+display_name = "Second Breath"
+rule = "Twice a battle."
+modifiers = Array[ExtResource("2_ul4rs")]([SubResource("Resource_cnfvj")])
+
+[sub_resource type="Resource" id="Resource_jgx74"]
+script = ExtResource("2_ul4rs")
 kind = 65
 amount = 25
 
 [resource]
-script = ExtResource("2_bvo80")
+script = ExtResource("3_1jl0x")
 id = "mender"
 display_name = "Mender"
 rule = "Once a battle, their healing spell can raise an injured companion, at a quarter of their Health."
@@ -18,4 +43,5 @@ needs_heal = true
 first_stat = "MAG"
 second_stat = "RES"
 slow_stat = "STR"
-modifiers = Array[ExtResource("1_rmhft")]([SubResource("Resource_ul4rs")])
+modifiers = Array[ExtResource("2_ul4rs")]([SubResource("Resource_jgx74")])
+masteries = Array[ExtResource("1_bvo80")]([SubResource("Resource_5l74g"), SubResource("Resource_taa2q")])

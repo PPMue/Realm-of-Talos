@@ -248,7 +248,8 @@ func show_companion(c: CompanionUnit, battle: Battle, active_id: String, enabled
 		battle.action_recovery(c, BattleConfig.RECOVERY_ATTACK, TraitModifier.Action.ATTACK)]
 	var guard_rest := battle.guard_recovery(c)
 	if battle.guard_wards(c).size() > 1:
-		_descriptions[GUARD] = "Until this turn ends: take half damage, or stand before a neighbour and take the blows aimed at them. Recovery %d." % guard_rest
+		_descriptions[GUARD] = "Until this turn ends: take half damage, or stand before %s and take the blows aimed at them. Recovery %d." % [
+			"anyone in the line" if battle.guards_anyone(c) else "a neighbour", guard_rest]
 	else:
 		_descriptions[GUARD] = "Until this turn ends: take half damage. Use it on the turn a blow lands. Recovery %d." % guard_rest
 	_descriptions[FOCUS] = "Gain %d stamina. Recovery %d." % [battle.focus_amount(c), battle.action_recovery(c, BattleConfig.RECOVERY_FOCUS)]
@@ -307,7 +308,8 @@ func show_companion(c: CompanionUnit, battle: Battle, active_id: String, enabled
 		_facts[art_id(i)] = {"figures": figures, "lines": ArtFacts.art_lines(art), "accent": UiTheme.GOLD, "note": why}
 
 	if active_id == GUARD:
-		_default_info = "Guard whom? Click %s or whoever stands beside them. Right-click or Esc to go back." % c.display_name
+		_default_info = "Guard whom? Click %s or %s. Right-click or Esc to go back." % [c.display_name,
+			"anyone in the line" if battle.guards_anyone(c) else "whoever stands beside them"]
 	elif active_id == ROUSE:
 		_default_info = "Rouse whom? Click a companion who is recovering. Right-click or Esc to go back."
 	elif active_id != "":
@@ -552,6 +554,9 @@ func _show_art(c: CompanionUnit, tint: Color) -> void:
 	if calling != null:
 		_calling.text = calling.display_name.to_upper()
 		_calling.tooltip_text = "%s\n%s" % [calling.display_name, calling.rule]
+		if c.mastery() != null:
+			_calling.text = "%s  ·  %s" % [calling.display_name.to_upper(), c.mastery().display_name.to_upper()]
+			_calling.tooltip_text += "\n%s: %s" % [c.mastery().display_name, c.mastery().rule]
 
 
 func _spell_button(index: int) -> ActionButton:

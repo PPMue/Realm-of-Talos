@@ -209,7 +209,7 @@ func test_accessory_library() -> void:
 	var spur := one("spur", 3).effect().modifiers[0]
 	t.eq([spur.amount, spur.action_to, spur.recovery_at_least], [-1, 3, 3], "Spur: 1 less for the first 3 actions, where it is 3 or more")
 	t.eq(type_of("spur").gives_line(3), "First 3 actions: 1 less recovery (not below 2)", "a Spur's line")
-	t.eq(type_of("poultice").gives_line(3), "Heals 12% more of their Health at day's end", "a Poultice's line")
+	t.eq(type_of("poultice").gives_line(3), "Heals 6% more of their Health at day's end", "a Poultice's line")
 	t.eq(type_of("bell").gives_line(3), "Drawn x2.5, +1 Defence", "a Bell's line")
 	t.eq(type_of("compass").gives_line(3), "Scavenging: +2 to what is asked, 30% more brought back", "a Compass's line")
 	t.eq(one("skull", 4).effect().modifiers[1].amount, 1, "the Skull's price is fixed")
@@ -557,7 +557,7 @@ func test_poultice() -> void:
 	run.accessories.append(p)
 	run.wear(c, p)
 	var fraction := RunConfig.DAILY_HEAL_FRACTION
-	t.eq(run.day_heal(c), ceili(c.max_hp() * (fraction + 0.12)), "Emerald: 12 points more")
+	t.eq(run.day_heal(c), ceili(c.max_hp() * (fraction + 0.06)), "Emerald: 6 points more")
 	t.check(run.day_heal(c) > base, "more than without")
 
 

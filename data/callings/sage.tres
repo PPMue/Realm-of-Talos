@@ -1,15 +1,43 @@
 [gd_resource type="Resource" script_class="CallingData" format=3]
 
-[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_lsgtw"]
-[ext_resource type="Script" path="res://scripts/data/calling_data.gd" id="2_gs31v"]
+[ext_resource type="Script" path="res://scripts/data/mastery_data.gd" id="1_gs31v"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_pvmes"]
+[ext_resource type="Script" path="res://scripts/data/calling_data.gd" id="3_1x6bd"]
 
-[sub_resource type="Resource" id="Resource_pvmes"]
-script = ExtResource("1_lsgtw")
+[sub_resource type="Resource" id="Resource_1jyvc"]
+script = ExtResource("2_pvmes")
+kind = 23
+amount = -9
+action = 3
+first_spell = true
+
+[sub_resource type="Resource" id="Resource_bsr1y"]
+script = ExtResource("1_gs31v")
+id = "sage_ready_word"
+display_name = "Ready Word"
+rule = "That first spell has no recovery either."
+modifiers = Array[ExtResource("2_pvmes")]([SubResource("Resource_1jyvc")])
+
+[sub_resource type="Resource" id="Resource_4uqui"]
+script = ExtResource("2_pvmes")
+kind = 23
+amount = -1
+action = 3
+
+[sub_resource type="Resource" id="Resource_b22c6"]
+script = ExtResource("1_gs31v")
+id = "sage_quick_tongue"
+display_name = "Quick Tongue"
+rule = "Every spell of theirs has 1 less recovery."
+modifiers = Array[ExtResource("2_pvmes")]([SubResource("Resource_4uqui")])
+
+[sub_resource type="Resource" id="Resource_fehvb"]
+script = ExtResource("2_pvmes")
 kind = 67
 amount = 1
 
 [resource]
-script = ExtResource("2_gs31v")
+script = ExtResource("3_1x6bd")
 id = "sage"
 display_name = "Sage"
 rule = "Their first spell of each battle costs no use."
@@ -17,4 +45,5 @@ either_school = true
 first_stat = "MAG"
 second_stat = "CRT"
 slow_stat = "DEF"
-modifiers = Array[ExtResource("1_lsgtw")]([SubResource("Resource_pvmes")])
+modifiers = Array[ExtResource("2_pvmes")]([SubResource("Resource_fehvb")])
+masteries = Array[ExtResource("1_gs31v")]([SubResource("Resource_bsr1y"), SubResource("Resource_b22c6")])

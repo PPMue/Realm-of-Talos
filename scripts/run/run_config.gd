@@ -19,8 +19,9 @@ const CITY_DAMAGE_BY_DANGER: Array[int] = [15, 20, 25]
 # --- Party ---
 const STARTING_COMPANIONS := 2
 const MAX_FIELDED := 4
-## At the end of every day each surviving companion heals this share of max HP (rounded up).
-const DAILY_HEAL_FRACTION := 0.2
+## At the end of every day each surviving companion heals this share of max HP (rounded up). Small on
+## purpose: a company that has been hurt gets its strength back by Rest at the Inn, not by waiting.
+const DAILY_HEAL_FRACTION := 0.1
 ## Everyone injured in a battle (won or lost) goes to the infirmary: injured on day D, they are away
 ## days D+1 .. D+INFIRMARY_DAYS and come out at the start of day D+INFIRMARY_DAYS+1 at full HP.
 const INFIRMARY_DAYS := 4
@@ -209,6 +210,8 @@ const CALLING_SLOW_GROWTH := -10
 ## lower, and teaches one tier I spell of the school chosen from this many drawn.
 const CALLING_OPEN_GRADE := 2          # Proficiency.Grade.D
 const CALLING_SPELL_CHOICES := 2
+## The level a companion takes one of their calling's two masteries at (Run.take_mastery, MasteryData).
+const MASTERY_LEVEL := 8
 
 # --- Scavenging (a free-day action; see Run.scavenge and ScavengeSite) ---
 const SCAVENGE_SITES_PER_DAY := 2
@@ -275,7 +278,7 @@ const UPGRADE_COST: Array[int] = [3, 5]
 const TAVERN_EXTRA_OFFERS := 1
 const TAVERN_HIRE_DISCOUNT := 25
 ## Inn: the overnight heal (level 1); spell uses back each night, every spell (level 2).
-const INN_DAILY_HEAL_FRACTION := 0.3
+const INN_DAILY_HEAL_FRACTION := 0.15
 const INN_USES_PER_NIGHT := 1
 ## Infirmary: the stay (level 1); cures cost this percent less (level 2), rounded.
 const INFIRMARY_UPGRADED_DAYS := 3

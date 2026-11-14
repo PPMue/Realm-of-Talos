@@ -43,6 +43,10 @@ var first_hit_done: bool = false
 ## raised (a Mender: once).
 var spells_cast: int = 0
 var raises_used: int = 0
+## Their last action was a spell (a Spellblade's mastery waits for it).
+var after_spell: bool = false
+## A Captain's mastery roused them: their next action cannot miss.
+var roused_sure: bool = false
 ## The battle, for traits that depend on it (weak, so the two do not keep each other alive).
 var _battle: WeakRef
 ## True if some trait in the line can change this companion's stats during the battle.
@@ -71,6 +75,11 @@ func all_traits() -> Array[TraitData]:
 ## What they have become (CompanionProgress.calling), or null.
 func calling() -> CallingData:
 	return progress.calling
+
+
+## The mastery of it they have taken (CompanionProgress.mastery), or null.
+func mastery() -> MasteryData:
+	return progress.mastery
 
 
 ## The battle this companion is in, or null.

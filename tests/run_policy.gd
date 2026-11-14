@@ -47,6 +47,17 @@ var calling_battles: Dictionary = {}
 var battles: Array[int] = [0, 0]
 var rouses := 0
 var raises := 0
+## Masteries (design/callings.md, step 2): how often each was taken (mastery id -> count), the day each
+## was taken on (summed, with how many), and battles fought and won with each in the line.
+var masteries_taken: Dictionary = {}
+var mastery_days: Array[int] = [0, 0]
+var mastery_battles: Dictionary = {}
+## Rests at the Inn this run, and turns that were a wait (nobody ready) out of all turns.
+var rests := 0
+var waits := 0
+var turns := 0
+## Weapon and magic points gained in battles, and by how many companions (one for each in each battle).
+var points_gained: Array[int] = [0, 0, 0]
 ## How long fights run: "battle", "elite 6", "boss 14"... -> [won, turns in those won, lost, turns in those lost].
 var fight_turns: Dictionary = {}
 ## POLICY_NO_CALLINGS=1: nobody ever takes a calling (to compare a run with and without them).
@@ -54,6 +65,10 @@ var use_callings := OS.get_environment("POLICY_NO_CALLINGS") == ""
 ## POLICY_ONLY_CALLING=<id>: only that calling is ever taken (by whoever is offered it first); everyone
 ## else stays without one. For measuring what one calling is worth by itself.
 var only_calling := OS.get_environment("POLICY_ONLY_CALLING")
+## POLICY_NO_MASTERIES=1: callings are taken, their masteries never (to compare with and without).
+## POLICY_MASTERY=0 or 1: always the first or the second of the two; unset: either, evenly.
+var use_masteries := OS.get_environment("POLICY_NO_MASTERIES") == ""
+var which_mastery := OS.get_environment("POLICY_MASTERY")
 
 ## The order the city is built up in, timber facilities: what helps the company stay in the fight
 ## first (shorter stays, better overnight heal, stronger walls, XP for the bench), then the rest.
@@ -75,6 +90,7 @@ func play(run: Run) -> int:
 	while not run.is_over() and guard < 100:
 		guard += 1
 		take_callings(run)
+		take_masteries(run)
 		prepare_party(run)
 		match run.day_type():
 			RunCalendar.DayType.BATTLE, RunCalendar.DayType.ELITE, RunCalendar.DayType.BOSS:
@@ -86,11 +102,15 @@ func play(run: Run) -> int:
 					run.yield_day()   # forced: everyone is in the infirmary
 					yielded += 1
 				else:
-					var battle := run.start_battle(pick_front(run))
+					var front := pick_front(run)
+					var battle := run.start_battle(front)
 					var in_line: Array[String] = []
+					var mastered: Array[String] = []
 					for unit in battle.roster:
 						if unit.calling() != null:
 							in_line.append(unit.calling().id)
+						if unit.mastery() != null:
+							mastered.append(unit.mastery().id)
 					var kind := "boss %d" % d if run.day_type() == RunCalendar.DayType.BOSS else ("elite %d" % d if elite else "battle")
 					play_battle(battle)
 					won = run.finish_battle(battle).won
@@ -99,11 +119,25 @@ func play(run: Run) -> int:
 					ft[at] = int(ft[at]) + 1
 					ft[at + 1] = int(ft[at + 1]) + battle.tick
 					fight_turns[kind] = ft
+					if kind == "battle":
+						# The same again by the front's danger: an easier game sends the company to harder fronts.
+						var by: Array = fight_turns.get("danger %d" % front.danger, [0, 0, 0, 0])
+						by[at] = int(by[at]) + 1
+						by[at + 1] = int(by[at + 1]) + battle.tick
+						fight_turns["danger %d" % front.danger] = by
 					battles[0] += 1
 					battles[1] += 1 if won else 0
+					turns += battle.tick
+					for unit in battle.roster:
+						points_gained[0] += unit.proficiency_gained
+						points_gained[1] += unit.magic_gained
+						points_gained[2] += 1
 					for id in in_line:
 						var seen: Array = calling_battles.get(id, [0, 0])
 						calling_battles[id] = [int(seen[0]) + 1, int(seen[1]) + (1 if won else 0)]
+					for id in mastered:
+						var seen: Array = mastery_battles.get(id, [0, 0])
+						mastery_battles[id] = [int(seen[0]) + 1, int(seen[1]) + (1 if won else 0)]
 				if elite:
 					var e: Array = elites.get(d, [0, 0])
 					elites[d] = [int(e[0]) + 1, int(e[1]) + (1 if won else 0)]
@@ -193,16 +227,16 @@ func free_day(run: Run) -> void:
 	if run.is_over():
 		return
 	if RunCalendar.is_big_fight(run.day_type(run.day + 1)) and (hp_fraction(run) < 1.0 or spell_fraction(run) < 1.0):
-		run.rest()
+		_rest(run)
 	if run.city_health <= 40:
 		run.repair()
 	cure_best(run)
 	hire(run)
 	if hp_fraction(run) < 0.6 or spell_fraction(run) < 0.5:
-		run.rest()
+		_rest(run)
 	buy_upgrades(run)
 	if hp_fraction(run) < 0.8:
-		run.rest()
+		_rest(run)
 	craft(run)
 	run.repair()
 	if run.gold < 2 * run.drill_cost():
@@ -211,6 +245,11 @@ func free_day(run: Run) -> void:
 	scavenge(run)
 	city_errands(run)
 	run.end_free_day()
+
+
+func _rest(run: Run) -> void:
+	if run.rest():
+		rests += 1
 
 
 ## On a battle or boss day, before marching out: the smithy and tavern errands as on a free day (hire
@@ -230,6 +269,7 @@ func hire(run: Run) -> void:
 	if run.available().size() < RunConfig.MAX_FIELDED and not run.tavern_offers.is_empty():
 		if run.hire(run.tavern_offers[0]) != null:
 			take_callings(run)   # a hire at level 4 or above chooses on joining
+			take_masteries(run)
 
 
 ## Everyone whose calling is due takes one of those open to them: the one worth most by a rough score
@@ -266,6 +306,22 @@ func take_callings(run: Run) -> void:
 		if not run.take_calling(c, best, school, spell).is_empty():
 			callings_taken[best.id] = int(callings_taken.get(best.id, 0)) + 1
 			calling_of[c.display_name()] = best.id
+
+
+## Everyone whose mastery is due takes one of their calling's two: either, evenly (so both are seen as
+## often), or the one POLICY_MASTERY names.
+func take_masteries(run: Run) -> void:
+	if not use_callings or not use_masteries:
+		return
+	for c in run.masteries_due():
+		var two := c.progress.calling.masteries
+		var pick: MasteryData = two[rng.randi_range(0, two.size() - 1)]
+		if which_mastery != "":
+			pick = two[clampi(int(which_mastery), 0, two.size() - 1)]
+		if run.take_mastery(c, pick):
+			masteries_taken[pick.id] = int(masteries_taken.get(pick.id, 0)) + 1
+			mastery_days[0] += run.day
+			mastery_days[1] += 1
 
 
 ## What `calling` is worth to `c`, a rough score: by whether they are a mage, and for a Mender whether
@@ -767,6 +823,7 @@ func play_battle(b: Battle) -> void:
 			break
 		if b.can_wait():
 			b.wait()
+			waits += 1
 			continue
 		var c := b.ready_companions()[0]
 		acted[c] = int(acted.get(c, 0)) + 1
@@ -950,7 +1007,7 @@ func should_guard(b: Battle, c: CompanionUnit) -> bool:
 			continue
 		if e.pending_target != c:
 			continue
-		var f := CombatMath.forecast(e, a.might, a.hit, 0, c, 0, a.damage_type)
+		var f := b.enemy_forecast(e, a, c)
 		if f.damage * 5 >= c.hp * 2:
 			return true
 	return false

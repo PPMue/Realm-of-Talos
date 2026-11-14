@@ -1,19 +1,46 @@
 [gd_resource type="Resource" script_class="CallingData" format=3]
 
-[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_mf36v"]
-[ext_resource type="Script" path="res://scripts/data/calling_data.gd" id="2_bsfhl"]
+[ext_resource type="Script" path="res://scripts/data/mastery_data.gd" id="1_bsfhl"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_6efix"]
+[ext_resource type="Script" path="res://scripts/data/calling_data.gd" id="3_y6lue"]
 
-[sub_resource type="Resource" id="Resource_6efix"]
-script = ExtResource("1_mf36v")
+[sub_resource type="Resource" id="Resource_yjelh"]
+script = ExtResource("2_6efix")
+kind = 19
+amount = -25
+aim_turned = true
+
+[sub_resource type="Resource" id="Resource_pmeos"]
+script = ExtResource("1_bsfhl")
+id = "champion_iron_stance"
+display_name = "Iron Stance"
+rule = "Takes a quarter less from a blow they turned."
+modifiers = Array[ExtResource("2_6efix")]([SubResource("Resource_yjelh")])
+
+[sub_resource type="Resource" id="Resource_splyq"]
+script = ExtResource("2_6efix")
+kind = 71
+amount = 1
+
+[sub_resource type="Resource" id="Resource_7dhw3"]
+script = ExtResource("1_bsfhl")
+id = "champion_first_challenge"
+display_name = "First Challenge"
+rule = "When a battle begins, every blow already aimed is aimed at them."
+modifiers = Array[ExtResource("2_6efix")]([SubResource("Resource_splyq")])
+
+[sub_resource type="Resource" id="Resource_1ps7k"]
+script = ExtResource("2_6efix")
 kind = 59
 amount = 1
 
 [resource]
-script = ExtResource("2_bsfhl")
+script = ExtResource("3_y6lue")
 id = "champion"
 display_name = "Champion"
 rule = "An enemy they strike turns its coming blow on them."
 first_stat = "HP"
 second_stat = "DEF"
 slow_stat = "DEX"
-modifiers = Array[ExtResource("1_mf36v")]([SubResource("Resource_6efix")])
+modifiers = Array[ExtResource("2_6efix")]([SubResource("Resource_1ps7k")])
+masteries = Array[ExtResource("1_bsfhl")]([SubResource("Resource_pmeos"), SubResource("Resource_7dhw3")])

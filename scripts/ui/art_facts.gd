@@ -45,6 +45,22 @@ static func calling_reading(calling: CallingData, p: CompanionProgress, holder: 
 	return {"figures": figures, "lines": lines}
 
 
+## A mastery as the foot of a sheet reads it: its line on top of the calling's, and where it stands for
+## `p` (theirs, the one not taken, or still to come at RunConfig.MASTERY_LEVEL).
+static func mastery_reading(m: MasteryData, p: CompanionProgress) -> Dictionary:
+	var lines: Array[String] = []
+	if p.calling != null:
+		lines.append(p.calling.rule)
+	lines.append(m.rule)
+	if p.mastery == m:
+		lines.append("Their mastery, for the run")
+	elif p.mastery != null:
+		lines.append("Not taken: %s was" % p.mastery.display_name)
+	else:
+		lines.append("One of the %s's two, chosen at level %d" % [p.calling.display_name if p.calling != null else "calling", RunConfig.MASTERY_LEVEL])
+	return {"figures": [], "lines": lines}
+
+
 ## The figures of a spell. `uses_left` (when 0 or more) shows how many casts remain of its uses;
 ## `max_uses` (when above 0) is how many the caster has of it (their traits can change it).
 ## `recovery` (when 0 or more) is what it would be for the caster now, in a battle.

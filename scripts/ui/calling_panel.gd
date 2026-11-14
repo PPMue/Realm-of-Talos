@@ -10,12 +10,16 @@ extends Control
 ##    (a Sage first picks the school from two plates over them); one is clicked and learned.
 ## 3. What it gave: the stats come up one at a time as for a level (LevelUpPanel.show_gains).
 ##
+## The same panel puts the mastery at RunConfig.MASTERY_LEVEL (design/callings.md, step 2): the holder
+## beside their calling's rule and its two masteries, each a card with a name and one line; one is
+## clicked and taken. Callings come first, then masteries, so a hire who joins above both chooses both.
+##
 ## It cannot be put off: nothing but the choice moves it on, and it only closes (`finished`) when
-## everyone due has chosen. The run is changed through Run.take_calling alone.
+## everyone due has chosen. The run is changed through Run.take_calling and Run.take_mastery alone.
 
 signal finished
 
-enum Stage { CHOOSE, SPELL, GAINS }
+enum Stage { CHOOSE, SPELL, GAINS, MASTERY }
 
 const SIZE := LevelUpPanel.SIZE
 ## Where the cards begin, right of the figure.
@@ -28,6 +32,9 @@ const FOOT_Y := SIZE.y - 70.0
 const SPELL_Y := 170.0
 const SPELL_W := (SIZE.x - X - CARD_GAP) / 2.0
 const SPELL_H := FOOT_Y - SPELL_Y - 14.0
+## The two mastery cards, under the calling's own rule.
+const MASTERY_Y := 196.0
+const MASTERY_H := 300.0
 
 var run: Run
 var _queue: Array[RunCompanion] = []
@@ -39,12 +46,15 @@ var _picked: CallingData
 var _school := -1
 var _spell: SpellData
 var _spells: Array[SpellData] = []
+## The mastery picked (Stage.MASTERY).
+var _mastery: MasteryData
 
 var _dim := ColorRect.new()
 var _band := Control.new()
 var _cards: Array[Control] = []
 var _spell_cards: Array[Control] = []
 var _tabs: Array[Control] = []
+var _mastery_cards: Array[Control] = []
 var _gains := LevelUpPanel.new()
 var _take := Button.new()
 var _back := Button.new()
@@ -75,6 +85,9 @@ func _init() -> void:
 		var card := _plate(Vector2(X + i * (SPELL_W + CARD_GAP), SPELL_Y), Vector2(SPELL_W, SPELL_H), "spell%d" % i,
 			pick_spell.bind(i), _draw_spell.bind(i))
 		_spell_cards.append(card)
+		var mastery_card := _plate(Vector2(X + i * (SPELL_W + CARD_GAP), MASTERY_Y), Vector2(SPELL_W, MASTERY_H), "mastery%d" % i,
+			pick_mastery.bind(i), _draw_mastery.bind(i))
+		_mastery_cards.append(mastery_card)
 	_gains.visible = false
 	_gains.finished.connect(func() -> void: _hint.visible = true)
 	add_child(_gains)
@@ -113,12 +126,11 @@ func is_open() -> bool:
 	return visible
 
 
-## Opens on everyone in `p_run` whose calling is due (Run.callings_due), one after another. Returns
-## false, and stays shut, when nobody's is.
+## Opens on everyone in `p_run` whose calling or mastery is due (Run.callings_due, masteries_due), one
+## after another. Returns false, and stays shut, when nobody's is.
 func open(p_run: Run) -> bool:
 	run = p_run
-	_queue = run.callings_due()
-	if _queue.is_empty():
+	if run.callings_due().is_empty() and run.masteries_due().is_empty():
 		return false
 	visible = true
 	modulate.a = 0.0
@@ -142,9 +154,17 @@ func stage() -> int:
 func _next() -> void:
 	# Someone's choice may have closed a calling another was waiting on: ask the run again each time.
 	_queue = run.callings_due()
+	_mastery = null
 	if _queue.is_empty():
-		visible = false
-		finished.emit()
+		_queue = run.masteries_due()
+		if _queue.is_empty():
+			visible = false
+			finished.emit()
+			return
+		_who = _queue[0]
+		_picked = _who.progress.calling
+		_shown.clear()
+		_show(Stage.MASTERY)
 		return
 	_who = _queue[0]
 	_picked = null
@@ -170,6 +190,7 @@ func _show(s: Stage) -> void:
 	for i in 2:
 		_tabs[i].visible = s == Stage.SPELL and either
 		_spell_cards[i].visible = s == Stage.SPELL and i < _spells.size()
+		_mastery_cards[i].visible = s == Stage.MASTERY and _picked != null and i < _picked.masteries.size()
 	_back.visible = s == Stage.SPELL
 	_take.visible = s != Stage.GAINS
 	_refresh()
@@ -183,8 +204,11 @@ func _refresh() -> void:
 		Stage.SPELL:
 			_take.text = "Learn %s" % _spell.display_name if _spell != null else ("Choose a spell" if not _spells.is_empty() else "Go on")
 			_take.disabled = _spell == null and not _spells.is_empty()
+		Stage.MASTERY:
+			_take.text = "Take %s" % _mastery.display_name if _mastery != null else "Choose one"
+			_take.disabled = _mastery == null
 	_band.queue_redraw()
-	for c: Control in _cards + _spell_cards + _tabs:
+	for c: Control in _cards + _spell_cards + _tabs + _mastery_cards:
 		c.queue_redraw()
 
 
@@ -213,6 +237,14 @@ func pick_spell(index: int) -> void:
 	_refresh()
 
 
+## Picks the mastery on card `index` (0 or 1).
+func pick_mastery(index: int) -> void:
+	if _stage != Stage.MASTERY or _picked == null or index >= _picked.masteries.size():
+		return
+	_mastery = _picked.masteries[index]
+	_refresh()
+
+
 ## Back from the spell to the three callings.
 func back() -> void:
 	if _stage == Stage.SPELL:
@@ -222,6 +254,10 @@ func back() -> void:
 
 ## The way on: from the calling picked to its spell (a calling of magic), or to taking it.
 func confirm() -> void:
+	if _stage == Stage.MASTERY:
+		if _mastery != null and run.take_mastery(_who, _mastery):
+			_next()
+		return
 	if _picked == null:
 		return
 	if _stage == Stage.CHOOSE and _picked.is_magic():
@@ -298,6 +334,8 @@ func _input(event: InputEvent) -> void:
 				pick_card(i)
 			elif _stage == Stage.SPELL and i < 2:
 				pick_spell(i)
+			elif _stage == Stage.MASTERY and i < 2:
+				pick_mastery(i)
 		KEY_ESCAPE, KEY_BACKSPACE:
 			back()
 
@@ -380,6 +418,33 @@ func _draw_spell(card: Control, index: int) -> void:
 		tone, UiTheme.TEXT, UiTheme.TEXT.lerp(UiTheme.MUTED, 0.3), 0.7, card.size.y - 88.0 - 80.0, 4, "", Color.WHITE, 21)
 
 
+func _draw_mastery(card: Control, index: int) -> void:
+	if _who == null or _picked == null or index >= _picked.masteries.size():
+		return
+	var m := _picked.masteries[index]
+	var on := m == _mastery
+	var hover := bool(_hover.get("mastery%d" % index, false))
+	var tone := UiTheme.GOLD
+	var display := UiTheme.display_font()
+	var italic := UiTheme.italic_font()
+	card.draw_rect(Rect2(Vector2.ZERO, card.size), Color(tone, 0.16 if on else (0.11 if hover else 0.06)))
+	card.draw_rect(Rect2(0.5, 0.5, card.size.x - 1.0, card.size.y - 1.0), Color(tone, 0.95 if on else (0.6 if hover else 0.3)), false,
+		2.0 if on or hover else 1.0)
+	var pad := 22.0
+	var inner := card.size.x - pad * 2.0
+	UiTheme.draw_text(card, display, Vector2(pad, 14.0), "CHOSEN" if on else "A MASTERY", 16, tone if on else UiTheme.MUTED, 4)
+	var name_size := 40
+	while name_size > 22 and display.get_string_size(m.display_name.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, name_size).x > inner:
+		name_size -= 1
+	UiTheme.draw_text(card, display, Vector2(pad, 40.0), m.display_name.to_upper(), name_size, UiTheme.TEXT, 6)
+	var y := 40.0 + display.get_height(name_size) + 14.0
+	card.draw_line(Vector2(pad, y), Vector2(pad + inner, y), Color(tone, 0.3), 1.0)
+	y += 14.0
+	for row in CallingCard.wrap_text(italic, m.rule, 27, inner):
+		UiTheme.draw_text(card, italic, Vector2(pad, y), row, 27, UiTheme.TEXT, 4)
+		y += italic.get_height(27)
+
+
 func _draw_band() -> void:
 	if _who == null:
 		return
@@ -420,3 +485,14 @@ func _draw_band() -> void:
 				UiTheme.TEXT, 4)
 		if _spells.is_empty():
 			UiTheme.draw_text(_band, italic, Vector2(X, SPELL_Y + 20.0), "Every first spell of this school is already known.", 24, UiTheme.MUTED, 4)
+	elif _stage == Stage.MASTERY and _picked != null:
+		UiTheme.draw_text(_band, display, Vector2(X, 18.0), "LEVEL %d  ·  %s, %s" % [_who.level(), who_name, _picked.display_name.to_upper()], 22,
+			UiTheme.GOLD, 4)
+		UiTheme.draw_text(_band, display, Vector2(X - 2.0, 42.0), "WHICH MASTERY?", 46, UiTheme.TEXT, 8)
+		# The calling's own rule stands over the two: each mastery is one more line on it.
+		var y := CARD_Y + 8.0
+		for row in CallingCard.wrap_text(italic, _picked.rule, 25, SIZE.x - X):
+			UiTheme.draw_text(_band, italic, Vector2(X, y), row, 25, Color(UiTheme.TEXT, 0.85), 4)
+			y += italic.get_height(25)
+		if _mastery == null:
+			UiTheme.draw_text(_band, italic, Vector2(X, FOOT_Y + 18.0), "For the rest of the run. The other is closed for good.", 21, UiTheme.MUTED, 4)

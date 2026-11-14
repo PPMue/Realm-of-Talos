@@ -39,6 +39,9 @@ var calling_offers: Array[CallingData] = []
 var calling_aside: Array[CallingData] = []
 var calling: CallingData
 var calling_lead: String = ""
+## The mastery of their calling, taken at RunConfig.MASTERY_LEVEL (one of CallingData.masteries; null
+## until then).
+var mastery: MasteryData
 var _calling_effect: TraitData
 
 
@@ -85,6 +88,7 @@ func copy() -> CompanionProgress:
 	p.calling_aside = calling_aside.duplicate()
 	p.calling = calling
 	p.calling_lead = calling_lead
+	p.mastery = mastery
 	return p
 
 
@@ -106,9 +110,20 @@ func all_traits() -> Array[TraitData]:
 func calling_effect() -> TraitData:
 	if calling == null:
 		return null
-	if _calling_effect == null or _calling_effect.id != "calling_%s" % calling.id:
-		_calling_effect = calling.effect_for(calling_lead if calling_lead != "" else CallingData.lead_of(self))
+	var id := "calling_%s" % calling.id if mastery == null else "calling_%s_%s" % [calling.id, mastery.id]
+	if _calling_effect == null or _calling_effect.id != id:
+		_calling_effect = calling.effect_for(calling_lead if calling_lead != "" else CallingData.lead_of(self), mastery)
 	return _calling_effect
+
+
+## Takes `m`, one of their calling's two masteries. Returns false (and changes nothing) without the
+## calling, with a mastery already, or if it is not one of the calling's.
+func take_mastery(m: MasteryData) -> bool:
+	if calling == null or mastery != null or m == null or not calling.masteries.has(m):
+		return false
+	mastery = m
+	_calling_effect = null
+	return true
 
 
 ## Takes `c` as their calling: the lead is fixed now, and what it gives on the day is added to their

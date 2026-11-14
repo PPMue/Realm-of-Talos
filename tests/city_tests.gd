@@ -698,8 +698,8 @@ func test_inn() -> void:
 	var c := run.roster[0]
 	var heal := run.day_heal(c)
 	build(run, F.INN, 1)
-	t.eq(run.day_heal(c) if c.traits.is_empty() else run.day_heal(c), ceili(c.max_hp() * 0.3 * (100 + TraitRules.total(c.traits, TraitModifier.Kind.DAY_HEAL_PERCENT)) / 100.0),
-		"level 1: 30% overnight")
+	t.eq(run.day_heal(c) if c.traits.is_empty() else run.day_heal(c), ceili(c.max_hp() * RunConfig.INN_DAILY_HEAL_FRACTION * (100 + TraitRules.total(c.traits, TraitModifier.Kind.DAY_HEAL_PERCENT)) / 100.0),
+		"level 1: 15% overnight")
 	t.check(run.day_heal(c) > heal, "more than before")
 	var sp: SpellData = SpellLibrary.load_default().spells[0]
 	c.progress.learn_spell(sp)

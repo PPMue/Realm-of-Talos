@@ -396,17 +396,24 @@ func _refresh_sheet() -> void:
 		cell.position = Vector2((i % 2) * cw, floorf(i / 2.0) * GRADE_ROW)
 		_grades.add_child(cell)
 
-	# Column 3: the calling (the one taken, or those drawn for them), then arts, then spells.
+	# Column 3: the calling (the one taken with its two masteries, or those drawn for them), then arts,
+	# then spells.
 	var shown: Array[CallingData] = []
 	if p.calling != null:
 		shown.append(p.calling)
 	else:
 		shown.assign(p.calling_offers)
-	var plate_w := C3_W if shown.size() <= 1 else (C3_W - 8.0 * (shown.size() - 1)) / shown.size()
+	var plates := shown.size() + (p.calling.masteries.size() if p.calling != null else 0)
+	var plate_w := C3_W if plates <= 1 else (C3_W - 8.0 * (plates - 1)) / plates
 	for i in shown.size():
 		var plate := _calling_plate(c, shown[i], plate_w)
 		plate.position = Vector2(i * (plate_w + 8.0), 0.0)
 		_callings.add_child(plate)
+	if p.calling != null:
+		for i in p.calling.masteries.size():
+			var plate := _mastery_plate(c, p.calling.masteries[i], plate_w)
+			plate.position = Vector2((shown.size() + i) * (plate_w + 8.0), 0.0)
+			_callings.add_child(plate)
 	var arts := _sorted_arts(p)
 	if arts.is_empty():
 		_arts.add_child(_section("No combat arts yet. Every weapon grade reached teaches one.", C3_W - 14.0))
@@ -610,6 +617,47 @@ func _calling_plate(c: RunCompanion, calling: CallingData, w: float) -> Control:
 	return plate
 
 
+## One of the calling's two masteries as a plate beside it: lit if it is theirs, dimmed if the other was
+## taken, plain with the level it comes at while neither is. Pointing at it reads it.
+func _mastery_plate(c: RunCompanion, m: MasteryData, w: float) -> Control:
+	var plate := Control.new()
+	plate.size = Vector2(w, CALLING_ROW)
+	plate.mouse_filter = Control.MOUSE_FILTER_STOP
+	var p := c.progress
+	var theirs := p.mastery == m
+	var closed := p.mastery != null and not theirs
+	var state := {"hover": false}
+	plate.mouse_entered.connect(func() -> void:
+		state.hover = true
+		plate.queue_redraw())
+	plate.mouse_exited.connect(func() -> void:
+		state.hover = false
+		plate.queue_redraw())
+	plate.draw.connect(func() -> void:
+		var ink := UiTheme.PARCHMENT_INK
+		var r := Rect2(Vector2.ZERO, plate.size)
+		plate.draw_rect(r, Color(UiTheme.WAX if theirs else ink, 0.16 if theirs else (0.1 if state.hover else 0.02)))
+		var edge := Color(UiTheme.WAX if theirs else ink, 0.9 if theirs else (0.2 if closed else 0.4))
+		if theirs:
+			plate.draw_rect(Rect2(0.5, 0.5, r.size.x - 1.0, r.size.y - 1.0), edge, false, 2.0)
+		else:
+			plate.draw_rect(Rect2(0.5, 0.5, r.size.x - 1.0, r.size.y - 1.0), edge, false, 1.0)
+		var display := UiTheme.display_font()
+		var text := m.display_name.to_upper()
+		var text_size := 18
+		while text_size > 12 and display.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, text_size).x > r.size.x - 12.0:
+			text_size -= 1
+		var waiting := p.mastery == null
+		var top := 2.0 if waiting else (r.size.y - display.get_height(text_size)) * 0.5
+		UiTheme.draw_text(plate, display, Vector2(0.0, top), text, text_size, Color(ink, 0.35 if closed else (0.75 if waiting else 1.0)), 0, r.size.x,
+			HORIZONTAL_ALIGNMENT_CENTER)
+		if waiting:
+			UiTheme.draw_text(plate, UiTheme.italic_font(), Vector2(0.0, r.size.y - 19.0), "at level %d" % RunConfig.MASTERY_LEVEL, 13,
+				UiTheme.PARCHMENT_MUTED, 0, r.size.x, HORIZONTAL_ALIGNMENT_CENTER))
+	_read_on_hover(plate, ArtFacts.mastery_reading(m, p))
+	return plate
+
+
 func _read_on_hover(row: Control, what: Dictionary) -> void:
 	row.mouse_entered.connect(_read.bind(what))
 	row.mouse_exited.connect(func() -> void:
@@ -785,6 +833,8 @@ func _draw_sheet() -> void:
 	var aside := "taken for the run" if p.calling != null else "one of these at level %d" % RunConfig.CALLING_LEVEL
 	if p.calling == null and c.level() >= RunConfig.CALLING_LEVEL:
 		aside = "waiting to be chosen"
+	elif p.calling != null and p.mastery == null:
+		aside = "a mastery waiting to be chosen" if c.level() >= RunConfig.MASTERY_LEVEL else "and one of its two masteries"
 	StatTable.head(_sheet, Vector2(C3_X, TOP), C3_W, "CALLING", aside)
 	StatTable.head(_sheet, Vector2(C3_X, ARTS_Y), C3_W, "COMBAT ARTS AND SPELLS",
 		"%d of %d carried" % [p.equipped_arts.size(), BattleConfig.MAX_EQUIPPED_ARTS])

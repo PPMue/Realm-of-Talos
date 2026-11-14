@@ -1,19 +1,45 @@
 [gd_resource type="Resource" script_class="CallingData" format=3]
 
-[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_03sgc"]
-[ext_resource type="Script" path="res://scripts/data/calling_data.gd" id="2_2vteu"]
+[ext_resource type="Script" path="res://scripts/data/mastery_data.gd" id="1_2vteu"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_rpk28"]
+[ext_resource type="Script" path="res://scripts/data/calling_data.gd" id="3_jn7p2"]
 
-[sub_resource type="Resource" id="Resource_rpk28"]
-script = ExtResource("1_03sgc")
+[sub_resource type="Resource" id="Resource_w03je"]
+script = ExtResource("2_rpk28")
+kind = 74
+amount = 1
+
+[sub_resource type="Resource" id="Resource_m1top"]
+script = ExtResource("1_2vteu")
+id = "harrier_no_rest"
+display_name = "No Rest"
+rule = "Can push back an action already pushed back, once more."
+modifiers = Array[ExtResource("2_rpk28")]([SubResource("Resource_w03je")])
+
+[sub_resource type="Resource" id="Resource_acd84"]
+script = ExtResource("2_rpk28")
+kind = 75
+amount = 25
+
+[sub_resource type="Resource" id="Resource_v265d"]
+script = ExtResource("1_2vteu")
+id = "harrier_off_balance"
+display_name = "Off Balance"
+rule = "A staggered enemy takes a quarter more damage until it acts."
+modifiers = Array[ExtResource("2_rpk28")]([SubResource("Resource_acd84")])
+
+[sub_resource type="Resource" id="Resource_xe7if"]
+script = ExtResource("2_rpk28")
 kind = 62
 amount = 1
 
 [resource]
-script = ExtResource("2_2vteu")
+script = ExtResource("3_jn7p2")
 id = "harrier"
 display_name = "Harrier"
 rule = "Every strike or spell of theirs that lands staggers: the action comes 1 turn later."
 first_stat = "DEX"
 second_stat = "LEAD"
 slow_stat = "RES"
-modifiers = Array[ExtResource("1_03sgc")]([SubResource("Resource_rpk28")])
+modifiers = Array[ExtResource("2_rpk28")]([SubResource("Resource_xe7if")])
+masteries = Array[ExtResource("1_2vteu")]([SubResource("Resource_m1top"), SubResource("Resource_v265d")])

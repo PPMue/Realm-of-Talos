@@ -404,7 +404,7 @@ static func table() -> Array:
 		["clean_blood", "dot_hp", 3, {}],
 		["calm", "curse_ticks", -1, {}],
 		["good_patient", "heal_received", 2, {"line": 2, "slot": 1}],
-		["fast_healer", "day_heal", 6, {}],
+		["fast_healer", "day_heal", 4, {}],
 		["field_dresser", "won_hp", 6, {}],
 		["quick_to_mend", "infirmary", -1, {}],
 		["healers_favourite", "cure_cost", -15, {}],
@@ -500,7 +500,7 @@ func test_traits_with_facilities() -> void:
 	run = got[0]
 	var holder: RunCompanion = got[1]
 	run.facilities[Run.Facility.INN] = 1
-	t.eq(run.day_heal(holder), ceili(40 * 0.45), "Fast Healer and the Inn: 45%")
+	t.eq(run.day_heal(holder), ceili(40 * 0.25), "Fast Healer and the Inn: 25%")
 	got = city([trait_of("quick_to_mend")] as Array[TraitData], {})
 	run = got[0]
 	holder = got[1]

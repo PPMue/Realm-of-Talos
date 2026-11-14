@@ -18,6 +18,7 @@ const AccessoryTests := preload("res://tests/accessory_tests.gd")
 const AimTests := preload("res://tests/aim_tests.gd")
 const LineTests := preload("res://tests/line_tests.gd")
 const CallingTests := preload("res://tests/calling_tests.gd")
+const MasteryTests := preload("res://tests/mastery_tests.gd")
 const AccountTests := preload("res://tests/account_tests.gd")
 
 var _failures: Array[String] = []
@@ -37,6 +38,7 @@ var _aims: RefCounted
 var _lines: RefCounted
 var _accounts: RefCounted
 var _callings: RefCounted
+var _masteries: RefCounted
 var _checks := 0
 var _current := ""
 
@@ -149,6 +151,8 @@ func _init() -> void:
 	tests.append_array(_accounts.tests())
 	_callings = CallingTests.new(self)
 	tests.append_array(_callings.tests())
+	_masteries = MasteryTests.new(self)
+	tests.append_array(_masteries.tests())
 	var verbose := OS.get_environment("TEST_VERBOSE") != ""
 	var only := OS.get_environment("TEST_ONLY")
 	if only != "":

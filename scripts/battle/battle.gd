@@ -45,7 +45,17 @@ extends RefCounted
 ## critical on an enemy about to act, arts paid in Health (art_health_cost), an injured companion raised
 ## by a heal (can_raise: the one thing in a battle that undoes an injury), harmful effects that pass on
 ## when their carrier falls (_pass_on), a first spell that costs no use (spell_is_free), and weapon
-## strikes against the lower of DEF and RES (forecast).
+## strikes against the lower of DEF and RES (forecast). Its mastery (MasteryData, taken at
+## RunConfig.MASTERY_LEVEL) is one more line read the same way: a Guard over anyone in the line
+## (guard_wards) or a caught blow answered (_answer); a turned blow that lands lighter or every opening
+## blow turned (_opening_aim); a deeper finishing share or no recovery after felling; arts of tier I as
+## quick as the Attack (art_recovery) or a first action without recovery; a Rouse that cannot miss or a
+## quicker one; a second push on a pushed action (_hit_delay) or staggered enemies that take more
+## (staggered_bonus); a critical a turn earlier or one that cannot miss; more damage below half Health
+## or Health for felling; heals that reach the neighbours (heal_spread) or a second raising; longer
+## effects on enemies or less Hit for those who carry them (hexed_hit); a first spell with no recovery or
+## every spell with less; a weapon strike without recovery after a spell or a spell use back for a
+## weapon's kill (_strike_kill).
 
 enum Outcome { ONGOING, VICTORY, DEFEAT }
 
@@ -117,6 +127,7 @@ func _init(companion_data: Array[CompanionData], enemy_data: Array[EnemyData], p
 		enemies.append(e)
 		pick_next_action(e)
 	_log("Battle start.")
+	_opening_aim()
 
 
 # ---------------------------------------------------------------- queries
@@ -221,7 +232,13 @@ func art_recovery(c: CompanionUnit, art: CombatArtData) -> int:
 	q.action = TraitModifier.Action.ART
 	q.weapon_type = art.weapon_type
 	q.recovery = art.recovery
-	return maxi(0, art.recovery + TraitRules.sum(q))
+	var rest := maxi(0, art.recovery + TraitRules.sum(q))
+	# A Skirmisher's mastery: arts of a tier are as quick as it says.
+	q.kind = TraitModifier.Kind.RECOVERY_AT_MOST
+	q.spell_tier = art.tier
+	for m in TraitRules.matching(q):
+		rest = mini(rest, maxi(0, m.amount))
+	return rest
 
 
 ## Actions `c` sits out after an attack, a spell, Guard or Focus (`action`: TraitModifier.Action, ANY for
@@ -234,6 +251,12 @@ func action_recovery(c: CompanionUnit, base: int, action: int = TraitModifier.Ac
 	q.weapon_type = c.weapon().weapon_type if action == TraitModifier.Action.ATTACK and c.weapon() != null else -1
 	q.recovery = base
 	return maxi(0, base + TraitRules.sum(q))
+
+
+## Actions `c` sits out after casting `spell` now: its recovery and what traits, accessories and a
+## calling change (a Sage's mastery: none after the first of a battle, or 1 less after each).
+func spell_recovery(c: CompanionUnit, spell: SpellData) -> int:
+	return action_recovery(c, spell.recovery, TraitModifier.Action.SPELL, spell.school)
 
 
 ## Stamina `art` costs `c`: its own cost plus what traits add (TraitModifier.Kind.ART_STAMINA), never
@@ -360,7 +383,9 @@ func _calling_forecast(c: CompanionUnit, target: EnemyUnit, f: AttackForecast, o
 		and target.pending_action.targeting == EnemyActionData.Targeting.SINGLE \
 		and _trait_any(c, TraitModifier.Kind.STRIKE_TURNS_AIM)
 	var push := _trait_sum(c, TraitModifier.Kind.HIT_DELAY)
-	f.staggers = push if push > 0 and not own_delay and target.pending_action != null and not target.delayed else 0
+	var fresh := not own_delay and not target.delayed
+	var again := (own_delay or target.delayed) and not target.delayed_again and _trait_any(c, TraitModifier.Kind.DELAY_AGAIN)
+	f.staggers = push if push > 0 and target.pending_action != null and (fresh or again) else 0
 
 
 ## The Health at or under which a strike or spell of `c`'s that lands fells `target` (an Executioner:
@@ -391,14 +416,59 @@ func trait_strike(c: CompanionUnit, target: EnemyUnit, action: int, school: int 
 	q.kind = TraitModifier.Kind.DAMAGE
 	out.damage = TraitRules.sum(q)
 	q.kind = TraitModifier.Kind.DAMAGE_PERCENT
-	out.damage_percent = TraitRules.sum(q)
+	out.damage_percent = TraitRules.sum(q) + staggered_bonus(target)
 	q.kind = TraitModifier.Kind.SURE_HIT
-	out.sure = TraitRules.any(q)
+	out.sure = TraitRules.any(q) or c.roused_sure
 	q.kind = TraitModifier.Kind.PIERCE_PERCENT
 	out.pierce = TraitRules.sum(q)
 	q.kind = TraitModifier.Kind.SURE_CRIT
 	out.sure_crit = TraitRules.any(q)
 	return out
+
+
+## What every strike and spell deals more of to `target`, in percent, because its pending action has been
+## pushed back (TraitModifier.Kind.STAGGERED_DAMAGE_PERCENT, a Harrier's mastery, while they stand):
+## until it acts. 0 otherwise.
+func staggered_bonus(target: EnemyUnit) -> int:
+	if target == null or not target.delayed or target.pending_action == null:
+		return 0
+	var total := 0
+	for c in active_companions():
+		total += _trait_sum(c, TraitModifier.Kind.STAGGERED_DAMAGE_PERCENT)
+	return total
+
+
+## How much less Hit `e` has because it carries a harmful effect laid by a standing companion whose
+## mastery clouds it (TraitModifier.Kind.HEXED_HIT, a Hexer); the largest of them, 0 for none.
+func hexed_hit(e: EnemyUnit) -> int:
+	var most := 0
+	for fx in e.effects:
+		var from := fx.source as CompanionUnit
+		if from != null and fx.is_harmful() and roster.has(from) and from.is_active():
+			most = maxi(most, _trait_sum(from, TraitModifier.Kind.HEXED_HIT))
+	return most
+
+
+## Who else `spell`, cast by `c` on `target`, heals: the target's standing neighbours, when the caster's
+## heals spread (TraitModifier.Kind.HEAL_SPREADS, a Mender's mastery) and the spell heals one ally who
+## stands. Each: heal_spread_amount.
+func heal_spread(c: CompanionUnit, spell: SpellData, target: CompanionUnit) -> Array[CompanionUnit]:
+	var out: Array[CompanionUnit] = []
+	if c == null or spell == null or target == null or not spell.heals or spell.targeting != SpellData.Targeting.ONE_ALLY \
+			or not target.is_active() or _trait_sum(c, TraitModifier.Kind.HEAL_SPREADS) <= 0:
+		return out
+	var l := line()
+	var i := l.find(target)
+	for j in [i - 1, i + 1]:
+		if i >= 0 and j >= 0 and j < l.size() and l[j].is_active():
+			out.append(l[j])
+	return out
+
+
+## HP a spread heal restores to the neighbour `other`: that share of what the spell would heal them,
+## rounded down.
+func heal_spread_amount(c: CompanionUnit, spell: SpellData, other: CompanionUnit) -> int:
+	return floori(heal_amount_on(c, spell, other) * _trait_sum(c, TraitModifier.Kind.HEAL_SPREADS) / 100.0)
 
 
 ## HP a white spell restores to each target: caster MAG + the spell's power + what the caster's traits
@@ -424,11 +494,20 @@ func heal_amount_on(c: CompanionUnit, spell: SpellData, target: CompanionUnit) -
 
 
 ## True if `spell` cast by `c` on the injured `target` would raise them: a healing spell on one ally,
-## cast by someone whose calling raises (TraitModifier.Kind.RAISE_ONCE) and has not done so this battle.
+## cast by someone whose calling raises (TraitModifier.Kind.RAISE_ONCE) and has not done so this battle
+## (raises_left).
 func can_raise(c: CompanionUnit, spell: SpellData, target: CompanionUnit) -> bool:
 	return c != null and spell != null and target != null and spell.heals \
 		and spell.targeting == SpellData.Targeting.ONE_ALLY and target.is_injured() and roster.has(target) \
-		and c.raises_used < 1 and _trait_sum(c, TraitModifier.Kind.RAISE_ONCE) > 0
+		and raises_left(c) > 0
+
+
+## How many more injured companions `c` can raise this battle: once with the calling, and as many more
+## as its mastery says (TraitModifier.Kind.RAISE_MORE); 0 without it.
+func raises_left(c: CompanionUnit) -> int:
+	if c == null or _trait_sum(c, TraitModifier.Kind.RAISE_ONCE) <= 0:
+		return 0
+	return maxi(0, 1 + _trait_sum(c, TraitModifier.Kind.RAISE_MORE) - c.raises_used)
 
 
 ## The Health `target` is raised at by `c`: that percent of their max Health, rounded up, at least 1.
@@ -619,10 +698,11 @@ func cast(c: CompanionUnit, spell: SpellData, target: Combatant = null) -> bool:
 			c.last_struck_id = t.get_instance_id()
 		else:
 			_white_magic(c, spell, t as CompanionUnit)
+	var rest := spell_recovery(c, spell)   # before the count: a first spell's recovery is the first's
 	c.spells_cast += 1
 	_add_points(c, BattleConfig.POINTS_SPELL)
 	_gain_magic(c, spell.school)
-	_end_player_action(c, action_recovery(c, spell.recovery, TraitModifier.Action.SPELL, spell.school))
+	_end_player_action(c, rest, false, true)
 	return true
 
 
@@ -676,7 +756,7 @@ func rouse_targets(c: CompanionUnit) -> Array[CompanionUnit]:
 
 ## Actions `c` sits out after Rouse.
 func rouse_recovery(c: CompanionUnit) -> int:
-	return action_recovery(c, BattleConfig.RECOVERY_ROUSE)
+	return action_recovery(c, BattleConfig.RECOVERY_ROUSE, TraitModifier.Action.ROUSE)
 
 
 ## Rouse (a Captain's order): `ally`, standing and recovering, is ready at once. It is `c`'s action for
@@ -686,21 +766,34 @@ func rouse(c: CompanionUnit, ally: CompanionUnit) -> bool:
 		return false
 	_begin_tick()
 	ally.recovery = 0
-	_log("%s rouses %s: ready at once." % [c.display_name, ally.display_name])
-	_emit({"type": "rouse", "actor": c, "target": ally})
+	ally.roused_sure = _trait_any(c, TraitModifier.Kind.ROUSE_SURE_HIT)
+	_log("%s rouses %s: ready at once%s." % [c.display_name, ally.display_name, ", and sure of their next" if ally.roused_sure else ""])
+	_emit({"type": "rouse", "actor": c, "target": ally, "sure": ally.roused_sure})
 	_add_points(c, BattleConfig.POINTS_ROUSE)
 	_end_player_action(c, rouse_recovery(c))
 	return true
 
 
+## True if `c`'s Guard reaches anyone standing in the line (TraitModifier.Kind.GUARD_ANYONE, a Warden's
+## mastery), not only a neighbour.
+func guards_anyone(c: CompanionUnit) -> bool:
+	return c != null and _trait_any(c, TraitModifier.Kind.GUARD_ANYONE)
+
+
 ## Who `c` can guard: themselves first, then their standing neighbours in line() (the places either side;
-## an injured one keeps their place but cannot be covered). Empty if `c` cannot act.
+## an injured one keeps their place but cannot be covered), or everyone else standing with the mastery
+## that reaches them (TraitModifier.Kind.GUARD_ANYONE, a Warden). Empty if `c` cannot act.
 func guard_wards(c: CompanionUnit) -> Array[CompanionUnit]:
 	var out: Array[CompanionUnit] = []
 	if c == null or not c.is_active() or not roster.has(c):
 		return out
 	out.append(c)
 	var l := line()
+	if guards_anyone(c):
+		for other in l:
+			if other != c and other.is_active():
+				out.append(other)
+		return out
 	var i := l.find(c)
 	for j in [i - 1, i + 1]:
 		if j >= 0 and j < l.size() and l[j].is_active():
@@ -882,7 +975,9 @@ func pick_next_action(e: EnemyUnit) -> void:
 	e.pending_action = action
 	e.countdown = maxi(BattleConfig.MIN_ACTION_COUNTDOWN, action.countdown)
 	e.delayed = false
+	e.delayed_again = false
 	e.hastened = false
+	e.turned_by_id = 0
 	e.pending_target = _draw_aim(e, action)
 	_emit({"type": "intent", "enemy": e, "target": e.pending_target})
 
@@ -917,7 +1012,11 @@ func _aimed_at(c: CompanionUnit) -> Array[EnemyUnit]:
 ## Moves `e`'s aim to `target` (from wherever it was), with its event and log line.
 func _move_aim(e: EnemyUnit, target: CompanionUnit, why: String) -> void:
 	var from := e.pending_target
-	if target == null or target == from:
+	if target == null:
+		return
+	# A blow a Champion turns on themselves (or already had on them when they struck) is theirs: marked.
+	e.turned_by_id = target.get_instance_id() if why == "challenged" else 0
+	if target == from:
 		return
 	e.pending_target = target
 	_log("  %s's %s turns on %s." % [e.display_name, e.pending_action.display_name, target.display_name])
@@ -952,12 +1051,16 @@ func perform_enemy_action(e: EnemyUnit, action: EnemyActionData) -> void:
 			var target := e.pending_target if action == e.pending_action else null
 			if target == null or not target.is_active() or not roster.has(target):
 				target = pick_target(e.aims_reversed(action))   # no aim kept: drawn as it lands
+			var caught := false
 			if target != null and target == _cover_ward and _cover_guard != null and _cover_guard.is_active():
 				_log("  %s steps in front of %s." % [_cover_guard.display_name, target.display_name])
 				_emit({"type": "cover", "guard": _cover_guard, "ward": target, "enemy": e, "action": action})
 				target = _cover_guard
+				caught = true
 			if target != null:
 				_enemy_strike(e, action, target)
+				if caught:
+					_answer(target, e)
 		EnemyActionData.Targeting.ALL_COMPANIONS:
 			for target in active_companions():
 				if not e.is_alive():
@@ -1033,8 +1136,10 @@ func _begin_tick() -> void:
 	_log("== Turn %d ==" % tick)
 
 
-## `steady`: the action was Guard or Focus (for traits that wait for one).
-func _end_player_action(c: CompanionUnit, recovery: int, steady: bool = false) -> void:
+## `steady`: the action was Guard or Focus (for traits that wait for one). `spell`: it was a spell.
+func _end_player_action(c: CompanionUnit, recovery: int, steady: bool = false, spell: bool = false) -> void:
+	c.after_spell = spell
+	c.roused_sure = false
 	if c.felled_this_action and _trait_any(c, TraitModifier.Kind.KILL_NO_RECOVERY):
 		recovery = 0
 		_log("  %s presses on: no recovery." % c.display_name)
@@ -1127,6 +1232,8 @@ func _companion_strike(c: CompanionUnit, target: EnemyUnit, art: CombatArtData) 
 	var back := reflect_amount(c, target, dmg)
 	_after_enemy_hurt(target, c)
 	_after_landed(c, target)
+	if not target.is_alive():
+		_strike_kill(c)
 	if crit:
 		_on_crit(c, target)
 	_on_first_hit(c, target)
@@ -1177,11 +1284,66 @@ func _after_landed(c: CompanionUnit, target: EnemyUnit) -> void:
 ## whatever the action itself pushes, and like every push once per pending action (so nothing is said
 ## when it has already been pushed).
 func _hit_delay(c: CompanionUnit, target: EnemyUnit) -> void:
-	if not target.is_alive() or target.delayed or target.pending_action == null:
+	if not target.is_alive() or target.pending_action == null:
 		return
 	var push := _trait_sum(c, TraitModifier.Kind.HIT_DELAY)
-	if push > 0:
+	if push <= 0:
+		return
+	if not target.delayed:
 		delay_action(target, push)
+	elif not target.delayed_again and _trait_any(c, TraitModifier.Kind.DELAY_AGAIN):
+		# The mastery: an action already pushed back (by anyone, this action included) goes back once more.
+		target.countdown += push
+		target.delayed_again = true
+		_log("  %s's %s is pushed back again by %d (now %d)." % [target.display_name, target.pending_action.display_name, push, target.countdown])
+		_emit({"type": "delay", "target": target, "ticks": push, "countdown": target.countdown, "again": true})
+
+
+## A blow `c` has just caught for another (guard with a ward) is answered, with the mastery that says so
+## (TraitModifier.Kind.COVER_ANSWERS, a Warden): their plain Attack on `e`, at once, if both still stand.
+## It is no action of theirs: no recovery, no proficiency. A "strike" event with "answer" true, then
+## the strikes.
+func _answer(c: CompanionUnit, e: EnemyUnit) -> void:
+	if not c.is_active() or not e.is_alive() or c.weapon() == null or not _trait_any(c, TraitModifier.Kind.COVER_ANSWERS):
+		return
+	_log("  %s answers %s." % [c.display_name, e.display_name])
+	_emit({"type": "strike", "actor": c, "target": e, "name": "Answer", "art": null, "answer": true})
+	for i in maxi(1, c.weapon().attack_strikes):
+		if not e.is_alive() or not c.is_active():
+			break
+		_companion_strike(c, e, null)
+
+
+## When the battle begins: every single blow already aimed is aimed at the companion whose mastery
+## draws them (TraitModifier.Kind.OPENING_AIM, a Champion; the first in the line with it), as a strike of
+## theirs would turn it ("aim" events, why "challenged").
+func _opening_aim() -> void:
+	for c in roster:
+		if c.is_active() and _trait_any(c, TraitModifier.Kind.OPENING_AIM):
+			for e in living_enemies():
+				if e.pending_action != null and e.pending_action.targeting == EnemyActionData.Targeting.SINGLE:
+					_move_aim(e, c, "challenged")
+			return
+
+
+## A weapon strike of `c`'s has felled an enemy: the mastery that gives a spell use back for it
+## (TraitModifier.Kind.STRIKE_KILL_SPELL_USE, a Spellblade), to the spell with the most uses spent (the
+## first learned of equals). A "spell_use" event.
+func _strike_kill(c: CompanionUnit) -> void:
+	var back := _trait_sum(c, TraitModifier.Kind.STRIKE_KILL_SPELL_USE)
+	for i in back:
+		var pick: SpellData = null
+		var most := 0
+		for sp in c.progress.known_spells:
+			var spent := c.progress.max_uses(sp) - c.progress.uses_left(sp)
+			if spent > most:
+				most = spent
+				pick = sp
+		if pick == null:
+			return
+		c.progress.spell_uses[pick] = c.progress.uses_left(pick) + 1
+		_log("  %s has %s back (%d/%d uses)." % [c.display_name, pick.display_name, c.progress.uses_left(pick), c.progress.max_uses(pick)])
+		_emit({"type": "spell_use", "actor": c, "spell": pick, "uses": c.progress.uses_left(pick)})
 
 
 ## An enemy has fallen: every harmful effect on it laid by a companion whose calling passes them on
@@ -1251,7 +1413,8 @@ func _on_kill(c: CompanionUnit) -> void:
 	if sta > 0 and c.stamina < c.max_stamina():
 		c.stamina = mini(c.max_stamina(), c.stamina + sta)
 		_log("  %s's blood is up: +%d STA." % [c.display_name, sta])
-	var hp := _trait_sum(c, TraitModifier.Kind.KILL_HP)
+	var hp := _trait_sum(c, TraitModifier.Kind.KILL_HP) \
+		+ ceili(c.max_hp() * _trait_sum(c, TraitModifier.Kind.KILL_HP_PERCENT) / 100.0)
 	if hp > 0:
 		heal(c, hp)
 	c.felled_this_action = true
@@ -1396,7 +1559,10 @@ func _white_magic(c: CompanionUnit, spell: SpellData, target: CompanionUnit) -> 
 			_raise(c, target)
 		return
 	if spell.heals:
+		var beside := heal_spread(c, spell, target)
 		heal(target, heal_amount_on(c, spell, target))
+		for other in beside:
+			heal(other, heal_spread_amount(c, spell, other))
 	if spell.cleanse:
 		var removed: Array[String] = []
 		for e in target.effects.duplicate():
@@ -1441,7 +1607,7 @@ func _gain_proficiency(c: CompanionUnit, amount: int) -> void:
 	var t := w.weapon_type
 	var percent := _points_percent(c, t, -1)
 	var cap := proficiency_cap(c, t)
-	var scaled := amount * (100 + percent) / 100.0 + c.point_carry
+	var scaled := amount * (100 + percent) / 100.0 * BattleConfig.PROFICIENCY_PACE_PERCENT / 100.0 + c.point_carry
 	var whole := floori(scaled)
 	c.point_carry = scaled - whole
 	var room := maxi(0, cap - c.proficiency_gained)
@@ -1556,7 +1722,7 @@ func enemy_forecast(e: EnemyUnit, action: EnemyActionData, target: CompanionUnit
 	var taken_mult := TraitRules.percent_product(q)
 	q.kind = TraitModifier.Kind.DAMAGE_TAKEN
 	var taken_flat := TraitRules.sum(q)
-	var f := CombatMath.forecast(e, action.might, action.hit - avoid, 0, target, 0, action.damage_type, false, -1, 0, 0,
+	var f := CombatMath.forecast(e, action.might, action.hit - avoid - hexed_hit(e), 0, target, 0, action.damage_type, false, -1, 0, 0,
 		taken_mult, taken_flat)
 	f.crit = clampi(action.crit_percent, 0, 100)
 	return f
@@ -1796,6 +1962,8 @@ func _apply_effect(unit: Combatant, data: StatusEffectData, helpful: bool, sourc
 	var effect := StatusEffect.from_data(data)
 	if unit != source and (effect.damage_per_tick > 0 or (unit is EnemyUnit and effect.is_harmful())):
 		effect.source = source
+	if unit is EnemyUnit and source != null and effect.is_harmful():
+		effect.ticks_left += maxi(0, _trait_sum(source, TraitModifier.Kind.HEX_TURNS))
 	if unit is CompanionUnit and effect.is_harmful():
 		var shorter := _trait_sum(unit as CompanionUnit, TraitModifier.Kind.CURSE_TURNS)
 		if shorter != 0:

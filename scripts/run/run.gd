@@ -10,7 +10,7 @@ extends RefCounted
 ##   2. the player may change the party freely (who is fielded, their order, weapons, arts)
 ##   3. the player commits to the activity: a battle, or on a free day the event's choice first (if the
 ##      day has one), then the free-day action and any errands (smithy, tavern, infirmary), then End day
-##   4. ends: every companion not in the infirmary heals 20% of max HP, the run checks for its end, the
+##   4. ends: every companion not in the infirmary heals 10% of max HP, the run checks for its end, the
 ##      next day begins (and whoever's infirmary stay is over comes out)
 ##
 ## Commands return false (or "") and change nothing when not allowed; the *_block_reason queries say why.
@@ -30,7 +30,7 @@ const FACILITY_LINES := [
 	["The boss days and which boss comes are known", "Tomorrow's fronts are known a day early"],
 	["Opens enchanting", "The smith offers two enchantments to choose from"],
 	["One more hire offered each week", "Hires cost 25 gold less"],
-	["Everyone heals 30% overnight instead of 20%", "Every spell gets one use back each night"],
+	["Everyone heals 15% overnight instead of 10%", "Every spell gets one use back each night"],
 	["Stays are 3 days instead of 4", "Cures cost a quarter less"],
 	["Drills never come out poor", "A third drill is posted each week"],
 	["The reserve gets a quarter share of a battle's XP", "The reserve heals fully overnight"],
@@ -1932,6 +1932,47 @@ func take_calling(c: RunCompanion, calling: CallingData, school: int = -1, spell
 	_forget_calling_spells(c)
 	_top_up_callings()
 	return out
+
+
+## True when `c` has reached RunConfig.MASTERY_LEVEL with a calling and has not chosen its mastery. Like
+## the calling, the choice is made when the level is shown and the screens do not move on without it.
+func mastery_due(c: RunCompanion) -> bool:
+	return c != null and roster.has(c) and c.progress.calling != null and c.progress.mastery == null \
+		and c.level() >= RunConfig.MASTERY_LEVEL and not c.progress.calling.masteries.is_empty()
+
+
+## Everyone in the company whose mastery is due, in roster order.
+func masteries_due() -> Array[RunCompanion]:
+	var out: Array[RunCompanion] = []
+	for c in roster:
+		if mastery_due(c):
+			out.append(c)
+	return out
+
+
+## Why `c` cannot take `mastery` now, or "".
+func mastery_block_reason(c: RunCompanion, mastery: MasteryData) -> String:
+	if is_over():
+		return "The run is over."
+	if c == null or not roster.has(c):
+		return "Not in the company."
+	if c.progress.calling == null:
+		return "Comes after a calling."
+	if c.progress.mastery != null:
+		return "%s has already chosen %s." % [c.display_name(), c.progress.mastery.display_name]
+	if mastery == null or not c.progress.calling.masteries.has(mastery):
+		return "Not one of the %s's two." % c.progress.calling.display_name
+	if c.level() < RunConfig.MASTERY_LEVEL:
+		return "Comes at level %d." % RunConfig.MASTERY_LEVEL
+	return ""
+
+
+## `c` takes `mastery`, one of their calling's two, for good: one more line of rule from now on. Both
+## are always open to the holder (the calling was the draw). Returns false if not allowed.
+func take_mastery(c: RunCompanion, mastery: MasteryData) -> bool:
+	if mastery_block_reason(c, mastery) != "":
+		return false
+	return c.progress.take_mastery(mastery)
 
 
 ## Why `c` cannot put `calling` aside at the Drill Yard today, or "": a free day's action (the same one

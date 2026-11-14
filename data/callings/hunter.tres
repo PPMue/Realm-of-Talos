@@ -1,20 +1,48 @@
 [gd_resource type="Resource" script_class="CallingData" format=3]
 
-[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_2gsh6"]
-[ext_resource type="Script" path="res://scripts/data/calling_data.gd" id="2_1p0j3"]
+[ext_resource type="Script" path="res://scripts/data/mastery_data.gd" id="1_1p0j3"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_0l6lb"]
+[ext_resource type="Script" path="res://scripts/data/calling_data.gd" id="3_oaxnv"]
 
-[sub_resource type="Resource" id="Resource_0l6lb"]
-script = ExtResource("1_2gsh6")
+[sub_resource type="Resource" id="Resource_bk3v1"]
+script = ExtResource("2_0l6lb")
+kind = 63
+amount = 1
+target_turns_at_most = 2
+
+[sub_resource type="Resource" id="Resource_jfk8q"]
+script = ExtResource("1_1p0j3")
+id = "hunter_long_watch"
+display_name = "Long Watch"
+rule = "With 2 turns left or fewer."
+modifiers = Array[ExtResource("2_0l6lb")]([SubResource("Resource_bk3v1")])
+
+[sub_resource type="Resource" id="Resource_bq0tb"]
+script = ExtResource("2_0l6lb")
+kind = 6
+amount = 1
+target_turns_at_most = 1
+
+[sub_resource type="Resource" id="Resource_e5cwt"]
+script = ExtResource("1_1p0j3")
+id = "hunter_sure_shot"
+display_name = "Sure Shot"
+rule = "Such a blow cannot miss."
+modifiers = Array[ExtResource("2_0l6lb")]([SubResource("Resource_bq0tb")])
+
+[sub_resource type="Resource" id="Resource_7m018"]
+script = ExtResource("2_0l6lb")
 kind = 63
 amount = 1
 target_turns_at_most = 1
 
 [resource]
-script = ExtResource("2_1p0j3")
+script = ExtResource("3_oaxnv")
 id = "hunter"
 display_name = "Hunter"
 rule = "Whatever they land on an enemy with 1 turn left is critical."
 first_stat = "LEAD"
 second_stat = "DEX"
 slow_stat = "HP"
-modifiers = Array[ExtResource("1_2gsh6")]([SubResource("Resource_0l6lb")])
+modifiers = Array[ExtResource("2_0l6lb")]([SubResource("Resource_7m018")])
+masteries = Array[ExtResource("1_1p0j3")]([SubResource("Resource_jfk8q"), SubResource("Resource_e5cwt")])
