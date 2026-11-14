@@ -25,6 +25,9 @@ var moves := 0
 var swaps := 0
 ## Elite fights by day: day -> [faced, won] (a day given up counts as faced and lost).
 var elites: Dictionary = {}
+## Accessories crafted, by type id; and accessories put on (a new wearer).
+var crafted: Dictionary = {}
+var worn_changes := 0
 
 ## The order the city is built up in, timber facilities: what helps the company stay in the fight
 ## first (shorter stays, better overnight heal, stronger walls, XP for the bench), then the rest.
@@ -76,6 +79,7 @@ func play(run: Run) -> int:
 func prepare_party(run: Run) -> void:
 	for c in run.roster:
 		_equip_best(run, c)
+	hand_out_accessories(run)
 	var by_hp := run.available()
 	by_hp.sort_custom(func(a: RunCompanion, b: RunCompanion) -> bool: return a.hp < b.hp)
 	for c in run.lineup.duplicate():
@@ -137,8 +141,9 @@ func pick_front(run: Run) -> Front:
 
 
 ## One action a day (rest, repair, train or scavenge), so the first that applies: rest before a boss
-## if anything is spent, mend badly damaged walls, rest a hurt company, rest a lightly hurt one, mend
-## the walls, then with the action still unused scavenge when short of gold (under two drills' worth),
+## if anything is spent, mend badly damaged walls, rest a hurt company, rest a lightly hurt one, set a
+## stone at the Jeweler (see craft), mend the walls, then with the action still unused scavenge when
+## short of gold (under two drills' worth),
 ## else train (see train), else scavenge (see scavenge). Every one after the first that succeeds is
 ## refused, so trying them in order is enough. Between them, the errands that cost gold but never the action: cure (see cure_best), fill
 ## the line at the tavern, buy upgrades; they are done whether or not the action is spent.
@@ -156,6 +161,7 @@ func free_day(run: Run) -> void:
 	buy_upgrades(run)
 	if hp_fraction(run) < 0.8:
 		run.rest()
+	craft(run)
 	run.repair()
 	if run.gold < 2 * run.drill_cost():
 		scavenge(run)
@@ -218,8 +224,11 @@ func city_errands(run: Run) -> void:
 ## The iron ore list of city_errands. On a battle or boss day the upgrades cannot be built, so it goes as
 ## far as the first one not yet built.
 func _smithy_steps(run: Run) -> void:
+	if run.gem_total() > 0 and run.facility_level(Run.Facility.JEWELER) < 1:
+		_upgrade(run, Run.Facility.JEWELER)   # a stone in hand: the Jeweler first
 	for step: Array in [["up", Run.Facility.SMITHY, 1], ["enchant", false], ["up", Run.Facility.GATE, 1],
-			["up", Run.Facility.SMITHY, 2], ["enchant", true], ["up", Run.Facility.GATE, 2]]:
+			["up", Run.Facility.SMITHY, 2], ["enchant", true], ["up", Run.Facility.GATE, 2],
+			["up", Run.Facility.JEWELER, 2]]:
 		if step[0] == "up":
 			if run.facility_level(step[1]) >= step[2]:
 				continue
@@ -227,6 +236,131 @@ func _smithy_steps(run: Run) -> void:
 				break
 		elif not _enchant_line(run, step[1]):
 			break
+
+
+## The day's action at the Jeweler, when it is built and a stone is in hand, the best stone first, keeping
+## 40 gold besides the price: of the designs shown, the one worth most to whoever would wear it best
+## (accessory_value), handed out at once (hand_out_accessories).
+func craft(run: Run) -> void:
+	if run.facility_level(Run.Facility.JEWELER) < 1:
+		return
+	for rank in range(Gem.max_rank(), 0, -1):
+		if run.gem_count(rank) <= 0:
+			continue
+		if run.gold - int(run.craft_cost(rank)["gold"]) < 40 or run.craft_block_reason(rank) != "":
+			return
+		var offer := run.craft(rank)
+		var best := 0
+		var best_value := -INF
+		for i in offer.designs.size():
+			var v: float = _best_wearer(run, Accessory.new(offer.designs[i], rank))[1]
+			if v > best_value:
+				best = i
+				best_value = v
+		var a := run.take_craft(best)
+		crafted[a.type.id] = int(crafted.get(a.type.id, 0)) + 1
+		hand_out_accessories(run)
+		return
+
+
+## Gives every accessory not worn to whoever gains most from it (accessory_value): into a free place,
+## or in place of a worth less one they wear. The fielded count fully, the rest at half.
+func hand_out_accessories(run: Run) -> void:
+	if not run.can_change_party():
+		return
+	for a in run.accessories:
+		if run.wearer_of(a) != null:
+			continue
+		var pick: Array = _best_wearer(run, a)
+		var c: RunCompanion = pick[0]
+		if c == null or float(pick[1]) <= 0.0:
+			continue
+		if run.wear_block_reason(c, a) != "":
+			var worst: Accessory = null
+			for b in run.accessories_of(c):
+				if b.type == a.type:
+					worst = b
+					break
+				if worst == null or accessory_value(c, b) < accessory_value(c, worst):
+					worst = b
+			if worst == null or accessory_value(c, worst) >= float(pick[1]):
+				continue
+			run.take_off(worst)
+		if run.wear(c, a):
+			worn_changes += 1
+
+
+## [the companion who gains most from `a` (null if nobody can wear it), and how much].
+func _best_wearer(run: Run, a: Accessory) -> Array:
+	var best: RunCompanion = null
+	var best_value := -INF
+	for c in run.roster:
+		var v := accessory_value(c, a) * (1.0 if run.lineup.has(c) else 0.5)
+		if v > best_value:
+			best = c
+			best_value = v
+	return [best, best_value]
+
+
+## What `a` is worth to `c`, a rough score: each modifier's amount by what it does (the stat their
+## attack uses most, then the rest), a conditional one at half, one for others at twice.
+func accessory_value(c: RunCompanion, a: Accessory) -> float:
+	var caster := c.data.is_mage() or (c.weapon() != null and c.weapon().is_magic())
+	var spells := c.progress.known_spells.size()
+	var total := 0.0
+	for m in a.effect().modifiers:
+		var v := 0.0
+		var amount := float(m.amount)
+		match m.kind:
+			TraitModifier.Kind.STAT:
+				var main := Stat.MAG if caster else Stat.STR
+				v = amount * float({main: 10.0, Stat.DEF: 3.0, Stat.SPD: 3.0, Stat.DEX: 2.0, Stat.RES: 2.0, Stat.CRT: 1.5,
+					Stat.HP: 1.0, Stat.BLD: 1.0}.get(m.stat, 0.5))
+			TraitModifier.Kind.HIT, TraitModifier.Kind.AVOID:
+				v = amount * 0.6
+			TraitModifier.Kind.CRIT:
+				v = amount * 0.4
+			TraitModifier.Kind.DAMAGE:
+				v = amount * 4.0
+			TraitModifier.Kind.DAMAGE_PERCENT:
+				v = amount * 0.5
+			TraitModifier.Kind.PIERCE_PERCENT:
+				v = amount * 0.3
+			TraitModifier.Kind.THORNS:
+				v = amount * 1.5
+			TraitModifier.Kind.DAMAGE_TAKEN_PERCENT:
+				v = -amount * 0.6
+			TraitModifier.Kind.DAMAGE_TAKEN:
+				v = -amount * 4.0
+			TraitModifier.Kind.GUARD_PERCENT:
+				v = (amount - 50.0) * 0.1
+			TraitModifier.Kind.SURVIVE_SHARE:
+				v = 8.0 + amount * 0.3
+			TraitModifier.Kind.RECOVERY:
+				v = 6.0 * m.action_to
+			TraitModifier.Kind.FIRST_HIT_DELAY:
+				v = amount * 3.0
+			TraitModifier.Kind.SPELL_USES:
+				v = amount * 3.0 * spells
+			TraitModifier.Kind.SPELL_USES_LOSS:
+				v = -amount * 3.0 * spells
+			TraitModifier.Kind.HEAL_GIVEN:
+				v = amount * (1.0 if spells > 0 else 0.0)
+			TraitModifier.Kind.KILL_HP, TraitModifier.Kind.HEAL_RECEIVED, TraitModifier.Kind.FOCUS_RESTORE, \
+					TraitModifier.Kind.KILL_STAMINA, TraitModifier.Kind.BATTLE_WON_GOLD, TraitModifier.Kind.GROWTH:
+				v = amount * 0.6
+			TraitModifier.Kind.XP_PERCENT, TraitModifier.Kind.BATTLE_WON_HEAL_PERCENT, TraitModifier.Kind.INJURED_HEAL_ALLIES:
+				v = amount * 0.3
+			_:
+				v = amount * 0.1
+		if m.action == TraitModifier.Action.SPELL and spells == 0:
+			v = 0.0
+		if m.is_battle_only():
+			v *= 0.5
+		if m.who != TraitModifier.Who.SELF:
+			v *= 2.0
+		total += v
+	return total
 
 
 func _upgrade(run: Run, f: Run.Facility) -> bool:

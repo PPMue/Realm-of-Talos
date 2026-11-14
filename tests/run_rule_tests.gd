@@ -1393,6 +1393,10 @@ func test_playthrough() -> void:
 	var walls_after_empty := 0   # runs lost by the walls after a day given up for want of anyone
 	var beaten := {}   # boss group -> times beaten
 	var elites := {}   # elite day -> [faced, won]
+	var crafted := {}   # accessory type id -> made
+	var crafted_total := 0
+	var worn_changes := 0
+	var by_rank := [0, 0, 0, 0, 0]
 	var stones := 0
 	var stones_by_rank := [0, 0, 0, 0, 0]
 	for s in runs:
@@ -1421,6 +1425,12 @@ func test_playthrough() -> void:
 			var e: Array = elites.get(d, [0, 0])
 			elites[d] = [int(e[0]) + int(policy.elites[d][0]), int(e[1]) + int(policy.elites[d][1])]
 		stones += run.gems_taken
+		for id: String in policy.crafted:
+			crafted[id] = int(crafted.get(id, 0)) + int(policy.crafted[id])
+			crafted_total += int(policy.crafted[id])
+		worn_changes += policy.worn_changes
+		for a in run.accessories:
+			by_rank[a.rank - 1] += 1
 		for r in range(1, 6):
 			stones_by_rank[r - 1] += run.gem_count(r)
 		if run.outcome == Run.Outcome.DEFEAT and run.city_health <= 0 and policy.yielded > 0:
@@ -1492,6 +1502,13 @@ func test_playthrough() -> void:
 		elite_text.append("day %d %d / %d (%d%%)" % [d, elites[d][0], elites[d][1], roundi(100.0 * elites[d][1] / maxf(1, elites[d][0]))])
 	print("    elites (reached / won): %s" % ", ".join(elite_text))
 	print("    gemstones per run: %.2f (Topaz..Diamond %s)" % [float(stones) / runs, str(stones_by_rank)])
+	var made := crafted.keys()
+	made.sort_custom(func(a: String, b: String) -> bool: return crafted[a] > crafted[b] or (crafted[a] == crafted[b] and a < b))
+	var made_text: Array[String] = []
+	for id: String in made:
+		made_text.append("%s %d" % [id, crafted[id]])
+	print("    accessories per run: %.2f made (Topaz..Diamond %s), %.2f put on; %d types seen: %s" % [
+		float(crafted_total) / runs, str(by_rank), float(worn_changes) / runs, made.size(), ", ".join(made_text)])
 	var trips: int = scavenged[0] + scavenged[1] + scavenged[2]
 	print("    scavenging: %.1f trips per run (full %d%%, half %d%%, nothing %d%%); %.2f injured per run" % [
 		float(trips) / runs, roundi(100.0 * scavenged[0] / maxf(1, trips)), roundi(100.0 * scavenged[1] / maxf(1, trips)),
