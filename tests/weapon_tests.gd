@@ -550,7 +550,7 @@ func test_event_weapon_fits_the_week() -> void:
 	var total := 0
 	for s in 200:
 		var run := make_run(3000 + s)
-		run.day = [2, 9, 16, 23, 30, 37][s % 6]
+		run.day = [2, 9, 15, 23, 29, 37][s % 6]
 		run.event = armory if s % 2 == 0 else knight
 		run._draw_event_weapons()
 		var ch := any_choice if s % 2 == 0 else bow_choice

@@ -137,8 +137,9 @@ func names(cs: Array[RunCompanion]) -> Array[String]:
 
 # ---------------------------------------------------------------- calendar
 
-## Six weeks of seven days. Every week: battle, free, battle, free, battle, free, then a free day in
-## odd weeks and the boss in even weeks (days 14, 28, 42).
+## Six weeks of seven days. Week 1 and the boss weeks: battle, free, battle, free, battle, free, then a
+## free day in week 1 and the boss in the boss weeks (days 14, 28, 42). The week after a boss is turned
+## round: free, battle, free, battle, free, battle, free.
 func test_calendar_shape() -> void:
 	var D := RunCalendar.DayType
 	var cal := RunCalendar.generate()
@@ -157,19 +158,20 @@ func test_calendar_shape() -> void:
 			t.eq(RunCalendar.boss_index(d), d / 14 - 1, "boss index on day %d" % d)
 		var in_week := (d - 1) % 7 + 1
 		var week := (d - 1) / 7 + 1
-		var want: int = D.BATTLE if in_week % 2 == 1 else D.FREE
-		if in_week == 7:
-			want = D.FREE if week % 2 == 1 else D.BOSS
+		var shape: String = ["BFBFBFF", "BFBFBFX", "FBFBFBF", "BFBFBFX", "FBFBFBF", "BFBFBFX"][week - 1]
+		var want: int = {"B": D.BATTLE, "F": D.FREE, "X": D.BOSS}[shape[in_week - 1]]
 		t.eq(cal[d - 1], want, "day %d (week %d, day %d of the week)" % [d, week, in_week])
-		# Alternation: a fight is never followed by another fight, except a boss by the next week's
-		# first battle; two free days in a row only at the end of an odd week.
+		t.eq(RunCalendar.type_on(d), want, "type_on(%d)" % d)
+		t.eq(RunCalendar.after_boss_week(d), week == 3 or week == 5, "after_boss_week(%d)" % d)
+		if boss and d < cal.size():
+			t.eq(cal[d], D.FREE, "the day after the boss of day %d is free" % d)
+		# Alternation: never two fights in a row; two free days in a row only on days 6 and 7.
 		if d < cal.size():
 			var fight_today: bool = cal[d - 1] != D.FREE
 			var fight_next: bool = cal[d] != D.FREE
-			if fight_today and fight_next:
-				t.check(cal[d - 1] == D.BOSS, "two fights in a row only after a boss (day %d)" % d)
+			t.check(not (fight_today and fight_next), "never two fights in a row (day %d)" % d)
 			if not fight_today and not fight_next:
-				t.check(in_week == 6 and week % 2 == 1, "two free days in a row only at the end of an odd week (day %d)" % d)
+				t.eq(d, 6, "two free days in a row only on days 6 and 7 (day %d)" % d)
 	t.eq(counts[D.BATTLE], 18, "18 battles besides the bosses")
 	t.eq(counts[D.FREE], 21, "21 free days")
 	t.eq(counts[D.BOSS], 3, "3 bosses")
@@ -179,6 +181,16 @@ func test_calendar_shape() -> void:
 	t.eq(RunCalendar.week_of(42), 6, "day 42 is week 6")
 	for d in range(1, 43):
 		t.eq(RunCalendar.is_week_start(d), [1, 8, 15, 22, 29, 36].has(d), "week start on day %d" % d)
+	# Days until the next restock: within the run only.
+	t.eq(RunCalendar.days_until_restock(1), 7, "day 1: 7 days")
+	t.eq(RunCalendar.days_until_restock(7), 1, "day 7: tomorrow")
+	t.eq(RunCalendar.days_until_restock(8), 7, "day 8: 7 again")
+	t.eq(RunCalendar.days_until_restock(30), 6, "day 30: 6 (day 36)")
+	t.eq(RunCalendar.days_until_restock(35), 1, "day 35: 1")
+	for d in range(36, 43):
+		t.eq(RunCalendar.days_until_restock(d), -1, "day %d: no restock left" % d)
+	for d in range(1, 36):
+		t.check(RunCalendar.is_week_start(d + RunCalendar.days_until_restock(d)), "day %d: lands on a week start" % d)
 
 
 ## One event in every week, on a free day that is not the day before a boss.
