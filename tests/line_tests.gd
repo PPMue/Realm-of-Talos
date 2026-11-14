@@ -1,8 +1,7 @@
 extends RefCounted
 ## Headless tests for battle step 2, "the whole line fights" (design/battle.md): Guard covering a
 ## neighbour (Battle.guard with a ward, guard_wards, guard_preview) and sounding the retreat
-## (Battle.retreat, Run.finish_battle). The recovery cap is tested in run_tests.gd
-## (test_recovery_cap, test_recovery_cut_on_injury). Called from run_tests.gd, which owns check() and eq().
+## (Battle.retreat, Run.finish_battle). Called from run_tests.gd, which owns check() and eq().
 
 const RunRuleTests := preload("res://tests/run_rule_tests.gd")
 
@@ -114,7 +113,7 @@ func test_cover_effect_and_recovery_land_on_the_guard() -> void:
 	b.enemies[0].pending_target = ward
 	b.guard(guard, ward)
 	t.check(guard.has_effect("Dazed") and not ward.has_effect("Dazed"), "the effect on the guard")
-	t.eq(guard.recovery, 2 + 2, "the guard: its own 2 (three standing) and 2 from the blow")
+	t.eq(guard.recovery, 2 + 2, "the guard: its own 2 and 2 from the blow")
 	t.eq(ward.recovery, 0, "the ward: none")
 
 

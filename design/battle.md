@@ -104,10 +104,10 @@ as well as Clings to Life, and only blows (not damage over time) can be saved fr
 ## Step 2: the whole line fights
 
 - **Recovery is one longer for everything**: Attack, Guard and Focus 2; arts and spells 2 / 3 / 4 by
-  tier. **Nobody sits out longer than there are others standing**: with one other, at most 1; with
-  two, at most 2. (Today's rule that a lone companion ignores recovery is this rule with nobody else.)
-  So two alternate as now, three take turns, and four have one to spare each round: someone is always
-  ready, and which three act this round is a choice. Recovery an enemy adds comes on top, uncapped.
+  tier. ~~Nobody sits out longer than there are others standing~~ (proposed and built, then taken
+  out the same day at the user's word: see "The cap removed" below). Three take turns, and four have
+  one to spare each round; two act in turn and then wait one action. A companion standing alone
+  ignores recovery, as before. Recovery an enemy adds comes on top.
   To recheck: the Spur (now "3 or more"), Quick Hands, Relentless, grades per battle (the actions
   spread out), and the enemies' Health, since the weaker half of the line now strikes too.
 - **Guard a neighbour.** Guard is aimed: at oneself (half damage this turn, as now) or at whoever
@@ -141,6 +141,18 @@ Health. Balance: 16% of 200 runs won after the change (20% before); enemy Health
 lowered from 3.5% to 3% (`RunConfig.ENEMY_HP_GROWTH_PER_DAY`, day 42 x2.23 in place of x2.44) brought
 it to 21%. With four in the line the automated player's actions went 38% / 31% / 24% / 7%, busiest
 first: three rotate and the fourth acts only when chosen.
+
+**The cap removed** (2026-11-14, the user's decision after the figures below under "After step 2":
+with the cap, every action cost the same recovery once three or fewer stood). `Battle.recovery_cap`
+is gone: `action_recovery` and `art_recovery` return what the action carries (and 0 for a companion
+standing alone, whose recovery is also cleared the moment the last other falls). An injury no longer
+shortens anyone else's recovery. What follows from it: two standing (how a run begins) act in turn
+and then both recover, so the party waits one action in three and the enemies get that turn; with
+three, a tier 2 or 3 art leaves a Wait behind it unless the line is four; one alone acts every turn,
+so two standing act less often than one. The automated player, unchanged (it uses arts without
+counting the wait), won 13% of 200 runs (21% with the cap), the day 6 elite 59% (72%), the day 20
+elite 50% (59%), the day 34 elite 26% (23%). Nothing was retuned for it: step 3 changes Health on both
+sides and the balance is set again there.
 
 ## Step 3: more to say each turn
 
@@ -240,7 +252,7 @@ are injured, and Guard has a second use. What it did not do:
   but nothing makes them.
 - **With three or fewer standing every action costs the same**: the cap makes a tier 3 art's recovery
   (4) the same as an Attack's (2) with two others standing, and 1 with one. Stamina is then the only
-  price of a heavy art.
+  price of a heavy art. (Answered the same day: the cap was removed, see "The cap removed".)
 - **Retreating is common and cheap**: about one battle in six ends that way for the automated player
   (3.3 a run), and runs lost to the walls fell rather than rose. Whether that is right is for the
   user's play to say; the wall damage of a lost front is the knob.
@@ -257,5 +269,6 @@ are injured, and Guard has a second use. What it did not do:
 
 - Countdowns that drop once a round in place of once an action: the usual way to make a party count,
   but it gives up "every action is a turn" and every countdown in the data would be set again.
-- A flat Recovery 2 with no cap: two companions (how a run begins) would have to Wait every third turn.
+- ~~A flat Recovery 2 with no cap~~: left at first because two companions (how a run begins) have to
+  Wait every third turn; it is the rule now (see "The cap removed").
 - A bonus for striking after a different companion: two alternating already earn it.

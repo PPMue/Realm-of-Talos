@@ -225,7 +225,7 @@ func test_spell_costs_no_stamina_and_one_tick() -> void:
 
 
 func test_spell_recovery_by_tier() -> void:
-	# Four in the line (the cap is 3): tier 1 sits out 2, tier 2 3, tier 3 3 (held to the cap).
+	# Tier 1 sits out 2, tier 2 3, tier 3 4.
 	var four: Array[CompanionData] = t.three_companions()
 	four.append(t.make_companion("Fourth"))
 	for tier in [1, 2, 3]:
@@ -233,7 +233,7 @@ func test_spell_recovery_by_tier() -> void:
 		sp.recovery = tier + 1
 		var b := battle_with(four, one(enemy_with(0)), [sp])
 		b.cast(b.roster[2], sp, b.enemies[0])
-		t.eq(b.roster[2].recovery, mini(tier + 1, 3), "tier %d sits out %d" % [tier, mini(tier + 1, 3)])
+		t.eq(b.roster[2].recovery, tier + 1, "tier %d sits out %d" % [tier, tier + 1])
 	var lib := SpellLibrary.load_default()
 	for sp in lib.spells:
 		t.eq(sp.recovery, sp.tier + 1, "%s: recovery grows with tier" % sp.display_name)

@@ -9,11 +9,12 @@ extends RefCounted
 ##      companion, its target: the aim is fixed then and shown; see pick_next_action)
 ##   4. companion recovery counters tick down (not the companion who just acted)
 ##
-## A companion's recovery after their own action is never more than the others standing
-## (recovery_cap): two alternate, three take turns, four have one to spare. Recovery an enemy adds
-## comes on top. Guard can cover a standing neighbour (guard): single blows that would land on them
-## this turn land on the guard instead, halved. Outside a boss fight the company can sound the retreat
-## (retreat): the battle is lost at once and only those already injured are.
+## Recovery is what the action carries (BattleConfig.RECOVERY_*, an art's or spell's own), whoever
+## else stands: with an Attack's 2, three take turns and four have one to spare, while two both
+## recover after acting in turn and the party waits one action (wait). Only a companion standing
+## alone ignores recovery (is_lone_companion). Guard can cover a standing neighbour (guard): single
+## blows that would land on them this turn land on the guard instead, halved. Outside a boss fight the
+## company can sound the retreat (retreat): the battle is lost at once and only those already injured are.
 ##   5. damage over time (poison, burning) strikes every unit that carries it
 ##   6. timed effects (Guard, buffs, defends, debuffs) lose a tick and expire
 ##
@@ -148,20 +149,10 @@ func kills_of(c: CompanionUnit) -> int:
 
 
 ## True when only one companion is able to act at all; that companion ignores recovery (enemy-added
-## too). The same rule as recovery_cap with nobody else standing.
+## too): there is nobody to act in their place.
 func is_lone_companion(c: CompanionUnit) -> bool:
 	var active := active_companions()
 	return active.size() == 1 and active[0] == c
-
-
-## The most actions `c` sits out after their own action: the other companions standing. With one
-## other at most 1, with two at most 2, alone 0. Recovery an enemy adds (add_recovery) is not held to it.
-func recovery_cap(c: CompanionUnit) -> int:
-	var n := 0
-	for o in active_companions():
-		if o != c:
-			n += 1
-	return n
 
 
 func can_act(c: CompanionUnit) -> bool:
@@ -204,26 +195,30 @@ func art_block_reason(c: CompanionUnit, art: CombatArtData) -> String:
 
 
 ## Actions `c` sits out after `art`: its recovery plus what traits change (TraitModifier.Kind.RECOVERY),
-## never below 0, and never more than recovery_cap (the number the action menu shows is what happens).
+## never below 0; none for a companion standing alone (the number the action menu shows is what happens).
 func art_recovery(c: CompanionUnit, art: CombatArtData) -> int:
+	if is_lone_companion(c):
+		return 0
 	var q := c.trait_query(TraitModifier.Kind.RECOVERY)
 	q.action = TraitModifier.Action.ART
 	q.weapon_type = art.weapon_type
 	q.recovery = art.recovery
-	return clampi(art.recovery + TraitRules.sum(q), 0, recovery_cap(c))
+	return maxi(0, art.recovery + TraitRules.sum(q))
 
 
 ## Actions `c` sits out after an attack, a spell, Guard or Focus (`action`: TraitModifier.Action, ANY for
 ## Guard and Focus): `base` plus what traits and accessories change (TraitModifier.Kind.RECOVERY; a
-## Spur only where `base` is 3 or more), never below 0 and never more than recovery_cap. An art's:
+## Spur only where `base` is 3 or more), never below 0; none for a companion standing alone. An art's:
 ## art_recovery.
 func action_recovery(c: CompanionUnit, base: int, action: int = TraitModifier.Action.ANY, school: int = -1) -> int:
+	if is_lone_companion(c):
+		return 0
 	var q := c.trait_query(TraitModifier.Kind.RECOVERY)
 	q.action = action
 	q.school = school
 	q.weapon_type = c.weapon().weapon_type if action == TraitModifier.Action.ATTACK and c.weapon() != null else -1
 	q.recovery = base
-	return clampi(base + TraitRules.sum(q), 0, recovery_cap(c))
+	return maxi(0, base + TraitRules.sum(q))
 
 
 ## Stamina `art` costs `c`: its own cost plus what traits add (TraitModifier.Kind.ART_STAMINA), never
@@ -897,7 +892,7 @@ func _end_player_action(c: CompanionUnit, recovery: int, steady: bool = false) -
 	if c.felled_this_action and _trait_any(c, TraitModifier.Kind.KILL_NO_RECOVERY):
 		recovery = 0
 		_log("  %s presses on: no recovery." % c.display_name)
-	c.recovery = mini(recovery, recovery_cap(c))   # someone may have fallen during the action
+	c.recovery = 0 if is_lone_companion(c) else recovery   # the others may have fallen during the action
 	var breath := _trait_sum(c, TraitModifier.Kind.ACTION_STAMINA)
 	if breath != 0 and c.is_active():
 		c.stamina = clampi(c.stamina + breath, 0, c.max_stamina())
@@ -1523,9 +1518,10 @@ func _injure(c: CompanionUnit) -> void:
 	if c == _cover_guard or c == _cover_ward:
 		_cover_guard = null
 		_cover_ward = null
-	# Fewer standing: nobody waits longer than there are others now (enemy-added recovery included).
+	# The last one standing waits for nobody (enemy-added recovery included).
 	for o in active_companions():
-		o.recovery = mini(o.recovery, recovery_cap(o))
+		if is_lone_companion(o):
+			o.recovery = 0
 	for e in _aimed_at(c):
 		var to := _draw_aim(e, e.pending_action)
 		if to == null:

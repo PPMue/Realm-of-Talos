@@ -508,7 +508,7 @@ func test_hourglass() -> void:
 
 ## A Spur: their first actions of a battle have 1 less recovery where the action's own is 3 or more (so
 ## never below 2); an action of recovery 2 (an attack, Guard, Focus, a tier 1 art) is unchanged but
-## still counts as one of the first. Four in the line, so the cap (3) does not get in the way.
+## still counts as one of the first.
 func test_spur() -> void:
 	var b := battle([one("spur", 2)], 4)
 	var u := b.roster[0]
@@ -533,9 +533,9 @@ func test_spur() -> void:
 	t.eq(b.art_recovery(u, art), 3, "the second action is not the Topaz's")
 	var plain := battle([], 4)
 	t.eq(plain.action_recovery(plain.roster[0], 3, TraitModifier.Action.SPELL), 3, "without it, as before")
-	# The cap still holds: with two in the line a Spur changes nothing (both 1).
+	# The same with two in the line.
 	var two := battle([one("spur", 5)], 2)
-	t.eq(two.action_recovery(two.roster[0], 3, TraitModifier.Action.SPELL), 1, "two in the line: held to 1 anyway")
+	t.eq(two.action_recovery(two.roster[0], 3, TraitModifier.Action.SPELL), 2, "two in the line: 3 becomes 2 there too")
 
 
 ## A Compass: the party brings back more (and the wearer counts higher in what is asked).

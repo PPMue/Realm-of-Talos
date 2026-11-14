@@ -60,8 +60,8 @@ func _init() -> void:
 		test_countdown_ticks_and_repicks,
 		test_enemies_act_left_to_right,
 		test_recovery_lengths,
-		test_recovery_cap,
-		test_recovery_cut_on_injury,
+		test_recovery_whoever_stands,
+		test_recovery_when_others_fall,
 		test_lone_companion_ignores_recovery,
 		test_wait_only_when_nobody_can_act,
 		test_guard_halves_damage_and_expires,
@@ -435,7 +435,6 @@ func four_companions(hp: int = 20) -> Array[CompanionData]:
 
 
 func test_recovery_lengths() -> void:
-	# Four standing: the cap (3) does not get in the way of recovery 2.
 	var b := make_battle(four_companions(), one_enemy(idle_enemy(1000)))
 	var l := b.roster[0]
 	var m := b.roster[1]
@@ -459,28 +458,34 @@ func test_recovery_lengths() -> void:
 	check(b.can_act(m), "the guard ready after two")
 
 
-## Nobody sits out longer than there are others standing: with 1, 2, 3, 4 standing an action of
-## recovery 2 and an art of recovery 4 come to 0/0, 1/1, 2/2, 2/3; enemy-added recovery comes on top.
-func test_recovery_cap() -> void:
+## Recovery is what the action carries, whoever else stands: an Attack's 2 and a recovery 4 art's 4
+## with two, three or four standing. Only a companion standing alone has none. Enemy-added recovery
+## comes on top.
+func test_recovery_whoever_stands() -> void:
 	var slow := make_art("Slow", 3, 5, 4)
-	for row: Array in [[1, 0, 0], [2, 1, 1], [3, 2, 2], [4, 2, 3]]:
+	for n in [1, 2, 3, 4]:
 		var cs: Array[CompanionData] = []
-		for i in row[0]:
+		for i in n:
 			cs.append(make_companion("C%d" % i))
 		var b := make_battle(cs, one_enemy(idle_enemy(1000)))
 		var c := b.roster[0]
-		eq(b.recovery_cap(c), row[0] - 1, "%d standing: cap %d" % [row[0], row[0] - 1])
-		eq(b.action_recovery(c, BattleConfig.RECOVERY_ATTACK, TraitModifier.Action.ATTACK), row[1], "%d standing: attack" % row[0])
-		eq(b.art_recovery(c, slow), row[2], "%d standing: a recovery 4 art" % row[0])
+		var own := 0 if n == 1 else 2
+		eq(b.action_recovery(c, BattleConfig.RECOVERY_ATTACK, TraitModifier.Action.ATTACK), own, "%d standing: attack" % n)
+		eq(b.art_recovery(c, slow), 0 if n == 1 else 4, "%d standing: a recovery 4 art" % n)
 		b.attack(c, b.enemies[0])
-		eq(c.recovery, row[1], "%d standing: what attacking leaves" % row[0])
-	# Places in the line that are injured do not count.
-	var b5 := make_battle(four_companions(), one_enemy(idle_enemy(1000)))
-	set_injured(b5.roster[1])
-	set_injured(b5.roster[2])
-	eq(b5.recovery_cap(b5.roster[0]), 1, "two of four injured: cap 1")
-	# Turns go round: with three, everyone attacking in turn, nobody ever waits and each acts a third.
-	for n in [2, 3, 4]:
+		eq(c.recovery, own, "%d standing: what attacking leaves" % n)
+	# Two standing: each acts, then both recover and the party waits one action.
+	var two: Array[CompanionData] = [make_companion("A"), make_companion("B")]
+	var b2 := make_battle(two, one_enemy(idle_enemy(100000)))
+	for i in 6:
+		check(not b2.can_wait(), "two standing: the first is ready")
+		b2.attack(b2.roster[0], b2.enemies[0])
+		check(b2.can_act(b2.roster[1]) and not b2.can_act(b2.roster[0]), "two standing: the second is ready")
+		b2.attack(b2.roster[1], b2.enemies[0])
+		check(b2.can_wait(), "two standing: both recovering, Wait")
+		b2.wait()
+	# Three attacking in turn never wait and each acts a third; four have one to spare.
+	for n in [3, 4]:
 		var cs: Array[CompanionData] = []
 		for i in n:
 			cs.append(make_companion("C%d" % i))
@@ -494,19 +499,28 @@ func test_recovery_cap() -> void:
 			var c := ready[0]
 			counts[c] = int(counts.get(c, 0)) + 1
 			b.attack(c, b.enemies[0])
-		for c in b.roster:
-			if n < 4:
-				eq(int(counts.get(c, 0)), 24 / n, "%d standing: %s acts in turn" % [n, c.display_name])
-	# Enemy-added recovery goes on top, uncapped.
+		if n == 3:
+			for c in b.roster:
+				eq(int(counts.get(c, 0)), 8, "three standing: %s acts in turn" % c.display_name)
+	# A heavy art costs turns: with three standing, a recovery 4 art leaves a Wait behind it.
+	var b4 := make_battle(three_companions(), one_enemy(idle_enemy(100000)))
+	var a := b4.roster[0]
+	a.progress.learn(slow)
+	a.progress.equip(slow)
+	check(b4.use_art(a, slow, b4.enemies[0]), "art used")
+	eq(a.recovery, 4, "three standing: 4")
+	b4.attack(b4.roster[1], b4.enemies[0])
+	b4.attack(b4.roster[2], b4.enemies[0])
+	check(b4.can_wait(), "the other two have acted and the art's user is still recovering: Wait")
+	# Enemy-added recovery goes on top.
 	var b3 := make_battle(three_companions(), one_enemy(idle_enemy(1000)))
 	b3.attack(b3.roster[0], b3.enemies[0])
 	b3.add_recovery(b3.roster[0], 3)
 	eq(b3.roster[0].recovery, 5, "2 of its own, 3 from the enemy: 5")
 
 
-## When a companion is injured, every other standing companion's recovery is cut to the new cap, enemy-
-## added recovery included.
-func test_recovery_cut_on_injury() -> void:
+## An injury leaves the others' recovery as it was, until one stands alone: that one waits for nobody.
+func test_recovery_when_others_fall() -> void:
 	var slow := make_art("Slow", 3, 5, 4)
 	var b := make_battle(four_companions(), one_enemy(idle_enemy(1000)))
 	var a := b.roster[0]
@@ -514,26 +528,18 @@ func test_recovery_cut_on_injury() -> void:
 	a.progress.learn(slow)
 	a.progress.equip(slow)
 	check(b.use_art(a, slow, b.enemies[0]), "art used")
-	eq(a.recovery, 3, "four standing: 3")
+	eq(a.recovery, 4, "four standing: 4")
 	b.add_recovery(c, 3)
 	eq(c.recovery, 3, "enemy-added: 3")
 	b._damage_companion(b.roster[2], 999, false)
-	eq(a.recovery, 2, "three standing: cut to 2")
-	eq(c.recovery, 2, "enemy-added cut too")
+	eq(a.recovery, 4, "three standing: unchanged")
+	eq(c.recovery, 3, "enemy-added unchanged")
 	b._damage_companion(b.roster[3], 999, false)
-	eq(a.recovery, 1, "two standing: cut to 1")
-	eq(c.recovery, 1, "and 1")
-	check(b.can_wait(), "both waiting: Wait")
-	b.wait()
-	check(b.can_act(a) and b.can_act(c), "one Wait and both are ready")
-	# Someone recovering less than the cap keeps what they have.
-	var b2 := make_battle(four_companions(), one_enemy(idle_enemy(1000)))
-	b2.attack(b2.roster[0], b2.enemies[0])
-	b2.attack(b2.roster[1], b2.enemies[0])
-	eq(b2.roster[0].recovery, 1, "1 left")
-	b2._damage_companion(b2.roster[3], 999, false)
-	eq(b2.roster[0].recovery, 1, "under the cap: unchanged")
-	eq(b2.roster[1].recovery, 2, "at the cap: unchanged")
+	eq(a.recovery, 4, "two standing: unchanged")
+	check(b.can_wait(), "both recovering: Wait")
+	b._damage_companion(c, 999, false)
+	eq(a.recovery, 0, "alone: none")
+	check(b.can_act(a), "the last one standing acts at once")
 
 
 func test_lone_companion_ignores_recovery() -> void:
@@ -560,10 +566,11 @@ func test_wait_only_when_nobody_can_act() -> void:
 	var e := b.enemies[0]
 	check(not b.can_wait(), "no wait while someone is ready")
 	check(not b.wait(), "wait refused")
-	# Two standing never both wait on their own actions (the cap is 1); an enemy's added recovery can.
+	# Two standing: once both have acted, both are recovering.
 	b.use_art(b.roster[0], b.roster[0].arts()[0], e)
 	check(b.can_act(b.roster[1]), "the other is ready")
-	b.add_recovery(b.roster[1], 2)
+	check(not b.can_wait(), "no wait while the other is ready")
+	b.guard(b.roster[1])
 	check(b.ready_companions().is_empty(), "both recovering")
 	check(b.can_wait(), "wait offered")
 	var cd := e.countdown

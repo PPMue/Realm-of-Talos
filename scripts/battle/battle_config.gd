@@ -27,8 +27,8 @@ const RECOVERY_ATTACK := 2
 const RECOVERY_GUARD := 2
 const RECOVERY_FOCUS := 2
 # Combat arts and spells carry their own recovery in their data (tier 1: 2, tier 2: 3, tier 3: 4).
-# Nobody sits out longer than there are others standing (Battle.recovery_cap); recovery an enemy adds
-# comes on top.
+# Recovery an enemy adds comes on top. When nobody is ready the party waits (Battle.wait); a companion
+# standing alone ignores recovery.
 
 # --- Guard (lasts until the end of the tick it was used in) ---
 const GUARD_DAMAGE_TAKEN_MULT := 0.5

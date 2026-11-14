@@ -22,6 +22,7 @@ The folder must exist. Each script prints what it did and quits; look for `SCRIP
 | `mason_plan.gd` | The Mason's plan with all ten facilities |
 | `battle_aims.gd` | A battle with the enemy's hand shown: each enemy's coming action, target and figures, what is aimed at each portrait, the threads, the sheets, and three turns played (a day to fight on may follow the folder; default 16) |
 | `battle_line.gd` | A battle where the whole line fights: Guard asking whom to shield, what the guard would take and the thread swinging to them, the blow caught, then the retreat asked for, sounded and its result (a day may follow the folder; default 16) |
+| `battle_wait.gd` | A line of two, as a run begins: both act, both are recovering, the orders offer only Wait; the wait and the turn after |
 
 How they are written, for the next one:
 
