@@ -257,7 +257,8 @@ func show_companion(c: CompanionUnit, battle: Battle, active_id: String, enabled
 		b.title = art.display_name
 		var cost := battle.art_cost(c, art)
 		b.detail = "%d stamina" % cost
-		var about := art_info(art)
+		var rest := battle.art_recovery(c, art)
+		var about := art_info(art, cost, rest)
 		var why := ""
 		if battle.art_block_reason(c, art) != "":
 			if enabled and active_id == "":
@@ -269,7 +270,7 @@ func show_companion(c: CompanionUnit, battle: Battle, active_id: String, enabled
 				why = "Needs %d stamina, %s has %d. Focus to recover." % [cost, c.display_name, c.stamina]
 			about = "%s\n%s" % [why, about]
 		_descriptions[art_id(i)] = about
-		_facts[art_id(i)] = {"figures": ArtFacts.art_figures(art, cost), "lines": ArtFacts.art_lines(art), "accent": UiTheme.GOLD, "note": why}
+		_facts[art_id(i)] = {"figures": ArtFacts.art_figures(art, cost, rest), "lines": ArtFacts.art_lines(art), "accent": UiTheme.GOLD, "note": why}
 
 	if active_id != "":
 		var index := art_index(active_id)
@@ -356,9 +357,11 @@ func show_spells(c: CompanionUnit, battle: Battle, active_id: String, enabled: b
 
 
 ## Tier, cost, recovery and effect of an art, for the info panel.
-static func art_info(art: CombatArtData) -> String:
+## `cost` and `recovery` (when 0 or more) are what they are for whoever would use it now.
+static func art_info(art: CombatArtData, cost: int = -1, recovery: int = -1) -> String:
 	return "Tier %s · %d stamina · Recovery %d\n%s" % [
-		CombatArtData.tier_numeral(art.tier), art.stamina_cost, art.recovery, art.effect_summary()]
+		CombatArtData.tier_numeral(art.tier), cost if cost >= 0 else art.stamina_cost, recovery if recovery >= 0 else art.recovery,
+		art.effect_summary()]
 
 
 ## School, tier, uses, recovery and effect of a spell, for the info panel.

@@ -8,9 +8,9 @@ extends RefCounted
 
 
 ## The figures of an art: [[number, word], ...]. `cost` (when 0 or more) is what it costs whoever
-## would use it (their traits can change it); otherwise the art's own cost.
-static func art_figures(art: CombatArtData, cost: int = -1) -> Array:
-	return [[str(cost if cost >= 0 else art.stamina_cost), "STAMINA"], [str(art.recovery), "RECOVERY"]]
+## would use it (their traits can change it); otherwise the art's own cost. `recovery` likewise.
+static func art_figures(art: CombatArtData, cost: int = -1, recovery: int = -1) -> Array:
+	return [[str(cost if cost >= 0 else art.stamina_cost), "STAMINA"], [str(recovery if recovery >= 0 else art.recovery), "RECOVERY"]]
 
 
 ## The figures of a spell. `uses_left` (when 0 or more) shows how many casts remain of its uses;

@@ -350,9 +350,9 @@ func _refresh() -> void:
 	var why := "Nobody to drill." if _who == null or _drill == null else run.drill_block_reason(_drill, _who)
 	_begin.disabled = why != ""
 	_begin.title = "Set them to it" if _who == null or _drill == null else "%s: %s" % [_who.display_name(), _drill.display_name.to_lower()]
-	_begin.detail = "%d gold" % RunConfig.DRILL_COST
+	_begin.detail = "%d gold" % run.drill_cost()
 	_begin.tooltip_text = why if why != "" else "%s takes the %s. It costs %d gold and is the one thing done today." % [
-		_who.display_name(), _drill.display_name.to_lower(), RunConfig.DRILL_COST]
+		_who.display_name(), _drill.display_name.to_lower(), run.drill_cost()]
 	_why.text = why
 	_begin.queue_redraw()
 
@@ -408,7 +408,7 @@ func _notice(d: Drill, index: int) -> Control:
 		var right := NOTICE.x - 34.0
 		UiTheme.draw_text(paper, display, Vector2(x, 22.0), d.display_name, 38, ink)
 		# The price, top right.
-		var price := "%d" % RunConfig.DRILL_COST
+		var price := "%d" % run.drill_cost()
 		var pw := display.get_string_size(price, HORIZONTAL_ALIGNMENT_LEFT, -1, 30).x
 		UiTheme.draw_text(paper, display, Vector2(right - pw, 28.0), price, 30, ink)
 		UiIcons.coin(paper, Vector2(right - pw - 24.0, 49.0), 26.0, UiTheme.GOLD_DEEP)
@@ -460,7 +460,7 @@ func _notice(d: Drill, index: int) -> Control:
 
 ## The rules' wording when the purse is short (the notice still shows what the drill would do).
 func _gold_reason() -> String:
-	return "Needs %d gold." % RunConfig.DRILL_COST
+	return "Needs %d gold." % run.drill_cost()
 
 
 ## One of the company in the list on the left, with where they stand in the chosen drill.

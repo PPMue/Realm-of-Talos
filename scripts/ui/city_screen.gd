@@ -556,8 +556,10 @@ func _in_world(reason: String) -> String:
 ## What an event choice changes, in one line. `ahead`: phrased before choosing (names who would be hurt).
 static func choice_effects(r: Run, ch: EventChoiceData, ahead: bool) -> String:
 	var parts: Array[String] = []
-	if ch.gold != 0:
-		parts.append("%+d gold" % ch.gold)
+	# Gold as the company pays or gets it (a trait can lower a price).
+	var gold := r.choice_gold(ch)
+	if gold != 0:
+		parts.append("%+d gold" % gold)
 	for m in RunConfig.MATERIAL_ORDER:
 		var n := int(ch.materials.get(m, 0))
 		if n != 0:
@@ -633,7 +635,7 @@ func _refresh_buildings() -> void:
 				var posted: Array[String] = []
 				for d in run.drills:
 					posted.append(d.display_name.trim_suffix(" drill"))
-				b.status = ("%s  ·  %d gold" % [", ".join(posted), RunConfig.DRILL_COST]) if why == "" else _short(why)
+				b.status = ("%s  ·  %d gold" % [", ".join(posted), run.drill_cost()]) if why == "" else _short(why)
 			CityBuilding.Kind.INN:
 				var why := run.free_action_block_reason(A.REST)
 				b.open = why == ""

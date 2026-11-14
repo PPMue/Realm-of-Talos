@@ -492,7 +492,9 @@ func _shop_row(item: ShopItemData) -> RowButton:
 		row.sub += "  ·  effective against %s" % ", ".join(w.effective_against).to_lower()
 	var why := run.buy_block_reason(item)
 	row.disabled = why != ""
-	row.detail = "%d gold" % item.price if why == "" else "%d gold  ·  %s" % [item.price, why.trim_suffix(".").to_lower()]
+	# The price as the company pays it (a trait can lower it).
+	var price := run.shop_price(item)
+	row.detail = "%d gold" % price if why == "" else "%d gold  ·  %s" % [price, why.trim_suffix(".").to_lower()]
 	row.pressed.connect(buy.bind(item))
 	row.mouse_entered.connect(func() -> void:
 		_pointed = w
