@@ -29,6 +29,7 @@ var _gold_label: Label
 var _iron_label: Label
 var _timber_label: Label
 var _strip := DayStrip.new()
+var _gems := Control.new()
 var _party_row := HBoxContainer.new()
 var _news := Control.new()
 var _news_title: Label
@@ -97,7 +98,15 @@ func refresh(animate: bool = true) -> void:
 	var bosses := {}
 	for d in run.boss_days_ahead():
 		bosses[d] = run.boss_on(d)
-	_strip.set_days(run.day, run.upcoming(), bosses, run.event_days)
+	# The stone a big fight brings is marked on its day (not on a boss day the watch has not yet seen).
+	var ahead := run.upcoming()
+	var stones := {}
+	for i in ahead.size():
+		if RunCalendar.is_big_fight(ahead[i]) and run.gem_for_fight(run.day + i) > 0:
+			stones[run.day + i] = run.gem_for_fight(run.day + i)
+	_strip.set_days(run.day, ahead, bosses, run.event_days, stones)
+	_gems.queue_redraw()
+	_gems.tooltip_text = _gems_text()
 	_strip.position = Vector2((1920.0 - _strip.size.x) * 0.5, 8.0)
 	_city.set_phase(_phase(), animate)
 	_refresh_buildings()
@@ -143,7 +152,7 @@ func open_scavenge() -> void:
 
 func open_war_table() -> void:
 	var t := run.day_type()
-	if not run.is_over() and (t == RunCalendar.DayType.BATTLE or t == RunCalendar.DayType.BOSS):
+	if not run.is_over() and RunCalendar.is_fight(t):
 		_war_table.open(run)
 
 
@@ -238,13 +247,15 @@ func visit(kind: CityBuilding.Kind) -> void:
 		CityBuilding.Kind.MASON:
 			# Open on any day: the plan of the city's works can always be read.
 			_mason_screen.open(run)
+		CityBuilding.Kind.JEWELER:
+			_say("The Jeweler", "The shutters are up. The masons have not built the workshop yet.")
 
 
 # ---------------------------------------------------------------- the gate, the watch, events, the opening
 
 func _visit_gate() -> void:
 	match run.day_type():
-		RunCalendar.DayType.BATTLE, RunCalendar.DayType.BOSS:
+		RunCalendar.DayType.BATTLE, RunCalendar.DayType.BOSS, RunCalendar.DayType.ELITE:
 			if run.yield_block_reason() == "":
 				_open_yield()
 			else:
@@ -444,7 +455,7 @@ func _phase() -> CityBackdrop.Phase:
 	if run.is_over():
 		return CityBackdrop.Phase.NIGHT
 	match run.day_type():
-		RunCalendar.DayType.BATTLE:
+		RunCalendar.DayType.BATTLE, RunCalendar.DayType.ELITE:
 			return CityBackdrop.Phase.DAWN
 		RunCalendar.DayType.BOSS:
 			return CityBackdrop.Phase.DREAD
@@ -461,6 +472,8 @@ func _mood() -> String:
 	match run.day_type():
 		RunCalendar.DayType.BATTLE:
 			return "The horns are sounding"
+		RunCalendar.DayType.ELITE:
+			return "Their best are at the walls"
 		RunCalendar.DayType.BOSS:
 			return "%s is at the gates" % _boss_name()
 	if run.event_pending():
@@ -482,6 +495,8 @@ func _day_title() -> String:
 	match run.day_type():
 		RunCalendar.DayType.BATTLE:
 			return "The horns are sounding"
+		RunCalendar.DayType.ELITE:
+			return "Their best have come"
 		RunCalendar.DayType.BOSS:
 			return _boss_name()
 	if run.event_pending():
@@ -493,6 +508,8 @@ func _day_text() -> String:
 	match run.day_type():
 		RunCalendar.DayType.BATTLE:
 			return "The enemy is moving on the walls. The smith and the tavern are still open. Go to the gate when the company is ready."
+		RunCalendar.DayType.ELITE:
+			return "The enemy has sent its best against two places, and whoever breaks them brings home a stone. The smith and the tavern are still open. Go to the gate when the company is ready."
 		RunCalendar.DayType.BOSS:
 			return "It has come to the gate itself. If the company falls today, the city falls with it."
 	if run.event_pending():
@@ -576,6 +593,8 @@ static func choice_effects(r: Run, ch: EventChoiceData, ahead: bool) -> String:
 			parts.append("%+d HP to %s" % [ch.companion_hp, name])
 	if ch.weapon != null:
 		parts.append("gain a %s" % ch.weapon.display_name)
+	if r.choice_gem(ch) > 0:
+		parts.append("gain a %s" % Gem.name_of(r.choice_gem(ch)))
 	return "nothing changes" if parts.is_empty() else "   ·   ".join(parts)
 
 
@@ -603,6 +622,8 @@ func _refresh_buildings() -> void:
 				match t:
 					RunCalendar.DayType.BATTLE:
 						b.status = "The horns are sounding"
+					RunCalendar.DayType.ELITE:
+						b.status = "Their best are at the walls"
 					RunCalendar.DayType.BOSS:
 						b.status = "%s is here" % _boss_name()
 					_:
@@ -644,6 +665,9 @@ func _refresh_buildings() -> void:
 			CityBuilding.Kind.MASON:
 				b.open = true
 				b.status = "Mend the walls, trade, build up the city"
+			CityBuilding.Kind.JEWELER:
+				b.open = false
+				b.status = "Not built yet"
 
 
 ## A building's reason for being shut, short enough for its board.
@@ -787,6 +811,12 @@ func _build() -> void:
 	_gold_label = _store(1640, "Gold: pays for weapons, hires and some choices.")
 	_iron_label = _store(1740, "Iron ore: the masons need it to mend the walls, and it is traded now and then.")
 	_timber_label = _store(1832, "Timber: the masons need it to mend the walls.")
+	# The stones in hand, under the stores: only those the company holds.
+	_gems.position = Vector2(1560, 56)
+	_gems.size = Vector2(330, 30)
+	_gems.mouse_filter = Control.MOUSE_FILTER_PASS
+	_gems.draw.connect(_draw_gems)
+	add_child(_gems)
 
 	# The company, standing in the square.
 	_party_row.position = Vector2(0, 952)
@@ -867,6 +897,34 @@ func _draw_top() -> void:
 	UiIcons.coin(_top, Vector2(1622, 34), 24.0, UiTheme.GOLD)
 	UiIcons.ore(_top, Vector2(1722, 35), 24.0, Color("9aa3ad"))
 	UiIcons.timber(_top, Vector2(1812, 35), 26.0, Color("a0794a"))
+
+
+## The gemstones in hand, weakest first, each with how many: right-aligned under the stores.
+func _draw_gems() -> void:
+	if run == null:
+		return
+	var font := UiTheme.display_font()
+	var x := _gems.size.x
+	for rank in range(Gem.max_rank(), 0, -1):
+		var n := run.gem_count(rank)
+		if n <= 0:
+			continue
+		var text := str(n)
+		x -= font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
+		UiTheme.draw_text(_gems, font, Vector2(x, 2.0), text, 20, UiTheme.TEXT, 5)
+		x -= 17.0
+		UiIcons.gem(_gems, Vector2(x, 15.0), 20.0, rank)
+		x -= 26.0
+
+
+func _gems_text() -> String:
+	var held: Array[String] = []
+	for rank in range(1, Gem.max_rank() + 1):
+		if run.gem_count(rank) > 0:
+			held.append("%d %s" % [run.gem_count(rank), Gem.name_of(rank)])
+	if held.is_empty():
+		return ""
+	return "Gemstones: %s.\nThe jeweler sets a stone into something to wear." % ", ".join(held)
 
 
 func _store(x: float, tip: String) -> Label:

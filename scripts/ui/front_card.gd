@@ -68,7 +68,7 @@ func setup(p_front: Front, hotkey: String, why_not: String = "") -> void:
 	_pips = Control.new()
 	_pips.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_pips.position = Vector2(_edge_x(y + 30.0) + 26.0, y)
-	_pips.size = Vector2(_w * 0.6, 30)
+	_pips.size = Vector2(_w - 60.0, 30)
 	_pips.draw.connect(_draw_pips)
 	add_child(_pips)
 	y += 40.0
@@ -176,6 +176,8 @@ func _setup_boss(hotkey: String, why_not: String) -> void:
 
 	var rx := x0 - 22.0
 	y = _add_row(y, "REWARD", _reward_text(), UiTheme.GOLD, rx)
+	if front.gem > 0:
+		y = _add_row(y, "STONE", "", UiTheme.GOLD, rx, front.gem)
 	y = _add_row(y, "IF LOST", "THE CITY FALLS", UiTheme.INJURED, rx)
 
 	_button.title = "FACE IT"
@@ -203,13 +205,36 @@ func _reward_text() -> String:
 	return "  ·  ".join(parts)
 
 
-func _add_row(y: float, head: String, text: String, color: Color, x: float = 0.0) -> float:
+## One line of the report: a small heading and what it says. A long line shrinks to stay on the card.
+## `gem`: the rank of a stone drawn in place of the text (what a win brings besides); 0 for none.
+func _add_row(y: float, head: String, text: String, color: Color, x: float = 0.0, gem: int = 0) -> float:
 	var h := UiTheme.label(head, 18, UiTheme.MUTED, true)
 	h.position = Vector2(_edge_x(y + 30.0) + 26.0 + x, y + 4.0)
 	add_child(h)
+	var at := Vector2(_edge_x(y + 30.0) + 130.0 + x, y)
+	if gem > 0:
+		var font := UiTheme.display_font()
+		var tag := Control.new()
+		tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tag.position = at
+		tag.size = Vector2(240, 34)
+		tag.draw.connect(func() -> void:
+			UiIcons.gem(tag, Vector2(13.0, 18.0), 26.0, gem)
+			UiTheme.draw_text(tag, font, Vector2(34.0, 2.0), Gem.name_of(gem).to_upper(), 24, UiIcons.gem_color(gem), 6))
+		add_child(tag)
+		return y + 38.0
 	var l := UiTheme.label(text, 24, color, true, 6)
-	l.position = Vector2(_edge_x(y + 30.0) + 130.0 + x, y)
+	l.position = at
+	var room := _w - at.x - 30.0
 	add_child(l)
+	# Measured once it is on the table: a label has no width to speak of before that.
+	var fit := func() -> void:
+		var px := 24
+		while px > 15 and l.get_minimum_size().x > room:
+			px -= 1
+			l.add_theme_font_size_override("font_size", px)
+		l.position.y = at.y + (24 - px) * 0.7
+	l.ready.connect(fit)
 	return y + 38.0
 
 
@@ -284,7 +309,15 @@ func _draw_pips() -> void:
 		var r := Rect2(96.0 + i * 40.0, 2.0, 34.0, 24.0)
 		UiTheme.fill_para(_pips, r, c if i < front.danger else Color(UiTheme.INK, 0.8))
 		UiTheme.stroke_para(_pips, r, c if i < front.danger else UiTheme.EDGE, 2.0)
-	UiTheme.draw_text(_pips, font, Vector2(226.0, 2), DANGER_NAMES[front.danger - 1], 22, c)
+	UiTheme.draw_text(_pips, font, Vector2(226.0, 2), "ELITE" if front.is_elite else DANGER_NAMES[front.danger - 1], 22,
+		DayStrip.type_color(RunCalendar.DayType.ELITE) if front.is_elite else c)
+	if front.gem > 0:
+		# The stone a win here brings, at the right end of the line.
+		var stone := Gem.name_of(front.gem).to_upper()
+		var sw := font.get_string_size(stone, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
+		var right := _pips.size.x - 4.0
+		UiTheme.draw_text(_pips, font, Vector2(right - sw, 3), stone, 20, UiIcons.gem_color(front.gem), 5)
+		UiIcons.gem(_pips, Vector2(right - sw - 18.0, 15.0), 24.0, front.gem)
 
 
 func _restyle() -> void:

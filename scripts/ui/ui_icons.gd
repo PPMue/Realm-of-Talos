@@ -20,6 +20,12 @@ static func sun(ci: CanvasItem, c: Vector2, size: float, color: Color) -> void:
 		ci.draw_line(c + d * h * 0.62, c + d * h * 0.95, color, maxf(1.5, size * 0.08), true)
 
 
+## Crossed swords under a cut stone: an elite fight.
+static func elite(ci: CanvasItem, c: Vector2, size: float, color: Color) -> void:
+	swords(ci, c + Vector2(0, size * 0.14), size * 0.84, color)
+	diamond(ci, c + Vector2(0, -size * 0.36), size * 0.18, color.lightened(0.4))
+
+
 ## A rolled letter.
 static func scroll(ci: CanvasItem, c: Vector2, size: float, color: Color) -> void:
 	var h := size * 0.5
@@ -68,6 +74,34 @@ static func wagon(ci: CanvasItem, c: Vector2, size: float, color: Color) -> void
 	for x: float in [-0.52, 0.28]:
 		ci.draw_circle(c + Vector2(x * h, h * 0.56), h * 0.3, wood)
 		ci.draw_circle(c + Vector2(x * h, h * 0.56), h * 0.11, color)
+
+
+## The five stones, weakest first: topaz, sapphire, emerald, ruby, diamond (rank 1 to 5).
+const GEM_COLORS: Array[Color] = [Color("e8b23a"), Color("4a7fe0"), Color("37b377"), Color("d23c4a"), Color("dff1ff")]
+
+
+static func gem_color(rank: int) -> Color:
+	return GEM_COLORS[clampi(rank - 1, 0, GEM_COLORS.size() - 1)]
+
+
+## A cut stone of `rank` (1 topaz ... 5 diamond): a flat table, a crown and a point, with its facets.
+static func gem(ci: CanvasItem, c: Vector2, size: float, rank: int, alpha: float = 1.0) -> void:
+	var h := size * 0.5
+	var color := Color(gem_color(rank), alpha)
+	var girdle_y := c.y - h * 0.22
+	var top := PackedVector2Array([c + Vector2(-h * 0.5, -h * 0.72), c + Vector2(h * 0.5, -h * 0.72), Vector2(c.x + h * 0.9, girdle_y),
+		Vector2(c.x - h * 0.9, girdle_y)])
+	var point := PackedVector2Array([Vector2(c.x - h * 0.9, girdle_y), Vector2(c.x + h * 0.9, girdle_y), c + Vector2(0, h * 0.86)])
+	ci.draw_colored_polygon(point, color.darkened(0.22))
+	ci.draw_colored_polygon(top, color.lightened(0.18))
+	# The lit facets: one of the crown, one of the point.
+	ci.draw_colored_polygon(PackedVector2Array([c + Vector2(-h * 0.5, -h * 0.72), c + Vector2(-h * 0.1, -h * 0.72),
+		Vector2(c.x - h * 0.32, girdle_y), Vector2(c.x - h * 0.9, girdle_y)]), color.lightened(0.5))
+	ci.draw_colored_polygon(PackedVector2Array([Vector2(c.x - h * 0.32, girdle_y), Vector2(c.x + h * 0.3, girdle_y), c + Vector2(0, h * 0.86)]), color)
+	var edge := Color(color.darkened(0.55), alpha)
+	var outline := PackedVector2Array([top[0], top[1], top[2], point[2], top[3], top[0]])
+	ci.draw_polyline(outline, edge, maxf(1.0, size * 0.05), true)
+	ci.draw_line(top[3], top[2], edge, maxf(1.0, size * 0.04), true)
 
 
 ## A lump of ore.

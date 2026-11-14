@@ -610,6 +610,8 @@ func _draw_report() -> void:
 		lines.append(_materials_text(_result.materials))
 	if _result.weapon_found != null:
 		lines.append("Found: %s. It waits in the armory." % _result.weapon_found.display_name)
+	if _result.gem > 0:
+		lines.append("A %s, found among it" % Gem.name_of(_result.gem))
 	if _result.gold <= 0 and lines.is_empty():
 		UiTheme.draw_text(_report, italic, Vector2(pad, 350.0), "Nothing.", 24, Color(muted, f))
 	else:

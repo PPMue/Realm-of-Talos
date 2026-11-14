@@ -6,12 +6,12 @@ extends Control
 
 signal pressed
 
-enum Kind { TAVERN, SMITHY, INN, MASON, BARRACKS, WATCHTOWER, GATE, YARD, INFIRMARY }
+enum Kind { TAVERN, SMITHY, INN, MASON, BARRACKS, WATCHTOWER, GATE, YARD, INFIRMARY, JEWELER }
 
 const NAMES := {
 	Kind.TAVERN: "The Tavern", Kind.SMITHY: "The Smithy", Kind.INN: "The Inn", Kind.MASON: "Mason's Yard",
 	Kind.BARRACKS: "The Barracks", Kind.WATCHTOWER: "The Watchtower", Kind.GATE: "The Gate",
-	Kind.YARD: "The Drill Yard", Kind.INFIRMARY: "The Infirmary",
+	Kind.YARD: "The Drill Yard", Kind.INFIRMARY: "The Infirmary", Kind.JEWELER: "The Jeweler",
 }
 ## Where each building stands in the 1920x1080 scene.
 const RECTS := {
@@ -24,6 +24,7 @@ const RECTS := {
 	Kind.SMITHY: Rect2(1440, 580, 410, 320),
 	Kind.YARD: Rect2(505, 752, 290, 168),
 	Kind.INFIRMARY: Rect2(1150, 742, 270, 178),
+	Kind.JEWELER: Rect2(18, 392, 190, 152),
 }
 
 var kind: Kind = Kind.TAVERN
@@ -158,6 +159,8 @@ func _draw() -> void:
 			_yard()
 		Kind.INFIRMARY:
 			_infirmary()
+		Kind.JEWELER:
+			_jeweler()
 	if interactive:
 		_board()
 
@@ -567,3 +570,53 @@ func _infirmary() -> void:
 	draw_rect(Rect2(60, 160, 36, 5), _t(CityArt.WOOD))
 	draw_rect(Rect2(63, 165, 4, 13), _t(CityArt.WOOD.darkened(0.2)))
 	draw_rect(Rect2(89, 165, 4, 13), _t(CityArt.WOOD.darkened(0.2)))
+
+
+## The jeweler's: a narrow shop under a steep slate roof by the wall, the day's stones laid out behind
+## the glass of its bay window, a striped awning over it and a cut stone for a sign. Shut (not built
+## yet), the window is boarded up and nothing is lit.
+func _jeweler() -> void:
+	var a := ambient
+	var plaster := CityArt.PLASTER.lightened(0.05)
+	CityArt.chimney(self, Rect2(136, 14, 14, 44), CityArt.STONE_DARK, a)
+	CityArt.wall(self, Rect2(24, 66, 142, 86), plaster, a, 10.0)
+	CityArt.gable(self, 24, 166, 68, 60, plaster, CityArt.ROOF_SLATE, a)
+	var beam := _t(CityArt.TIMBER)
+	draw_rect(Rect2(24, 66, 5, 86), beam)
+	draw_rect(Rect2(161, 66, 5, 86), beam)
+	draw_rect(Rect2(24, 100, 142, 5), beam)
+	CityArt.window(self, Rect2(85, 32, 20, 24), glow, a, open, true)
+	CityArt.window(self, Rect2(44, 74, 22, 20), glow, a, open)
+	CityArt.window(self, Rect2(124, 74, 22, 20), glow, a, open)
+	# The shop window: lit all day, with the stones on a dark cloth along its foot.
+	var bay := Rect2(36, 114, 72, 32)
+	draw_rect(bay.grow(3.0), beam)
+	if open:
+		draw_rect(bay, _t(Color("3a2c22")).lerp(CityArt.LAMP, 0.35 + 0.3 * glow))
+		draw_circle(bay.get_center(), 44.0, Color(CityArt.LAMP, 0.06 + 0.10 * glow))
+		draw_rect(Rect2(bay.position.x, bay.end.y - 11.0, bay.size.x, 11.0), Color(0.12, 0.08, 0.14))
+		for i in 5:
+			var at := Vector2(bay.position.x + 10.0 + i * 13.0, bay.end.y - 7.0)
+			UiIcons.gem(self, at, 10.0, i + 1)
+			var twinkle := 0.5 + 0.5 * sin(time * 2.4 + i * 1.7)
+			draw_circle(at + Vector2(-1.5, -3.0), 1.2 + 0.8 * twinkle, Color(1, 1, 1, 0.35 + 0.5 * twinkle))
+		draw_line(Vector2(bay.get_center().x, bay.position.y), Vector2(bay.get_center().x, bay.end.y), beam, 2.0)
+	else:
+		draw_rect(bay, _t(CityArt.WOOD.darkened(0.3)))
+		for i in range(1, 5):
+			var x := bay.position.x + bay.size.x * i / 5.0
+			draw_line(Vector2(x, bay.position.y), Vector2(x, bay.end.y), _t(CityArt.TIMBER.darkened(0.2)), 2.0)
+		draw_line(bay.position + Vector2(0, 6), bay.end - Vector2(0, 6), _t(Color("2b2622")), 3.0)
+	# A striped awning over the window.
+	var stripe_a := _t(Color("2f6b62"))
+	var stripe_b := _t(Color("e6dcc0"))
+	for i in 6:
+		var x0 := 30.0 + i * 14.0
+		draw_colored_polygon(PackedVector2Array([Vector2(x0 + 4.0, 103), Vector2(x0 + 16.0, 103), Vector2(x0 + 14.0, 114), Vector2(x0, 114)]),
+			stripe_a if i % 2 == 0 else stripe_b)
+	draw_line(Vector2(30, 114), Vector2(114, 114), _t(Color("e2c477")), 2.0)
+	CityArt.door(self, Rect2(122, 110, 30, 42), Color("34485a"), a)
+	draw_rect(Rect2(116, 148, 42, 4), _t(CityArt.STONE.lightened(0.1)))
+	# The sign: a cut stone.
+	var c := CityArt.sign_board(self, Vector2(24, 78), a, -1.0, Vector2(34, 32))
+	UiIcons.gem(self, c + Vector2(0, 1), 22.0, 5 if open else 2, 1.0 if open else 0.55)

@@ -1,7 +1,8 @@
 class_name DayStrip
 extends Control
 ## The days ahead, as a row of small medallions at the top of the city: today, larger, then the next
-## days, each with a picture of what it holds (swords, sun, horned skull; a free day that begins with
+## days, each with a picture of what it holds (swords, sun, horned skull, swords under a stone for an
+## elite fight; a free day that begins with
 ## an event shows a letter in the sun's place). A small wagon at a day's rim says the smithy and the
 ## tavern have something new that morning (the first day of a week). When the next boss
 ## lies beyond the days shown, one more medallion after a gap marks it. Hovering one says what the day
@@ -18,6 +19,7 @@ const TYPE_COLORS := {
 	RunCalendar.DayType.BATTLE: Color("c9503f"),
 	RunCalendar.DayType.FREE: Color("e6c878"),
 	RunCalendar.DayType.BOSS: Color("e0914a"),
+	RunCalendar.DayType.ELITE: Color("b98cf2"),
 }
 ## A free day that begins with an event.
 const EVENT_COLOR := Color("cdbb96")
@@ -31,11 +33,13 @@ const TYPE_WORDS := {
 	RunCalendar.DayType.BATTLE: "A battle",
 	RunCalendar.DayType.FREE: "A free day",
 	RunCalendar.DayType.BOSS: "A boss",
+	RunCalendar.DayType.ELITE: "An elite fight",
 }
 const TYPE_HINTS := {
 	RunCalendar.DayType.BATTLE: "The enemy attacks in two or three places. You choose one to defend.",
 	RunCalendar.DayType.FREE: "Time for one thing: rest, drill, mend the walls or send a party beyond them. Buying, hiring and healing take only coin.",
 	RunCalendar.DayType.BOSS: "One fight, no choice of where. If it is lost, the city falls.",
+	RunCalendar.DayType.ELITE: "Their best, in two places, both as dangerous as it gets. You choose one to defend.",
 }
 
 var _first_day := 1
@@ -46,6 +50,8 @@ var _event_days: Array[int] = []
 var _bosses: Dictionary = {}
 ## The next boss day when it lies beyond the days shown, else 0.
 var _next_boss := 0
+## Day -> the rank of the gemstone a win that day brings (the elites, and the bosses but the last).
+var _gems: Dictionary = {}
 
 
 func _init() -> void:
@@ -62,14 +68,17 @@ static func draw_type_icon(ci: CanvasItem, t: int, c: Vector2, size: float, colo
 			UiIcons.swords(ci, c, size, color)
 		RunCalendar.DayType.FREE:
 			UiIcons.sun(ci, c, size, color)
+		RunCalendar.DayType.ELITE:
+			UiIcons.elite(ci, c, size, color)
 		_:
 			UiIcons.skull(ci, c, size, color)
 
 
 ## `types[0]` is today (day `first_day`). `bosses`: boss day -> boss group, for the days still ahead.
-## `event_days`: the free days that begin with an event.
-func set_days(first_day: int, types: Array[int], bosses: Dictionary = {}, event_days: Array[int] = []) -> void:
+## `event_days`: the free days that begin with an event. `gems`: day -> the rank of the stone a win brings.
+func set_days(first_day: int, types: Array[int], bosses: Dictionary = {}, event_days: Array[int] = [], gems: Dictionary = {}) -> void:
 	_first_day = first_day
+	_gems = gems
 	_types = types
 	_event_days = event_days
 	_bosses = bosses
@@ -114,6 +123,8 @@ func _get_tooltip(at_position: Vector2) -> String:
 				EVENT_HINT if event else TYPE_HINTS.get(t, "")]
 			if i < _types.size() and RunCalendar.is_week_start(d):
 				text += "\n" + (WAGON_TODAY if ahead == 0 else WAGON_WORDS)
+			if int(_gems.get(d, 0)) > 0:
+				text += "\nA win brings a %s." % Gem.name_of(int(_gems[d]))
 			if t == RunCalendar.DayType.BOSS:
 				text += "\n\n" + bosses_ahead_text(d)
 			return text
@@ -151,7 +162,7 @@ func _draw() -> void:
 		var r := TODAY_R if today else DAY_R
 		var event := t == RunCalendar.DayType.FREE and _event_days.has(d)
 		var color := EVENT_COLOR if event else type_color(t)
-		var boss := t == RunCalendar.DayType.BOSS
+		var boss := t == RunCalendar.DayType.BOSS or t == RunCalendar.DayType.ELITE
 		draw_circle(c + Vector2(0, 2), r + 2.0, Color(0, 0, 0, 0.45))
 		draw_circle(c, r, UiTheme.PANEL_HI if today else Color(UiTheme.INK, 0.92))
 		draw_arc(c, r, 0.0, TAU, 40, UiTheme.GOLD if today else (color if boss else UiTheme.GOLD_DEEP), 3.0 if today else 2.0, true)
@@ -167,6 +178,13 @@ func _draw() -> void:
 			draw_circle(at, WAGON_R, UiTheme.INK)
 			draw_arc(at, WAGON_R, 0.0, TAU, 24, UiTheme.GOLD if today else UiTheme.GOLD_DEEP, 1.5, true)
 			UiIcons.wagon(self, at + Vector2(0.5, -1.0), 18.0, UiTheme.TEXT if today else UiTheme.TEXT.lerp(UiTheme.MUTED, 0.3))
+		var stone := int(_gems.get(d, 0))
+		if stone > 0:
+			# The stone a win that day brings, at the rim.
+			var at := c + Vector2(r * 0.88, r * 0.6)
+			draw_circle(at + Vector2(0, 1.5), 10.0, Color(0, 0, 0, 0.5))
+			draw_circle(at, 9.0, UiTheme.INK)
+			UiIcons.gem(self, at + Vector2(0, 0.5), 13.0, stone)
 		var label := "today" if today else str(d)
 		UiTheme.draw_text(self, font, Vector2(c.x - 40.0, c.y + r + 3.0), label, 13, UiTheme.GOLD if today else UiTheme.MUTED, 3, 80.0,
 			HORIZONTAL_ALIGNMENT_CENTER)

@@ -112,7 +112,7 @@ func _init() -> void:
 	_ambience.draw.connect(_draw_ambience)
 	add_child(_clouds)
 	# Back to front: the wall's buildings, the far side of the square, then the near side.
-	for kind: CityBuilding.Kind in [CityBuilding.Kind.WATCHTOWER, CityBuilding.Kind.GATE, CityBuilding.Kind.BARRACKS,
+	for kind: CityBuilding.Kind in [CityBuilding.Kind.JEWELER, CityBuilding.Kind.WATCHTOWER, CityBuilding.Kind.GATE, CityBuilding.Kind.BARRACKS,
 			CityBuilding.Kind.INN, CityBuilding.Kind.MASON, CityBuilding.Kind.YARD, CityBuilding.Kind.INFIRMARY, CityBuilding.Kind.TAVERN,
 			CityBuilding.Kind.SMITHY]:
 		var b := CityBuilding.new(kind)

@@ -85,6 +85,8 @@ func open(p_run: Run) -> void:
 	_title.text = "THE WAR TABLE" if not boss else "THE LAST LINE"
 	_words.text = "The scouts have marked where they will strike today. We can hold only one of these; the others we leave to the walls." \
 		if not boss else "There is nowhere else to stand today. If we fall here, the city falls with us."
+	if run.day_type() == RunCalendar.DayType.ELITE:
+		_words.text = "Their best stand in two places today, and neither is the easier. We can hold only one; whoever breaks them brings home a stone."
 	_build_cards()
 	refresh_company()
 	visible = true
