@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_6y7tx"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_8id0g"]
+
+[sub_resource type="Resource" id="Resource_uxmc3"]
+script = ExtResource("1_6y7tx")
+kind = 52
+amount = 25
+
+[resource]
+script = ExtResource("2_8id0g")
+id = "pack_mule"
+display_name = "Pack Mule"
+family = 8
+rarity = 1
+gives = Array[String](["Scavenging: the party brings back 25% more"])
+modifiers = Array[ExtResource("1_6y7tx")]([SubResource("Resource_uxmc3")])

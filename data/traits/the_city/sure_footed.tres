@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_17bar"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_wa13m"]
+
+[sub_resource type="Resource" id="Resource_2nd0r"]
+script = ExtResource("1_17bar")
+kind = 51
+amount = 1
+
+[resource]
+script = ExtResource("2_wa13m")
+id = "sure_footed"
+display_name = "Sure-Footed"
+family = 8
+rarity = 1
+gives = Array[String](["Scavenging: never comes back injured"])
+modifiers = Array[ExtResource("1_17bar")]([SubResource("Resource_2nd0r")])

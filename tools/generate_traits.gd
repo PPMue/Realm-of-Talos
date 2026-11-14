@@ -7,7 +7,7 @@ extends SceneTree
 ##   godot --headless --path . -s res://tools/generate_traits.gd
 
 ## Waves built: 1 numbers with a condition, 2 single moments, 3 other people and scavenging.
-const BUILT_WAVE := 2
+const BUILT_WAVE := 3
 const REWRITE_ALL := false
 const OUT := "res://data/traits"
 const FAMILY_DIRS: Array[String] = ["weapon_hands", "schools", "body_and_mind", "two_edged", "the_line",

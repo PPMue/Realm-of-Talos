@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_bcobe"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_501dt"]
+
+[sub_resource type="Resource" id="Resource_f1jui"]
+script = ExtResource("1_bcobe")
+kind = 48
+amount = 5
+
+[resource]
+script = ExtResource("2_501dt")
+id = "martyr"
+display_name = "Martyr"
+family = 9
+rarity = 1
+gives = Array[String](["When they are injured, every ally heals 5"])
+modifiers = Array[ExtResource("1_bcobe")]([SubResource("Resource_f1jui")])

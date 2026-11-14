@@ -13,8 +13,8 @@ const TraitHookTests := preload("res://tests/trait_hook_tests.gd")
 ## The waves built (tools/generate_traits.gd BUILT_WAVE): traits by family (TraitData.Family order),
 ## and ids of later waves that must not be in the library yet.
 const BUILT := [
-	[25, 8, 11, 22, 13, 18, 12, 19, 11, 0],
-	["inspiring", "mentor", "standard_bearer", "battle_kin", "pathfinder", "sure_footed", "pack_mule"],
+	[25, 8, 11, 22, 13, 18, 12, 19, 14, 10],
+	[],
 ]
 
 

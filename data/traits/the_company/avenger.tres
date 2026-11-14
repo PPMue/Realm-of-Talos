@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_bry7r"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_nne02"]
+
+[sub_resource type="Resource" id="Resource_mlcw7"]
+script = ExtResource("1_bry7r")
+kind = 4
+amount = 3
+ally_injured = true
+
+[resource]
+script = ExtResource("2_nne02")
+id = "avenger"
+display_name = "Avenger"
+family = 9
+rarity = 1
+gives = Array[String](["+3 damage for the rest of the battle once an ally is injured"])
+modifiers = Array[ExtResource("1_bry7r")]([SubResource("Resource_mlcw7")])

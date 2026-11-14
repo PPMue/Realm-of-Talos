@@ -22,6 +22,9 @@ func tests() -> Array[Callable]:
 		test_apprentice_leans_higher,
 		test_second_trade_follows_the_grades,
 		test_battle_gains_in_the_report,
+		test_mentor,
+		test_sure_footed,
+		test_pack_mule,
 	]
 
 
@@ -38,7 +41,7 @@ static func covered_ids() -> Array[String]:
 
 
 ## Traits checked by a test of their own rather than the table.
-const OWN_TESTS: Array[String] = ["apprentice"]
+const OWN_TESTS: Array[String] = ["apprentice", "mentor", "sure_footed", "pack_mule"]
 
 
 # ---------------------------------------------------------------- helpers
@@ -323,6 +326,14 @@ func measure_out(traits: Array[TraitData], metric: String, opts: Dictionary) -> 
 			return run.choice_gold(ch)
 		"won_gold", "won_timber", "won_ore", "won_hp", "reserve_xp", "lost_walls":
 			return _battle_metric(run, holder, metric, opts)
+		"scav_score":
+			var site := ScavengeSite.new()
+			var slot := ScavengeSite.Slot.new()
+			slot.stat = Stat.SPD
+			slot.target = int(holder.progress.stats()[Stat.SPD])
+			site.slots.append(slot)
+			site.size = 1
+			return run.scavenge_slot_score(site, 0, holder)
 	t.check(false, "unknown metric %s" % metric)
 	return 0
 
@@ -367,7 +378,7 @@ func _battle_metric(run: Run, holder: RunCompanion, metric: String, opts: Dictio
 
 const OUT_METRICS := ["day_heal", "company_heal", "infirmary", "xp", "cure_cost", "drill_poor", "learn_steps", "hire_cost",
 	"drill_cost", "shop_price", "repair_amount", "event_gold", "won_gold", "won_timber", "won_ore", "won_hp", "reserve_xp",
-	"lost_walls"]
+	"lost_walls", "scav_score"]
 
 
 ## [trait id, metric, change, options].
@@ -417,6 +428,23 @@ static func table() -> Array:
 		["camp_cook", "company_heal", 2, {}], ["camp_cook", "day_heal", 2, {}], ["camp_cook", "company_heal", 0, {"away": true}],
 		["night_watch", "lost_walls", -3, {"bench": true}], ["night_watch", "lost_walls", 0, {}],
 		["silver_tongue", "event_gold", 20, {}],
+		# The company (wave 3).
+		["inspiring", "hit", 5, {"line": 2, "holder": 1, "slot": 0}], ["inspiring", "hit", 5, {"line": 2, "holder": 0, "slot": 1}],
+		["inspiring", "hit", 0, {"line": 3, "holder": 0, "slot": 2}], ["inspiring", "hit", 0, {"line": 2, "holder": 1, "slot": 1}],
+		["watchful", "enemy_hit", -10, {"line": 2, "holder": 1, "slot": 0}], ["watchful", "enemy_hit", 0, {"line": 2, "holder": 1, "slot": 1}],
+		["avenger", "damage", 3, {"line": 2, "ally_injured": true}], ["avenger", "damage", 0, {"line": 2}],
+		["rival", "crit", 10, {"line": 2, "rival": true}], ["rival", "crit", 0, {"line": 2}],
+		["lead_by_example", "hit", 15, {"line": 2, "holder": 1, "slot": 0, "holder_kills": true}],
+		["lead_by_example", "hit", 0, {"line": 2, "holder": 1, "slot": 1, "holder_kills": true}],
+		["lead_by_example", "hit", 0, {"line": 2, "holder": 1, "slot": 0}],
+		["martyr", "martyr", 5, {"line": 2, "holder": 0, "slot": 1}],
+		["battle_kin", "stat:STR", 1, {"line": 2}], ["battle_kin", "stat:STR", 2, {"line": 3, "slot": 1}],
+		["battle_kin", "stat:DEF", 2, {"line": 3, "slot": 1}], ["battle_kin", "stat:STR", 0, {"line": 1}],
+		["battle_kin", "stat:STR", 1, {"line": 3, "slot": 1, "ally_injured": true}],
+		["envied", "prof_cap", 2, {"line": 2, "holder": 1, "slot": 0}], ["envied", "prof_cap", 0, {"line": 2, "holder": 1, "slot": 1}],
+		["standard_bearer", "hit", 3, {"line": 3, "holder": 0, "slot": 2}], ["standard_bearer", "hit", 0, {"line": 3, "holder": 0, "slot": 0}],
+		# Scavenging (wave 3).
+		["pathfinder", "scav_score", 9, {}],
 	]
 	return rows
 
@@ -544,6 +572,91 @@ func test_second_trade_follows_the_grades() -> void:
 			50 if wt == WeaponData.WeaponType.BOW else 0, "+50%% only in the second-best (%s)" % WeaponData.type_name(wt))
 	p.points[WeaponData.WeaponType.SPEAR] = 30
 	t.eq(TraitRules.second_best_type(p), WeaponData.WeaponType.SPEAR, "and it follows as the grades change")
+
+
+## The lowest-level companion in the line gets +20% XP from a won battle; nobody else does.
+func test_mentor() -> void:
+	var xp := []
+	for traits: Array in [[], [trait_of("mentor")]]:
+		var typed: Array[TraitData] = []
+		typed.assign(traits)
+		var got := city(typed, {"seed": 7})
+		var run: Run = got[0]
+		var holder: RunCompanion = got[1]
+		var other: RunCompanion = got[2]
+		for c in run.roster:
+			if c != other:
+				c.progress.level = 5
+		run.day = 3
+		run.calendar[2] = RunCalendar.DayType.BATTLE
+		run._begin_day()
+		var b := run.start_battle(run.fronts[0])
+		for e in b.enemies:
+			e.hp = 0
+		b._check_end()
+		var report := run.finish_battle(b)
+		xp.append([report.xp_of(other.display_name()), report.xp_of(holder.display_name())])
+	t.eq(xp[1][0], int(xp[0][0]) * 120 / 100, "the lowest-level one: +20% (%d from %d)" % [xp[1][0], xp[0][0]])
+	t.eq(xp[1][1], xp[0][1], "the Mentor: as before")
+
+
+## A scavenging trip: `traits` on the first two sent (holder and other), a high-risk site where the holder
+## is 5 short and the other meets the target; the run's generator seeded with `s`.
+func _trip(holder_traits: Array[TraitData], other_traits: Array[TraitData], s: int) -> Array:
+	var got := city(holder_traits, {"seed": 11})
+	var run: Run = got[0]
+	var holder: RunCompanion = got[1]
+	var other: RunCompanion = got[2]
+	other.traits = other_traits
+	var site := ScavengeSite.new()
+	site.display_name = "Test Ruin"
+	site.size = 2
+	site.risk = ScavengeSite.Risk.HIGH
+	for stat in [Stat.SPD, Stat.STR]:
+		var slot := ScavengeSite.Slot.new()
+		slot.stat = stat
+		slot.target = 10 if stat == Stat.STR else 15
+		site.slots.append(slot)
+	site.gold = 100
+	site.materials = {RunConfig.TIMBER: 2}
+	run._scavenge_sites.append(site)
+	run.rng.seed = s
+	return [run, holder, other, run.scavenge(site, [holder, other])]
+
+
+func _seed_for(outcome: int) -> int:
+	for s in 400:
+		var r: ScavengeResult = _trip([] as Array[TraitData], [] as Array[TraitData], s)[3]
+		if r.outcome == outcome:
+			return s
+	return -1
+
+
+func test_sure_footed() -> void:
+	var s := _seed_for(ScavengeResult.Outcome.NOTHING)
+	t.check(s >= 0, "a seed where nothing is found")
+	var plain := _trip([] as Array[TraitData], [] as Array[TraitData], s)
+	t.eq((plain[3] as ScavengeResult).injured, plain[1], "without it the one furthest short is injured")
+	var sure := _trip([trait_of("sure_footed")] as Array[TraitData], [] as Array[TraitData], s)
+	var r: ScavengeResult = sure[3]
+	t.eq(r.outcome, ScavengeResult.Outcome.NOTHING, "the same roll")
+	t.eq(r.injured, sure[2], "Sure-Footed: the injury falls on the next one")
+	t.check(not (sure[1] as RunCompanion).injured, "and they come back on their feet")
+	var both := _trip([trait_of("sure_footed")] as Array[TraitData], [trait_of("sure_footed")] as Array[TraitData], s)
+	t.check((both[3] as ScavengeResult).injured == null, "nobody to injure: nobody is")
+	t.check((both[1] as RunCompanion).hp < (both[1] as RunCompanion).max_hp(), "they still lose their 25%")
+
+
+func test_pack_mule() -> void:
+	var s := _seed_for(ScavengeResult.Outcome.FULL)
+	t.check(s >= 0, "a seed with a full haul")
+	var plain: ScavengeResult = _trip([] as Array[TraitData], [] as Array[TraitData], s)[3]
+	var mule: ScavengeResult = _trip([trait_of("pack_mule")] as Array[TraitData], [] as Array[TraitData], s)[3]
+	t.eq(plain.gold, 100, "a full haul of 100")
+	t.eq(mule.gold, 125, "Pack Mule: 25% more gold")
+	t.eq(int(mule.materials.get(RunConfig.TIMBER, 0)), 3, "and materials (2 x 1.25, rounded)")
+	var two: ScavengeResult = _trip([trait_of("pack_mule")] as Array[TraitData], [trait_of("pack_mule")] as Array[TraitData], s)[3]
+	t.eq(two.gold, 150, "two of them: 50% more")
 
 
 func test_battle_gains_in_the_report() -> void:

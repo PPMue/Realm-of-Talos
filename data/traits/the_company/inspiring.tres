@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_g4d6d"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_06eax"]
+
+[sub_resource type="Resource" id="Resource_03idt"]
+script = ExtResource("1_g4d6d")
+kind = 1
+amount = 5
+who = 1
+
+[resource]
+script = ExtResource("2_06eax")
+id = "inspiring"
+display_name = "Inspiring"
+family = 9
+rarity = 1
+gives = Array[String](["Neighbours have +5 Hit"])
+modifiers = Array[ExtResource("1_g4d6d")]([SubResource("Resource_03idt")])

@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="TraitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_6xvo4"]
+[ext_resource type="Script" path="res://scripts/data/trait_data.gd" id="2_dcq88"]
+
+[sub_resource type="Resource" id="Resource_3d5xe"]
+script = ExtResource("1_6xvo4")
+kind = 2
+amount = 10
+rival_ahead = true
+
+[resource]
+script = ExtResource("2_dcq88")
+id = "rival"
+display_name = "Rival"
+family = 9
+rarity = 1
+gives = Array[String](["+10 Crit while another companion has felled more enemies this battle"])
+modifiers = Array[ExtResource("1_6xvo4")]([SubResource("Resource_3d5xe")])
