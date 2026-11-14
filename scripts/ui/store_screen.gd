@@ -13,6 +13,10 @@ extends Control
 ## having the smith work it, and for an enchanted one the way to move its enchantment to a plain
 ## weapon of the same kind. The smith's work is an offer (Run.enchant_offer): it is held up over the
 ## whole room, beside the weapon as it is, and stays there until one of them is chosen.
+## What was clicked is played out before the room goes on: the smith hammers the weapon (three
+## strikes, sparks) and lays the papers down one by one, the chosen paper is lifted while the others
+## fall away; a hire's paper is stamped HIRED and slides off the counter as they step away, and those
+## left close up. A click anywhere finishes whatever is playing at once (see _begin, _skip).
 ## Hiring and buying cost gold only, never the day's action, and both rooms are open on battle and
 ## boss days too, until the company marches out; the rules decide (see Run.visit_block_reason).
 
@@ -62,6 +66,16 @@ const CARD_PAD := 30.0
 const CARD_HEAD := 96.0
 const CARD_ROW := 46.0
 const CARD_FOOT := 112.0
+## The smith at work, before the papers: how long, where on the screen, and when the hammer falls
+## (shares of the time).
+const FORGE_TIME := 1.25
+const FORGE_AT := Vector2(960.0, 540.0)
+const FORGE_STRIKES: Array[float] = [0.1, 0.38, 0.66]
+## A hire's leaving: how long, and the shares of it at which the stamp has landed and the paper
+## starts to slide away.
+const HIRE_TIME := 1.3
+const HIRE_STAMPED := 0.14
+const HIRE_SLIDES := 0.6
 
 var run: Run
 var mode := Mode.SHOP
@@ -88,6 +102,32 @@ var _moving: OwnedWeapon
 var _counter := Control.new()
 ## The smith's offer, over everything else until it is answered.
 var _bench := Control.new()
+## What is playing, if anything, and the sheet that swallows clicks meanwhile (a click skips to the end).
+var _anim: Tween
+var _hush := Control.new()
+## 0..1 while the smith is at work on a new offer; 1 once the papers are due.
+var _forge := 1.0:
+	set(v):
+		_forge = v
+		_bench.queue_redraw()
+## The offer that was just answered, kept on the bench while the choice plays out.
+var _bench_offer: EnchantOffer
+## The hire who is leaving the counter, how far along (0..1), and the counter as it stood when they
+## were hired (the rules have already taken them off it).
+var _hired: CompanionData
+var _hire_t := 0.0:
+	set(v):
+		_hire_t = v
+		_apply_hire()
+var _frozen_offers: Array[CompanionData] = []
+var _frozen_traits := {}
+## Those left at the counter closing up: where each stood before (CompanionData -> {"hire",
+## "figure", "said"}: x of their stretch, their figure and their traits), and how far along (0..1).
+var _slide_from := {}
+var _slide := 1.0:
+	set(v):
+		_slide = v
+		_apply_slide()
 
 
 func _init() -> void:
@@ -105,10 +145,39 @@ func open_tavern(p_run: Run) -> void:
 
 
 func close() -> void:
+	_skip()
 	if _offer() != null:
 		return   # the smith is waiting for an answer
 	visible = false
 	closed.emit()
+
+
+# ---------------------------------------------------------------- what is playing
+
+## Starts something to play: whatever was playing is finished first, and clicks are swallowed until
+## _end (a click skips to it).
+func _begin() -> Tween:
+	_skip()
+	_hush.visible = true
+	_anim = create_tween()
+	return _anim
+
+
+func _end() -> void:
+	_hush.visible = false
+	_anim = null
+
+
+func _busy() -> bool:
+	return _hush.visible
+
+
+## Finishes whatever is playing at once, its last step included.
+func _skip() -> void:
+	if _anim != null and _anim.is_valid() and _anim.is_running():
+		_anim.custom_step(600.0)
+	if _anim != null and (not _anim.is_valid() or not _anim.is_running()):
+		_end()
 
 
 ## True on a battle or boss day: the smithy and the tavern are open until the company marches out.
@@ -160,10 +229,119 @@ func _shown() -> WeaponData:
 
 
 func hire(data: CompanionData) -> void:
+	_skip()
+	# The counter as it stands: the rules take the hire off it at once, the room a moment later.
+	var offers := run.tavern_offers.duplicate()
+	var traits := {}
+	for d in offers:
+		traits[d] = run.offer_traits(d)
 	var c := run.hire(data)
-	if c != null:
-		_note.text = "%s joins the company, %s." % [c.display_name(), "in the line" if run.is_fielded(c) else "on the bench"]
-		refresh()
+	if c == null:
+		return
+	_note.text = "%s joins the company, %s." % [c.display_name(), "in the line" if run.is_fielded(c) else "on the bench"]
+	_purse.queue_redraw()
+	_play_hire(data, offers, traits)
+
+
+## The hire's paper is stamped and slides off the counter while they step away; then those left
+## close up (refresh at the new places, eased from the old).
+func _play_hire(data: CompanionData, offers: Array[CompanionData], traits: Dictionary) -> void:
+	var t := _begin()
+	_frozen_offers = offers
+	_frozen_traits = traits
+	_hired = data
+	_hire_t = 0.0
+	t.tween_property(self, "_hire_t", 1.0, HIRE_TIME)
+	t.tween_callback(_hire_settle)
+	t.tween_property(self, "_slide", 1.0, 0.4)
+	t.tween_callback(func() -> void:
+		_slide_from.clear()
+		_slide = 1.0
+		_end())
+
+
+## The hire is gone: the counter is laid out again without them, and those left start from where
+## they stood.
+func _hire_settle() -> void:
+	var was := _frozen_offers
+	var from := {}
+	for i in was.size():
+		if was[i] != _hired:
+			from[was[i]] = {"hire": _hire_x(i, was.size()), "figure": _figure_x(i, was.size()), "said": _said_rect(i, was.size()).x}
+	_hired = null
+	_frozen_offers = []
+	_frozen_traits = {}
+	_slide_from = from
+	_slide = 0.0
+	refresh()
+
+
+## Who is drawn at the counter: those the rules offer, or, while a hire is leaving, the counter as it
+## stood.
+func _offers_shown() -> Array[CompanionData]:
+	return _frozen_offers if _hired != null else run.tavern_offers
+
+
+func _traits_shown(data: CompanionData) -> Array[TraitData]:
+	if _hired != null and _frozen_traits.has(data):
+		var out: Array[TraitData] = []
+		out.assign(_frozen_traits[data])
+		return out
+	return run.offer_traits(data)
+
+
+## How far `data` still stands from x `now` while the counter closes up (`what`: "hire", "figure" or
+## "said").
+func _dx(data: CompanionData, what: String, now: float) -> float:
+	if not _slide_from.has(data):
+		return 0.0
+	var e := 1.0 - pow(1.0 - clampf(_slide, 0.0, 1.0), 3.0)
+	return (float(_slide_from[data][what]) - now) * (1.0 - e)
+
+
+## Moves the papers of those closing up.
+func _apply_slide() -> void:
+	_tavern.queue_redraw()
+	for paper in _papers.get_children():
+		if paper.has_meta("data"):
+			var home: float = paper.get_meta("home_x")
+			paper.position.x = home + _dx(paper.get_meta("data"), "hire", home + paper.size.x * 0.5)
+
+
+## Moves the leaving hire's paper: a shake as the stamp lands, then off the counter.
+func _apply_hire() -> void:
+	_tavern.queue_redraw()
+	for paper in _papers.get_children():
+		if not paper.has_meta("data") or paper.get_meta("data") != _hired:
+			continue
+		var home: float = paper.get_meta("home_x")
+		var since := _hire_t - HIRE_STAMPED
+		var shake := 6.0 * exp(-since * 26.0) * sin(since * 110.0) if since > 0.0 else 0.0
+		var away := clampf((_hire_t - HIRE_SLIDES) / (1.0 - HIRE_SLIDES), 0.0, 1.0)
+		paper.position = Vector2(home + shake, PAPER_Y + away * away * 480.0)
+		paper.modulate.a = 1.0 - away
+		paper.queue_redraw()
+
+
+## The stamp on a hire's paper: it comes down large and lands askew.
+func _draw_stamp(ci: CanvasItem, sheet: Vector2) -> void:
+	var p := clampf(_hire_t / HIRE_STAMPED, 0.0, 1.0)
+	if p <= 0.0:
+		return
+	var s := lerpf(2.6, 1.0, 1.0 - pow(1.0 - p, 3.0))
+	var display := UiTheme.display_font()
+	var text := "HIRED"
+	var fs := 104
+	var tw := display.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var th := display.get_height(fs)
+	var ink := Color(UiTheme.WAX, 0.9 * p)
+	ci.draw_set_transform(sheet * 0.5, -0.13, Vector2(s, s))
+	var box := Rect2(-tw * 0.5 - 30.0, -th * 0.5 - 4.0, tw + 60.0, th + 8.0)
+	ci.draw_rect(box, Color(UiTheme.PARCHMENT, 0.55 * p))
+	ci.draw_rect(box, ink, false, 6.0)
+	ci.draw_rect(box.grow(-11.0), Color(ink, ink.a * 0.7), false, 2.0)
+	UiTheme.draw_text(ci, display, Vector2(-tw * 0.5, -th * 0.5), text, fs, ink)
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 func _open(p_run: Run, p_mode: Mode) -> void:
@@ -173,6 +351,18 @@ func _open(p_run: Run, p_mode: Mode) -> void:
 	_pointed = null
 	_bought = null
 	_moving = null
+	# Nothing is left playing from the last visit.
+	if _anim != null and _anim.is_valid():
+		_anim.kill()
+	_end()
+	_forge = 1.0
+	_bench_offer = null
+	_bench.modulate.a = 1.0
+	_hired = null
+	_frozen_offers = []
+	_frozen_traits = {}
+	_slide_from.clear()
+	_slide = 1.0
 	visible = true
 	modulate.a = 0.0
 	create_tween().tween_property(self, "modulate:a", 1.0, 0.15)
@@ -206,6 +396,7 @@ func _refresh_tavern() -> void:
 	var offers := run.tavern_offers
 	for i in offers.size():
 		_papers.add_child(_paper_for(offers[i], _hire_x(i, offers.size()), _paper_w(offers.size())))
+	_apply_slide()
 	if offers.is_empty():
 		var nobody := UiTheme.label("Nobody else is looking for work.", 26, UiTheme.TEXT.lerp(UiTheme.MUTED, 0.4), false, 5)
 		nobody.add_theme_font_override("font", UiTheme.italic_font())
@@ -246,17 +437,21 @@ func _said_rect(i: int, n: int) -> Vector2:
 func _draw_tavern() -> void:
 	if run == null:
 		return
-	var offers := run.tavern_offers
+	var offers := _offers_shown()
+	var n := offers.size()
 	var lit := Color("7a6046")
-	for i in offers.size():
-		var x := _figure_x(i, offers.size())
+	for i in n:
+		var x := _figure_x(i, n)
+		x += _dx(offers[i], "figure", x)
+		# The light on the wall swells behind whoever has just been hired.
+		var swell := sin(clampf((_hire_t - 0.08) / 0.55, 0.0, 1.0) * PI) if offers[i] == _hired else 0.0
 		for k in 12:
 			var f := 1.0 - k / 12.0
 			var pts := PackedVector2Array()
 			for a in 32:
-				pts.append(Vector2(x, COUNTER_Y - 190.0) + Vector2.from_angle(TAU * a / 32.0) * Vector2(300.0, 330.0) * f)
-			_tavern.draw_colored_polygon(pts, Color(lit, 0.07))
-	for i in offers.size():
+				pts.append(Vector2(x, COUNTER_Y - 190.0) + Vector2.from_angle(TAU * a / 32.0) * Vector2(300.0, 330.0) * f * (1.0 + 0.12 * swell))
+			_tavern.draw_colored_polygon(pts, Color(lit.lerp(Color("e0b070"), swell), 0.07 + 0.05 * swell))
+	for i in n:
 		var data := offers[i]
 		var tex := data.portrait
 		if tex == null:
@@ -264,29 +459,43 @@ func _draw_tavern() -> void:
 		var ts := tex.get_size()
 		var h := HIRE_ART * data.figure_scale
 		var art := Vector2(h * ts.x / maxf(1.0, ts.y), h)
-		var top_left := Vector2(_figure_x(i, offers.size()), HIRE_FACE_Y) - data.portrait_focus * art
+		var fx := _figure_x(i, n)
+		fx += _dx(data, "figure", fx)
+		var tint := Color.WHITE
+		if data == _hired:
+			# They brighten as the stamp lands, then step away from the counter and are gone.
+			var glow := sin(clampf((_hire_t - 0.1) / 0.5, 0.0, 1.0) * PI)
+			var gone := smoothstep(0.5, 1.0, _hire_t)
+			tint = Color(1.0 + 0.28 * glow, 1.0 + 0.22 * glow, 1.0 + 0.12 * glow, 1.0 - gone)
+			fx -= 46.0 * gone * gone
+		var top_left := Vector2(fx, HIRE_FACE_Y) - data.portrait_focus * art
 		top_left.y = maxf(top_left.y, COUNTER_Y - art.y)
 		var shown := clampf((COUNTER_Y - top_left.y) / art.y, 0.0, 1.0)
-		_tavern.draw_texture_rect_region(tex, Rect2(top_left, Vector2(art.x, art.y * shown)), Rect2(0, 0, ts.x, ts.y * shown))
+		_tavern.draw_texture_rect_region(tex, Rect2(top_left, Vector2(art.x, art.y * shown)), Rect2(0, 0, ts.x, ts.y * shown), tint)
 	# What is said of each: their traits, in light on a soft shadow beside them.
-	for i in offers.size():
-		var traits := run.offer_traits(offers[i])
+	for i in n:
+		var traits := _traits_shown(offers[i])
 		if traits.is_empty():
 			continue
-		var said := _said_rect(i, offers.size())
+		# What was said of someone just hired goes out as they leave.
+		var seen := 1.0 - clampf((_hire_t - 0.2) / 0.25, 0.0, 1.0) if offers[i] == _hired else 1.0
+		if seen <= 0.0:
+			continue
+		var said := _said_rect(i, n)
 		var said_w := said.y
-		var k := 1.0 if offers.size() >= CROWD else 1.1
-		var at := Vector2(said.x, SAID_Y)
+		var k := 1.0 if n >= CROWD else 1.1
+		var at := Vector2(said.x + _dx(offers[i], "said", said.x), SAID_Y)
 		var tall := ArtFacts.traits_height(said_w, traits, k) + 34.0
 		# With three at the counter the words lie over the figure's arm or hair: the shadow is deeper.
-		var crowd := offers.size() >= CROWD
+		var crowd := n >= CROWD
 		for g in 12:
 			_tavern.draw_rect(Rect2(at - Vector2(10.0, 6.0), Vector2(said_w + 20.0, tall + 10.0)).grow(g * (3.0 if crowd else 4.0)),
-				Color(0, 0, 0, 0.1 if crowd else 0.055))
-		UiTheme.draw_text(_tavern, UiTheme.display_font(), at, "TRAITS" if traits.size() > 1 else "TRAIT", 15, UiTheme.MUTED, 4)
-		_tavern.draw_line(at + Vector2(0, 24.0), at + Vector2(said_w, 24.0), Color(UiTheme.GOLD_DEEP, 0.7), 1.0)
-		ArtFacts.draw_traits(_tavern, at + Vector2(0, 32.0), said_w, traits, UiTheme.GOLD, UiTheme.TEXT.lerp(UiTheme.MUTED, 0.25),
-			UiTheme.INJURED.lightened(0.15), k, 4)
+				Color(0, 0, 0, (0.1 if crowd else 0.055) * seen))
+		var outline := 4 if seen >= 1.0 else 0
+		UiTheme.draw_text(_tavern, UiTheme.display_font(), at, "TRAITS" if traits.size() > 1 else "TRAIT", 15, Color(UiTheme.MUTED, seen), outline)
+		_tavern.draw_line(at + Vector2(0, 24.0), at + Vector2(said_w, 24.0), Color(UiTheme.GOLD_DEEP, 0.7 * seen), 1.0)
+		ArtFacts.draw_traits(_tavern, at + Vector2(0, 32.0), said_w, traits, Color(UiTheme.GOLD, seen),
+			Color(UiTheme.TEXT.lerp(UiTheme.MUTED, 0.25), seen), Color(UiTheme.INJURED.lightened(0.15), seen), k, outline)
 	# The counter: a long board across the room.
 	var w := maxf(size.x, 1920.0)
 	var board := Rect2(0, COUNTER_Y, w, COUNTER_H)
@@ -312,6 +521,9 @@ func _paper_for(data: CompanionData, x: float, wide: float = PAPER.x) -> Control
 	paper.size = sheet
 	paper.mouse_filter = Control.MOUSE_FILTER_STOP
 	paper.tooltip_text = _skills_text(data)
+	# Whose it is and where it lies, for what is played on it (_apply_hire, _apply_slide).
+	paper.set_meta("data", data)
+	paper.set_meta("home_x", paper.position.x)
 	var inner := wide - PAPER_PAD * 2.0
 	var level := run.hire_level()
 	# Their numbers with their traits counted, as they will be once hired.
@@ -344,7 +556,9 @@ func _paper_for(data: CompanionData, x: float, wide: float = PAPER.x) -> Control
 		StatTable.draw_values(paper, Vector2(PAPER_PAD, top), half, 2, values, "", PAPER_STAT_ROW, from_traits)
 		StatTable.head(paper, Vector2(PAPER_PAD + half + 30.0, PAPER_STATS_Y), half, "GROWTH", "chance to rise")
 		StatTable.draw_growth(paper, Vector2(PAPER_PAD + half + 30.0, top), half, 2, data, PAPER_GROWTH_ROW, rates)
-		paper.draw_line(Vector2(PAPER_PAD, _paper_stats_end() + 6.0), Vector2(PAPER_PAD + inner, _paper_stats_end() + 6.0), Color(ink, 0.45), 1.0))
+		paper.draw_line(Vector2(PAPER_PAD, _paper_stats_end() + 6.0), Vector2(PAPER_PAD + inner, _paper_stats_end() + 6.0), Color(ink, 0.45), 1.0)
+		if data == _hired:
+			_draw_stamp(paper, sheet))
 	var seal := ActionButton.new()
 	seal.paper = true
 	seal.title = "Hire"
@@ -416,33 +630,96 @@ func _refresh_smithy() -> void:
 
 ## Has the smith work `w`: the price is paid and the offer is held up (see _refresh_bench).
 func enchant(w: OwnedWeapon) -> void:
+	_skip()
 	if run.enchant(w) == null:
 		return
 	_moving = null
 	_note.text = ""
 	refresh()
+	_play_forge()
+
+
+## The smith sets to work before anything is shown: three strikes on the weapon's sign, then the
+## papers are laid down one by one, the smith's work a line at a time.
+func _play_forge() -> void:
+	var cards := _bench.get_children()
+	var t := _begin()
+	_forge = 0.0
+	_bench.modulate.a = 0.0
+	for card: Control in cards:
+		card.modulate.a = 0.0
+		card.position.y = CARD_Y + 40.0
+	t.tween_property(_bench, "modulate:a", 1.0, 0.18)
+	t.tween_property(self, "_forge", 1.0, FORGE_TIME)
+	for i in cards.size():
+		var card: Control = cards[i]
+		var lines := int(card.get_meta("rows", 0)) + 1
+		if i > 0:
+			card.set_meta("shown", 0.0)
+		t.tween_property(card, "modulate:a", 1.0, 0.2)
+		t.parallel().tween_property(card, "position:y", CARD_Y, 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		if i > 0:
+			var write := func(v: float) -> void:
+				if is_instance_valid(card):
+					card.set_meta("shown", v)
+					card.queue_redraw()
+			t.tween_method(write, 0.0, float(lines), 0.065 * lines)
+	t.tween_callback(_end)
+
+
+## The choice is made: the chosen paper (`chosen` among the bench's papers, 0 the weapon as it is) is
+## lifted and rimmed in gold while the others fall away, then the bench clears and the room goes on.
+## The rules have already acted; `offer` is kept only to be shown.
+func _play_choice(chosen: int, offer: EnchantOffer) -> void:
+	var cards := _bench.get_children()
+	var t := _begin()
+	_bench_offer = offer
+	# The room behind is already as the choice leaves it (the bench itself stays until this is over).
+	refresh()
+	_bench.queue_redraw()
+	for i in cards.size():
+		var card: Control = cards[i]
+		if i == chosen:
+			t.parallel().tween_property(card, "position:y", CARD_Y - 22.0, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			var rim := func(v: float) -> void:
+				if is_instance_valid(card):
+					card.set_meta("glow", v)
+					card.queue_redraw()
+			t.parallel().tween_method(rim, 0.0, 1.0, 0.3)
+		else:
+			t.parallel().tween_property(card, "modulate:a", 0.0, 0.3)
+			t.parallel().tween_property(card, "position:y", CARD_Y + 46.0, 0.3).set_ease(Tween.EASE_IN)
+	t.tween_interval(0.5)
+	t.tween_property(_bench, "modulate:a", 0.0, 0.25)
+	t.tween_callback(func() -> void:
+		_bench_offer = null
+		_bench.modulate.a = 1.0
+		_end()
+		refresh())
 
 
 ## The weapon stays as it was; the smith's work is set aside.
 func keep_enchant() -> void:
+	_skip()
 	var offer := _offer()
 	if offer == null:
 		return
 	var w := offer.weapon
 	if run.keep_enchant():
 		_note.text = "The %s stays as it was." % w.data.display_name.to_lower()
-		refresh()
+		_play_choice(0, offer)
 
 
 ## The weapon takes the smith's work (`index` of the offer's rolls).
 func take_enchant(index: int) -> void:
+	_skip()
 	var offer := _offer()
 	if offer == null:
 		return
 	var w := offer.weapon
 	if run.take_enchant(index):
 		_note.text = "%s:  %s." % [w.title(), ",  ".join(w.enchant_lines())]
-		refresh()
+		_play_choice(index + 1, offer)
 
 
 ## Picks `w` up to move its enchantment, or puts it down again.
@@ -571,6 +848,8 @@ func _move_row(item: OwnedWeapon, w: float) -> RowButton:
 ## The offer held up over the room: the weapon as it is, then each thing the smith has made. Nothing
 ## else can be done until one is chosen.
 func _refresh_bench() -> void:
+	if _bench_offer != null:
+		return   # a choice is still playing out on it
 	for child in _bench.get_children():
 		_bench.remove_child(child)
 		child.queue_free()
@@ -593,7 +872,7 @@ func _refresh_bench() -> void:
 
 
 func _draw_bench() -> void:
-	var offer := _offer()
+	var offer := _bench_offer if _bench_offer != null else _offer()
 	if offer == null:
 		return
 	_bench.draw_rect(Rect2(Vector2.ZERO, _bench.size), Color(0.03, 0.02, 0.015, 0.9))
@@ -603,8 +882,61 @@ func _draw_bench() -> void:
 	UiTheme.draw_text(_bench, display, Vector2(0, 150.0), "ON THE ANVIL", 22, UiTheme.GOLD, 6, 1920.0, HORIZONTAL_ALIGNMENT_CENTER)
 	UiTheme.draw_text(_bench, display, Vector2(0, 178.0), w.data.display_name, 52, UiTheme.TEXT, 8, 1920.0, HORIZONTAL_ALIGNMENT_CENTER)
 	var whose := "%s holds it." % w.holder.display_name() if w.holder != null else "It lies in the armory."
-	UiTheme.draw_text(_bench, italic, Vector2(0, 244.0), "%s  Which shall it be?" % whose, 22, UiTheme.TEXT.lerp(UiTheme.MUTED, 0.4), 5,
-		1920.0, HORIZONTAL_ALIGNMENT_CENTER)
+	var line := "The smith sets to work." if _forge < 1.0 else ("It is done." if _bench_offer != null else "%s  Which shall it be?" % whose)
+	UiTheme.draw_text(_bench, italic, Vector2(0, 244.0), line, 22, UiTheme.TEXT.lerp(UiTheme.MUTED, 0.4), 5, 1920.0, HORIZONTAL_ALIGNMENT_CENTER)
+	if _forge < 1.0:
+		_draw_forge(w.data.weapon_type, _forge)
+
+
+## The smith at work, `f` of the way through: the weapon's sign on the anvil, struck three times.
+## Each strike heats it, flashes and throws sparks; it all fades as the papers come.
+func _draw_forge(weapon_type: int, f: float) -> void:
+	var fade := clampf((1.0 - f) / 0.1, 0.0, 1.0)
+	if fade <= 0.0:
+		return
+	var c := FORGE_AT
+	# Each strike leaves it hotter; the heat of the blow itself dies away quickly.
+	var heat := 0.1
+	for s in FORGE_STRIKES:
+		if f >= s:
+			heat += 0.2
+	var blow := 0.0
+	for s in FORGE_STRIKES:
+		if f >= s:
+			blow = maxf(blow, exp(-(f - s) * 11.0))
+	heat = clampf(heat + 0.5 * blow, 0.0, 1.0)
+	for g in 10:
+		_bench.draw_circle(c, 80.0 + g * 30.0, Color(1.0, 0.6, 0.24, 0.03 * heat * fade))
+	# The anvil under it, its face catching the light.
+	var top := c.y + 112.0
+	var iron := PackedVector2Array([Vector2(c.x - 220.0, top), Vector2(c.x + 150.0, top), Vector2(c.x + 150.0, top + 40.0),
+		Vector2(c.x + 70.0, top + 62.0), Vector2(c.x + 70.0, top + 100.0), Vector2(c.x + 130.0, top + 132.0), Vector2(c.x - 130.0, top + 132.0),
+		Vector2(c.x - 70.0, top + 100.0), Vector2(c.x - 70.0, top + 62.0), Vector2(c.x - 120.0, top + 40.0), Vector2(c.x - 220.0, top + 14.0)])
+	_bench.draw_colored_polygon(iron, Color(0.17, 0.14, 0.12, fade))
+	_bench.draw_line(Vector2(c.x - 220.0, top), Vector2(c.x + 150.0, top), Color(1.0, 0.7, 0.36, (0.25 + 0.65 * heat) * fade), 3.0)
+	# The weapon's sign, from cold iron to white gold; it jumps a little under each blow.
+	var cold := Color("6f6052")
+	var hot := Color("ffe6a8")
+	UiIcons.weapon(_bench, c + Vector2(0, 7.0 * blow), 232.0, weapon_type, Color(cold.lerp(hot, heat), fade))
+	for j in FORGE_STRIKES.size():
+		var since := (f - FORGE_STRIKES[j]) * FORGE_TIME
+		if since < 0.0 or since > 0.6:
+			continue
+		var k := 1.0 - since / 0.6
+		# The flash: a soft bloom that opens out, and a thin ring at its edge.
+		var reach := 60.0 + since * 620.0
+		for g in 8:
+			_bench.draw_circle(c, reach * (1.0 - g * 0.11), Color(1.0, 0.84, 0.5, 0.045 * k * k * fade))
+		_bench.draw_arc(c, reach, 0.0, TAU, 64, Color(1.0, 0.9, 0.62, 0.3 * k * k * fade), 2.0, true)
+		for i in 30:
+			var salt := float(j * 37 + i * 101 + 3)
+			var angle := -PI * (0.06 + 0.88 * fposmod(sin(salt * 12.9898) * 43758.5453, 1.0))
+			var speed := 240.0 + 460.0 * fposmod(sin(salt * 78.233) * 12543.21, 1.0)
+			var v := Vector2.from_angle(angle) * speed
+			var at := c + v * since + Vector2(0, 560.0 * since * since)
+			var tail := at - (v + Vector2(0, 1120.0 * since)) * 0.05
+			_bench.draw_line(tail, at, Color(1.0, 0.72 + 0.22 * k, 0.3 + 0.3 * k, k * fade), 3.0, true)
+			_bench.draw_circle(at, 2.5, Color(1.0, 0.95, 0.75, k * fade))
 
 
 ## One paper of the offer: the weapon as it is (`index` -1) or the smith's work offer.rolls[index].
@@ -638,9 +970,19 @@ func _bench_card(offer: EnchantOffer, index: int, at: Vector2, h: float) -> Cont
 	var foot := h - CARD_FOOT
 	var step := minf(CARD_ROW, (foot - top) / maxi(1, rows.size()))
 	var k := step / CARD_ROW
+	# What is played on it: "shown" lines written so far (all, unless the smith is still laying it
+	# out), "glow" the gold rim of the paper chosen.
+	card.set_meta("rows", rows.size())
 	card.draw.connect(func() -> void:
+		var shown := float(card.get_meta("shown", 99.0))
+		var glow := float(card.get_meta("glow", 0.0))
+		if glow > 0.0:
+			for g in 6:
+				card.draw_rect(Rect2(Vector2.ZERO, sheet).grow(6.0 + g * 6.0), Color(UiTheme.GOLD, 0.07 * glow))
 		card.draw_rect(Rect2(Vector2(6, 7), sheet), Color(0, 0, 0, 0.35))
 		UiTheme.draw_parchment(card, Rect2(Vector2.ZERO, sheet), 0.45)
+		if glow > 0.0:
+			card.draw_rect(Rect2(Vector2.ZERO, sheet).grow(3.0), Color(UiTheme.GOLD, glow), false, 5.0)
 		var display := UiTheme.display_font()
 		var body := UiTheme.body_font()
 		var italic := UiTheme.italic_font()
@@ -652,13 +994,17 @@ func _bench_card(offer: EnchantOffer, index: int, at: Vector2, h: float) -> Cont
 		if rows.is_empty():
 			UiTheme.draw_text(card, italic, Vector2(CARD_PAD, top + 8.0), "Plain: it adds nothing.", 20, muted)
 		for i in rows.size():
+			var seen := clampf(shown - i, 0.0, 1.0)
+			if seen <= 0.0:
+				continue
 			var y := top + i * step
 			var amount: int = rows[i][1]
-			var color := UiTheme.WAX if amount < 0 else ink
-			UiTheme.draw_text(card, display, Vector2(CARD_PAD, y), "%+d" % amount, roundi(34 * k), color, 0, 62.0, HORIZONTAL_ALIGNMENT_RIGHT)
-			UiTheme.draw_text(card, body, Vector2(CARD_PAD + 80.0, y + 9.0 * k), Stat.name_of(rows[i][0]), roundi(22 * k), color)
+			var color := Color(UiTheme.WAX if amount < 0 else ink, seen)
+			var x := CARD_PAD - 16.0 * (1.0 - seen)
+			UiTheme.draw_text(card, display, Vector2(x, y), "%+d" % amount, roundi(34 * k), color, 0, 62.0, HORIZONTAL_ALIGNMENT_RIGHT)
+			UiTheme.draw_text(card, body, Vector2(x + 80.0, y + 9.0 * k), Stat.name_of(rows[i][0]), roundi(22 * k), color)
 		if attack != "":
-			UiTheme.draw_text(card, italic, Vector2(CARD_PAD, foot + 8.0), attack, 18, muted))
+			UiTheme.draw_text(card, italic, Vector2(CARD_PAD, foot + 8.0), attack, 18, Color(muted, clampf(shown - rows.size(), 0.0, 1.0))))
 	var seal := ActionButton.new()
 	seal.paper = true
 	seal.title = ("Keep it" if offer.current.is_empty() == false else "Leave it plain") if index < 0 else "Take it"
@@ -953,6 +1299,17 @@ func _build() -> void:
 	_bench.visible = false
 	_bench.draw.connect(_draw_bench)
 	add_child(_bench)
+
+	# Over everything while something is playing: a click finishes it.
+	_hush.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_hush.mouse_filter = Control.MOUSE_FILTER_STOP
+	_hush.visible = false
+	_hush.gui_input.connect(func(event: InputEvent) -> void:
+		var mb := event as InputEventMouseButton
+		if mb != null and mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+			_hush.accept_event()
+			_skip())
+	add_child(_hush)
 
 
 func _unhandled_input(event: InputEvent) -> void:
