@@ -26,6 +26,7 @@ const WEIGHT_PENALTY_PER_POINT := 1     # DEX and SPD lost per point of total WT
 const RECOVERY_ATTACK := 2
 const RECOVERY_GUARD := 2
 const RECOVERY_FOCUS := 2
+const RECOVERY_ROUSE := 2              # a Captain's order (Battle.rouse)
 # Combat arts and spells carry their own recovery in their data (tier 1: 2, tier 2: 3, tier 3: 4).
 # Recovery an enemy adds comes on top. When nobody is ready the party waits (Battle.wait), a companion
 # standing alone included.
@@ -123,6 +124,7 @@ const POINTS_ATTACK_HIT := 2
 const POINTS_ATTACK_MISS := 1
 const POINTS_ART := 3                 # per art used, however many enemies it strikes
 const POINTS_SPELL := 3               # per spell cast, of any kind
+const POINTS_ROUSE := 2               # per Rouse (a Captain's order)
 const POINTS_BLOW_TAKEN := 1          # per enemy blow that lands on the companion
 const POINTS_BLOW_TAKEN_GUARDING := 2
 # Landing the killing blow on an enemy, per enemy. Damage over time counts for whoever applied it, a

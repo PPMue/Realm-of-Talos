@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="CallingData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_2gsh6"]
+[ext_resource type="Script" path="res://scripts/data/calling_data.gd" id="2_1p0j3"]
+
+[sub_resource type="Resource" id="Resource_0l6lb"]
+script = ExtResource("1_2gsh6")
+kind = 63
+amount = 1
+target_turns_at_most = 1
+
+[resource]
+script = ExtResource("2_1p0j3")
+id = "hunter"
+display_name = "Hunter"
+rule = "Whatever they land on an enemy with 1 turn left is critical."
+first_stat = "LEAD"
+second_stat = "DEX"
+slow_stat = "HP"
+modifiers = Array[ExtResource("1_2gsh6")]([SubResource("Resource_0l6lb")])

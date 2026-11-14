@@ -230,7 +230,7 @@ static func _battle_holds(m: TraitModifier, q: Query, holder: CompanionUnit) -> 
 	if m.big_fight and not b.elite and (q.target == null or q.target.data.band != 0):
 		return false
 	var needs_target := m.target_health != TraitModifier.Health.ANY or m.target_trait != "" or m.target_boss \
-		or m.target_next_magic or m.struck != TraitModifier.Struck.ANY
+		or m.target_next_magic or m.struck != TraitModifier.Struck.ANY or m.target_turns_at_most > 0
 	if not needs_target:
 		return true
 	var e := q.target
@@ -243,6 +243,8 @@ static func _battle_holds(m: TraitModifier, q: Query, holder: CompanionUnit) -> 
 	if m.target_trait != "" and not Array(m.target_trait.split("|")).any(func(x: String) -> bool: return e.traits().has(x)):
 		return false
 	if m.target_boss and e.data.band != 0:
+		return false
+	if m.target_turns_at_most > 0 and (e.pending_action == null or e.countdown > m.target_turns_at_most):
 		return false
 	if m.target_next_magic and (e.pending_action == null or not e.pending_action.deals_damage
 			or e.pending_action.damage_type != CombatMath.DamageType.MAGIC):

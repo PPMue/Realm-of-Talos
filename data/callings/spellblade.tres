@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="CallingData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_gfqva"]
+[ext_resource type="Script" path="res://scripts/data/calling_data.gd" id="2_n0t42"]
+
+[sub_resource type="Resource" id="Resource_prri7"]
+script = ExtResource("1_gfqva")
+kind = 68
+amount = 1
+
+[resource]
+script = ExtResource("2_n0t42")
+id = "spellblade"
+display_name = "Spellblade"
+rule = "Their weapon strikes are against the lower of the target's Defence and Resistance."
+school = 0
+first_stat = "OTHER"
+second_stat = "LEAD"
+slow_stat = "HP"
+modifiers = Array[ExtResource("1_gfqva")]([SubResource("Resource_prri7")])

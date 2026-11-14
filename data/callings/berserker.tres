@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="CallingData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_hamp1"]
+[ext_resource type="Script" path="res://scripts/data/calling_data.gd" id="2_p1gl5"]
+
+[sub_resource type="Resource" id="Resource_qolq5"]
+script = ExtResource("1_hamp1")
+kind = 64
+amount = 50
+
+[resource]
+script = ExtResource("2_p1gl5")
+id = "berserker"
+display_name = "Berserker"
+rule = "Their arts cost Health, half as much, in place of stamina."
+first_stat = "LEAD"
+second_stat = "HP"
+slow_stat = "DEX"
+modifiers = Array[ExtResource("1_hamp1")]([SubResource("Resource_qolq5")])

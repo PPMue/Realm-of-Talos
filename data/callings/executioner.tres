@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="CallingData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_k6k85"]
+[ext_resource type="Script" path="res://scripts/data/calling_data.gd" id="2_u84pi"]
+
+[sub_resource type="Resource" id="Resource_2bjkj"]
+script = ExtResource("1_k6k85")
+kind = 60
+amount = 20
+
+[resource]
+script = ExtResource("2_u84pi")
+id = "executioner"
+display_name = "Executioner"
+rule = "A strike or spell that leaves an enemy at a fifth of its Health or less fells it (a boss: a tenth)."
+first_stat = "LEAD"
+second_stat = "CRT"
+slow_stat = "DEF"
+modifiers = Array[ExtResource("1_k6k85")]([SubResource("Resource_2bjkj")])

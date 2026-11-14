@@ -31,6 +31,15 @@ var enchant: Dictionary = {}
 ## The accessories worn (Accessory), in the order put on; at most RunConfig.MAX_ACCESSORIES. Kept by
 ## Run (wear, take_off).
 var accessories: Array = []
+## The callings drawn for them when they first appeared in the run (design/callings.md), and the one
+## taken at RunConfig.CALLING_LEVEL (null until then). `calling_lead`: which of Strength and Magic led
+## when it was taken (Stat.STR or Stat.MAG), for the stats a calling names by it. Kept by Run.
+var calling_offers: Array[CallingData] = []
+## Callings put aside at the Drill Yard (Run.redraw_calling): never drawn for them again.
+var calling_aside: Array[CallingData] = []
+var calling: CallingData
+var calling_lead: String = ""
+var _calling_effect: TraitData
 
 
 ## Fresh progress at the start of a run: starting grades, signature art known and equipped.
@@ -72,18 +81,47 @@ func copy() -> CompanionProgress:
 	p.traits = traits.duplicate()
 	p.enchant = enchant.duplicate()
 	p.accessories = accessories.duplicate()
+	p.calling_offers = calling_offers.duplicate()
+	p.calling_aside = calling_aside.duplicate()
+	p.calling = calling
+	p.calling_lead = calling_lead
 	return p
 
 
 ## Their traits and what the accessories they wear do (each an Accessory.effect): every list of
 ## modifiers the rules count (TraitRules). `traits` alone is who they are.
 func all_traits() -> Array[TraitData]:
-	if accessories.is_empty():
+	if accessories.is_empty() and calling == null:
 		return traits
 	var out: Array[TraitData] = traits.duplicate()
+	if calling != null:
+		out.append(calling_effect())
 	for a in accessories:
 		out.append(a.effect())
 	return out
+
+
+## Their calling as the rules read it (CallingData.effect_for): its rule and its growth rates. Null
+## without one.
+func calling_effect() -> TraitData:
+	if calling == null:
+		return null
+	if _calling_effect == null or _calling_effect.id != "calling_%s" % calling.id:
+		_calling_effect = calling.effect_for(calling_lead if calling_lead != "" else CallingData.lead_of(self))
+	return _calling_effect
+
+
+## Takes `c` as their calling: the lead is fixed now, and what it gives on the day is added to their
+## stats as a level-up's gains are. Returns those gains (stat key -> points). Run.take_calling does the
+## rest (the school or the weapon grade it opens).
+func take_calling(c: CallingData) -> Dictionary:
+	calling_lead = CallingData.lead_of(self)
+	calling = c
+	_calling_effect = null
+	var gains := c.gains_for(calling_lead)
+	for key: String in gains:
+		stat_gains[key] = int(stat_gains.get(key, 0)) + int(gains[key])
+	return gains
 
 
 ## The accessories' effects alone.
@@ -227,6 +265,15 @@ func art_cost(art: CombatArtData) -> int:
 	if art == null:
 		return 0
 	return maxi(0, art.stamina_cost + TraitRules.total(all_traits(), TraitModifier.Kind.ART_STAMINA, art.weapon_type))
+
+
+## Health `art` costs them in place of stamina (a Berserker: TraitModifier.Kind.ART_COSTS_HEALTH, that
+## percent of art_cost rounded up); 0 if they pay in stamina. In battle Battle.art_health_cost.
+func art_health_cost(art: CombatArtData) -> int:
+	var percent := TraitRules.total(all_traits(), TraitModifier.Kind.ART_COSTS_HEALTH)
+	if art == null or percent <= 0:
+		return 0
+	return ceili(art_cost(art) * percent / 100.0)
 
 
 func unequip(art: CombatArtData) -> bool:

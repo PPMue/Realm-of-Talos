@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="CallingData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_b0jmt"]
+[ext_resource type="Script" path="res://scripts/data/calling_data.gd" id="2_km105"]
+
+[sub_resource type="Resource" id="Resource_mgrbw"]
+script = ExtResource("1_b0jmt")
+kind = 23
+amount = -1
+action = 1
+
+[resource]
+script = ExtResource("2_km105")
+id = "skirmisher"
+display_name = "Skirmisher"
+rule = "Their plain Attack has Recovery 1."
+first_stat = "SPD"
+second_stat = "DEX"
+slow_stat = "HP"
+modifiers = Array[ExtResource("1_b0jmt")]([SubResource("Resource_mgrbw")])

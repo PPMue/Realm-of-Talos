@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="CallingData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_g2vm0"]
+[ext_resource type="Script" path="res://scripts/data/calling_data.gd" id="2_oymwk"]
+
+[sub_resource type="Resource" id="Resource_50536"]
+script = ExtResource("1_g2vm0")
+kind = 61
+amount = 1
+
+[resource]
+script = ExtResource("2_oymwk")
+id = "captain"
+display_name = "Captain"
+rule = "A new order, Rouse: a companion who is recovering is ready at once."
+first_stat = "RES"
+second_stat = "DEF"
+slow_stat = "CRT"
+modifiers = Array[ExtResource("1_g2vm0")]([SubResource("Resource_50536")])

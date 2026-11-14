@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="CallingData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_y1u4p"]
+[ext_resource type="Script" path="res://scripts/data/calling_data.gd" id="2_ryw2i"]
+
+[sub_resource type="Resource" id="Resource_n1n56"]
+script = ExtResource("1_y1u4p")
+kind = 23
+amount = -9
+action = 4
+
+[resource]
+script = ExtResource("2_ryw2i")
+id = "warden"
+display_name = "Warden"
+rule = "Guard has no recovery."
+first_stat = "DEF"
+second_stat = "HP"
+slow_stat = "SPD"
+modifiers = Array[ExtResource("1_y1u4p")]([SubResource("Resource_n1n56")])

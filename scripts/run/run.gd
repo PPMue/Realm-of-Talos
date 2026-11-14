@@ -45,6 +45,15 @@ var art_pool: Array[CombatArtData] = []
 var spell_pool: Array[SpellData] = []
 ## Every trait that can be handed out (TraitLibrary). See _roll_traits.
 var trait_pool: Array[TraitData] = []
+## Every calling the run can offer (CallingLibrary). Three are drawn for each companion when they first
+## appear (CompanionProgress.calling_offers); see "callings" below.
+var calling_pool: Array[CallingData] = []
+## The tier I spells drawn for a companion taking a calling of magic, kept so that asking twice gives the
+## same two: "<companion id>:<calling id>:<school>" -> Array[SpellData].
+var _calling_spells: Dictionary = {}
+## The callings' own dice (what is drawn for whom, and the spells offered), seeded from the run's seed:
+## the run's other dice fall as they would without callings.
+var _calling_rng := RandomNumberGenerator.new()
 ## Traits on someone in the company or on anyone offered at the tavern this run, hired or not: no
 ## trait twice in a run.
 var _traits_taken: Array[TraitData] = []
@@ -142,6 +151,8 @@ static func create(p_rng: RandomNumberGenerator, p_content: RunContent = null, p
 	r.art_pool = p_art_pool
 	r.spell_pool = p_spell_pool
 	r.trait_pool = TraitLibrary.load_default().traits.duplicate()
+	r.calling_pool = CallingLibrary.load_default().callings.duplicate()
+	r._calling_rng.seed = hash([p_rng.seed, "callings"])
 	r.accessory_pool = AccessoryLibrary.load_default().types.duplicate()
 	r.gold = RunConfig.STARTING_GOLD
 	for m in RunConfig.MATERIAL_ORDER:
@@ -161,6 +172,7 @@ static func create(p_rng: RandomNumberGenerator, p_content: RunContent = null, p
 		pool.erase(pick)
 		var c := r._join(pick)
 		c.traits = r._roll_traits(c.progress)
+		r._draw_callings(c.progress)
 		c.hp = c.max_hp()
 	r._stock_wooden_armory()
 	r._draw_bosses()
@@ -799,7 +811,8 @@ func hire_block_reason(data: CompanionData) -> String:
 
 
 ## Hires a companion offered at the tavern. They join with what they have practised outside the
-## company (offer_progress: proficiency, arts, spells) and their traits, at the roster's average level
+## company (offer_progress: proficiency, arts, spells), their traits and the callings drawn for them (one
+## joining at RunConfig.CALLING_LEVEL or above chooses at once: calling_due), at the roster's average level
 ## (rounded down) with the stat gains for those levels rolled now, at full HP, with their own weapon,
 ## and are fielded if the line has room (on a battle or boss day they march out with it). Costs gold
 ## only, never the day's action.
@@ -817,6 +830,7 @@ func hire(data: CompanionData) -> RunCompanion:
 	while c.level() < level:
 		Levels.level_up(c.progress, rng)
 	c.hp = c.max_hp()
+	_top_up_callings()
 	return c
 
 
@@ -1775,6 +1789,241 @@ static func _cost_with_gold(cost: Dictionary) -> String:
 	return text
 
 
+# ---------------------------------------------------------------- callings (design/callings.md)
+
+## Who in the company has taken `calling`, or null. A calling has one holder in a run.
+func calling_holder(calling: CallingData) -> RunCompanion:
+	for c in roster:
+		if calling != null and c.progress.calling == calling:
+			return c
+	return null
+
+
+## True if nobody in the company has taken `calling`.
+func is_calling_open(calling: CallingData) -> bool:
+	return calling != null and calling_holder(calling) == null
+
+
+## The callings drawn for `c` that nobody has taken: what they can choose from.
+func open_callings(c: RunCompanion) -> Array[CallingData]:
+	var out: Array[CallingData] = []
+	if c != null:
+		for calling in c.progress.calling_offers:
+			if is_calling_open(calling):
+				out.append(calling)
+	return out
+
+
+## True when `c` has reached RunConfig.CALLING_LEVEL and has not chosen: the choice is made when the
+## level is shown (after a battle, a drill, a scavenging trip or a hire), and the screens do not move on
+## without it.
+func calling_due(c: RunCompanion) -> bool:
+	return c != null and roster.has(c) and c.progress.calling == null and c.level() >= RunConfig.CALLING_LEVEL \
+		and not open_callings(c).is_empty()
+
+
+## Everyone in the company whose calling is due, in roster order.
+func callings_due() -> Array[RunCompanion]:
+	var out: Array[RunCompanion] = []
+	for c in roster:
+		if calling_due(c):
+			out.append(c)
+	return out
+
+
+## The stats `calling` names, for `p` as they are now: [first, second, slow] as stat keys (a calling
+## that names the lead of Strength and Magic: CallingData.lead_of).
+static func calling_stats(calling: CallingData, p: CompanionProgress) -> Array[String]:
+	var lead := p.calling_lead if p.calling == calling and p.calling_lead != "" else CallingData.lead_of(p)
+	var out: Array[String] = []
+	for token in [calling.first_stat, calling.second_stat, calling.slow_stat]:
+		out.append(CallingData.resolve(token, lead))
+	return out
+
+
+## The tier I spells of `school` that `c` would choose one of on taking `calling` (a calling of magic):
+## RunConfig.CALLING_SPELL_CHOICES they do not know, drawn the first time it is asked and the same
+## after. A calling whose rule works through a heal (CallingData.needs_heal) puts a healing spell among
+## them if they know none. Empty for a calling of arms, or when they know every tier I spell of it.
+func calling_spell_choices(c: RunCompanion, calling: CallingData, school: int) -> Array[SpellData]:
+	var out: Array[SpellData] = []
+	if c == null or calling == null or not calling.schools().has(school):
+		return out
+	var key := "%d:%s:%d" % [c.get_instance_id(), calling.id, school]
+	if not _calling_spells.has(key):
+		var open: Array[SpellData] = []
+		for sp in SpellLearning.unknown_spells(c.progress, school, spell_pool):
+			if sp.tier == 1:
+				open.append(sp)
+		var picks: Array[SpellData] = []
+		if calling.needs_heal and not c.progress.known_spells.any(func(sp: SpellData) -> bool: return sp.heals):
+			var heals := open.filter(func(sp: SpellData) -> bool: return sp.heals)
+			if not heals.is_empty():
+				picks.append(heals[_calling_rng.randi_range(0, heals.size() - 1)])
+				open.erase(picks[0])
+		while picks.size() < RunConfig.CALLING_SPELL_CHOICES and not open.is_empty():
+			picks.append(open.pop_at(_calling_rng.randi_range(0, open.size() - 1)))
+		_calling_spells[key] = picks
+	for sp: SpellData in _calling_spells[key]:
+		if not c.progress.knows_spell(sp):
+			out.append(sp)
+	return out
+
+
+## Why `c` cannot take `calling` now (with `school` and `spell` for a calling of magic), or "".
+func calling_block_reason(c: RunCompanion, calling: CallingData, school: int = -1, spell: SpellData = null) -> String:
+	if is_over():
+		return "The run is over."
+	if c == null or not roster.has(c):
+		return "Not in the company."
+	if calling == null or not c.progress.calling_offers.has(calling):
+		return "Not one of theirs."
+	if c.progress.calling != null:
+		return "%s is already a %s." % [c.display_name(), c.progress.calling.display_name]
+	if c.level() < RunConfig.CALLING_LEVEL:
+		return "Comes at level %d." % RunConfig.CALLING_LEVEL
+	var holder := calling_holder(calling)
+	if holder != null:
+		return "%s is the company's %s." % [holder.display_name(), calling.display_name]
+	if calling.is_magic():
+		if not calling.schools().has(school):
+			return "Choose a school."
+		var choices := calling_spell_choices(c, calling, school)
+		if not choices.is_empty() and not choices.has(spell):
+			return "Choose a spell."
+	return ""
+
+
+## `c` takes `calling`, for good. Its points are added at once as a level-up's are (Health gained is
+## also healed), and its growth rates count from the next level. A calling of magic raises `school` to
+## RunConfig.CALLING_OPEN_GRADE if it is lower and teaches `spell` (one of calling_spell_choices); a
+## calling of arms raises the grade of the weapon in hand the same way. Nobody else can take it after:
+## whoever is left with fewer than RunConfig.CALLING_MIN_OPEN open has more drawn.
+## Returns what happened for the screen that shows it: {"calling", "before" (the stats before), "gains"
+## (stat key -> points), "school" and "spell" (or -1 and null), "weapon_type" (or -1), "grade_from",
+## "grade_to"}; {} if not allowed.
+func take_calling(c: RunCompanion, calling: CallingData, school: int = -1, spell: SpellData = null) -> Dictionary:
+	if calling_block_reason(c, calling, school, spell) != "":
+		return {}
+	var p := c.progress
+	var out := {"calling": calling, "before": p.stats(), "school": -1, "spell": null, "weapon_type": -1,
+		"grade_from": -1, "grade_to": -1}
+	var learnable: Array[SpellData] = []
+	if calling.is_magic():
+		learnable = calling_spell_choices(c, calling, school)
+	out["gains"] = p.take_calling(calling)
+	c.hp = mini(c.max_hp(), c.hp + int(out.gains.get(Stat.HP, 0)))
+	var grade := RunConfig.CALLING_OPEN_GRADE
+	if calling.is_magic():
+		out["school"] = school
+		out["grade_from"] = p.magic_grade(school)
+		if p.magic_grade(school) < grade:
+			p.magic_points[school] = Proficiency.points_for(grade)
+		out["grade_to"] = p.magic_grade(school)
+		if spell != null and learnable.has(spell) and p.learn_spell(spell):
+			out["spell"] = spell
+	elif p.weapon != null:
+		var wt := p.weapon.weapon_type
+		out["weapon_type"] = wt
+		out["grade_from"] = p.grade(wt)
+		if p.grade(wt) < grade:
+			p.points[wt] = Proficiency.points_for(grade)
+		out["grade_to"] = p.grade(wt)
+	_forget_calling_spells(c)
+	_top_up_callings()
+	return out
+
+
+## Why `c` cannot put `calling` aside at the Drill Yard today, or "": a free day's action (the same one
+## a drill uses) and RunConfig.CALLING_REDRAW_COST gold, before their calling is taken, while another
+## is left to draw.
+func redraw_block_reason(c: RunCompanion, calling: CallingData) -> String:
+	var why := errand_block_reason()
+	if why != "":
+		return why
+	if actions_used.has(FreeAction.TRAIN):
+		return "Already done today."
+	if actions_left <= 0:
+		return "No actions left today."
+	if c == null or not roster.has(c):
+		return "Not in the company."
+	if c.injured:
+		return infirmary_block_reason(c)
+	if c.progress.calling != null:
+		return "%s is already a %s." % [c.display_name(), c.progress.calling.display_name]
+	if calling == null or not c.progress.calling_offers.has(calling):
+		return "Not one of theirs."
+	if gold < RunConfig.CALLING_REDRAW_COST:
+		return "Needs %d gold." % RunConfig.CALLING_REDRAW_COST
+	if _callings_to_draw(c.progress).is_empty():
+		return "No other calling is left to draw."
+	return ""
+
+
+## A day to look elsewhere: puts `calling`, one of `c`'s three, aside for good and draws another in its
+## place (from those nobody holds, not among theirs and never put aside by them). Spends the day's free
+## action and the gold. Returns the calling drawn, or null if not allowed.
+func redraw_calling(c: RunCompanion, calling: CallingData) -> CallingData:
+	if redraw_block_reason(c, calling) != "":
+		return null
+	_spend(FreeAction.TRAIN)
+	gold -= RunConfig.CALLING_REDRAW_COST
+	var p := c.progress
+	var pool := _callings_to_draw(p)
+	var pick := pool[_calling_rng.randi_range(0, pool.size() - 1)]
+	p.calling_offers[p.calling_offers.find(calling)] = pick
+	p.calling_aside.append(calling)
+	_forget_calling_spells(c)
+	return pick
+
+
+## RunConfig.CALLINGS_OFFERED callings for a companion appearing in the run (with their traits), each of
+## those nobody holds as likely as another.
+func _draw_callings(p: CompanionProgress) -> void:
+	p.calling_offers.clear()
+	_draw_more_callings(p, RunConfig.CALLINGS_OFFERED)
+
+
+## Up to `n` more callings for `p`, added to their offers. Returns how many were drawn.
+func _draw_more_callings(p: CompanionProgress, n: int) -> int:
+	var drawn := 0
+	for i in n:
+		var pool := _callings_to_draw(p)
+		if pool.is_empty():
+			break
+		p.calling_offers.append(pool[_calling_rng.randi_range(0, pool.size() - 1)])
+		drawn += 1
+	return drawn
+
+
+## The callings that can still be drawn for `p`: held by nobody, not among theirs, never put aside by them.
+func _callings_to_draw(p: CompanionProgress) -> Array[CallingData]:
+	var out: Array[CallingData] = []
+	for calling in calling_pool:
+		if is_calling_open(calling) and not p.calling_offers.has(calling) and not p.calling_aside.has(calling):
+			out.append(calling)
+	return out
+
+
+## Whoever in the company has no calling yet and fewer than RunConfig.CALLING_MIN_OPEN of theirs open
+## (someone else took them) has more drawn until that many are. Called when a calling is taken and
+## when someone joins.
+func _top_up_callings() -> void:
+	for c in roster:
+		if c.progress.calling != null:
+			continue
+		var short := RunConfig.CALLING_MIN_OPEN - open_callings(c).size()
+		if short > 0:
+			_draw_more_callings(c.progress, short)
+
+
+func _forget_calling_spells(c: RunCompanion) -> void:
+	var prefix := "%d:" % c.get_instance_id()
+	for key: String in _calling_spells.keys():
+		if key.begins_with(prefix):
+			_calling_spells.erase(key)
+
+
 # ---------------------------------------------------------------- traits
 
 ## The traits of `data` standing in the tavern this week (shown before hiring): rolled the first time
@@ -2417,6 +2666,7 @@ func _offer(d: CompanionData) -> void:
 	if not _rolled_traits.has(d):
 		_rolled_traits[d] = _roll_traits(CompanionProgress.create(d))
 		_outside_progress(d).traits = _rolled_traits[d]
+		_draw_callings(_outside_progress(d))
 
 
 ## When the run begins: one wooden weapon (the ladder's tier 0) of every weapon type the starters'

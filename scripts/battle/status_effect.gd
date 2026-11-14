@@ -15,8 +15,8 @@ var damage_per_tick: int = 0
 ## Share (percent) of a landed weapon strike's or art's damage dealt back to the striker.
 var reflect_percent: int = 0
 var stacks: int = 1
-## The companion who applied this damage over time, or null (enemies, other effects). They are
-## credited with a kill it makes.
+## The companion who applied this damage over time, or any harmful effect on an enemy; null otherwise
+## (enemies' effects, buffs). They are credited with a kill it makes.
 var source: Combatant = null
 var max_stacks: int = 1
 

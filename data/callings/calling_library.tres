@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="CallingLibrary" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/calling_data.gd" id="1_1a501"]
+[ext_resource type="Resource" path="res://data/callings/warden.tres" id="2_qgpj7"]
+[ext_resource type="Resource" path="res://data/callings/champion.tres" id="3_pjygj"]
+[ext_resource type="Resource" path="res://data/callings/executioner.tres" id="4_63c6i"]
+[ext_resource type="Resource" path="res://data/callings/skirmisher.tres" id="5_mb8m5"]
+[ext_resource type="Resource" path="res://data/callings/captain.tres" id="6_k4dyr"]
+[ext_resource type="Resource" path="res://data/callings/harrier.tres" id="7_wgms4"]
+[ext_resource type="Resource" path="res://data/callings/hunter.tres" id="8_nhhny"]
+[ext_resource type="Resource" path="res://data/callings/berserker.tres" id="9_15vmy"]
+[ext_resource type="Resource" path="res://data/callings/mender.tres" id="10_5sncp"]
+[ext_resource type="Resource" path="res://data/callings/hexer.tres" id="11_wr872"]
+[ext_resource type="Resource" path="res://data/callings/sage.tres" id="12_nxpnw"]
+[ext_resource type="Resource" path="res://data/callings/spellblade.tres" id="13_k8puf"]
+[ext_resource type="Script" path="res://scripts/data/calling_library.gd" id="14_unkh6"]
+
+[resource]
+script = ExtResource("14_unkh6")
+callings = Array[ExtResource("1_1a501")]([ExtResource("2_qgpj7"), ExtResource("3_pjygj"), ExtResource("4_63c6i"), ExtResource("5_mb8m5"), ExtResource("6_k4dyr"), ExtResource("7_wgms4"), ExtResource("8_nhhny"), ExtResource("9_15vmy"), ExtResource("10_5sncp"), ExtResource("11_wr872"), ExtResource("12_nxpnw"), ExtResource("13_k8puf")])

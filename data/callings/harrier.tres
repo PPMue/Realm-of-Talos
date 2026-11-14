@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="CallingData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_03sgc"]
+[ext_resource type="Script" path="res://scripts/data/calling_data.gd" id="2_2vteu"]
+
+[sub_resource type="Resource" id="Resource_rpk28"]
+script = ExtResource("1_03sgc")
+kind = 62
+amount = 1
+
+[resource]
+script = ExtResource("2_2vteu")
+id = "harrier"
+display_name = "Harrier"
+rule = "Every strike or spell of theirs that lands staggers: the action comes 1 turn later."
+first_stat = "DEX"
+second_stat = "LEAD"
+slow_stat = "RES"
+modifiers = Array[ExtResource("1_03sgc")]([SubResource("Resource_rpk28")])

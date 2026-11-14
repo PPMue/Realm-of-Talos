@@ -70,12 +70,23 @@ enum Kind {
 	SURVIVE_SHARE,        ## once a battle, a blow that would fell them leaves them at `amount` percent of max HP (0: 1 HP)
 	FIRST_HIT_DELAY,      ## their first hit of a battle pushes the target's next action back `amount`
 	SPELL_USES_LOSS,      ## every spell has `amount` fewer uses, never below 1
+	# --- callings (design/callings.md): one rule each ---
+	STRIKE_TURNS_AIM,     ## an enemy their strike or spell lands on turns its pending single blow on them (Champion)
+	EXECUTE_PERCENT,      ## a strike or spell that leaves an enemy at `amount` percent of its Health or less fells it; a boss: half that (Executioner)
+	ORDER_ROUSE,          ## the order Rouse: a companion who is recovering is ready at once (Captain)
+	HIT_DELAY,            ## an action of theirs that lands pushes the target's next action back `amount`, once per action (Harrier)
+	SURE_CRIT,            ## what they land is critical (Hunter, with target_turns_at_most)
+	ART_COSTS_HEALTH,     ## arts cost Health in place of stamina: `amount` percent of the stamina cost, rounded up (Berserker)
+	RAISE_ONCE,           ## once a battle, their healing spell on one ally can raise an injured companion at `amount` percent of max Health (Mender)
+	EFFECTS_PASS_ON,      ## when an enemy carrying a harmful effect of theirs falls, it passes to another enemy (Hexer)
+	FIRST_SPELL_FREE,     ## their first spell of each battle costs no use, and can be cast with none left (Sage)
+	STRIKE_LOWER_DEFENSE, ## their weapon strikes are worked out against the lower of the target's DEF and RES (Spellblade)
 }
 
 ## Where in the line the holder stands, counted as in the barracks (rear to front).
 enum Place { ANY, FRONT, REAR, MIDDLE, NOT_FRONT }
-## What kind of action the number is for.
-enum Action { ANY, ATTACK, ART, SPELL }
+## What kind of action the number is for. GUARD: only where the rules ask for Guard by name (its recovery).
+enum Action { ANY, ATTACK, ART, SPELL, GUARD }
 ## Who the number is for: the holder, the companions either side of them, the one behind them,
 ## everyone in the company not in the Infirmary (out of battle), every other companion in the line,
 ## the lowest-level companion in the line (XP).
@@ -153,6 +164,8 @@ enum Struck { ANY, LAST_STRUCK, NOT_LAST_STRUCK, HIT_ME_LAST, STRUCK_ME_SINCE }
 @export var rival_ahead: bool = false
 ## The amount counts once for each standing companion beside the holder.
 @export var per_neighbour: bool = false
+## The enemy's pending action comes in at most this many turns (0: no limit). 1: it acts after this action.
+@export var target_turns_at_most: int = 0
 
 
 ## True if no battle condition is set: the modifier also counts outside a battle.
@@ -160,7 +173,8 @@ func is_battle_only() -> bool:
 	return place != Place.ANY or line_at_most > 0 or line_full or only_standing or self_health != Health.ANY \
 		or target_health != Health.ANY or target_trait != "" or target_boss or big_fight or target_next_magic \
 		or struck != Struck.ANY or action_from > 0 or action_to > 0 or after_guard_or_focus or first_front_action \
-		or first_blow_taken or self_hp_at_most > 0 or first_art or ally_injured or rival_ahead or per_neighbour
+		or first_blow_taken or self_hp_at_most > 0 or first_art or ally_injured or rival_ahead or per_neighbour \
+		or target_turns_at_most > 0
 
 
 ## True if nothing at all limits it: it always counts (a plain stat bonus, a growth rate for every level).

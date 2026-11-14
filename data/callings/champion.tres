@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="CallingData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="1_mf36v"]
+[ext_resource type="Script" path="res://scripts/data/calling_data.gd" id="2_bsfhl"]
+
+[sub_resource type="Resource" id="Resource_6efix"]
+script = ExtResource("1_mf36v")
+kind = 59
+amount = 1
+
+[resource]
+script = ExtResource("2_bsfhl")
+id = "champion"
+display_name = "Champion"
+rule = "An enemy they strike turns its coming blow on them."
+first_stat = "HP"
+second_stat = "DEF"
+slow_stat = "DEX"
+modifiers = Array[ExtResource("1_mf36v")]([SubResource("Resource_6efix")])

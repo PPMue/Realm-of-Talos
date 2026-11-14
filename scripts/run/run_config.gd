@@ -187,6 +187,29 @@ const TRAIT_RARITY_WEIGHTS: Array[int] = [10, 5, 1]
 ## Percent of the time a trait tied to a weapon type or school goes to someone who can already use it.
 const TRAIT_FIT_PERCENT := 80
 
+# --- Callings (design/callings.md; see Run.take_calling, CallingData) ---
+## The level a companion takes one of their callings at.
+const CALLING_LEVEL := 4
+## Callings drawn for each companion when they first appear in a run, and how many of them must be
+## open (held by nobody else) when the choice comes: more are drawn until that many are.
+const CALLINGS_OFFERED := 3
+const CALLING_MIN_OPEN := 2
+## Before it is taken: a free day's action and this much gold at the Drill Yard puts one of the three
+## aside and draws another (Run.redraw_calling).
+const CALLING_REDRAW_COST := 30
+## On taking: points to the calling's first and second stat (Health counts HP_PER_POINT for one).
+const CALLING_FIRST_GAIN := 2
+const CALLING_SECOND_GAIN := 1
+const CALLING_HP_PER_POINT := 3
+## From then on: growth rate points to its first, second and slow stat.
+const CALLING_FIRST_GROWTH := 20
+const CALLING_SECOND_GROWTH := 10
+const CALLING_SLOW_GROWTH := -10
+## A calling of magic raises its school to this grade (a calling of arms: the weapon in hand) if it is
+## lower, and teaches one tier I spell of the school chosen from this many drawn.
+const CALLING_OPEN_GRADE := 2          # Proficiency.Grade.D
+const CALLING_SPELL_CHOICES := 2
+
 # --- Scavenging (a free-day action; see Run.scavenge and ScavengeSite) ---
 const SCAVENGE_SITES_PER_DAY := 2
 ## Weights of size 1 / 2 / 3 (small, medium, large: also how many go) and of risk low / medium / high,

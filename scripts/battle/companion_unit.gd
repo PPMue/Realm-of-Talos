@@ -39,6 +39,10 @@ var half_health_done: bool = false
 var survived_once: bool = false
 ## True once one of their strikes or spells has hit this battle (an Hourglass waits for the first).
 var first_hit_done: bool = false
+## Spells they have cast this battle (a Sage's first costs no use), and injured companions they have
+## raised (a Mender: once).
+var spells_cast: int = 0
+var raises_used: int = 0
 ## The battle, for traits that depend on it (weak, so the two do not keep each other alive).
 var _battle: WeakRef
 ## True if some trait in the line can change this companion's stats during the battle.
@@ -62,6 +66,11 @@ func traits() -> Array[TraitData]:
 ## Their traits and what their accessories do (CompanionProgress.effects): what TraitRules reads.
 func all_traits() -> Array[TraitData]:
 	return progress.all_traits()
+
+
+## What they have become (CompanionProgress.calling), or null.
+func calling() -> CallingData:
+	return progress.calling
 
 
 ## The battle this companion is in, or null.
