@@ -10,10 +10,9 @@ const W := 336.0
 const H := 54.0
 const TITLE_SIZE := 26
 const TITLE_MIN_SIZE := 17
-## Room kept on the right; the button once slid out when lit.
+## Room kept on the right; the button once slid out when lit. A lit button now stays where it is:
+## only its frame, its ink and the glow along its edge change.
 const NUDGE := 18.0
-## How far a lit button moves.
-const LIFT := 6.0
 const LIT_INK := Color("fff3d2")
 
 var title := "":
@@ -101,7 +100,7 @@ func _draw() -> void:
 		_draw_paper()
 		return
 	var lit := (active or _hover) and not disabled
-	var rect := Rect2(LIFT if lit else 0.0, 0, W, h)
+	var rect := Rect2(0, 0, W, h)
 	var fill := Color(UiTheme.PANEL, 0.95)
 	var edge := UiTheme.EDGE
 	var ink := UiTheme.TEXT

@@ -19,17 +19,31 @@ var _bg := SlantPanel.new()
 var _button := ActionButton.new()
 var _pips: Control
 var _hover := false
+var _over_card := false
+var _over_button := false
 var _enabled := true
 
 
 func _init() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	mouse_entered.connect(func() -> void:
-		_hover = true
-		_restyle())
-	mouse_exited.connect(func() -> void:
-		_hover = false
-		_restyle())
+	mouse_entered.connect(_set_hover.bind(true, false))
+	mouse_exited.connect(_set_hover.bind(false, false))
+	_button.hover_changed.connect(func(inside: bool) -> void: _set_hover(inside, true))
+
+
+## The card is lit while the pointer is anywhere on it, the button included: moving onto the button
+## makes the card itself report the pointer gone, so the two are kept apart and either one lights it.
+func _set_hover(inside: bool, on_button: bool) -> void:
+	if on_button:
+		_over_button = inside
+	else:
+		_over_card = inside
+	var lit := _over_card or _over_button
+	if lit == _hover:
+		return
+	_hover = lit
+	if front != null:
+		_restyle()
 
 
 ## `why_not`: when not "", the card cannot be chosen and says why instead.
