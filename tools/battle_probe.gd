@@ -8,8 +8,10 @@ extends SceneTree
 ##   strongest the same, but whoever of the ready would deal the most acts (a healer when someone is hurt)
 ##   random    a random ready companion makes a plain Attack on a random enemy
 ##   reader    strongest, but it reads the enemy's hand (Battle.incoming, falls_on_turn): when someone
-##             would fall this turn it fells an enemy whose blow lands on them if it can, else has them
-##             guard if that saves them
+##             would fall this turn it fells an enemy whose blow lands on them if it can, else has a
+##             free neighbour shield them (Battle.guard_preview) or has them guard, if that saves them
+## Every player but the random one sounds the retreat as the automated player does (should_retreat),
+## and a retreat counts as a battle lost.
 ## It prints: how long battles are, how the actions are shared along the line, how hard single enemy
 ## blows are, how often the same battle is won on a replay, and how the three players compare.
 
@@ -48,7 +50,8 @@ func _init() -> void:
 	for m in MODES:
 		_stats.append({"battles": 0, "ticks": 0, "actions": 0, "waits": 0, "guards": 0, "top1": 0.0, "top2": 0.0,
 			"blows": 0, "blows_half": 0, "blows_fell": 0, "blows_fell_full": 0, "misses": 0, "strikes": 0,
-			"injured": 0, "fielded": 0, "idle": 0, "attacks": 0, "arts": 0, "spells": 0, "focuses": 0})
+			"injured": 0, "fielded": 0, "idle": 0, "attacks": 0, "arts": 0, "spells": 0, "focuses": 0,
+			"covers": 0, "retreats": 0, "four": 0, "top2_four": 0.0, "won": 0, "injured_won": 0})
 	var started := Time.get_ticks_msec()
 	for s in runs:
 		var rng := RandomNumberGenerator.new()
@@ -91,6 +94,7 @@ func measure(run: Run, b: Battle) -> void:
 			rng.seed = hash([run.day, mode, k, _rows.size()])
 			var copy := Battle.new(datas, front.enemies, rng, party, b.art_pool, b.spell_pool)
 			copy.elite = b.elite
+			copy.allow_retreat = b.allow_retreat
 			for i in b.roster.size():
 				copy.roster[i].hp = b.roster[i].hp
 			var prng := RandomNumberGenerator.new()
@@ -120,6 +124,11 @@ func _play(b: Battle, mode: int, policy: RefCounted) -> bool:
 			st.attacks += 1
 			_scan(b, st)
 			continue
+		# Every player but the random one falls back as the automated player does.
+		if mode != Mode.RANDOM and policy.should_retreat(b):
+			b.retreat()
+			st.retreats += 1
+			break
 		if mode == Mode.READER and _read(b, ready, st):
 			_scan(b, st)
 			continue
@@ -128,6 +137,13 @@ func _play(b: Battle, mode: int, policy: RefCounted) -> bool:
 			c = _strongest(b, ready)
 		if policy.cast_spell(b, c):
 			st.spells += 1
+			_scan(b, st)
+			continue
+		var ward: CompanionUnit = policy.cover_ward(b, c)
+		if ward != null:
+			b.guard(c, ward)
+			st.guards += 1
+			st.covers += 1
 			_scan(b, st)
 			continue
 		if policy.should_guard(b, c):
@@ -185,7 +201,16 @@ func _play(b: Battle, mode: int, policy: RefCounted) -> bool:
 	if total > 0:
 		st.top1 += float(counts[0]) / total
 		st.top2 += float(counts[0] + (counts[1] if counts.size() > 1 else 0)) / total
-	return b.outcome == Battle.Outcome.VICTORY
+		if counts.size() >= 4:
+			st.four += 1
+			st.top2_four += float(counts[0] + counts[1]) / total
+	var won := b.outcome == Battle.Outcome.VICTORY
+	if won:
+		st.won += 1
+		for c in b.roster:
+			if c.is_injured():
+				st.injured_won += 1
+	return won
 
 
 ## The reader's answer to a blow on the table: for whoever would fall this turn if everything lands,
@@ -209,9 +234,30 @@ func _read(b: Battle, ready: Array[CompanionUnit], st: Dictionary) -> bool:
 					b.attack(c, e)
 					st.attacks += 1
 					return true
-		if ready.has(victim) and not b.is_lone_companion(victim) and not victim.has_effect("Guard") 				and ceili(due * BattleConfig.GUARD_DAMAGE_TAKEN_MULT) < victim.hp:
-			b.guard(victim)
+		# A neighbour who is free steps in, if that leaves both standing and the guard with half their Health.
+		var last_resort: CompanionUnit = null
+		for g in ready:
+			if g == victim or not b.guard_wards(g).has(victim):
+				continue
+			var p: Dictionary = b.guard_preview(g, victim)
+			if bool(p.falls) or bool(p.ward_falls):
+				continue
+			if (g.hp - int(p.damage)) * 2 >= g.max_hp():
+				b.guard(g, victim)
+				st.guards += 1
+				st.covers += 1
+				return true
+			last_resort = g
+		if ready.has(victim) and b.active_companions().size() > 1 and not victim.has_effect("Guard"):
+			var own: Dictionary = b.guard_preview(victim, victim)
+			if not bool(own.falls):
+				b.guard(victim)
+				st.guards += 1
+				return true
+		if last_resort != null:
+			b.guard(last_resort, victim)
 			st.guards += 1
+			st.covers += 1
 			return true
 	return false
 
@@ -291,7 +337,9 @@ func _report() -> void:
 		print("  enemy blows landed %.1f a battle; taking half of max HP or more %.0f%%; felling %.0f%%; felling from 80%% HP or more %.1f%%" % [
 			float(st.blows) / n, 100.0 * st.blows_half / maxi(1, int(st.blows)), 100.0 * st.blows_fell / maxi(1, int(st.blows)),
 			100.0 * st.blows_fell_full / maxi(1, int(st.blows))])
-		print("  injured a battle %.2f" % (float(st.injured) / n))
+		print("  injured a battle %.2f; in battles won %.2f" % [float(st.injured) / n, float(st.injured_won) / maxi(1, int(st.won))])
+		print("  with four in the line (%d): actions by the busiest two %.0f%%" % [int(st.four), 100.0 * st.top2_four / maxi(1, int(st.four))])
+		print("  guards that shielded a neighbour %.2f a battle; retreats %.1f%% of battles" % [float(st.covers) / n, 100.0 * st.retreats / n])
 	print("")
 	print("Win share over the replays, all battles: greedy %.0f%%, strongest %.0f%%, random %.0f%%, reader %.0f%%" % [
 		100.0 * _mean(0, ""), 100.0 * _mean(1, ""), 100.0 * _mean(2, ""), 100.0 * _mean(3, "")])

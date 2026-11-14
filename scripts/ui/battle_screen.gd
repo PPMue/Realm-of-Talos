@@ -12,6 +12,11 @@ extends Control
 ## falls_on_turn); a thread from an enemy to its target for every blow that lands this turn, and for
 ## whatever is pointed at (_draw_threads).
 ##
+## Guard asks whom to shield when someone stands beside the guard: themselves or a neighbour, chosen
+## on the portraits, with the threads of the blows that would be caught swinging to the guard
+## (Mode.TARGET_GUARD, Battle.guard_preview). Where the company may fall back (not before a boss) the
+## retreat is an order of its own, asked twice (ask_retreat, confirm_retreat).
+##
 ## It plays a battle prepared by the run (Run.start_battle) and does not own the game loop: when the
 ## battle is over it emits `finished`; the owner applies the result to the run and hands the report
 ## back with show_report(), and the result screen's button emits `closed`.
@@ -20,7 +25,8 @@ signal finished(battle: Battle)
 signal closed
 
 ## TARGET_SPELL: a black spell waiting for an enemy. TARGET_ALLY: a white spell waiting for a companion.
-enum Mode { IDLE, TARGET_ATTACK, TARGET_ART, TARGET_SPELL, TARGET_ALLY }
+## TARGET_GUARD: a Guard waiting for whom to shield (the guard or a neighbour).
+enum Mode { IDLE, TARGET_ATTACK, TARGET_ART, TARGET_SPELL, TARGET_ALLY, TARGET_GUARD }
 
 ## The part of the screen the enemies stand in (margins from each edge, at 1920x1080).
 const STAGE_LEFT := 670.0
@@ -86,6 +92,13 @@ var _grade_kicker: Label
 var _grade_title: Label
 var _grade_detail: Label
 var _grade_tween: Tween
+## Sounding the retreat: the order in the top bar, and the question it asks before the horn is blown.
+var _retreat_btn := Button.new()
+var _retreat_veil := ColorRect.new()
+var _retreat_cost: Label
+var _retreat_cost_word: Label
+## What the walls lose if this front is lost, to show before a retreat; below 0 when not known.
+var _walls_cost := -1
 
 
 func _init() -> void:
@@ -94,11 +107,14 @@ func _init() -> void:
 
 
 ## Shows `p_battle` (already set up by the run) from its first tick. `title` names the place.
-func start(p_battle: Battle, title: String) -> void:
+## `walls_cost`: what the walls lose if the front is lost, shown before a retreat (below 0: not shown).
+func start(p_battle: Battle, title: String, walls_cost: int = -1) -> void:
 	_generation += 1
 	_busy = false
 	_skip = false
 	battle = p_battle
+	_walls_cost = walls_cost
+	_retreat_veil.visible = false
 	_title.text = title.to_upper()
 
 	for child in _party_row.get_children() + _stage.get_children() + _popups.get_children():
@@ -161,6 +177,9 @@ func pick_companion(c: CompanionUnit) -> void:
 	if _mode == Mode.TARGET_ALLY:
 		cast_on_ally(c)
 		return
+	if _mode == Mode.TARGET_GUARD and _wards().has(c):
+		guard_ward(c)
+		return
 	if not battle.can_act(c):
 		return
 	if c != _selected:
@@ -183,6 +202,48 @@ func cast_on_ally(c: CompanionUnit) -> void:
 func point_at_ally(c: CompanionUnit) -> void:
 	_hot_ally = c if (_mode == Mode.TARGET_ALLY and c != null and battle.line().has(c) and not c.is_injured()) else null
 	_refresh_party()
+
+
+## Whom the chosen companion could guard now: themselves first, then whoever stands beside them.
+func _wards() -> Array[CompanionUnit]:
+	var none: Array[CompanionUnit] = []
+	return battle.guard_wards(_selected) if _selected != null and battle.can_act(_selected) else none
+
+
+## The Guard waiting for whom to shield is given: `ward` is the guard themselves or a neighbour.
+func guard_ward(ward: CompanionUnit) -> void:
+	if _busy or _mode != Mode.TARGET_GUARD or not _wards().has(ward):
+		return
+	var c := _selected
+	if battle.guard(c, null if ward == c else ward):
+		_commit(c)
+
+
+## Points at whom a waiting Guard would shield, to see what the guard would take. null: the guard.
+func point_at_ward(c: CompanionUnit) -> void:
+	if _mode != Mode.TARGET_GUARD:
+		return
+	_hot_ally = c if (c != null and _wards().has(c)) else _selected
+	_refresh_party()
+	_threads.queue_redraw()
+
+
+## Guard was ordered. With nobody beside the guard it is given at once; else it waits for whom to
+## shield, the guard themselves to begin with (so the key twice, or the key and Space, guards oneself).
+func _toggle_guard() -> void:
+	var c := _selected
+	if _mode == Mode.TARGET_GUARD:
+		guard_ward(_hot_ally if _hot_ally != null else c)
+		return
+	if battle.guard_wards(c).size() <= 1:
+		if battle.guard(c):
+			_commit(c)
+		return
+	_clear_targeting()
+	_mode = Mode.TARGET_GUARD
+	_hot_ally = c
+	_aim_at_pointer()
+	_refresh()
 
 
 func choose_action(id: String) -> void:
@@ -229,11 +290,37 @@ func choose_action(id: String) -> void:
 		ActionMenu.ATTACK:
 			_toggle_targeting(Mode.TARGET_ATTACK)
 		ActionMenu.GUARD:
-			if battle.guard(c):
-				_commit(c)
+			_toggle_guard()
 		ActionMenu.FOCUS:
 			if battle.focus(c):
 				_commit(c)
+
+
+## The retreat is asked for: the question is put (what the walls will pay) before the horn is blown.
+func ask_retreat() -> void:
+	if _busy or battle == null or _overlay.visible or not battle.can_retreat():
+		return
+	_clear_targeting()
+	_spell_menu = false
+	inspect(null)
+	var known := _walls_cost >= 0
+	_retreat_cost.text = "-%d" % _walls_cost if known else "LOST"
+	_retreat_cost_word.text = "THE WALLS" if known else "THE FRONT"
+	_retreat_veil.visible = true
+	_refresh()
+
+
+func cancel_retreat() -> void:
+	_retreat_veil.visible = false
+
+
+## The horn is blown: the battle ends as lost, and whoever still stands walks home.
+func confirm_retreat() -> void:
+	if not _retreat_veil.visible:
+		return
+	_retreat_veil.visible = false
+	if not _busy and battle.retreat():
+		_commit(null)
 
 
 ## Points at an enemy while choosing a target, to see the forecast. Pass null to stop pointing.
@@ -375,6 +462,8 @@ func _aim_at_pointer() -> void:
 		_hot_enemy = u
 	elif _mode == Mode.TARGET_ALLY and u is CompanionUnit and battle.line().has(u) and not (u as CompanionUnit).is_injured():
 		_hot_ally = u
+	elif _mode == Mode.TARGET_GUARD and u is CompanionUnit and _wards().has(u):
+		_hot_ally = u
 
 
 func _aims_at_enemies() -> bool:
@@ -390,6 +479,12 @@ func _targets_all() -> bool:
 
 func _on_ally_hover(inside: bool, c: CompanionUnit) -> void:
 	_set_aim_focus(c if inside else null, c)
+	if not _busy and _mode == Mode.TARGET_GUARD:
+		if inside:
+			point_at_ward(c)
+		elif _hot_ally == c:
+			point_at_ward(null)
+		return
 	if _busy or _mode != Mode.TARGET_ALLY:
 		return
 	if inside:
@@ -436,12 +531,17 @@ func _aims_to_draw() -> Array[Array]:
 	var out: Array[Array] = []
 	if battle == null or _busy or battle.is_over() or _overlay.visible:
 		return out
+	# A Guard waiting to shield a neighbour: the blows it would catch are drawn to the guard.
+	var covered: CompanionUnit = null
+	if _mode == Mode.TARGET_GUARD and _hot_ally != null and _hot_ally != _selected:
+		covered = _hot_ally
 	for c in battle.active_companions():
 		for m in battle.incoming(c):
 			var e: EnemyUnit = m.enemy
 			var turns := int(m.turns)
 			if turns <= 1 or _aim_focus == e or _aim_focus == c:
-				out.append([e, c, turns])
+				var caught: bool = c == covered and turns <= 1 and not bool(m.get("whole_line", false))
+				out.append([e, _selected if caught else c, turns])
 	return out
 
 
@@ -498,6 +598,11 @@ func _input(event: InputEvent) -> void:
 			if mb.button_index == MOUSE_BUTTON_LEFT:
 				_overlay.advance()
 			return
+		if _retreat_veil.visible:
+			# The question has its own two buttons; a right-click is "stand fast".
+			if mb.button_index == MOUSE_BUTTON_RIGHT:
+				cancel_retreat()
+			return
 		if _busy:
 			_skip = true
 		elif mb.button_index == MOUSE_BUTTON_RIGHT:
@@ -513,6 +618,12 @@ func _input(event: InputEvent) -> void:
 			else:
 				_overlay.advance()
 		return
+	if _retreat_veil.visible:
+		if key.keycode in [KEY_ENTER, KEY_KP_ENTER]:
+			confirm_retreat()
+		elif key.keycode in [KEY_ESCAPE, KEY_R]:
+			cancel_retreat()
+		return
 	if _busy:
 		_skip = true
 		return
@@ -527,8 +638,12 @@ func _input(event: InputEvent) -> void:
 			cancel_targeting()
 		KEY_L:
 			_toggle_log()
+		KEY_R:
+			ask_retreat()
 		KEY_SPACE, KEY_ENTER:
-			if battle.can_wait():
+			if _mode == Mode.TARGET_GUARD:
+				guard_ward(_hot_ally if _hot_ally != null else _selected)
+			elif battle.can_wait():
 				choose_action(ActionMenu.WAIT)
 			elif _targets_all() and not battle.living_enemies().is_empty():
 				strike_enemy(battle.living_enemies()[0])
@@ -571,7 +686,7 @@ func _commit(actor: CompanionUnit) -> void:
 	if actor != null:
 		var panel: PartyPanel = _party_panels[actor]
 		panel.set_stamina(actor.stamina, actor.max_stamina())
-		if actor.recovery > 0 and not battle.is_lone_companion(actor):
+		if actor.recovery > 0 and not battle.can_act(actor):
 			panel.set_status(PartyPanel.Status.RECOVERING, actor.recovery)
 	_refresh_menu()
 	_tick_label.text = _turn_text()
@@ -643,9 +758,33 @@ func _show_event(ev: Dictionary) -> float:
 			return 1.7
 		"guard":
 			var panel: PartyPanel = _party_panels[ev.actor]
-			panel.play_pulse(UiTheme.INTENT_COLORS[EnemyActionData.Intent.DEFEND])
-			_popup(panel.popup_anchor(), "GUARD", UiTheme.INTENT_COLORS[EnemyActionData.Intent.DEFEND], 44)
+			var ink: Color = UiTheme.INTENT_COLORS[EnemyActionData.Intent.DEFEND]
+			panel.play_pulse(ink)
+			_popup(panel.popup_anchor(), "GUARD", ink, 44)
+			# Standing before a neighbour: the neighbour is marked too.
+			var ward: CompanionUnit = ev.get("ward")
+			if ward != null and ward != ev.actor and _party_panels.has(ward):
+				var shielded: PartyPanel = _party_panels[ward]
+				shielded.play_pulse(ink)
+				_popup(shielded.popup_anchor() + Vector2(0, 36), "SHIELDED", ink, 36)
 			return 0.3
+		"cover":
+			# A blow meant for the neighbour lands on the guard.
+			var guard: CompanionUnit = ev.get("guard")
+			if guard == null or not _party_panels.has(guard):
+				return 0.0
+			var panel: PartyPanel = _party_panels[guard]
+			panel.play_pulse(UiTheme.INTENT_COLORS[EnemyActionData.Intent.DEFEND])
+			_popup(panel.popup_anchor() + Vector2(0, -56), "STEPS IN", UiTheme.INTENT_COLORS[EnemyActionData.Intent.DEFEND], 40)
+			return 0.28
+		"retreat":
+			_grade_kicker.text = "THE HORN SOUNDS"
+			_grade_title.text = "THE COMPANY FALLS BACK"
+			_grade_title.add_theme_color_override("font_color", UiTheme.INJURED)
+			_grade_detail.text = ""
+			_grade_banner.border = UiTheme.INJURED
+			_play_big_banner()
+			return 1.6
 		"focus":
 			var panel: PartyPanel = _party_panels[ev.actor]
 			panel.play_pulse(UiTheme.STA)
@@ -910,6 +1049,9 @@ func _refresh() -> void:
 	_threads.queue_redraw()
 	_refresh_menu()
 	_draw_log()
+	# The retreat is offered only where the company may fall back (never before a boss).
+	_retreat_btn.visible = battle.allow_retreat
+	_retreat_btn.disabled = _busy or not battle.can_retreat()
 
 
 func _refresh_party() -> void:
@@ -1046,6 +1188,11 @@ func _refresh_party() -> void:
 			var hot := _spell.targets_all() or c == _hot_ally
 			panel.set_spell_target(true, hot, _ally_preview(c),
 				float(battle.hp_after_heal(_selected, _spell, c)) if _spell.heals else -INF)
+		elif _mode == Mode.TARGET_GUARD and not _busy and _wards().has(c):
+			# A Guard waiting for whom to shield: the guard and their neighbours can be chosen.
+			var say := _guard_preview(c) if c == _hot_ally else ["", false]
+			panel.set_spell_target(true, c == _hot_ally, say[0], -INF, UiTheme.INTENT_COLORS[EnemyActionData.Intent.DEFEND],
+				UiTheme.INJURED if say[1] else UiTheme.TEXT)
 		else:
 			panel.set_spell_target(false, false)
 
@@ -1066,6 +1213,31 @@ func _aim_kinds() -> Vector2i:
 				normal = true
 		out += Vector2i(1 if normal else 0, 1 if mirrored else 0)
 	return out
+
+
+## What the waiting Guard would come to if it shielded `ward` (the guard or a neighbour) and every blow
+## of this turn landed: [words for the portrait, whether someone would fall all the same].
+func _guard_preview(ward: CompanionUnit) -> Array:
+	var guard := _selected
+	var p: Dictionary = battle.guard_preview(guard, ward)
+	var taken := int(p.get("damage", 0))
+	if ward == guard:
+		if bool(p.get("falls", false)):
+			return ["FALLS ALL THE SAME", true]
+		return ["TAKES %d" % taken if taken > 0 else "NOTHING LANDS", false]
+	var who := guard.display_name.to_upper()
+	if bool(p.get("falls", false)):
+		return ["%s FALLS" % who, true]
+	if bool(p.get("ward_falls", false)):
+		return ["STILL FALLS", true]
+	# Is anything aimed here this turn for the guard to catch?
+	var caught := false
+	for m in battle.incoming(ward):
+		if int(m.turns) <= 1 and not bool(m.get("whole_line", false)):
+			caught = true
+	if not caught:
+		return ["NOTHING TO CATCH", false]
+	return ["%s TAKES %d" % [who, taken], false]
 
 
 ## What the white spell waiting for a target would do to `c`, for the panel preview.
@@ -1243,10 +1415,15 @@ func _refresh_menu() -> void:
 			active = ActionMenu.art_id(_selected.arts().find(_art))
 		elif _mode == Mode.TARGET_SPELL or _mode == Mode.TARGET_ALLY:
 			active = ActionMenu.spell_id(_selected.spells().find(_spell))
+		elif _mode == Mode.TARGET_GUARD:
+			active = ActionMenu.GUARD
 		if _spell_menu and not _selected.spells().is_empty():
 			_menu.show_spells(_selected, battle, active, not _busy, _spell_page)
 		else:
 			_menu.show_companion(_selected, battle, active, not _busy)
+	elif battle.is_over():
+		# The horn was blown: nobody is given an order while the company falls back.
+		_menu.show_nothing()
 	elif battle.can_wait() or _busy:
 		_menu.show_wait(not _busy, _next_ready())
 	else:
@@ -1396,6 +1573,11 @@ func _build_ui() -> void:
 	top_right.alignment = BoxContainer.ALIGNMENT_END
 	top_right.add_theme_constant_override("separation", 14)
 	add_child(top_right)
+	_retreat_btn.text = "Sound the retreat"
+	_retreat_btn.tooltip_text = "Give the front up: the walls pay for it, and whoever still stands walks home unhurt.\nKey: R"
+	_retreat_btn.focus_mode = Control.FOCUS_NONE
+	_retreat_btn.pressed.connect(ask_retreat)
+	top_right.add_child(_retreat_btn)
 	var log_btn := Button.new()
 	log_btn.text = "Chronicle"
 	log_btn.tooltip_text = "What has happened in this battle so far.\nKey: L"
@@ -1497,6 +1679,59 @@ func _build_ui() -> void:
 	_inspect_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_inspect_body.position = Vector2(24, 62)
 	_inspect.add_child(_inspect_body)
+
+	# The question before a retreat: the field dims, the price is named, two answers.
+	_retreat_veil.color = Color(UiTheme.INK, 0.6)
+	_retreat_veil.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_retreat_veil.mouse_filter = Control.MOUSE_FILTER_STOP
+	_retreat_veil.visible = false
+	_retreat_veil.z_index = 8
+	add_child(_retreat_veil)
+	var ask := SlantPanel.new()
+	ask.fill = Color(UiTheme.INK, 0.96)
+	ask.border = UiTheme.INJURED
+	ask.border_width = 4.0
+	ask.set_anchors_preset(Control.PRESET_CENTER)
+	ask.offset_left = -330.0
+	ask.offset_right = 330.0
+	ask.offset_top = -170.0
+	ask.offset_bottom = 170.0
+	_retreat_veil.add_child(ask)
+	var ask_title := UiTheme.label("SOUND THE RETREAT?", 34, UiTheme.TEXT, true, 6)
+	ask_title.position = Vector2(0, 26)
+	ask_title.size = Vector2(660, 44)
+	ask_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ask.add_child(ask_title)
+	_retreat_cost = UiTheme.label("", 84, UiTheme.INJURED, true, 10)
+	_retreat_cost.position = Vector2(0, 78)
+	_retreat_cost.size = Vector2(660, 96)
+	_retreat_cost.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ask.add_child(_retreat_cost)
+	_retreat_cost_word = UiTheme.label("THE WALLS", 20, UiTheme.MUTED, true, 5)
+	_retreat_cost_word.position = Vector2(0, 174)
+	_retreat_cost_word.size = Vector2(660, 28)
+	_retreat_cost_word.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ask.add_child(_retreat_cost_word)
+	var answers := HBoxContainer.new()
+	answers.position = Vector2(40, 246)
+	answers.size = Vector2(580, 60)
+	answers.alignment = BoxContainer.ALIGNMENT_CENTER
+	answers.add_theme_constant_override("separation", 28)
+	ask.add_child(answers)
+	var stay := Button.new()
+	stay.text = "Stand fast"
+	stay.tooltip_text = "Key: Esc"
+	stay.focus_mode = Control.FOCUS_NONE
+	stay.custom_minimum_size = Vector2(250, 56)
+	stay.pressed.connect(cancel_retreat)
+	answers.add_child(stay)
+	var go := Button.new()
+	go.text = "Sound the horn"
+	go.tooltip_text = "Key: Enter"
+	go.focus_mode = Control.FOCUS_NONE
+	go.custom_minimum_size = Vector2(250, 56)
+	go.pressed.connect(confirm_retreat)
+	answers.add_child(go)
 
 	# Result overlay.
 	_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)

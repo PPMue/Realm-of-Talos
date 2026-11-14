@@ -165,7 +165,7 @@ func defend(front: Front) -> void:
 	_war_table.visible = false
 	_hide_news()
 	_battle_screen.visible = true
-	_battle_screen.start(battle, "DAY %d  ·  %s" % [run.day, front.title()])
+	_battle_screen.start(battle, "DAY %d  ·  %s" % [run.day, front.title()], -1 if front.is_boss else front.city_damage)
 
 
 func rest() -> void:

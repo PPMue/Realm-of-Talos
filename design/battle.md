@@ -1,8 +1,8 @@
-# Battles: the enemy's hand shown, the whole line fighting (design; proposed, not built)
+# Battles: the enemy's hand shown, the whole line fighting (design; steps 1 and 2 built, step 3 proposed)
 
 Written 2026-11-14 after the user's play reports ("not engaging; sometimes I don't know why I win or
-lose"). Nothing here is decided: the section "Yours to decide" lists what needs an answer. Numbers
-marked "first guess" are to be tuned with the probe.
+lose"). The user accepted the answers proposed under "Yours to decide" and asked for step 1, then
+step 2; step 3 waits for their word. Numbers marked "first guess" are to be tuned with the probe.
 
 ## What is wrong, measured
 
@@ -204,6 +204,46 @@ fall this turn or fells an enemy about to bring them down):
 Step 1 makes a battle readable and Guard worth using, and it leaves the rest where it was: reading
 the enemy's hand wins no more than letting the strongest act, because with only Guard on oneself
 there is little to answer a blow with. That is what step 2 is for.
+
+**After step 2** (2026-11-14; 30 runs, 540 battles, 20 replays each; the reader also has a free
+neighbour shield whoever would fall, and every player but the random one retreats as the automated
+player does, a retreat counting as a battle lost). The enemies' Health growth was lowered with it
+(3.5% to 3% a day) to hold the share of runs won, so the win figures are not the rules alone:
+
+| | After step 1 | After step 2 |
+|---|---|---|
+| Battles won: automated player / strongest acts / random Attacks | 78 / 83 / 58% | 73 / 76 / 54% |
+| Battles won: reader | 82% | 76% |
+| Reader's win share over random Attacks | 24 points | 22 points |
+| Actions by the busiest two | 93% (reader 88%) | 76% (reader 74%) |
+| ...with four in the line | not measured | 68% (reader 66%) |
+| Fielded who never act, a battle | 0.8 | 0.28 (reader 0.13) |
+| Guard, share of actions | 6% (reader 9%) | 8% (reader 11%) |
+| ...of them shielding a neighbour | none | about a quarter |
+| Blows taking half of max Health or more | 46% (reader 41%) | 37% (reader 35%) |
+| Injured a battle | 1.2 (reader 0.9) | 1.0 (reader 0.87) |
+| ...in battles won | not measured | 0.50 (reader 0.40) |
+| Battles ended by a retreat | none | 18% (reader 16%) |
+| Plain Attack, share of actions | 46% (before step 1) | 29% (arts 48%) |
+| Whole runs won by the automated player (200 runs) | 20% | 21% |
+
+What it did: the fighting is spread (the third companion now acts as a matter of course, and stamina
+is spent across the line, so arts are half of all actions and the plain Attack under a third), fewer
+are injured, and Guard has a second use. What it did not do:
+
+- **Reading still wins no more than letting the strongest act** (76% both). The reader loses fewer
+  companions, not fewer battles. Shielding answers one blow; what decides a battle is still how the
+  two sides' numbers compare. Step 3 (breath back, staggering arts, lighter ordinary blows) is aimed
+  at that, and so is the account before a battle.
+- **With four in the line, the fourth is a spare.** Recovery 2 lets three rotate; the automated
+  player's actions go 38 / 31 / 24 / 7%. A person will use the fourth to shield or to hold a heavy art,
+  but nothing makes them.
+- **With three or fewer standing every action costs the same**: the cap makes a tier 3 art's recovery
+  (4) the same as an Attack's (2) with two others standing, and 1 with one. Stamina is then the only
+  price of a heavy art.
+- **Retreating is common and cheap**: about one battle in six ends that way for the automated player
+  (3.3 a run), and runs lost to the walls fell rather than rose. Whether that is right is for the
+  user's play to say; the wall damage of a lost front is the knob.
 
 ## Yours to decide
 

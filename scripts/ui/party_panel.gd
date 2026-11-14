@@ -38,6 +38,7 @@ var _incoming: Array[Dictionary] = []
 var _aimed := false
 var _targetable := false
 var _target_hot := false
+var _target_ink := UiTheme.HEAL
 var _selected := false
 var _hover := false
 var _can_pick := false
@@ -189,11 +190,16 @@ func _falls() -> bool:
 
 ## While a spell is aimed at companions: `targetable` marks a possible target, `hot` the one (or all)
 ## it would reach, with `preview` saying what it would do and `heal_to` the HP it would reach (or -INF).
-func set_spell_target(targetable: bool, hot: bool, preview: String = "", heal_to: float = -INF) -> void:
+## The same frame serves a Guard waiting for whom to shield: `ink` is the colour of the frame and of
+## the words (the Guard's blue, red when someone would fall).
+func set_spell_target(targetable: bool, hot: bool, preview: String = "", heal_to: float = -INF, ink: Color = UiTheme.HEAL,
+		preview_ink: Color = UiTheme.HEAL) -> void:
 	_targetable = targetable
 	_target_hot = hot
+	_target_ink = ink
 	_preview.visible = hot and preview != ""
 	_preview.text = preview
+	_preview.add_theme_color_override("font_color", preview_ink)
 	var font_size := 16
 	while font_size > 11 and UiTheme.display_font().get_string_size(preview, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x > _preview.size.x - 12.0:
 		font_size -= 1
@@ -269,7 +275,7 @@ func _draw_frame() -> void:
 	var width := 2.0
 	var fill := Color(UiTheme.INK, 0.94)
 	if _targetable:
-		trim = UiTheme.HEAL if _target_hot else Color(UiTheme.HEAL, 0.45)
+		trim = _target_ink if _target_hot else Color(_target_ink, 0.45)
 		width = 4.0 if _target_hot else 2.5
 	elif _selected:
 		trim = UiTheme.GOLD

@@ -158,9 +158,9 @@ func _tempo() -> void:
 	add("beads", "Beads", F.TEMPO, lines("Focus restores %d more stamina", TWO_TO_TEN), [eff(K.FOCUS_RESTORE, TWO_TO_TEN)])
 	add("medal", "Medal", F.TEMPO, lines("+%d stamina when they fell an enemy", TWO_TO_TEN), [eff(K.KILL_STAMINA, TWO_TO_TEN)])
 	add("claw", "Claw", F.TEMPO, lines("+%d Health when they fell an enemy", TWO_TO_TEN), [eff(K.KILL_HP, TWO_TO_TEN)])
-	var spur: Array[String] = ["First action: 1 less recovery (not below 1)"]
-	spur.append_array(lines("First %d actions: 1 less recovery (not below 1)", [2, 3, 4, 5]))
-	var spur_eff := eff(K.RECOVERY, ONE_TO_FIVE, {"recovery_at_least": 2}, AccessoryEffect.Field.ACTION_TO)
+	var spur: Array[String] = ["First action: 1 less recovery (not below 2)"]
+	spur.append_array(lines("First %d actions: 1 less recovery (not below 2)", [2, 3, 4, 5]))
+	var spur_eff := eff(K.RECOVERY, ONE_TO_FIVE, {"recovery_at_least": 3}, AccessoryEffect.Field.ACTION_TO)
 	spur_eff.modifier.amount = -1
 	add("spur", "Spur", F.TEMPO, spur, [spur_eff])
 	var hourglass: Array[String] = ["Their first hit of a battle pushes the target's next action back 1 turn"]

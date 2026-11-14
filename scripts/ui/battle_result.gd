@@ -39,6 +39,8 @@ var _learned: Array[Dictionary] = []
 var _next_learned := 0
 var _generation := 0
 var _won := true
+## The company fell back before the battle was decided (a lost battle all the same).
+var _retreated := false
 ## What the battle gave or cost, drawn as pictures with numbers: {icon, text, color}.
 var _rewards: Array[Dictionary] = []
 
@@ -84,6 +86,7 @@ func _notification(what: int) -> void:
 func open(report: BattleReport, roster: Array[CompanionUnit], battle: Battle = null) -> void:
 	_generation += 1
 	_won = report.won
+	_retreated = report.retreated
 	_rewards.clear()
 	if report.won:
 		_rewards.append({"icon": "coin", "text": "+%d" % report.gold, "color": UiTheme.GOLD})
@@ -357,7 +360,7 @@ func _draw_head() -> void:
 	_head.draw_rect(Rect2(0, h - 300.0, w, 300.0), dark)
 	var display := UiTheme.display_font()
 	var cx := _head.size.x * 0.5
-	UiTheme.draw_text(_head, display, Vector2(0, TITLE_Y), "VICTORY" if _won else "DEFEAT", 100, UiTheme.GOLD if _won else UiTheme.INJURED, 10,
+	UiTheme.draw_text(_head, display, Vector2(0, TITLE_Y), "VICTORY" if _won else ("RETREAT" if _retreated else "DEFEAT"), 100, UiTheme.GOLD if _won else UiTheme.INJURED, 10,
 		_head.size.x, HORIZONTAL_ALIGNMENT_CENTER)
 	UiTheme.draw_rule(_head, Vector2(cx, REWARDS_Y - 22.0), 760.0, Color(UiTheme.GOLD if _won else UiTheme.INJURED, 0.5))
 	# What it gave or cost: a picture and a number each, in a row.

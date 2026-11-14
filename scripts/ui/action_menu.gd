@@ -231,10 +231,16 @@ func show_companion(c: CompanionUnit, battle: Battle, active_id: String, enabled
 	_arrange(order)
 
 	var w := c.weapon()
-	_descriptions[ATTACK] = "Strike one enemy with %s%s. No cost. Recovery 1." % [w.display_name,
-		" (magic: MAG against RES)" if w.is_magic() else ""]
-	_descriptions[GUARD] = "Until this turn ends: take half damage. Use it on the turn a blow lands. Recovery 1."
-	_descriptions[FOCUS] = "Gain %d stamina. Recovery 1." % battle.focus_amount(c)
+	# Recovery as it would be now: the line is never kept waiting longer than there are others to act.
+	_descriptions[ATTACK] = "Strike one enemy with %s%s. No cost. Recovery %d." % [w.display_name,
+		" (magic: MAG against RES)" if w.is_magic() else "",
+		battle.action_recovery(c, BattleConfig.RECOVERY_ATTACK, TraitModifier.Action.ATTACK)]
+	var guard_rest := battle.action_recovery(c, BattleConfig.RECOVERY_GUARD)
+	if battle.guard_wards(c).size() > 1:
+		_descriptions[GUARD] = "Until this turn ends: take half damage, or stand before a neighbour and take the blows aimed at them. Recovery %d." % guard_rest
+	else:
+		_descriptions[GUARD] = "Until this turn ends: take half damage. Use it on the turn a blow lands. Recovery %d." % guard_rest
+	_descriptions[FOCUS] = "Gain %d stamina. Recovery %d." % [battle.focus_amount(c), battle.action_recovery(c, BattleConfig.RECOVERY_FOCUS)]
 	(_buttons[FOCUS] as ActionButton).detail = "+%d stamina" % battle.focus_amount(c)
 	if not c.spells().is_empty():
 		var ready := 0
@@ -271,7 +277,9 @@ func show_companion(c: CompanionUnit, battle: Battle, active_id: String, enabled
 		_descriptions[art_id(i)] = about
 		_facts[art_id(i)] = {"figures": ArtFacts.art_figures(art, cost, rest), "lines": ArtFacts.art_lines(art), "accent": UiTheme.GOLD, "note": why}
 
-	if active_id != "":
+	if active_id == GUARD:
+		_default_info = "Guard whom? Click %s or whoever stands beside them. Right-click or Esc to go back." % c.display_name
+	elif active_id != "":
 		var index := art_index(active_id)
 		if index >= 0 and index < arts.size() and arts[index].hits_all_enemies:
 			_default_info = "%s strikes every enemy. Click any of them to confirm. Right-click or Esc to go back." % arts[index].display_name
@@ -330,7 +338,7 @@ func show_spells(c: CompanionUnit, battle: Battle, active_id: String, enabled: b
 		var lines := ArtFacts.spell_lines(sp)
 		if sp.heals:
 			lines.append("Heals %d now" % battle.heal_amount(c, sp))
-		_facts[id] = {"figures": ArtFacts.spell_figures(sp, left, most), "lines": lines, "accent": UiTheme.school_color(sp.school), "note": why}
+		_facts[id] = {"figures": ArtFacts.spell_figures(sp, left, most, spell_recovery(sp, c, battle)), "lines": lines, "accent": UiTheme.school_color(sp.school), "note": why}
 	for id in order:
 		var b: ActionButton = _buttons[id]
 		b.active = id == active_id
@@ -363,10 +371,15 @@ static func art_info(art: CombatArtData, cost: int = -1, recovery: int = -1) -> 
 		art.effect_summary()]
 
 
+## Actions `c` would sit out after casting `sp` now.
+static func spell_recovery(sp: SpellData, c: CompanionUnit, battle: Battle) -> int:
+	return battle.action_recovery(c, sp.recovery, TraitModifier.Action.SPELL, sp.school)
+
+
 ## School, tier, uses, recovery and effect of a spell, for the info panel.
 static func spell_info(sp: SpellData, c: CompanionUnit, battle: Battle) -> String:
 	var text := "%s %s · %d/%d uses · Recovery %d\n%s" % [sp.school_text(), CombatArtData.tier_numeral(sp.tier),
-		c.progress.uses_left(sp), c.progress.max_uses(sp), sp.recovery, sp.effect_summary()]
+		c.progress.uses_left(sp), c.progress.max_uses(sp), spell_recovery(sp, c, battle), sp.effect_summary()]
 	if sp.heals:
 		text += " Heals %d now." % battle.heal_amount(c, sp)
 	return text

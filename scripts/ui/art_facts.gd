@@ -15,10 +15,11 @@ static func art_figures(art: CombatArtData, cost: int = -1, recovery: int = -1) 
 
 ## The figures of a spell. `uses_left` (when 0 or more) shows how many casts remain of its uses;
 ## `max_uses` (when above 0) is how many the caster has of it (their traits can change it).
-static func spell_figures(sp: SpellData, uses_left: int = -1, max_uses: int = 0) -> Array:
+## `recovery` (when 0 or more) is what it would be for the caster now, in a battle.
+static func spell_figures(sp: SpellData, uses_left: int = -1, max_uses: int = 0, recovery: int = -1) -> Array:
 	var most := max_uses if max_uses > 0 else sp.uses
 	var uses := [str(most), "USES"] if uses_left < 0 else [str(uses_left), "OF %d USES" % most]
-	return [uses, [str(sp.recovery), "RECOVERY"]]
+	return [uses, [str(recovery if recovery >= 0 else sp.recovery), "RECOVERY"]]
 
 
 ## What an art does, one thing per entry. `held_type` is the weapon type in the user's hand (-1 for
