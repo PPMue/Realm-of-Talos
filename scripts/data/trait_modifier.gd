@@ -63,6 +63,13 @@ enum Kind {
 	SCAVENGE_STAT,        ## scavenging: counts as `amount` higher in whatever is asked of them
 	SCAVENGE_NO_INJURY,   ## scavenging: never comes back injured
 	SCAVENGE_HAUL_PERCENT, ## scavenging: the party brings back `amount` percent more gold and materials
+	# --- accessories (design/accessories.md): new rules ---
+	PIERCE_PERCENT,       ## their strikes ignore `amount` percent more of the target's DEF (RES with magic), at most 100
+	THORNS,               ## an enemy whose blow lands on them takes `amount` damage (not blows on the whole line)
+	DOT_TAKEN_PERCENT,    ## damage over time on them changed by `amount` percent (-100: none)
+	SURVIVE_SHARE,        ## once a battle, a blow that would fell them leaves them at `amount` percent of max HP (0: 1 HP)
+	FIRST_HIT_DELAY,      ## their first hit of a battle pushes the target's next action back `amount`
+	SPELL_USES_LOSS,      ## every spell has `amount` fewer uses, never below 1
 }
 
 ## Where in the line the holder stands, counted as in the barracks (rear to front).
@@ -117,9 +124,11 @@ enum Struck { ANY, LAST_STRUCK, NOT_LAST_STRUCK, HIT_ME_LAST, STRUCK_ME_SINCE }
 @export var only_standing: bool = false
 @export var self_health: Health = Health.ANY
 @export var target_health: Health = Health.ANY
-## The enemy has this trait ("Large", "Flying").
+## The enemy has this trait ("Large", "Flying"; "Flying|Large": either).
 @export var target_trait: String = ""
 @export var target_boss: bool = false
+## The enemy is a boss, or the battle is an elite fight (then every enemy).
+@export var big_fight: bool = false
 ## The enemy's next action is magic.
 @export var target_next_magic: bool = false
 @export var struck: Struck = Struck.ANY
@@ -147,7 +156,7 @@ enum Struck { ANY, LAST_STRUCK, NOT_LAST_STRUCK, HIT_ME_LAST, STRUCK_ME_SINCE }
 ## True if no battle condition is set: the modifier also counts outside a battle.
 func is_battle_only() -> bool:
 	return place != Place.ANY or line_at_most > 0 or line_full or only_standing or self_health != Health.ANY \
-		or target_health != Health.ANY or target_trait != "" or target_boss or target_next_magic \
+		or target_health != Health.ANY or target_trait != "" or target_boss or big_fight or target_next_magic \
 		or struck != Struck.ANY or action_from > 0 or action_to > 0 or after_guard_or_focus or first_front_action \
 		or first_blow_taken or self_hp_at_most > 0 or first_art or ally_injured or rival_ahead or per_neighbour
 

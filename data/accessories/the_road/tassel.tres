@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AccessoryTypeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/accessory_effect.gd" id="1_niv16"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_w0uqa"]
+[ext_resource type="Script" path="res://scripts/data/accessory_type_data.gd" id="3_f4f1c"]
+
+[sub_resource type="Resource" id="Resource_hi215"]
+script = ExtResource("2_w0uqa")
+kind = 8
+
+[sub_resource type="Resource" id="Resource_w8s6p"]
+script = ExtResource("1_niv16")
+modifier = SubResource("Resource_hi215")
+by_rank = Array[float]([20.0, 40.0, 60.0, 80.0, 100.0])
+
+[resource]
+script = ExtResource("3_f4f1c")
+id = "tassel"
+display_name = "Tassel"
+family = 6
+gives = Array[String](["+20% weapon and magic points", "+40% weapon and magic points", "+60% weapon and magic points", "+80% weapon and magic points", "+100% weapon and magic points"])
+effects = Array[ExtResource("1_niv16")]([SubResource("Resource_w8s6p")])

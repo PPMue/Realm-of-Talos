@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AccessoryTypeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/accessory_effect.gd" id="1_qpn7g"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_7s44b"]
+[ext_resource type="Script" path="res://scripts/data/accessory_type_data.gd" id="3_ce4wf"]
+
+[sub_resource type="Resource" id="Resource_2kt6n"]
+script = ExtResource("2_7s44b")
+kind = 20
+
+[sub_resource type="Resource" id="Resource_pbtji"]
+script = ExtResource("1_qpn7g")
+modifier = SubResource("Resource_2kt6n")
+by_rank = Array[float]([60.0, 65.0, 70.0, 75.0, 80.0])
+
+[resource]
+script = ExtResource("3_ce4wf")
+id = "cameo"
+display_name = "Cameo"
+family = 2
+gives = Array[String](["Guard takes 60% off a blow", "Guard takes 65% off a blow", "Guard takes 70% off a blow", "Guard takes 75% off a blow", "Guard takes 80% off a blow"])
+effects = Array[ExtResource("1_qpn7g")]([SubResource("Resource_pbtji")])

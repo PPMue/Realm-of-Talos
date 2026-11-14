@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="AccessoryTypeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/accessory_effect.gd" id="1_mr5hx"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_vkvvm"]
+[ext_resource type="Script" path="res://scripts/data/accessory_type_data.gd" id="3_wjl3h"]
+
+[sub_resource type="Resource" id="Resource_nxof5"]
+script = ExtResource("2_vkvvm")
+stat = "SPD"
+
+[sub_resource type="Resource" id="Resource_6egrw"]
+script = ExtResource("1_mr5hx")
+modifier = SubResource("Resource_nxof5")
+by_rank = Array[float]([2.0, 3.0, 4.0, 5.0, 6.0])
+
+[sub_resource type="Resource" id="Resource_jqlyv"]
+script = ExtResource("2_vkvvm")
+amount = -2
+stat = "DEF"
+
+[sub_resource type="Resource" id="Resource_6tyfv"]
+script = ExtResource("1_mr5hx")
+modifier = SubResource("Resource_jqlyv")
+
+[resource]
+script = ExtResource("3_wjl3h")
+id = "wing"
+display_name = "Wing"
+family = 7
+gives = Array[String](["+2 Speed", "+3 Speed", "+4 Speed", "+5 Speed", "+6 Speed"])
+takes = "-2 Defence"
+effects = Array[ExtResource("1_mr5hx")]([SubResource("Resource_6egrw"), SubResource("Resource_6tyfv")])

@@ -37,6 +37,8 @@ var felled_this_action: bool = false
 ## Once-a-battle moments already used: falling below half Health, being saved at 1 Health.
 var half_health_done: bool = false
 var survived_once: bool = false
+## True once one of their strikes or spells has hit this battle (an Hourglass waits for the first).
+var first_hit_done: bool = false
 ## The battle, for traits that depend on it (weak, so the two do not keep each other alive).
 var _battle: WeakRef
 ## True if some trait in the line can change this companion's stats during the battle.
@@ -57,6 +59,11 @@ func traits() -> Array[TraitData]:
 	return progress.traits
 
 
+## Their traits and what their accessories do (CompanionProgress.effects): what TraitRules reads.
+func all_traits() -> Array[TraitData]:
+	return progress.all_traits()
+
+
 ## The battle this companion is in, or null.
 func battle() -> Battle:
 	return _battle.get_ref() as Battle if _battle != null else null
@@ -67,7 +74,7 @@ func trait_query(kind: int) -> TraitRules.Query:
 	var q := TraitRules.query(kind)
 	q.unit = self
 	q.battle = battle()
-	q.traits = traits()
+	q.traits = all_traits()
 	return q
 
 
@@ -135,11 +142,13 @@ func target_weight_mult() -> float:
 	return super() * (w.target_weight_mult if w != null else 1.0) * TraitRules.product(trait_query(TraitModifier.Kind.AIM))
 
 
-## Effects' damage-taken multipliers; a trait that changes Guard (TraitModifier.Kind.GUARD_PERCENT)
-## replaces Guard's share.
+## Effects' damage-taken multipliers; a trait or accessory that changes Guard
+## (TraitModifier.Kind.GUARD_PERCENT) replaces Guard's share; with more than one, the largest counts.
 func damage_taken_mult() -> float:
 	var mult := super()
-	var guard_percent := TraitRules.sum(trait_query(TraitModifier.Kind.GUARD_PERCENT))
+	var guard_percent := 0
+	for m in TraitRules.matching(trait_query(TraitModifier.Kind.GUARD_PERCENT)):
+		guard_percent = maxi(guard_percent, m.amount)
 	if guard_percent > 0 and has_effect("Guard"):
 		var guard := get_effect("Guard")
 		if guard.damage_taken_mult > 0.0:

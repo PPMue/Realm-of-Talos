@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="AccessoryTypeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/accessory_effect.gd" id="1_bxsyo"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_1hd5f"]
+[ext_resource type="Script" path="res://scripts/data/accessory_type_data.gd" id="3_4rtfl"]
+
+[sub_resource type="Resource" id="Resource_8wesh"]
+script = ExtResource("2_1hd5f")
+kind = 5
+action = 3
+
+[sub_resource type="Resource" id="Resource_3k367"]
+script = ExtResource("1_bxsyo")
+modifier = SubResource("Resource_8wesh")
+by_rank = Array[float]([6.0, 12.0, 18.0, 24.0, 30.0])
+
+[resource]
+script = ExtResource("3_4rtfl")
+id = "prism"
+display_name = "Prism"
+family = 4
+gives = Array[String](["Spells deal 6% more damage", "Spells deal 12% more damage", "Spells deal 18% more damage", "Spells deal 24% more damage", "Spells deal 30% more damage"])
+effects = Array[ExtResource("1_bxsyo")]([SubResource("Resource_3k367")])

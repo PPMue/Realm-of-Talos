@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="AccessoryTypeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/accessory_effect.gd" id="1_dm20l"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_2qycd"]
+[ext_resource type="Script" path="res://scripts/data/accessory_type_data.gd" id="3_t3ctf"]
+
+[sub_resource type="Resource" id="Resource_h28s2"]
+script = ExtResource("2_2qycd")
+stat = "STA"
+
+[sub_resource type="Resource" id="Resource_uvygh"]
+script = ExtResource("1_dm20l")
+modifier = SubResource("Resource_h28s2")
+by_rank = Array[float]([2.0, 4.0, 6.0, 8.0, 10.0])
+
+[resource]
+script = ExtResource("3_t3ctf")
+id = "girdle"
+display_name = "Girdle"
+gives = Array[String](["+2 Stamina", "+4 Stamina", "+6 Stamina", "+8 Stamina", "+10 Stamina"])
+effects = Array[ExtResource("1_dm20l")]([SubResource("Resource_uvygh")])

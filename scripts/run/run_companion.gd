@@ -19,6 +19,11 @@ var traits: Array[TraitData]:
 		progress.traits = value
 
 
+## Their traits and what their accessories do (CompanionProgress.effects): what the rules count.
+func all_traits() -> Array[TraitData]:
+	return progress.all_traits()
+
+
 static func create(p_data: CompanionData) -> RunCompanion:
 	var c := RunCompanion.new()
 	c.data = p_data

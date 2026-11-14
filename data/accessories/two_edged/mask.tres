@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="AccessoryTypeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/accessory_effect.gd" id="1_7phan"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_entwr"]
+[ext_resource type="Script" path="res://scripts/data/accessory_type_data.gd" id="3_uy24w"]
+
+[sub_resource type="Resource" id="Resource_ijqu5"]
+script = ExtResource("2_entwr")
+kind = 2
+
+[sub_resource type="Resource" id="Resource_xpv0p"]
+script = ExtResource("1_7phan")
+modifier = SubResource("Resource_ijqu5")
+by_rank = Array[float]([10.0, 15.0, 20.0, 25.0, 30.0])
+
+[sub_resource type="Resource" id="Resource_d55q4"]
+script = ExtResource("2_entwr")
+kind = 1
+amount = -10
+
+[sub_resource type="Resource" id="Resource_1i4ii"]
+script = ExtResource("1_7phan")
+modifier = SubResource("Resource_d55q4")
+
+[resource]
+script = ExtResource("3_uy24w")
+id = "mask"
+display_name = "Mask"
+family = 7
+gives = Array[String](["+10 Crit", "+15 Crit", "+20 Crit", "+25 Crit", "+30 Crit"])
+takes = "-10 Hit"
+effects = Array[ExtResource("1_7phan")]([SubResource("Resource_xpv0p"), SubResource("Resource_1i4ii")])

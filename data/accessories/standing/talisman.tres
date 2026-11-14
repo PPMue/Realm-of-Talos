@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AccessoryTypeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/accessory_effect.gd" id="1_m44xj"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_06b6m"]
+[ext_resource type="Script" path="res://scripts/data/accessory_type_data.gd" id="3_ahgig"]
+
+[sub_resource type="Resource" id="Resource_kgt8x"]
+script = ExtResource("2_06b6m")
+kind = 55
+
+[sub_resource type="Resource" id="Resource_5e3pk"]
+script = ExtResource("1_m44xj")
+modifier = SubResource("Resource_kgt8x")
+by_rank = Array[float]([-20.0, -40.0, -60.0, -80.0, -100.0])
+
+[resource]
+script = ExtResource("3_ahgig")
+id = "talisman"
+display_name = "Talisman"
+family = 2
+gives = Array[String](["Poison and burning deal 20% less to them", "Poison and burning deal 40% less to them", "Poison and burning deal 60% less to them", "Poison and burning deal 80% less to them", "Poison and burning cannot hurt them"])
+effects = Array[ExtResource("1_m44xj")]([SubResource("Resource_5e3pk")])

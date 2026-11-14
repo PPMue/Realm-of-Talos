@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="AccessoryTypeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/accessory_effect.gd" id="1_8hnmd"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_x2go2"]
+[ext_resource type="Script" path="res://scripts/data/accessory_type_data.gd" id="3_m1c8h"]
+
+[sub_resource type="Resource" id="Resource_lyxu0"]
+script = ExtResource("2_x2go2")
+kind = 13
+
+[sub_resource type="Resource" id="Resource_6gxwf"]
+script = ExtResource("1_8hnmd")
+modifier = SubResource("Resource_lyxu0")
+by_rank = Array[float]([0.8, 0.65, 0.5, 0.4, 0.3])
+field = 1
+
+[resource]
+script = ExtResource("3_m1c8h")
+id = "veil"
+display_name = "Veil"
+family = 2
+gives = Array[String](["Enemies aim at them 0.8 times as often", "Enemies aim at them 0.65 times as often", "Enemies aim at them half as often", "Enemies aim at them 0.4 times as often", "Enemies aim at them 0.3 times as often"])
+effects = Array[ExtResource("1_8hnmd")]([SubResource("Resource_6gxwf")])

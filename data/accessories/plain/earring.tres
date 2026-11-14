@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="AccessoryTypeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/accessory_effect.gd" id="1_wenok"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_mg1o7"]
+[ext_resource type="Script" path="res://scripts/data/accessory_type_data.gd" id="3_vvidn"]
+
+[sub_resource type="Resource" id="Resource_o3ygm"]
+script = ExtResource("2_mg1o7")
+stat = "CRT"
+
+[sub_resource type="Resource" id="Resource_4vr30"]
+script = ExtResource("1_wenok")
+modifier = SubResource("Resource_o3ygm")
+by_rank = Array[float]([1.0, 2.0, 3.0, 4.0, 5.0])
+
+[resource]
+script = ExtResource("3_vvidn")
+id = "earring"
+display_name = "Earring"
+gives = Array[String](["+1 Critical", "+2 Critical", "+3 Critical", "+4 Critical", "+5 Critical"])
+effects = Array[ExtResource("1_wenok")]([SubResource("Resource_4vr30")])

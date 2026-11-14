@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="AccessoryTypeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/accessory_effect.gd" id="1_ojnd8"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_r8vbr"]
+[ext_resource type="Script" path="res://scripts/data/accessory_type_data.gd" id="3_i771o"]
+
+[sub_resource type="Resource" id="Resource_tptdq"]
+script = ExtResource("2_r8vbr")
+stat = "MAG"
+
+[sub_resource type="Resource" id="Resource_negwi"]
+script = ExtResource("1_ojnd8")
+modifier = SubResource("Resource_tptdq")
+by_rank = Array[float]([2.0, 3.0, 4.0, 5.0, 6.0])
+
+[sub_resource type="Resource" id="Resource_h64aw"]
+script = ExtResource("2_r8vbr")
+kind = 58
+amount = 1
+
+[sub_resource type="Resource" id="Resource_d4opy"]
+script = ExtResource("1_ojnd8")
+modifier = SubResource("Resource_h64aw")
+
+[resource]
+script = ExtResource("3_i771o")
+id = "crown"
+display_name = "Crown"
+family = 7
+gives = Array[String](["+2 Magic", "+3 Magic", "+4 Magic", "+5 Magic", "+6 Magic"])
+takes = "Every spell has 1 fewer use (never below 1)"
+effects = Array[ExtResource("1_ojnd8")]([SubResource("Resource_negwi"), SubResource("Resource_d4opy")])

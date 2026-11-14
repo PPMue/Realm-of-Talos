@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="AccessoryTypeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/accessory_effect.gd" id="1_48w2f"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_vqbde"]
+[ext_resource type="Script" path="res://scripts/data/accessory_type_data.gd" id="3_dlvhq"]
+
+[sub_resource type="Resource" id="Resource_wf1k4"]
+script = ExtResource("2_vqbde")
+stat = "SPD"
+
+[sub_resource type="Resource" id="Resource_83w63"]
+script = ExtResource("1_48w2f")
+modifier = SubResource("Resource_wf1k4")
+by_rank = Array[float]([1.0, 2.0, 3.0, 4.0, 5.0])
+
+[resource]
+script = ExtResource("3_dlvhq")
+id = "anklet"
+display_name = "Anklet"
+gives = Array[String](["+1 Speed", "+2 Speed", "+3 Speed", "+4 Speed", "+5 Speed"])
+effects = Array[ExtResource("1_48w2f")]([SubResource("Resource_83w63")])

@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="AccessoryTypeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/accessory_effect.gd" id="1_cbpme"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_ngt5w"]
+[ext_resource type="Script" path="res://scripts/data/accessory_type_data.gd" id="3_q7e00"]
+
+[sub_resource type="Resource" id="Resource_23ogd"]
+script = ExtResource("2_ngt5w")
+kind = 1
+
+[sub_resource type="Resource" id="Resource_gelbd"]
+script = ExtResource("1_cbpme")
+modifier = SubResource("Resource_23ogd")
+by_rank = Array[float]([10.0, 15.0, 20.0, 25.0, 30.0])
+
+[sub_resource type="Resource" id="Resource_sc02e"]
+script = ExtResource("2_ngt5w")
+kind = 3
+amount = -10
+
+[sub_resource type="Resource" id="Resource_s3wq3"]
+script = ExtResource("1_cbpme")
+modifier = SubResource("Resource_sc02e")
+
+[resource]
+script = ExtResource("3_q7e00")
+id = "monocle"
+display_name = "Monocle"
+family = 7
+gives = Array[String](["+10 Hit", "+15 Hit", "+20 Hit", "+25 Hit", "+30 Hit"])
+takes = "-10 Avoid"
+effects = Array[ExtResource("1_cbpme")]([SubResource("Resource_gelbd"), SubResource("Resource_s3wq3")])

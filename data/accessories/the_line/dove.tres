@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AccessoryTypeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/accessory_effect.gd" id="1_jjt25"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_4rm4y"]
+[ext_resource type="Script" path="res://scripts/data/accessory_type_data.gd" id="3_72w8i"]
+
+[sub_resource type="Resource" id="Resource_r2h07"]
+script = ExtResource("2_4rm4y")
+kind = 48
+
+[sub_resource type="Resource" id="Resource_785b0"]
+script = ExtResource("1_jjt25")
+modifier = SubResource("Resource_r2h07")
+by_rank = Array[float]([4.0, 8.0, 12.0, 16.0, 20.0])
+
+[resource]
+script = ExtResource("3_72w8i")
+id = "dove"
+display_name = "Dove"
+family = 5
+gives = Array[String](["When they are injured, every ally standing heals 4", "When they are injured, every ally standing heals 8", "When they are injured, every ally standing heals 12", "When they are injured, every ally standing heals 16", "When they are injured, every ally standing heals 20"])
+effects = Array[ExtResource("1_jjt25")]([SubResource("Resource_785b0")])

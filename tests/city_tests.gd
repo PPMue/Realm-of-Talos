@@ -555,11 +555,11 @@ func test_repair_and_swap() -> void:
 func test_upgrade_rules() -> void:
 	var run := rich_run(3)
 	t.eq(Run.facility_max_level(), 2, "two levels")
-	t.eq(Run.Facility.size(), 9, "nine facilities")
+	t.eq(Run.Facility.size(), 10, "ten facilities")
 	for f: int in Run.Facility.values():
 		t.eq(run.facility_level(f), 0, "%s starts unbuilt" % Run.FACILITY_NAMES[f])
 		t.check(Run.facility_lines(f, 1) != "" and Run.facility_lines(f, 2) != "", "%s: a line for each level" % Run.FACILITY_NAMES[f])
-		var m := RunConfig.IRON_ORE if f == F.SMITHY or f == F.GATE else RunConfig.TIMBER
+		var m := RunConfig.IRON_ORE if f == F.SMITHY or f == F.GATE or f == F.JEWELER else RunConfig.TIMBER
 		t.eq(run.upgrade_cost(f), {m: RunConfig.UPGRADE_COST[0]}, "%s level 1 cost" % Run.FACILITY_NAMES[f])
 	t.eq(Run.facility_lines(F.WATCHTOWER, 1), "The boss days and which boss comes are known", "worded as in the design")
 	t.eq(Run.facility_lines(F.INN, 3), "", "no third level")

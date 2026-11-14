@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AccessoryTypeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/accessory_effect.gd" id="1_g1bey"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_1inu2"]
+[ext_resource type="Script" path="res://scripts/data/accessory_type_data.gd" id="3_abced"]
+
+[sub_resource type="Resource" id="Resource_fooas"]
+script = ExtResource("2_1inu2")
+kind = 53
+
+[sub_resource type="Resource" id="Resource_wmihr"]
+script = ExtResource("1_g1bey")
+modifier = SubResource("Resource_fooas")
+by_rank = Array[float]([8.0, 16.0, 24.0, 32.0, 40.0])
+
+[resource]
+script = ExtResource("3_abced")
+id = "pin"
+display_name = "Pin"
+family = 1
+gives = Array[String](["Their strikes ignore 8% of the enemy's Defence", "Their strikes ignore 16% of the enemy's Defence", "Their strikes ignore 24% of the enemy's Defence", "Their strikes ignore 32% of the enemy's Defence", "Their strikes ignore 40% of the enemy's Defence"])
+effects = Array[ExtResource("1_g1bey")]([SubResource("Resource_wmihr")])

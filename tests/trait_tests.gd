@@ -155,6 +155,7 @@ func measure(traits: Array[TraitData], metric: String, opts: Dictionary) -> int:
 		var p := CompanionProgress.create(d)
 		if i == holder:
 			p.traits = traits
+			p.accessories = opts.get("wear", [])   # accessories worn (accessory_tests.gd)
 		party.append(p)
 	var et: Array[String] = []
 	et.assign(opts.get("enemy_traits", []))
@@ -162,6 +163,7 @@ func measure(traits: Array[TraitData], metric: String, opts: Dictionary) -> int:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 3
 	var b := Battle.new(datas, es, rng, party)
+	b.elite = opts.get("elite", false)
 	var u := b.roster[slot]
 	var e := b.enemies[0]
 	var other := EnemyUnit.new(enemy())
@@ -259,6 +261,7 @@ func measure_out(traits: Array[TraitData], metric: String, opts: Dictionary) -> 
 	var d := data(opts.get("weapon", WeaponData.WeaponType.SWORD))
 	var c := RunCompanion.create(d)
 	c.traits = traits
+	c.progress.accessories = opts.get("wear", [])
 	var run: Run = _run()
 	if metric.begins_with("plain:"):
 		return int(c.progress.stats()[metric.substr(6)])

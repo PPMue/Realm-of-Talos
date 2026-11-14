@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AccessoryTypeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/accessory_effect.gd" id="1_opxnr"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_7sg8a"]
+[ext_resource type="Script" path="res://scripts/data/accessory_type_data.gd" id="3_dskoq"]
+
+[sub_resource type="Resource" id="Resource_gwpdr"]
+script = ExtResource("2_7sg8a")
+kind = 54
+
+[sub_resource type="Resource" id="Resource_le8qp"]
+script = ExtResource("1_opxnr")
+modifier = SubResource("Resource_gwpdr")
+by_rank = Array[float]([2.0, 4.0, 6.0, 8.0, 10.0])
+
+[resource]
+script = ExtResource("3_dskoq")
+id = "thorn"
+display_name = "Thorn"
+family = 1
+gives = Array[String](["An enemy whose blow hits them takes 2 damage", "An enemy whose blow hits them takes 4 damage", "An enemy whose blow hits them takes 6 damage", "An enemy whose blow hits them takes 8 damage", "An enemy whose blow hits them takes 10 damage"])
+effects = Array[ExtResource("1_opxnr")]([SubResource("Resource_le8qp")])

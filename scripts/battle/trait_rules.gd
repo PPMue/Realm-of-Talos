@@ -1,6 +1,7 @@
 class_name TraitRules
 extends RefCounted
-## Works out what companions' traits (TraitData, CompanionProgress.traits) add to a number. Pure
+## Works out what companions' traits (TraitData, CompanionProgress.traits) and the accessories they wear
+## (each worked out as a TraitData: CompanionProgress.effects) add to a number. Pure
 ## functions; Battle, Run, Levels and CompanionProgress call them wherever the number is used, so what
 ## the screens show already includes traits.
 ##
@@ -105,12 +106,12 @@ static func matching_with_holders(q: Query) -> Array:
 			var holder: CompanionUnit = h[0]
 			if holder != q.unit and not holder.is_active():
 				continue
-			for t in holder.traits():
+			for t in holder.all_traits():
 				for m in t.modifiers:
 					if m.who == h[1] and _holds(m, q, holder):
 						out.append([m, holder])
 		return out
-	var traits := q.traits if q.unit == null else q.unit.traits()
+	var traits := q.traits if q.unit == null else q.unit.all_traits()
 	for t in traits:
 		for m in t.modifiers:
 			if m.who == q.who and not m.is_battle_only() and _holds(m, q, null):
@@ -222,6 +223,8 @@ static func _battle_holds(m: TraitModifier, q: Query, holder: CompanionUnit) -> 
 		return false
 	if m.rival_ahead and not l.any(func(c: CompanionUnit) -> bool: return c != holder and b.kills_of(c) > b.kills_of(holder)):
 		return false
+	if m.big_fight and not b.elite and (q.target == null or q.target.data.band != 0):
+		return false
 	var needs_target := m.target_health != TraitModifier.Health.ANY or m.target_trait != "" or m.target_boss \
 		or m.target_next_magic or m.struck != TraitModifier.Struck.ANY
 	if not needs_target:
@@ -233,7 +236,7 @@ static func _battle_holds(m: TraitModifier, q: Query, holder: CompanionUnit) -> 
 		return false
 	if m.target_health == TraitModifier.Health.FULL and e.hp < e.max_hp():
 		return false
-	if m.target_trait != "" and not e.traits().has(m.target_trait):
+	if m.target_trait != "" and not Array(m.target_trait.split("|")).any(func(x: String) -> bool: return e.traits().has(x)):
 		return false
 	if m.target_boss and e.data.band != 0:
 		return false

@@ -28,6 +28,9 @@ var spell_uses: Dictionary = {}
 var traits: Array[TraitData] = []
 ## The held weapon's enchantment (OwnedWeapon.enchant_stats): stat key -> amount; kept by RunInventory.
 var enchant: Dictionary = {}
+## The accessories worn (Accessory), in the order put on; at most RunConfig.MAX_ACCESSORIES. Kept by
+## Run (wear, take_off).
+var accessories: Array = []
 
 
 ## Fresh progress at the start of a run: starting grades, signature art known and equipped.
@@ -68,22 +71,51 @@ func copy() -> CompanionProgress:
 	p.spell_uses = spell_uses.duplicate()
 	p.traits = traits.duplicate()
 	p.enchant = enchant.duplicate()
+	p.accessories = accessories.duplicate()
 	return p
+
+
+## Their traits and what the accessories they wear do (each an Accessory.effect): every list of
+## modifiers the rules count (TraitRules). `traits` alone is who they are.
+func all_traits() -> Array[TraitData]:
+	if accessories.is_empty():
+		return traits
+	var out: Array[TraitData] = traits.duplicate()
+	for a in accessories:
+		out.append(a.effect())
+	return out
+
+
+## The accessories' effects alone.
+func accessory_effects() -> Array[TraitData]:
+	var out: Array[TraitData] = []
+	for a in accessories:
+		out.append(a.effect())
+	return out
 
 
 # ---------------------------------------------------------------- stats
 
 ## Base stats plus level-up gains plus what traits add without conditions (trait_stat_bonus) plus the
-## held weapon's enchantment (enchant_stat_bonus), never below 0 (Health never below 1). Bonuses that
-## depend on the battle (a place in the line, say) are added in battle by CompanionUnit.stat.
+## held weapon's enchantment (enchant_stat_bonus) plus the accessories worn (accessory_stat_bonus), never
+## below 0 (Health never below 1). Bonuses that depend on the battle (a place in the line, say) are
+## added in battle by CompanionUnit.stat.
 func stats() -> Dictionary:
 	var s := data.base_stats()
 	for key: String in stat_gains:
 		s[key] = int(s.get(key, 0)) + int(stat_gains[key])
-	if not traits.is_empty() or not enchant.is_empty():
+	if not traits.is_empty() or not enchant.is_empty() or not accessories.is_empty():
 		for key: String in s:
-			s[key] = maxi(1 if key == Stat.HP else 0, int(s[key]) + trait_stat_bonus(key) + enchant_stat_bonus(key))
+			s[key] = maxi(1 if key == Stat.HP else 0, int(s[key]) + trait_stat_bonus(key) + enchant_stat_bonus(key)
+				+ accessory_stat_bonus(key))
 	return s
+
+
+## What the accessories worn add to stat `key` (can be negative: a two-edged one). Included in stats().
+func accessory_stat_bonus(key: String) -> int:
+	if accessories.is_empty():
+		return 0
+	return TraitRules.plain_stat(accessory_effects(), key)
 
 
 ## What the held weapon's enchantment adds to stat `key`. Included in stats().
@@ -194,7 +226,7 @@ func swap(old: CombatArtData, new: CombatArtData) -> bool:
 func art_cost(art: CombatArtData) -> int:
 	if art == null:
 		return 0
-	return maxi(0, art.stamina_cost + TraitRules.total(traits, TraitModifier.Kind.ART_STAMINA, art.weapon_type))
+	return maxi(0, art.stamina_cost + TraitRules.total(all_traits(), TraitModifier.Kind.ART_STAMINA, art.weapon_type))
 
 
 func unequip(art: CombatArtData) -> bool:
@@ -258,7 +290,10 @@ func learn_spell(spell: SpellData) -> bool:
 func max_uses(spell: SpellData) -> int:
 	if spell == null:
 		return 0
-	return maxi(0, spell.uses + TraitRules.total(traits, TraitModifier.Kind.SPELL_USES, -1, spell.school, spell.tier))
+	var e := all_traits()
+	var n := maxi(0, spell.uses + TraitRules.total(e, TraitModifier.Kind.SPELL_USES, -1, spell.school, spell.tier))
+	var loss := TraitRules.total(e, TraitModifier.Kind.SPELL_USES_LOSS)
+	return maxi(mini(1, n), n - loss) if loss > 0 else n
 
 
 func uses_left(spell: SpellData) -> int:

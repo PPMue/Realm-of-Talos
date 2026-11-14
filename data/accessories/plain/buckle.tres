@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="AccessoryTypeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/accessory_effect.gd" id="1_pc305"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_twrhv"]
+[ext_resource type="Script" path="res://scripts/data/accessory_type_data.gd" id="3_5m74k"]
+
+[sub_resource type="Resource" id="Resource_mc1ow"]
+script = ExtResource("2_twrhv")
+stat = "BLD"
+
+[sub_resource type="Resource" id="Resource_u4lja"]
+script = ExtResource("1_pc305")
+modifier = SubResource("Resource_mc1ow")
+by_rank = Array[float]([1.0, 2.0, 3.0, 4.0, 5.0])
+
+[resource]
+script = ExtResource("3_5m74k")
+id = "buckle"
+display_name = "Buckle"
+gives = Array[String](["+1 Build", "+2 Build", "+3 Build", "+4 Build", "+5 Build"])
+effects = Array[ExtResource("1_pc305")]([SubResource("Resource_u4lja")])

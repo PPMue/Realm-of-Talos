@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="AccessoryTypeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/accessory_effect.gd" id="1_qyoto"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_w16ih"]
+[ext_resource type="Script" path="res://scripts/data/accessory_type_data.gd" id="3_3h227"]
+
+[sub_resource type="Resource" id="Resource_fbvu0"]
+script = ExtResource("2_w16ih")
+kind = 5
+self_health = 1
+
+[sub_resource type="Resource" id="Resource_3eudq"]
+script = ExtResource("1_qyoto")
+modifier = SubResource("Resource_fbvu0")
+by_rank = Array[float]([8.0, 16.0, 24.0, 32.0, 40.0])
+
+[resource]
+script = ExtResource("3_3h227")
+id = "torc"
+display_name = "Torc"
+family = 1
+gives = Array[String](["+8% damage while below half Health", "+16% damage while below half Health", "+24% damage while below half Health", "+32% damage while below half Health", "+40% damage while below half Health"])
+effects = Array[ExtResource("1_qyoto")]([SubResource("Resource_3eudq")])

@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AccessoryTypeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/accessory_effect.gd" id="1_bhruo"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_5wapi"]
+[ext_resource type="Script" path="res://scripts/data/accessory_type_data.gd" id="3_pobnf"]
+
+[sub_resource type="Resource" id="Resource_pytt3"]
+script = ExtResource("2_5wapi")
+kind = 1
+
+[sub_resource type="Resource" id="Resource_y0dfa"]
+script = ExtResource("1_bhruo")
+modifier = SubResource("Resource_pytt3")
+by_rank = Array[float]([5.0, 10.0, 15.0, 20.0, 25.0])
+
+[resource]
+script = ExtResource("3_pobnf")
+id = "signet"
+display_name = "Signet"
+family = 1
+gives = Array[String](["+5 Hit", "+10 Hit", "+15 Hit", "+20 Hit", "+25 Hit"])
+effects = Array[ExtResource("1_bhruo")]([SubResource("Resource_y0dfa")])

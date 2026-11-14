@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="AccessoryTypeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/accessory_effect.gd" id="1_ybvfk"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_v4rh2"]
+[ext_resource type="Script" path="res://scripts/data/accessory_type_data.gd" id="3_3c7gs"]
+
+[sub_resource type="Resource" id="Resource_veqj8"]
+script = ExtResource("2_v4rh2")
+kind = 4
+target_health = 1
+
+[sub_resource type="Resource" id="Resource_6a53w"]
+script = ExtResource("1_ybvfk")
+modifier = SubResource("Resource_veqj8")
+by_rank = Array[float]([2.0, 4.0, 6.0, 8.0, 10.0])
+
+[resource]
+script = ExtResource("3_3c7gs")
+id = "fang"
+display_name = "Fang"
+family = 1
+gives = Array[String](["+2 damage to enemies below half Health", "+4 damage to enemies below half Health", "+6 damage to enemies below half Health", "+8 damage to enemies below half Health", "+10 damage to enemies below half Health"])
+effects = Array[ExtResource("1_ybvfk")]([SubResource("Resource_6a53w")])

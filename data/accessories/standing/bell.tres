@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="AccessoryTypeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/accessory_effect.gd" id="1_6m0kk"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_v48xm"]
+[ext_resource type="Script" path="res://scripts/data/accessory_type_data.gd" id="3_utv20"]
+
+[sub_resource type="Resource" id="Resource_sep7d"]
+script = ExtResource("2_v48xm")
+kind = 13
+
+[sub_resource type="Resource" id="Resource_2lc4e"]
+script = ExtResource("1_6m0kk")
+modifier = SubResource("Resource_sep7d")
+by_rank = Array[float]([1.5, 2.0, 2.5, 3.0, 3.5])
+field = 1
+
+[resource]
+script = ExtResource("3_utv20")
+id = "bell"
+display_name = "Bell"
+family = 2
+gives = Array[String](["Enemies aim at them 1.5 times as often", "Enemies aim at them 2 times as often", "Enemies aim at them 2.5 times as often", "Enemies aim at them 3 times as often", "Enemies aim at them 3.5 times as often"])
+effects = Array[ExtResource("1_6m0kk")]([SubResource("Resource_2lc4e")])

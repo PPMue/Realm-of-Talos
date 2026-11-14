@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="AccessoryTypeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/accessory_effect.gd" id="1_1pxe0"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_lhfbp"]
+[ext_resource type="Script" path="res://scripts/data/accessory_type_data.gd" id="3_l6t76"]
+
+[sub_resource type="Resource" id="Resource_jmahp"]
+script = ExtResource("2_lhfbp")
+stat = "RES"
+
+[sub_resource type="Resource" id="Resource_lq3tp"]
+script = ExtResource("1_1pxe0")
+modifier = SubResource("Resource_jmahp")
+by_rank = Array[float]([1.0, 2.0, 3.0, 4.0, 5.0])
+
+[resource]
+script = ExtResource("3_l6t76")
+id = "amulet"
+display_name = "Amulet"
+gives = Array[String](["+1 Resistance", "+2 Resistance", "+3 Resistance", "+4 Resistance", "+5 Resistance"])
+effects = Array[ExtResource("1_1pxe0")]([SubResource("Resource_lq3tp")])

@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="AccessoryTypeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/accessory_effect.gd" id="1_s43ts"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_falfm"]
+[ext_resource type="Script" path="res://scripts/data/accessory_type_data.gd" id="3_1djj1"]
+
+[sub_resource type="Resource" id="Resource_8eag5"]
+script = ExtResource("2_falfm")
+kind = 9
+spell_tier = 1
+
+[sub_resource type="Resource" id="Resource_yefey"]
+script = ExtResource("1_s43ts")
+modifier = SubResource("Resource_8eag5")
+by_rank = Array[float]([1.0, 2.0, 3.0, 4.0, 5.0])
+
+[resource]
+script = ExtResource("3_1djj1")
+id = "tiara"
+display_name = "Tiara"
+family = 4
+gives = Array[String](["+1 use of every tier I spell", "+2 uses of every tier I spell", "+3 uses of every tier I spell", "+4 uses of every tier I spell", "+5 uses of every tier I spell"])
+effects = Array[ExtResource("1_s43ts")]([SubResource("Resource_yefey")])

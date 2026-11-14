@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="AccessoryTypeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/accessory_effect.gd" id="1_mxrjn"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_7f3yy"]
+[ext_resource type="Script" path="res://scripts/data/accessory_type_data.gd" id="3_yk3lq"]
+
+[sub_resource type="Resource" id="Resource_5yxt0"]
+script = ExtResource("2_7f3yy")
+kind = 2
+self_health = 2
+
+[sub_resource type="Resource" id="Resource_3el7d"]
+script = ExtResource("1_mxrjn")
+modifier = SubResource("Resource_5yxt0")
+by_rank = Array[float]([6.0, 12.0, 18.0, 24.0, 30.0])
+
+[resource]
+script = ExtResource("3_yk3lq")
+id = "brooch"
+display_name = "Brooch"
+family = 1
+gives = Array[String](["+6 Crit while at full Health", "+12 Crit while at full Health", "+18 Crit while at full Health", "+24 Crit while at full Health", "+30 Crit while at full Health"])
+effects = Array[ExtResource("1_mxrjn")]([SubResource("Resource_3el7d")])

@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AccessoryTypeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/accessory_effect.gd" id="1_xbecn"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_ya3un"]
+[ext_resource type="Script" path="res://scripts/data/accessory_type_data.gd" id="3_a8lvs"]
+
+[sub_resource type="Resource" id="Resource_1rxyu"]
+script = ExtResource("2_ya3un")
+kind = 33
+
+[sub_resource type="Resource" id="Resource_me3ee"]
+script = ExtResource("1_xbecn")
+modifier = SubResource("Resource_1rxyu")
+by_rank = Array[float]([10.0, 20.0, 30.0, 40.0, 50.0])
+
+[resource]
+script = ExtResource("3_a8lvs")
+id = "scarab"
+display_name = "Scarab"
+family = 2
+gives = Array[String](["After a battle won, still standing: heals 10% of their Health", "After a battle won, still standing: heals 20% of their Health", "After a battle won, still standing: heals 30% of their Health", "After a battle won, still standing: heals 40% of their Health", "After a battle won, still standing: heals 50% of their Health"])
+effects = Array[ExtResource("1_xbecn")]([SubResource("Resource_me3ee")])

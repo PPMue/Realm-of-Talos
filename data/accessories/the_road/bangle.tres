@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AccessoryTypeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/accessory_effect.gd" id="1_rciyo"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_768gp"]
+[ext_resource type="Script" path="res://scripts/data/accessory_type_data.gd" id="3_g7x3p"]
+
+[sub_resource type="Resource" id="Resource_q7a4n"]
+script = ExtResource("2_768gp")
+kind = 43
+
+[sub_resource type="Resource" id="Resource_hxixs"]
+script = ExtResource("1_rciyo")
+modifier = SubResource("Resource_q7a4n")
+by_rank = Array[float]([5.0, 10.0, 15.0, 20.0, 25.0])
+
+[resource]
+script = ExtResource("3_g7x3p")
+id = "bangle"
+display_name = "Bangle"
+family = 6
+gives = Array[String](["+5 gold after a battle won in which they fought", "+10 gold after a battle won in which they fought", "+15 gold after a battle won in which they fought", "+20 gold after a battle won in which they fought", "+25 gold after a battle won in which they fought"])
+effects = Array[ExtResource("1_rciyo")]([SubResource("Resource_hxixs")])

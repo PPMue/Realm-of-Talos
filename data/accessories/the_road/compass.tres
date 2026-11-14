@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AccessoryTypeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/accessory_effect.gd" id="1_vdsg7"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_l34sa"]
+[ext_resource type="Script" path="res://scripts/data/accessory_type_data.gd" id="3_livm3"]
+
+[sub_resource type="Resource" id="Resource_16xs7"]
+script = ExtResource("2_l34sa")
+kind = 50
+
+[sub_resource type="Resource" id="Resource_bksqw"]
+script = ExtResource("1_vdsg7")
+modifier = SubResource("Resource_16xs7")
+by_rank = Array[float]([1.0, 2.0, 3.0, 4.0, 5.0])
+
+[resource]
+script = ExtResource("3_livm3")
+id = "compass"
+display_name = "Compass"
+family = 6
+gives = Array[String](["Scavenging: counts as 1 higher in whatever is asked", "Scavenging: counts as 2 higher in whatever is asked", "Scavenging: counts as 3 higher in whatever is asked", "Scavenging: counts as 4 higher in whatever is asked", "Scavenging: counts as 5 higher in whatever is asked"])
+effects = Array[ExtResource("1_vdsg7")]([SubResource("Resource_bksqw")])

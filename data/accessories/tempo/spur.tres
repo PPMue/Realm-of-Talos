@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="AccessoryTypeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/accessory_effect.gd" id="1_fxxfp"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_lb55p"]
+[ext_resource type="Script" path="res://scripts/data/accessory_type_data.gd" id="3_8o8ul"]
+
+[sub_resource type="Resource" id="Resource_okq7f"]
+script = ExtResource("2_lb55p")
+kind = 23
+amount = -1
+
+[sub_resource type="Resource" id="Resource_rm8f6"]
+script = ExtResource("1_fxxfp")
+modifier = SubResource("Resource_okq7f")
+by_rank = Array[float]([1.0, 2.0, 3.0, 4.0, 5.0])
+field = 2
+
+[resource]
+script = ExtResource("3_8o8ul")
+id = "spur"
+display_name = "Spur"
+family = 3
+gives = Array[String](["Their first action of a battle has 1 less recovery", "Their first 2 actions of a battle have 1 less recovery", "Their first 3 actions of a battle have 1 less recovery", "Their first 4 actions of a battle have 1 less recovery", "Their first 5 actions of a battle have 1 less recovery"])
+effects = Array[ExtResource("1_fxxfp")]([SubResource("Resource_rm8f6")])

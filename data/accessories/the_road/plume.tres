@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AccessoryTypeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/accessory_effect.gd" id="1_4i0t8"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_0dnby"]
+[ext_resource type="Script" path="res://scripts/data/accessory_type_data.gd" id="3_ehqkj"]
+
+[sub_resource type="Resource" id="Resource_6w172"]
+script = ExtResource("2_0dnby")
+kind = 15
+
+[sub_resource type="Resource" id="Resource_h7sh6"]
+script = ExtResource("1_4i0t8")
+modifier = SubResource("Resource_6w172")
+by_rank = Array[float]([6.0, 12.0, 18.0, 24.0, 30.0])
+
+[resource]
+script = ExtResource("3_ehqkj")
+id = "plume"
+display_name = "Plume"
+family = 6
+gives = Array[String](["+6% XP", "+12% XP", "+18% XP", "+24% XP", "+30% XP"])
+effects = Array[ExtResource("1_4i0t8")]([SubResource("Resource_h7sh6")])

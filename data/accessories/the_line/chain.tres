@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="AccessoryTypeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/accessory_effect.gd" id="1_uwr0v"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_vewgq"]
+[ext_resource type="Script" path="res://scripts/data/accessory_type_data.gd" id="3_whmuj"]
+
+[sub_resource type="Resource" id="Resource_8ay6i"]
+script = ExtResource("2_vewgq")
+kind = 19
+who = 1
+
+[sub_resource type="Resource" id="Resource_tdh5s"]
+script = ExtResource("1_uwr0v")
+modifier = SubResource("Resource_8ay6i")
+by_rank = Array[float]([-5.0, -10.0, -15.0, -20.0, -25.0])
+
+[resource]
+script = ExtResource("3_whmuj")
+id = "chain"
+display_name = "Chain"
+family = 5
+gives = Array[String](["The companions either side of them take 5% less damage", "The companions either side of them take 10% less damage", "The companions either side of them take 15% less damage", "The companions either side of them take 20% less damage", "The companions either side of them take 25% less damage"])
+effects = Array[ExtResource("1_uwr0v")]([SubResource("Resource_tdh5s")])

@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="AccessoryTypeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/accessory_effect.gd" id="1_6d8ip"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_ttyih"]
+[ext_resource type="Script" path="res://scripts/data/accessory_type_data.gd" id="3_ehnm3"]
+
+[sub_resource type="Resource" id="Resource_a445h"]
+script = ExtResource("2_ttyih")
+kind = 5
+big_fight = true
+
+[sub_resource type="Resource" id="Resource_2cwqk"]
+script = ExtResource("1_6d8ip")
+modifier = SubResource("Resource_a445h")
+by_rank = Array[float]([6.0, 12.0, 18.0, 24.0, 30.0])
+
+[resource]
+script = ExtResource("3_ehnm3")
+id = "sigil"
+display_name = "Sigil"
+family = 1
+gives = Array[String](["+6% damage against a boss, and in an elite fight", "+12% damage against a boss, and in an elite fight", "+18% damage against a boss, and in an elite fight", "+24% damage against a boss, and in an elite fight", "+30% damage against a boss, and in an elite fight"])
+effects = Array[ExtResource("1_6d8ip")]([SubResource("Resource_2cwqk")])

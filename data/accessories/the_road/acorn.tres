@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AccessoryTypeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/accessory_effect.gd" id="1_ebynq"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_lexgv"]
+[ext_resource type="Script" path="res://scripts/data/accessory_type_data.gd" id="3_bdvah"]
+
+[sub_resource type="Resource" id="Resource_2gi1s"]
+script = ExtResource("2_lexgv")
+kind = 14
+
+[sub_resource type="Resource" id="Resource_roxps"]
+script = ExtResource("1_ebynq")
+modifier = SubResource("Resource_2gi1s")
+by_rank = Array[float]([3.0, 6.0, 9.0, 12.0, 15.0])
+
+[resource]
+script = ExtResource("3_bdvah")
+id = "acorn"
+display_name = "Acorn"
+family = 6
+gives = Array[String](["+3 to every growth rate", "+6 to every growth rate", "+9 to every growth rate", "+12 to every growth rate", "+15 to every growth rate"])
+effects = Array[ExtResource("1_ebynq")]([SubResource("Resource_roxps")])

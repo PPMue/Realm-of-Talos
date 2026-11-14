@@ -122,7 +122,13 @@ const EVENT_WEAPON_TIER_UP_CHANCE := 0.25
 ## the best the smithy is selling that week, into the armory.
 const BOSS_WEAPON_TIERS_ABOVE_SHOP := 1
 
-# --- Gemstones (Gem) ---
+# --- Gemstones (Gem) and the Jeweler ---
+## Crafting at the Jeweler costs one stone and this much gold x the stone's rank (Topaz 20 .. Diamond 100).
+const CRAFT_GOLD_PER_RANK := 20
+## Designs the Jeweler shows, by its level (1, 2): different types, drawn evenly from all of them.
+const CRAFT_DESIGNS_BY_JEWELER: Array[int] = [1, 2]
+## Accessories one companion wears at most (never two of one type).
+const MAX_ACCESSORIES := 2
 ## The chance (percent) that a scavenging Success also brings back a stone of the current rank.
 const SCAVENGE_GEM_PERCENT := 3
 
@@ -229,7 +235,8 @@ const SCAVENGE_HP_LOSS_FRACTION := 0.25
 const FACILITY_MAX_LEVEL := 2
 ## What each facility pays in, by Run.Facility (Watchtower, Smithy, Tavern, Inn, Infirmary, Drill Yard,
 ## Barracks, Mason's Yard, Gate): timber builds the city, iron ore the Smithy and the Gate.
-const FACILITY_MATERIAL: Array[String] = [TIMBER, IRON_ORE, TIMBER, TIMBER, TIMBER, TIMBER, TIMBER, TIMBER, IRON_ORE]
+const FACILITY_MATERIAL: Array[String] = [TIMBER, IRON_ORE, TIMBER, TIMBER, TIMBER, TIMBER, TIMBER, TIMBER, IRON_ORE,
+	IRON_ORE]
 ## Pieces of that material for level 1 and level 2. Set from the automated runs' income: a run that
 ## reaches day 42 takes in about 22 timber and 23 iron ore (see README, The city's upgrades).
 const UPGRADE_COST: Array[int] = [3, 5]

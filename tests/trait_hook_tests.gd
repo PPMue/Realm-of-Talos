@@ -148,6 +148,7 @@ func measure(traits: Array[TraitData], metric: String, opts: Dictionary) -> int:
 		var p := CompanionProgress.create(d)
 		if i == holder:
 			p.traits = traits
+			p.accessories = opts.get("wear", [])   # accessories worn (accessory_tests.gd)
 		party.append(p)
 	var es: Array[EnemyData] = [enemy(opts.get("enemy_magic", false))]
 	var rng := RandomNumberGenerator.new()
@@ -275,6 +276,7 @@ func city(traits: Array[TraitData], opts: Dictionary) -> Array:
 	run._begin_day()
 	var holder := run._join(data())
 	holder.traits = traits
+	holder.progress.accessories = opts.get("wear", [])
 	holder.hp = holder.max_hp()
 	var other := run._join(data())
 	if opts.get("bench", false):

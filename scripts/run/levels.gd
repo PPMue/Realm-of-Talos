@@ -78,7 +78,7 @@ static func growth_rate_of(p: CompanionProgress, key: String, level: int = -1) -
 	if key == Stat.BLD or not GROWTH_STATS.has(key):
 		return 0
 	var reaching := level if level > 0 else p.level + 1
-	var bonus := TraitRules.total(p.traits, TraitModifier.Kind.GROWTH, -1, -1, 0, reaching, key)
+	var bonus := TraitRules.total(p.all_traits(), TraitModifier.Kind.GROWTH, -1, -1, 0, reaching, key)
 	return clampi(int(p.data.growths.get(key, 0)) + bonus, 0, 100)
 
 
@@ -143,7 +143,7 @@ static func level_up(p: CompanionProgress, rng: RandomNumberGenerator) -> Dictio
 ## XP `p` gets from `amount`: changed by their traits (TraitModifier.Kind.XP_PERCENT) and `extra`
 ## percent (another's trait: Mentor), rounded down.
 static func with_traits(p: CompanionProgress, amount: int, extra: int = 0) -> int:
-	var percent := TraitRules.total(p.traits, TraitModifier.Kind.XP_PERCENT) + extra
+	var percent := TraitRules.total(p.all_traits(), TraitModifier.Kind.XP_PERCENT) + extra
 	return maxi(0, amount * (100 + percent) / 100) if percent != 0 else amount
 
 

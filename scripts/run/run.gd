@@ -16,15 +16,15 @@ extends RefCounted
 ## Commands return false (or "") and change nothing when not allowed; the *_block_reason queries say why.
 
 enum Outcome { ONGOING, VICTORY, DEFEAT }
-enum FreeAction { REST, SHOP, TAVERN, REPAIR, TRAIN, CURE, SCAVENGE }
+enum FreeAction { REST, SHOP, TAVERN, REPAIR, TRAIN, CURE, SCAVENGE, CRAFT }
 
-const FREE_ACTION_NAMES: Array[String] = ["Rest", "Shop", "Tavern", "Repair", "Train", "Cure", "Scavenge"]
+const FREE_ACTION_NAMES: Array[String] = ["Rest", "Shop", "Tavern", "Repair", "Train", "Cure", "Scavenge", "Craft"]
 
 ## The city's facilities, each built up to two levels (see upgrade).
-enum Facility { WATCHTOWER, SMITHY, TAVERN, INN, INFIRMARY, YARD, BARRACKS, MASON, GATE }
+enum Facility { WATCHTOWER, SMITHY, TAVERN, INN, INFIRMARY, YARD, BARRACKS, MASON, GATE, JEWELER }
 
 const FACILITY_NAMES: Array[String] = ["Watchtower", "Smithy", "Tavern", "Inn", "Infirmary", "Drill Yard", "Barracks",
-	"Mason's Yard", "Gate"]
+	"Mason's Yard", "Gate", "Jeweler"]
 ## What each level does, as the design words it: [level 1, level 2] by Facility.
 const FACILITY_LINES := [
 	["The boss days and which boss comes are known", "Tomorrow's fronts are known a day early"],
@@ -36,6 +36,7 @@ const FACILITY_LINES := [
 	["The reserve gets a quarter share of a battle's XP", "The reserve heals fully overnight"],
 	["Repairs mend 30 instead of 20", "The walls hold 120 instead of 100"],
 	["A third scavenging site each day", "A lost front costs the walls 5 less"],
+	["Opens crafting", "The jeweler shows two designs to choose from"],
 ]
 
 var rng: RandomNumberGenerator
@@ -103,6 +104,12 @@ var _scavenge_sites: Array[ScavengeSite] = []
 var facilities: Dictionary = {}
 ## An enchanting attempt waiting for the player's choice (see enchant), or null.
 var enchant_offer: EnchantOffer
+## Every accessory type the Jeweler can make (AccessoryLibrary).
+var accessory_pool: Array[AccessoryTypeData] = []
+## Every accessory the company owns, worn or not, in the order made (see wear, accessories_of).
+var accessories: Array[Accessory] = []
+## The Jeweler's designs paid for and waiting for a choice (craft, take_craft); null when none.
+var craft_offer: CraftOffer
 ## The Watchtower level 2: the fronts of day _next_fronts_day, rolled a day early (see tomorrow_fronts).
 var _next_fronts: Array[Front] = []
 var _next_fronts_day: int = 0
@@ -135,6 +142,7 @@ static func create(p_rng: RandomNumberGenerator, p_content: RunContent = null, p
 	r.art_pool = p_art_pool
 	r.spell_pool = p_spell_pool
 	r.trait_pool = TraitLibrary.load_default().traits.duplicate()
+	r.accessory_pool = AccessoryLibrary.load_default().types.duplicate()
 	r.gold = RunConfig.STARTING_GOLD
 	for m in RunConfig.MATERIAL_ORDER:
 		r.materials[m] = int(RunConfig.STARTING_MATERIALS.get(m, 0))
@@ -460,6 +468,7 @@ func start_battle(front: Front) -> Battle:
 		datas.append(c.data)
 		party.append(c.progress)
 	var battle := Battle.new(datas, front.enemies, battle_rng, party, art_pool, spell_pool)
+	battle.elite = front.is_elite
 	for i in lineup.size():
 		battle.roster[i].hp = clampi(lineup[i].hp, 1, lineup[i].max_hp())
 	return battle
@@ -523,7 +532,7 @@ func finish_battle(battle: Battle) -> BattleReport:
 		else:
 			var watch := 0
 			for c in reserve():
-				var less := -TraitRules.total(c.traits, TraitModifier.Kind.CITY_DAMAGE)
+				var less := -TraitRules.total(c.all_traits(), TraitModifier.Kind.CITY_DAMAGE)
 				if less != 0:
 					watch += less
 					report.trait_lines.append("%s, %s: the walls lose %d less" % [c.display_name(), _trait_name(c, TraitModifier.Kind.CITY_DAMAGE), less])
@@ -541,6 +550,8 @@ const EVENT_FIRST := "First answer the matter at the gate."
 const NO_USEFUL_DRILL := "Nobody can learn anything from this week's drills."
 const NOBODY_FIT := "Nobody is fit to go."
 const OFFER_OPEN := "First choose what the smith offers."
+const NO_JEWELER := "The jeweler cannot craft until the Jeweler is built up."
+const CRAFT_OPEN := "First choose one of the jeweler's designs."
 const FILL_EVERY_PLACE := "Fill every place."
 
 
@@ -616,6 +627,11 @@ func free_action_block_reason(a: FreeAction) -> String:
 		FreeAction.SCAVENGE:
 			if available().is_empty():
 				return NOBODY_FIT
+		FreeAction.CRAFT:
+			if facility_level(Facility.JEWELER) < 1:
+				return NO_JEWELER
+			if gem_total() <= 0:
+				return "No stones to set."
 	return ""
 
 
@@ -648,7 +664,7 @@ func cure_cost(c: RunCompanion) -> int:
 	if c == null or not c.injured:
 		return 0
 	var cost := c.days_left(day) * (RunConfig.CURE_GOLD_PER_DAY_BASE + RunConfig.CURE_GOLD_PER_DAY_PER_LEVEL * c.level())
-	var percent := TraitRules.total(c.traits, TraitModifier.Kind.CURE_PERCENT)
+	var percent := TraitRules.total(c.all_traits(), TraitModifier.Kind.CURE_PERCENT)
 	if facility_level(Facility.INFIRMARY) >= 2:
 		percent -= RunConfig.INFIRMARY_CURE_DISCOUNT_PERCENT
 	if percent != 0:
@@ -871,7 +887,7 @@ func _roll_drill_quality(c: RunCompanion = null) -> DrillResult.Quality:
 		r -= RunConfig.DRILL_QUALITY_WEIGHTS[q]
 		if r <= 0:
 			if q == DrillResult.Quality.POOR and (facility_level(Facility.YARD) >= 1
-					or (c != null and TraitRules.has(c.traits, TraitModifier.Kind.DRILL_NEVER_POOR))):
+					or (c != null and TraitRules.has(c.all_traits(), TraitModifier.Kind.DRILL_NEVER_POOR))):
 				return DrillResult.Quality.GOOD   # the Drill Yard level 1: never poor
 			return q as DrillResult.Quality
 	return DrillResult.Quality.GOOD
@@ -923,7 +939,7 @@ func _grant_xp(report: BattleReport, pool: int, standing: Array[RunCompanion], p
 	var mentored := 0
 	for c in standing:
 		if c != lowest:
-			mentored += TraitRules.total(c.traits, TraitModifier.Kind.XP_PERCENT, -1, -1, 0, 0, "", TraitModifier.Who.LOWEST)
+			mentored += TraitRules.total(c.all_traits(), TraitModifier.Kind.XP_PERCENT, -1, -1, 0, 0, "", TraitModifier.Who.LOWEST)
 	for i in standing.size():
 		var c := standing[i]
 		var xp := Levels.with_traits(c.progress, shares[i], mentored if c == lowest else 0)
@@ -982,7 +998,7 @@ func scavenge_slot_score(site: ScavengeSite, index: int, c: RunCompanion) -> int
 ## What `c` counts as in `stat` when scavenging: the stat (CompanionProgress.stats) plus what their traits
 ## add (Pathfinder).
 func scavenge_stat(c: RunCompanion, stat: String) -> int:
-	return int(c.progress.stats().get(stat, 0)) + TraitRules.total(c.traits, TraitModifier.Kind.SCAVENGE_STAT)
+	return int(c.progress.stats().get(stat, 0)) + TraitRules.total(c.all_traits(), TraitModifier.Kind.SCAVENGE_STAT)
 
 
 ## The chance (percent) of a full haul at `site` with `party` (indexed by slot; nulls and missing
@@ -1071,7 +1087,7 @@ func scavenge(site: ScavengeSite, party: Array) -> ScavengeResult:
 			xp = site.xp_each / 2
 	var more := 0
 	for c in r.party:
-		more += TraitRules.total(c.traits, TraitModifier.Kind.SCAVENGE_HAUL_PERCENT)
+		more += TraitRules.total(c.all_traits(), TraitModifier.Kind.SCAVENGE_HAUL_PERCENT)
 	if more != 0:
 		r.gold = roundi(r.gold * (100 + more) / 100.0)
 		for m: String in r.materials:
@@ -1107,7 +1123,7 @@ func _furthest_short(site: ScavengeSite, party: Array[RunCompanion]) -> RunCompa
 	var worst := 0
 	var picks: Array[RunCompanion] = []
 	for i in party.size():
-		if TraitRules.has(party[i].traits, TraitModifier.Kind.SCAVENGE_NO_INJURY):
+		if TraitRules.has(party[i].all_traits(), TraitModifier.Kind.SCAVENGE_NO_INJURY):
 			continue   # Sure-Footed: never comes back injured
 		var short := maxi(0, site.slots[i].target - scavenge_stat(party[i], site.slots[i].stat))
 		if picks.is_empty() or short > worst:
@@ -1399,6 +1415,167 @@ func _roll_tomorrow() -> void:
 			_next_fronts_day = d
 
 
+# ---------------------------------------------------------------- the Jeweler: crafting
+
+## What crafting with a stone of `rank` costs: the stone ("gem": its rank) and
+## RunConfig.CRAFT_GOLD_PER_RANK x the rank in "gold".
+func craft_cost(rank: int) -> Dictionary:
+	return {"gem": rank, "gold": RunConfig.CRAFT_GOLD_PER_RANK * rank}
+
+
+## Why a stone of `rank` cannot be set now, or "". The day's free action (FreeAction.CRAFT) at the Jeweler
+## once it has its level 1: a free day, the event answered, the action not used; a stone of that rank and
+## the gold; not while designs wait for a choice.
+func craft_block_reason(rank: int) -> String:
+	if craft_offer != null:
+		return CRAFT_OPEN
+	var why := free_action_block_reason(FreeAction.CRAFT)
+	if why != "":
+		return why
+	if not Gem.is_rank(rank):
+		return "No such stone."
+	if gem_count(rank) <= 0:
+		return "No %s to set." % Gem.name_of(rank)
+	var g := int(craft_cost(rank)["gold"])
+	if gold < g:
+		return "Needs %d gold." % g
+	return ""
+
+
+## Pays craft_cost(rank) and the day's action and shows the designs: one type drawn evenly from every
+## type (RunConfig.CRAFT_DESIGNS_BY_JEWELER: two different ones with the Jeweler's level 2), kept in
+## craft_offer until one is taken (take_craft). The same type can come up again in a run. Returns the
+## offer, or null if not allowed.
+func craft(rank: int) -> CraftOffer:
+	if craft_block_reason(rank) != "":
+		return null
+	var offer := CraftOffer.new()
+	offer.rank = rank
+	offer.cost = craft_cost(rank)
+	gold -= int(offer.cost["gold"])
+	gems[rank] = gem_count(rank) - 1
+	_spend(FreeAction.CRAFT)
+	var count: int = RunConfig.CRAFT_DESIGNS_BY_JEWELER[clampi(facility_level(Facility.JEWELER) - 1, 0,
+		RunConfig.CRAFT_DESIGNS_BY_JEWELER.size() - 1)]
+	var pool := accessory_pool.duplicate()
+	for i in mini(count, pool.size()):
+		offer.designs.append(pool.pop_at(rng.randi_range(0, pool.size() - 1)))
+	craft_offer = offer
+	return offer
+
+
+## Makes design `index` of the open offer with its stone: the accessory goes into the company's keeping,
+## unworn (accessories). Returns it, or null if there is no such offer or design.
+func take_craft(index: int) -> Accessory:
+	if craft_offer == null or index < 0 or index >= craft_offer.designs.size():
+		return null
+	var a := Accessory.new(craft_offer.designs[index], craft_offer.rank)
+	accessories.append(a)
+	craft_offer = null
+	return a
+
+
+# ---------------------------------------------------------------- accessories: wearing
+
+## What `c` wears, in the order put on.
+func accessories_of(c: RunCompanion) -> Array[Accessory]:
+	var out: Array[Accessory] = []
+	if c != null:
+		out.assign(c.progress.accessories)
+	return out
+
+
+## Who wears `a`, or null (unworn). Anyone in the company, in the Infirmary or not.
+func wearer_of(a: Accessory) -> RunCompanion:
+	for c in roster:
+		if c.progress.accessories.has(a):
+			return c
+	return null
+
+
+## The accessories nobody wears.
+func unworn_accessories() -> Array[Accessory]:
+	var out: Array[Accessory] = []
+	for a in accessories:
+		if wearer_of(a) == null:
+			out.append(a)
+	return out
+
+
+## Why `c` cannot put `a` on now, or "". Free, any number of times, whenever the party can be changed
+## (not once the day's front is committed); at most RunConfig.MAX_ACCESSORIES each, never two of one
+## type. Whoever wears it now gives it up.
+func wear_block_reason(c: RunCompanion, a: Accessory) -> String:
+	if not can_change_party():
+		return "Not now."
+	if c == null or not roster.has(c):
+		return "Not in the company."
+	if a == null or not accessories.has(a):
+		return "Not the company's."
+	var worn := c.progress.accessories
+	if worn.has(a):
+		return "%s already wears it." % c.display_name()
+	for b in worn:
+		if b.type == a.type:
+			return "%s already wears a %s." % [c.display_name(), a.type.display_name]
+	if worn.size() >= RunConfig.MAX_ACCESSORIES:
+		return "%s already wears two." % c.display_name()
+	return ""
+
+
+## Puts `a` on `c`, taking it from whoever wore it. HP rises by any Health it adds (and spell uses by any
+## it adds), as with an enchantment.
+func wear(c: RunCompanion, a: Accessory) -> bool:
+	if wear_block_reason(c, a) != "":
+		return false
+	var from := wearer_of(a)
+	if from != null:
+		_remove_accessory(from, a)
+	var hp_before := c.max_hp()
+	var uses_before := _max_uses_of(c)
+	c.progress.accessories.append(a)
+	if not c.injured:
+		c.hp = clampi(c.hp + maxi(0, c.max_hp() - hp_before), 1, c.max_hp())
+	for sp: SpellData in uses_before:
+		var more := c.progress.max_uses(sp) - int(uses_before[sp])
+		if more > 0:
+			c.progress.spell_uses[sp] = c.progress.uses_left(sp) + more
+	return true
+
+
+## Why `a` cannot be taken off now, or "": not worn, or the party cannot be changed.
+func take_off_block_reason(a: Accessory) -> String:
+	if not can_change_party():
+		return "Not now."
+	if wearer_of(a) == null:
+		return "Nobody wears it."
+	return ""
+
+
+## Takes `a` off whoever wears it (in the Infirmary too); it stays the company's. HP and spell uses are
+## held to the new most.
+func take_off(a: Accessory) -> bool:
+	if take_off_block_reason(a) != "":
+		return false
+	_remove_accessory(wearer_of(a), a)
+	return true
+
+
+func _remove_accessory(c: RunCompanion, a: Accessory) -> void:
+	c.progress.accessories.erase(a)
+	if not c.injured:
+		c.hp = clampi(c.hp, 1, c.max_hp())
+	for sp in c.progress.known_spells:
+		c.progress.spell_uses[sp] = mini(c.progress.uses_left(sp), c.progress.max_uses(sp))
+
+
+func _max_uses_of(c: RunCompanion) -> Dictionary:
+	var out := {}
+	for sp in c.progress.known_spells:
+		out[sp] = c.progress.max_uses(sp)
+	return out
+
+
 # ---------------------------------------------------------------- enchanting
 
 ## The stat points an enchantment of `w` adds up to (net): by tier (RunConfig.ENCHANT_BUDGET_BY_TIER,
@@ -1666,15 +1843,15 @@ func _teach(p: CompanionProgress, subject: Drill, g: int) -> Dictionary:
 ## Days `c` stays in the Infirmary when injured: RunConfig.INFIRMARY_DAYS plus what their traits add.
 func infirmary_days(c: RunCompanion) -> int:
 	var base := RunConfig.INFIRMARY_UPGRADED_DAYS if facility_level(Facility.INFIRMARY) >= 1 else RunConfig.INFIRMARY_DAYS
-	return maxi(1, base + TraitRules.total(c.traits, TraitModifier.Kind.INFIRMARY_DAYS))
+	return maxi(1, base + TraitRules.total(c.all_traits(), TraitModifier.Kind.INFIRMARY_DAYS))
 
 
 ## HP `c` heals at the end of the day: RunConfig.DAILY_HEAL_FRACTION of max HP, changed by their traits
 ## (TraitModifier.Kind.DAY_HEAL_PERCENT), rounded up.
 func day_heal(c: RunCompanion) -> int:
-	var percent := TraitRules.total(c.traits, TraitModifier.Kind.DAY_HEAL_PERCENT)
+	var percent := TraitRules.total(c.all_traits(), TraitModifier.Kind.DAY_HEAL_PERCENT)
 	var fraction := RunConfig.INN_DAILY_HEAL_FRACTION if facility_level(Facility.INN) >= 1 else RunConfig.DAILY_HEAL_FRACTION
-	var points := TraitRules.total(c.traits, TraitModifier.Kind.DAY_HEAL_SHARE) \
+	var points := TraitRules.total(c.all_traits(), TraitModifier.Kind.DAY_HEAL_SHARE) \
 		+ company_total(TraitModifier.Kind.DAY_HEAL_SHARE, TraitModifier.Who.COMPANY)
 	fraction += points / 100.0
 	return maxi(0, ceili(c.max_hp() * fraction * (100 + percent) / 100.0))
@@ -1685,7 +1862,7 @@ func day_heal(c: RunCompanion) -> int:
 func company_total(kind: int, who: int = TraitModifier.Who.SELF) -> int:
 	var total := 0
 	for c in available():
-		total += TraitRules.total(c.traits, kind, -1, -1, 0, 0, "", who)
+		total += TraitRules.total(c.all_traits(), kind, -1, -1, 0, 0, "", who)
 	return total
 
 
@@ -1695,7 +1872,7 @@ func drill_points(drill: Drill, c: RunCompanion, quality: int) -> int:
 	var base: int = RunConfig.DRILL_POINTS[quality]
 	if drill == null or c == null or not drill.is_proficiency():
 		return base
-	var percent := TraitRules.total(c.traits, TraitModifier.Kind.PROFICIENCY_PERCENT,
+	var percent := TraitRules.total(c.all_traits(), TraitModifier.Kind.PROFICIENCY_PERCENT,
 		drill.weapon_type if drill.kind == Drill.Kind.WEAPON else -1, drill.school if drill.kind == Drill.Kind.MAGIC else -1,
 		0, 0, "", TraitModifier.Who.SELF, c.progress)
 	return roundi(base * (100 + percent) / 100.0)
@@ -1773,16 +1950,16 @@ static func _trait_fits(t: TraitData, p: CompanionProgress) -> bool:
 func _battle_won_traits(report: BattleReport, battle: Battle, fielded: Array) -> void:
 	for i in fielded.size():
 		var c: RunCompanion = fielded[i]
-		var g := TraitRules.total(c.traits, TraitModifier.Kind.BATTLE_WON_GOLD)
+		var g := TraitRules.total(c.all_traits(), TraitModifier.Kind.BATTLE_WON_GOLD)
 		if g != 0:
 			report.trait_gold += g
 			report.trait_lines.append("%s, %s: +%d gold" % [c.display_name(), _trait_name(c, TraitModifier.Kind.BATTLE_WON_GOLD), g])
-		var per := TraitRules.total(c.traits, TraitModifier.Kind.KILL_GOLD)
+		var per := TraitRules.total(c.all_traits(), TraitModifier.Kind.KILL_GOLD)
 		var k := battle.kills_of(battle.roster[i])
 		if per != 0 and k > 0:
 			report.trait_gold += per * k
 			report.trait_lines.append("%s, %s: +%d gold" % [c.display_name(), _trait_name(c, TraitModifier.Kind.KILL_GOLD), per * k])
-		var mend := TraitRules.total(c.traits, TraitModifier.Kind.BATTLE_WON_HEAL_PERCENT)
+		var mend := TraitRules.total(c.all_traits(), TraitModifier.Kind.BATTLE_WON_HEAL_PERCENT)
 		if mend > 0 and not c.injured:
 			var healed := c.heal(ceili(c.max_hp() * mend / 100.0))
 			if healed > 0:
@@ -1793,7 +1970,7 @@ func _battle_won_traits(report: BattleReport, battle: Battle, fielded: Array) ->
 ## After a battle, won or lost: materials the fielded companions' traits bring (BATTLE_MATERIAL).
 func _battle_material_traits(report: BattleReport, fielded: Array) -> void:
 	for c: RunCompanion in fielded:
-		for t in c.traits:
+		for t in c.all_traits():
 			for m in t.modifiers:
 				if m.kind == TraitModifier.Kind.BATTLE_MATERIAL and m.who == TraitModifier.Who.SELF and m.material != "" and m.amount > 0:
 					report.materials[m.material] = int(report.materials.get(m.material, 0)) + m.amount
@@ -1803,7 +1980,7 @@ func _battle_material_traits(report: BattleReport, fielded: Array) -> void:
 
 ## The name of `c`'s first trait with a modifier of `kind` ("" if none).
 static func _trait_name(c: RunCompanion, kind: int) -> String:
-	for t in c.traits:
+	for t in c.all_traits():
 		for m in t.modifiers:
 			if m.kind == kind:
 				return t.display_name
@@ -1818,7 +1995,7 @@ static func _trait_name(c: RunCompanion, kind: int) -> String:
 func _grant_reserve_xp(report: BattleReport, pool: int) -> void:
 	for c in reserve():
 		var share := (RunConfig.BARRACKS_RESERVE_XP_SHARE if facility_level(Facility.BARRACKS) >= 1 else 0.0) \
-			+ TraitRules.total(c.traits, TraitModifier.Kind.RESERVE_XP_SHARE) / 100.0
+			+ TraitRules.total(c.all_traits(), TraitModifier.Kind.RESERVE_XP_SHARE) / 100.0
 		if share <= 0.0:
 			continue
 		var xp := Levels.with_traits(c.progress, roundi(float(pool) / RunConfig.MAX_FIELDED * share))
@@ -1951,6 +2128,8 @@ func _begin_day() -> void:
 func _end_day() -> void:
 	if enchant_offer != null:
 		keep_enchant()   # the day ends: the weapon keeps what it has
+	if craft_offer != null:
+		take_craft(0)   # the day ends: the first design is made
 	for c in available():
 		c.heal(day_heal(c))
 		if facility_level(Facility.INN) >= 2:

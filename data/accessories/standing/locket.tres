@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AccessoryTypeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/accessory_effect.gd" id="1_ag3lh"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_5ch15"]
+[ext_resource type="Script" path="res://scripts/data/accessory_type_data.gd" id="3_eefwo"]
+
+[sub_resource type="Resource" id="Resource_ydcw3"]
+script = ExtResource("2_5ch15")
+kind = 56
+
+[sub_resource type="Resource" id="Resource_turdm"]
+script = ExtResource("1_ag3lh")
+modifier = SubResource("Resource_ydcw3")
+by_rank = Array[float]([0.0, 10.0, 20.0, 30.0, 40.0])
+
+[resource]
+script = ExtResource("3_eefwo")
+id = "locket"
+display_name = "Locket"
+family = 2
+gives = Array[String](["Once a battle, a blow that would fell them leaves them at 1 Health", "Once a battle, a blow that would fell them leaves them at 10% of their Health", "Once a battle, a blow that would fell them leaves them at 20% of their Health", "Once a battle, a blow that would fell them leaves them at 30% of their Health", "Once a battle, a blow that would fell them leaves them at 40% of their Health"])
+effects = Array[ExtResource("1_ag3lh")]([SubResource("Resource_turdm")])

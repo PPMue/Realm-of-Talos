@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AccessoryTypeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/accessory_effect.gd" id="1_dqmm3"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_oiql0"]
+[ext_resource type="Script" path="res://scripts/data/accessory_type_data.gd" id="3_swlm8"]
+
+[sub_resource type="Resource" id="Resource_u6xhv"]
+script = ExtResource("2_oiql0")
+kind = 57
+
+[sub_resource type="Resource" id="Resource_6g4jb"]
+script = ExtResource("1_dqmm3")
+modifier = SubResource("Resource_u6xhv")
+by_rank = Array[float]([1.0, 2.0, 3.0, 4.0, 5.0])
+
+[resource]
+script = ExtResource("3_swlm8")
+id = "hourglass"
+display_name = "Hourglass"
+family = 3
+gives = Array[String](["Their first hit of a battle pushes the target's next action back 1 turn", "Their first hit of a battle pushes the target's next action back 2 turns", "Their first hit of a battle pushes the target's next action back 3 turns", "Their first hit of a battle pushes the target's next action back 4 turns", "Their first hit of a battle pushes the target's next action back 5 turns"])
+effects = Array[ExtResource("1_dqmm3")]([SubResource("Resource_6g4jb")])

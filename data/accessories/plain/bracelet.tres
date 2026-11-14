@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="AccessoryTypeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/accessory_effect.gd" id="1_6v3t0"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_n240r"]
+[ext_resource type="Script" path="res://scripts/data/accessory_type_data.gd" id="3_casky"]
+
+[sub_resource type="Resource" id="Resource_8r8va"]
+script = ExtResource("2_n240r")
+stat = "DEX"
+
+[sub_resource type="Resource" id="Resource_n5m5i"]
+script = ExtResource("1_6v3t0")
+modifier = SubResource("Resource_8r8va")
+by_rank = Array[float]([1.0, 2.0, 3.0, 4.0, 5.0])
+
+[resource]
+script = ExtResource("3_casky")
+id = "bracelet"
+display_name = "Bracelet"
+gives = Array[String](["+1 Dexterity", "+2 Dexterity", "+3 Dexterity", "+4 Dexterity", "+5 Dexterity"])
+effects = Array[ExtResource("1_6v3t0")]([SubResource("Resource_n5m5i")])

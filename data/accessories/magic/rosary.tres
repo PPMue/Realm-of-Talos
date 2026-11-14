@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AccessoryTypeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/accessory_effect.gd" id="1_1en62"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_58grx"]
+[ext_resource type="Script" path="res://scripts/data/accessory_type_data.gd" id="3_1s455"]
+
+[sub_resource type="Resource" id="Resource_jjren"]
+script = ExtResource("2_58grx")
+kind = 10
+
+[sub_resource type="Resource" id="Resource_kxgux"]
+script = ExtResource("1_1en62")
+modifier = SubResource("Resource_jjren")
+by_rank = Array[float]([2.0, 4.0, 6.0, 8.0, 10.0])
+
+[resource]
+script = ExtResource("3_1s455")
+id = "rosary"
+display_name = "Rosary"
+family = 4
+gives = Array[String](["Heals they cast restore 2 more", "Heals they cast restore 4 more", "Heals they cast restore 6 more", "Heals they cast restore 8 more", "Heals they cast restore 10 more"])
+effects = Array[ExtResource("1_1en62")]([SubResource("Resource_kxgux")])

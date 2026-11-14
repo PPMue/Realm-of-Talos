@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="AccessoryTypeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/accessory_effect.gd" id="1_4lcvp"]
+[ext_resource type="Script" path="res://scripts/data/trait_modifier.gd" id="2_qll38"]
+[ext_resource type="Script" path="res://scripts/data/accessory_type_data.gd" id="3_m43si"]
+
+[sub_resource type="Resource" id="Resource_3py3y"]
+script = ExtResource("2_qll38")
+kind = 4
+action_to = 2
+
+[sub_resource type="Resource" id="Resource_r2atv"]
+script = ExtResource("1_4lcvp")
+modifier = SubResource("Resource_3py3y")
+by_rank = Array[float]([2.0, 4.0, 6.0, 8.0, 10.0])
+
+[resource]
+script = ExtResource("3_m43si")
+id = "horn"
+display_name = "Horn"
+family = 1
+gives = Array[String](["+2 damage on their first two actions of a battle", "+4 damage on their first two actions of a battle", "+6 damage on their first two actions of a battle", "+8 damage on their first two actions of a battle", "+10 damage on their first two actions of a battle"])
+effects = Array[ExtResource("1_4lcvp")]([SubResource("Resource_r2atv")])
