@@ -1412,6 +1412,13 @@ func test_playthrough() -> void:
 	var by_rank := [0, 0, 0, 0, 0]
 	var stones := 0
 	var stones_by_rank := [0, 0, 0, 0, 0]
+	var call_offered := {}    # calling id -> times among the open choices
+	var call_taken := {}      # calling id -> times taken
+	var call_battles := {}    # calling id -> [fought, won] with it in the line
+	var all_battles := [0, 0]
+	var call_by_name := {}    # companion -> {calling id -> runs}
+	var rouses := 0
+	var raises := 0
 	for s in runs:
 		var run := make_run(1000 + s)
 		var policy := RunPolicy.new(_seeded(5000 + s))
@@ -1447,6 +1454,22 @@ func test_playthrough() -> void:
 		staggers += policy.staggers
 		for i in 4:
 			by_busiest[i] += policy.actions_by_rank[i]
+		for id: String in policy.callings_offered:
+			call_offered[id] = int(call_offered.get(id, 0)) + int(policy.callings_offered[id])
+		for id: String in policy.callings_taken:
+			call_taken[id] = int(call_taken.get(id, 0)) + int(policy.callings_taken[id])
+		for id: String in policy.calling_battles:
+			var cb: Array = call_battles.get(id, [0, 0])
+			call_battles[id] = [int(cb[0]) + int(policy.calling_battles[id][0]), int(cb[1]) + int(policy.calling_battles[id][1])]
+		all_battles[0] += policy.battles[0]
+		all_battles[1] += policy.battles[1]
+		for who: String in policy.calling_of:
+			if not call_by_name.has(who):
+				call_by_name[who] = {}
+			var mine: Dictionary = call_by_name[who]
+			mine[policy.calling_of[who]] = int(mine.get(policy.calling_of[who], 0)) + 1
+		rouses += policy.rouses
+		raises += policy.raises
 		for a in run.accessories:
 			by_rank[a.rank - 1] += 1
 		for r in range(1, 6):
@@ -1544,6 +1567,28 @@ func test_playthrough() -> void:
 		float(enchants[0]) / runs, float(enchants[1]) / runs, float(enchants[2]) / runs, float(enchants[3]) / runs,
 		roundi(100.0 * enchants[3] / maxf(1, enchants[1]))])
 	print("    materials taken in per run: %.1f timber, %.1f iron ore" % [float(taken[RunConfig.TIMBER]) / runs, float(taken[RunConfig.IRON_ORE]) / runs])
+	if not call_taken.is_empty():
+		print("    callings (taken / offered when someone chose; battles with it in the line won; all battles won %d%%):" % roundi(
+			100.0 * all_battles[1] / maxf(1, all_battles[0])))
+		for calling in CallingLibrary.load_default().callings:
+			var cb: Array = call_battles.get(calling.id, [0, 0])
+			print("      %-12s %4d / %4d  %3d%%    %5d battles  %3d%%" % [calling.display_name, int(call_taken.get(calling.id, 0)),
+				int(call_offered.get(calling.id, 0)), roundi(100.0 * int(call_taken.get(calling.id, 0)) / maxf(1, int(call_offered.get(calling.id, 0)))),
+				int(cb[0]), roundi(100.0 * int(cb[1]) / maxf(1, int(cb[0])))])
+		var most: Array[String] = []
+		for who: String in call_by_name:
+			var mine: Dictionary = call_by_name[who]
+			var total := 0
+			var top := ""
+			for id: String in mine:
+				total += int(mine[id])
+				if top == "" or int(mine[id]) > int(mine[top]):
+					top = id
+			if total >= 20:
+				most.append("%s %s %d%% of %d" % [who, top, roundi(100.0 * int(mine[top]) / total), total])
+		most.sort()
+		print("    each companion's most-taken calling: %s" % "; ".join(most))
+		print("    per run: %.2f rouses, %.2f raised" % [float(rouses) / runs, float(raises) / runs])
 	print("    bosses (faced / beaten / beaten %):")
 	for g in content().bosses:
 		var f: int = faced.get(g, 0)

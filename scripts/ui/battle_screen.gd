@@ -26,7 +26,8 @@ signal closed
 
 ## TARGET_SPELL: a black spell waiting for an enemy. TARGET_ALLY: a white spell waiting for a companion.
 ## TARGET_GUARD: a Guard waiting for whom to shield (the guard or a neighbour).
-enum Mode { IDLE, TARGET_ATTACK, TARGET_ART, TARGET_SPELL, TARGET_ALLY, TARGET_GUARD }
+## TARGET_ROUSE: a Captain's Rouse waiting for whom to rouse (someone recovering).
+enum Mode { IDLE, TARGET_ATTACK, TARGET_ART, TARGET_SPELL, TARGET_ALLY, TARGET_GUARD, TARGET_ROUSE }
 
 ## The part of the screen the enemies stand in (margins from each edge, at 1920x1080).
 const STAGE_LEFT := 670.0
@@ -180,6 +181,9 @@ func pick_companion(c: CompanionUnit) -> void:
 	if _mode == Mode.TARGET_GUARD and _wards().has(c):
 		guard_ward(c)
 		return
+	if _mode == Mode.TARGET_ROUSE and _roused().has(c):
+		rouse_ally(c)
+		return
 	if not battle.can_act(c):
 		return
 	if c != _selected:
@@ -198,10 +202,53 @@ func cast_on_ally(c: CompanionUnit) -> void:
 		_commit(_selected)
 
 
-## Points at a companion while a white spell waits for a target, to see what it would do.
+## Points at a companion while a white spell waits for a target, to see what it would do. Someone
+## injured only when the spell can raise them (a Mender's heal).
 func point_at_ally(c: CompanionUnit) -> void:
-	_hot_ally = c if (_mode == Mode.TARGET_ALLY and c != null and battle.line().has(c) and not c.is_injured()) else null
+	_hot_ally = c if (_mode == Mode.TARGET_ALLY and c != null and battle.line().has(c) and _spell_reaches(c)) else null
 	_refresh_party()
+
+
+## True if the white spell waiting for a target can land on `c`: anyone standing, or someone injured the
+## caster can raise with it (Battle.can_raise).
+func _spell_reaches(c: CompanionUnit) -> bool:
+	return c != null and (not c.is_injured() or (_spell != null and battle.can_raise(_selected, _spell, c)))
+
+
+## Whom the chosen companion could rouse now (a Captain: whoever is recovering).
+func _roused() -> Array[CompanionUnit]:
+	var none: Array[CompanionUnit] = []
+	return battle.rouse_targets(_selected) if _selected != null else none
+
+
+## The Rouse waiting for someone is given to `ally`.
+func rouse_ally(ally: CompanionUnit) -> void:
+	if _busy or _mode != Mode.TARGET_ROUSE or not _roused().has(ally):
+		return
+	var c := _selected
+	if battle.rouse(c, ally):
+		_commit(c)
+
+
+## Rouse was ordered. With one companion recovering it is given at once; else it waits for whom.
+func _toggle_rouse() -> void:
+	var c := _selected
+	var waiting := _roused()
+	if _mode == Mode.TARGET_ROUSE:
+		if _hot_ally != null:
+			rouse_ally(_hot_ally)
+		return
+	if waiting.is_empty():
+		return
+	if waiting.size() == 1:
+		if battle.rouse(c, waiting[0]):
+			_commit(c)
+		return
+	_clear_targeting()
+	_mode = Mode.TARGET_ROUSE
+	_hot_ally = waiting[0]
+	_aim_at_pointer()
+	_refresh()
 
 
 ## Whom the chosen companion could guard now: themselves first, then whoever stands beside them.
@@ -291,6 +338,8 @@ func choose_action(id: String) -> void:
 			_toggle_targeting(Mode.TARGET_ATTACK)
 		ActionMenu.GUARD:
 			_toggle_guard()
+		ActionMenu.ROUSE:
+			_toggle_rouse()
 		ActionMenu.FOCUS:
 			if battle.focus(c):
 				_commit(c)
@@ -460,9 +509,11 @@ func _aim_at_pointer() -> void:
 	var u := _unit_at(_pointer)
 	if _aims_at_enemies() and u is EnemyUnit:
 		_hot_enemy = u
-	elif _mode == Mode.TARGET_ALLY and u is CompanionUnit and battle.line().has(u) and not (u as CompanionUnit).is_injured():
+	elif _mode == Mode.TARGET_ALLY and u is CompanionUnit and battle.line().has(u) and _spell_reaches(u as CompanionUnit):
 		_hot_ally = u
 	elif _mode == Mode.TARGET_GUARD and u is CompanionUnit and _wards().has(u):
+		_hot_ally = u
+	elif _mode == Mode.TARGET_ROUSE and u is CompanionUnit and _roused().has(u):
 		_hot_ally = u
 
 
@@ -484,6 +535,11 @@ func _on_ally_hover(inside: bool, c: CompanionUnit) -> void:
 			point_at_ward(c)
 		elif _hot_ally == c:
 			point_at_ward(null)
+		return
+	if not _busy and _mode == Mode.TARGET_ROUSE:
+		if inside and _roused().has(c):
+			_hot_ally = c
+			_refresh_party()
 		return
 	if _busy or _mode != Mode.TARGET_ALLY:
 		return
@@ -643,6 +699,9 @@ func _input(event: InputEvent) -> void:
 		KEY_SPACE, KEY_ENTER:
 			if _mode == Mode.TARGET_GUARD:
 				guard_ward(_hot_ally if _hot_ally != null else _selected)
+			elif _mode == Mode.TARGET_ROUSE:
+				if _hot_ally != null:
+					rouse_ally(_hot_ally)
 			elif battle.can_wait():
 				choose_action(ActionMenu.WAIT)
 			elif _targets_all() and not battle.living_enemies().is_empty():
@@ -768,6 +827,34 @@ func _show_event(ev: Dictionary) -> float:
 				shielded.play_pulse(ink)
 				_popup(shielded.popup_anchor() + Vector2(0, 36), "SHIELDED", ink, 36)
 			return 0.3
+		"execute":
+			# An Executioner's finishing blow: the enemy falls at once.
+			var felled: EnemyView = _enemy_views[ev.target]
+			felled.show_hp(0)
+			_popup(felled.popup_anchor() + Vector2(0, -74), "FINISHED", UiTheme.GOLD, 46)
+			if _party_panels.has(ev.actor):
+				(_party_panels[ev.actor] as PartyPanel).play_pulse(UiTheme.GOLD)
+			return 0.34
+		"rouse":
+			var roused: PartyPanel = _party_panels[ev.target]
+			roused.set_status(PartyPanel.Status.NONE)
+			roused.play_pulse(UiTheme.GOLD)
+			_popup(roused.popup_anchor() + Vector2(0, -50), "ROUSED", UiTheme.GOLD, 46)
+			(_party_panels[ev.actor] as PartyPanel).play_pulse(UiTheme.GOLD)
+			return 0.36
+		"raise":
+			var raised: PartyPanel = _party_panels[ev.target]
+			raised.set_status(PartyPanel.Status.NONE)
+			raised.set_hp(ev.hp, (ev.target as CompanionUnit).max_hp())
+			raised.play_pulse(UiTheme.HEAL)
+			_popup(raised.popup_anchor() + Vector2(0, -56), "RAISED", UiTheme.HEAL, 50)
+			return 0.5
+		"art_health":
+			# A Berserker's art, paid in Health.
+			var paid: PartyPanel = _party_panels[ev.actor]
+			paid.set_hp(ev.hp, (ev.actor as CompanionUnit).max_hp())
+			_popup(paid.popup_anchor() + Vector2(0, 36), "-%d" % ev.amount, UiTheme.HP.lightened(0.2), 40)
+			return 0.2
 		"cover":
 			# A blow meant for the neighbour lands on the guard.
 			var guard: CompanionUnit = ev.get("guard")
@@ -1183,8 +1270,8 @@ func _refresh_party() -> void:
 		if c == _inspected:
 			_fill_inspect()
 		panel.set_selection(c == _selected, not _busy and battle.can_act(c))
-		# White magic cannot reach someone who is down.
-		if _mode == Mode.TARGET_ALLY and not _busy and _spell != null and line.has(c) and not c.is_injured():
+		# White magic cannot reach someone who is down, unless the caster can raise them with it.
+		if _mode == Mode.TARGET_ALLY and not _busy and _spell != null and line.has(c) and _spell_reaches(c):
 			var hot := _spell.targets_all() or c == _hot_ally
 			panel.set_spell_target(true, hot, _ally_preview(c),
 				float(battle.hp_after_heal(_selected, _spell, c)) if _spell.heals else -INF)
@@ -1193,6 +1280,9 @@ func _refresh_party() -> void:
 			var say := _guard_preview(c) if c == _hot_ally else ["", false]
 			panel.set_spell_target(true, c == _hot_ally, say[0], -INF, UiTheme.INTENT_COLORS[EnemyActionData.Intent.DEFEND],
 				UiTheme.INJURED if say[1] else UiTheme.TEXT)
+		elif _mode == Mode.TARGET_ROUSE and not _busy and _roused().has(c):
+			# A Rouse waiting for whom: whoever is recovering can be chosen.
+			panel.set_spell_target(true, c == _hot_ally, "READY AT ONCE", -INF, UiTheme.GOLD, UiTheme.GOLD)
 		else:
 			panel.set_spell_target(false, false)
 
@@ -1243,6 +1333,9 @@ func _guard_preview(ward: CompanionUnit) -> Array:
 ## What the white spell waiting for a target would do to `c`, for the panel preview.
 func _ally_preview(c: CompanionUnit) -> String:
 	var parts: Array[String] = []
+	if c.is_injured():
+		# A Mender's heal on someone injured: they stand again.
+		return "RAISED  ·  HP %d" % battle.hp_after_heal(_selected, _spell, c)
 	if _spell.heals:
 		var after := battle.hp_after_heal(_selected, _spell, c)
 		parts.append("HP %d → %d" % [c.hp, after])
@@ -1274,7 +1367,8 @@ func _refresh_enemies() -> void:
 			var note := ""
 			if _spell.delay_ticks > 0:
 				note = "ALREADY DELAYED" if e.delayed else "DELAYS +%d" % _spell.delay_ticks
-			view.set_forecast(battle.spell_forecast(_selected, _spell, e), 1, note)
+			var sf := battle.spell_forecast(_selected, _spell, e)
+			view.set_forecast(sf, 1, _with_calling(note, sf, e))
 		elif hot and _selected != null:
 			var art := _art if _mode == Mode.TARGET_ART else null
 			# The forecast knows how many times it lands: an art's strikes, or a weapon that strikes twice.
@@ -1282,9 +1376,30 @@ func _refresh_enemies() -> void:
 			var stagger := ""
 			if art != null and art.stagger_ticks > 0:
 				stagger = "ALREADY DELAYED" if e.delayed else "STAGGERS +%d" % art.stagger_ticks
-			view.set_forecast(f, f.strikes if f != null else 1, stagger)
+			view.set_forecast(f, f.strikes if f != null else 1, _with_calling(stagger, f, e))
 		else:
 			view.set_forecast(null)
+
+
+## `note` with what the striker's calling would do if the strike `f` lands on `e` (design/callings.md),
+## a word or two each: FELLS (an Executioner's finishing blow), TURNS ON ELENA (a Champion), STAGGERS +1
+## (a Harrier), CRITICAL (a Hunter on an enemy about to act).
+func _with_calling(note: String, f: AttackForecast, e: EnemyUnit) -> String:
+	var parts: Array[String] = []
+	if note != "":
+		parts.append(note)
+	if f == null or _selected == null:
+		return note
+	var left := e.hp - f.damage * maxi(1, f.strikes)
+	if f.execute_at > 0 and left > 0 and left <= f.execute_at:
+		parts.append("FELLS")
+	if f.turns_aim:
+		parts.append("TURNS ON %s" % _selected.display_name.to_upper())
+	if f.staggers > 0:
+		parts.append("STAGGERS +%d" % f.staggers)
+	if f.crit >= 100:
+		parts.append("CRITICAL")
+	return "   ·   ".join(parts)
 
 
 ## Writes under an enemy's coming action who it is aimed at and what it would do, as things stand.
@@ -1420,6 +1535,8 @@ func _refresh_menu() -> void:
 			active = ActionMenu.spell_id(_selected.spells().find(_spell))
 		elif _mode == Mode.TARGET_GUARD:
 			active = ActionMenu.GUARD
+		elif _mode == Mode.TARGET_ROUSE:
+			active = ActionMenu.ROUSE
 		if _spell_menu and not _selected.spells().is_empty():
 			_menu.show_spells(_selected, battle, active, not _busy, _spell_page)
 		else:

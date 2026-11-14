@@ -36,6 +36,10 @@ var _starts: Array[float] = []
 var _end := 0.0
 var _t := 0.0
 var _done := true
+## What stands over the name, and (for gains that are not a level: a calling taken) the line under it
+## in place of the level.
+var _kicker := "LEVEL UP"
+var _sub := ""
 
 
 func _init() -> void:
@@ -47,6 +51,8 @@ func _init() -> void:
 ## Starts the reveal of one level: `stats_before` are the stats at `level_from`, `gains` what the
 ## next level adds (stat key -> amount).
 func show_level(data: CompanionData, display_name: String, level_from: int, stats_before: Dictionary, gains: Dictionary) -> void:
+	_kicker = "LEVEL UP"
+	_sub = ""
 	_data = data
 	_name = display_name
 	_level_from = level_from
@@ -65,6 +71,14 @@ func show_level(data: CompanionData, display_name: String, level_from: int, stat
 	_done = false
 	set_process(true)
 	queue_redraw()
+
+
+## The same reveal for gains that are not a level (a calling taken): `kicker` stands over the name and
+## `sub` under it where the level would be.
+func show_gains(data: CompanionData, display_name: String, kicker: String, sub: String, stats_before: Dictionary, gains: Dictionary) -> void:
+	show_level(data, display_name, 0, stats_before, gains)
+	_kicker = kicker
+	_sub = sub
 
 
 func is_done() -> bool:
@@ -117,15 +131,21 @@ func _draw() -> void:
 
 	var display := UiTheme.display_font()
 	var italic := UiTheme.italic_font()
-	UiTheme.draw_text(self, display, Vector2(GRID.x, 34.0), "LEVEL UP", 24, UiTheme.GOLD, 4)
+	UiTheme.draw_text(self, display, Vector2(GRID.x, 34.0), _kicker, 24, UiTheme.GOLD, 4)
 	UiTheme.draw_text(self, display, Vector2(GRID.x - 3.0, 62.0), _name.to_upper(), 76, UiTheme.TEXT, 8)
-	# The level: the old number, then the new one in gold.
-	var risen := _t >= LEVEL_AT
-	var pop := _pop(_t - LEVEL_AT)
-	UiTheme.draw_text(self, italic, Vector2(GRID.x + 2.0, 170.0), "Level", 30, UiTheme.MUTED, 4)
-	var level_size := int(round(44.0 * (1.0 + 0.5 * pop))) if risen else 44
-	UiTheme.draw_text(self, display, Vector2(GRID.x + 88.0, 182.0 - display.get_height(level_size) * 0.5 + 6.0),
-		str(_level_from + (1 if risen else 0)), level_size, UiTheme.GOLD if risen else UiTheme.TEXT, 6)
+	if _sub != "":
+		var sub_size := 36
+		while sub_size > 22 and display.get_string_size(_sub, HORIZONTAL_ALIGNMENT_LEFT, -1, sub_size).x > SIZE.x - GRID.x:
+			sub_size -= 1
+		UiTheme.draw_text(self, display, Vector2(GRID.x + 2.0, 166.0), _sub, sub_size, UiTheme.GOLD, 6)
+	else:
+		# The level: the old number, then the new one in gold.
+		var risen := _t >= LEVEL_AT
+		var pop := _pop(_t - LEVEL_AT)
+		UiTheme.draw_text(self, italic, Vector2(GRID.x + 2.0, 170.0), "Level", 30, UiTheme.MUTED, 4)
+		var level_size := int(round(44.0 * (1.0 + 0.5 * pop))) if risen else 44
+		UiTheme.draw_text(self, display, Vector2(GRID.x + 88.0, 182.0 - display.get_height(level_size) * 0.5 + 6.0),
+			str(_level_from + (1 if risen else 0)), level_size, UiTheme.GOLD if risen else UiTheme.TEXT, 6)
 
 	for i in _keys.size():
 		_draw_stat(i)
@@ -133,7 +153,13 @@ func _draw() -> void:
 
 ## The cut-out, standing at the left with their feet below the band.
 func _draw_figure() -> void:
-	var tex := _data.portrait
+	draw_figure(self, _data, GRID.x)
+
+
+## `data`'s cut-out at the left of a band SIZE large drawn on `ci`, going into shadow before `edge_x`
+## (where what is written beside them begins).
+static func draw_figure(ci: CanvasItem, data: CompanionData, edge_x: float) -> void:
+	var tex := data.portrait
 	if tex == null:
 		return
 	# Lamplight behind them.
@@ -142,21 +168,21 @@ func _draw_figure() -> void:
 		var pts := PackedVector2Array()
 		for k in 32:
 			pts.append(Vector2(FACE.x, SIZE.y * 0.55) + Vector2.from_angle(TAU * k / 32.0) * Vector2(330.0, 300.0) * f)
-		draw_colored_polygon(pts, Color(UiTheme.GOLD, 0.011))
+		ci.draw_colored_polygon(pts, Color(UiTheme.GOLD, 0.011))
 	var ts := tex.get_size()
-	var h := ART * _data.figure_scale
+	var h := ART * data.figure_scale
 	var art := Vector2(h * ts.x / maxf(1.0, ts.y), h)
-	var top_left := FACE - _data.portrait_focus * art
+	var top_left := FACE - data.portrait_focus * art
 	var shown := clampf((SIZE.y - top_left.y) / art.y, 0.0, 1.0)
-	draw_texture_rect_region(tex, Rect2(top_left, Vector2(art.x, art.y * shown)), Rect2(0, 0, ts.x, ts.y * shown))
+	ci.draw_texture_rect_region(tex, Rect2(top_left, Vector2(art.x, art.y * shown)), Rect2(0, 0, ts.x, ts.y * shown))
 	# An arm or a blade that reaches across goes into shadow before it gets to the stats.
 	var dark := Color(BAND, 0.92)
 	var clear := Color(BAND, 0.0)
-	var x0 := GRID.x - 190.0
-	var x1 := GRID.x - 30.0
-	draw_polygon(PackedVector2Array([Vector2(x0, 1), Vector2(x1, 1), Vector2(x1, SIZE.y - 1.0), Vector2(x0, SIZE.y - 1.0)]),
+	var x0 := edge_x - 190.0
+	var x1 := edge_x - 30.0
+	ci.draw_polygon(PackedVector2Array([Vector2(x0, 1), Vector2(x1, 1), Vector2(x1, SIZE.y - 1.0), Vector2(x0, SIZE.y - 1.0)]),
 		PackedColorArray([clear, dark, dark, clear]))
-	draw_rect(Rect2(x1, 1, top_left.x + art.x - x1, SIZE.y - 2.0), dark)
+	ci.draw_rect(Rect2(x1, 1, top_left.x + art.x - x1, SIZE.y - 2.0), dark)
 
 
 func _draw_stat(i: int) -> void:

@@ -7,6 +7,11 @@ extends Control
 ## grade (or the next level) filling by what it gave, and after sparring every level gained shown
 ## stat by stat like after a battle, and an art or spell learned from a new grade written out in full
 ## (with the swap, if all three places are taken). Only reads the run and calls Run.train.
+##
+## At the feet of whoever is chosen, while their calling is not yet taken, stand the callings drawn
+## for them (design/callings.md). One can be put aside for another drawn in its place: "a day to look
+## elsewhere". Click the one to put aside, then the order under them; it is the day's one thing, as a
+## drill is, and costs RunConfig.CALLING_REDRAW_COST gold (Run.redraw_calling).
 
 signal closed
 
@@ -30,6 +35,9 @@ const FOOT_Y := 706.0
 ## Seconds before the line starts to fill, and seconds it takes.
 const COUNT_DELAY := 0.55
 const COUNT_SECONDS := 0.9
+## The chosen companion's callings, at their feet.
+const CALLINGS := Rect2(424, 846, 492, 190)
+const CALLING_PLATE_H := 46.0
 const QUALITY_TITLES: Array[String] = ["A POOR DRILL", "A GOOD DRILL", "A GREAT DRILL"]
 const BOUT_TITLES: Array[String] = ["A POOR BOUT", "A GOOD BOUT", "A GREAT BOUT"]
 const QUALITY_LINES: Array[String] = [
@@ -67,6 +75,13 @@ var _dim := ColorRect.new()
 var _panel := LevelUpPanel.new()
 var _learn := LearnedPanel.new()
 var _back := Button.new()
+## The chosen companion's callings: the plates, the one picked to be put aside, the one just drawn in
+## its place, and the order that does it.
+var _callings := Control.new()
+var _aside: CallingData
+var _fresh: CallingData
+var _look := Button.new()
+var _look_why: Label
 
 
 func _init() -> void:
@@ -81,6 +96,8 @@ func open(p_run: Run) -> void:
 	_result = null
 	_drill = run.drills[0] if not run.drills.is_empty() else null
 	_who = null
+	_aside = null
+	_fresh = null
 	for child in _row_box.get_children():
 		_row_box.remove_child(child)
 		child.queue_free()
@@ -126,6 +143,29 @@ func select(c: RunCompanion) -> void:
 	if _stage != Stage.CHOOSE:
 		return
 	_who = c
+	_aside = null
+	_fresh = null
+	_refresh()
+
+
+## Picks which of the chosen companion's callings would be put aside (the same again: none).
+func pick_aside(calling: CallingData) -> void:
+	if _stage != Stage.CHOOSE or _who == null or _who.progress.calling != null:
+		return
+	_aside = null if calling == _aside else calling
+	_refresh()
+
+
+## A day to look elsewhere: the calling picked is put aside and another drawn in its place.
+func look_elsewhere() -> void:
+	if _stage != Stage.CHOOSE or _who == null or _aside == null:
+		return
+	var drawn := run.redraw_calling(_who, _aside)
+	if drawn == null:
+		_refresh()
+		return
+	_aside = null
+	_fresh = drawn
 	_refresh()
 
 
@@ -343,6 +383,7 @@ func _refresh() -> void:
 	for child in _notices.get_children():
 		_notices.remove_child(child)
 		child.queue_free()
+	_refresh_callings(choosing)
 	if not choosing or run == null:
 		return
 	for i in run.drills.size():
@@ -355,6 +396,94 @@ func _refresh() -> void:
 		_who.display_name(), _drill.display_name.to_lower(), run.drill_cost()]
 	_why.text = why
 	_begin.queue_redraw()
+
+
+## The chosen companion's callings at their feet (nothing once theirs is taken): the plates, and the
+## order that puts the picked one aside.
+func _refresh_callings(choosing: bool) -> void:
+	for child in _callings.get_children():
+		if child != _look and child != _look_why:
+			_callings.remove_child(child)
+			child.queue_free()
+	var shown := choosing and run != null and _who != null and _who.progress.calling == null and not _who.progress.calling_offers.is_empty()
+	_callings.visible = shown
+	_callings.queue_redraw()
+	if not shown:
+		return
+	var offers := _who.progress.calling_offers
+	var gap := 8.0
+	var w := (CALLINGS.size.x - gap * (offers.size() - 1)) / offers.size()
+	for i in offers.size():
+		var plate := _calling_plate(offers[i], w)
+		plate.position = Vector2(i * (w + gap), 34.0)
+		_callings.add_child(plate)
+	var why := "" if _aside == null else run.redraw_block_reason(_who, _aside)
+	_look.text = "Click one to put it aside" if _aside == null else "Put %s aside  ·  %d gold" % [_aside.display_name, RunConfig.CALLING_REDRAW_COST]
+	_look.disabled = _aside == null or why != ""
+	_look.tooltip_text = "Another calling is drawn in its place. It is the one thing done today, as a drill is, and what is put aside does not come back."
+	_look_why.text = why
+
+
+## One of the chosen companion's callings as a plate on the yard's dark ground: lit red when picked to
+## be put aside, gold when it has just been drawn, dimmed when someone else holds it.
+func _calling_plate(calling: CallingData, w: float) -> Control:
+	var plate := Control.new()
+	plate.size = Vector2(w, CALLING_PLATE_H)
+	plate.mouse_filter = Control.MOUSE_FILTER_STOP
+	plate.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	var holder := run.calling_holder(calling)
+	var reading: Dictionary = ArtFacts.calling_reading(calling, _who.progress, holder.display_name() if holder != null else "")
+	var tip: Array[String] = [calling.display_name]
+	for f: Array in reading.figures:
+		tip.append("%s %s" % [f[0], String(f[1]).capitalize()])
+	tip.append_array(reading.lines)
+	plate.tooltip_text = "\n".join(tip)
+	var state := {"hover": false}
+	plate.mouse_entered.connect(func() -> void:
+		state.hover = true
+		plate.queue_redraw())
+	plate.mouse_exited.connect(func() -> void:
+		state.hover = false
+		plate.queue_redraw())
+	plate.gui_input.connect(func(event: InputEvent) -> void:
+		var mb := event as InputEventMouseButton
+		if mb != null and mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+			plate.accept_event()
+			pick_aside(calling))
+	plate.draw.connect(func() -> void:
+		var picked := calling == _aside
+		var fresh := calling == _fresh
+		var tone := UiTheme.INJURED if picked else UiTheme.GOLD
+		var r := Rect2(Vector2.ZERO, plate.size)
+		plate.draw_rect(r, Color(UiTheme.INK, 0.72))
+		plate.draw_rect(r, Color(tone, 0.2 if picked or fresh else (0.1 if state.hover else 0.03)))
+		plate.draw_rect(Rect2(0.5, 0.5, r.size.x - 1.0, r.size.y - 1.0), Color(tone, 0.95 if picked or fresh else (0.3 if holder != null else 0.55)), false,
+			2.0 if picked or fresh else 1.0)
+		var display := UiTheme.display_font()
+		var text := calling.display_name.to_upper()
+		var text_size := 22
+		while text_size > 13 and display.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, text_size).x > r.size.x - 14.0:
+			text_size -= 1
+		var note := "aside?" if picked else ("new" if fresh else ("%s's" % holder.display_name() if holder != null else ""))
+		var top := 3.0 if note != "" else (r.size.y - display.get_height(text_size)) * 0.5
+		UiTheme.draw_text(plate, display, Vector2(0.0, top), text, text_size, Color(UiTheme.TEXT, 0.45 if holder != null else 1.0), 4, r.size.x,
+			HORIZONTAL_ALIGNMENT_CENTER)
+		if note != "":
+			UiTheme.draw_text(plate, UiTheme.italic_font(), Vector2(0.0, r.size.y - 20.0), note, 14, tone, 3, r.size.x, HORIZONTAL_ALIGNMENT_CENTER))
+	return plate
+
+
+func _draw_callings() -> void:
+	if _who == null:
+		return
+	# A soft shadow, so the words stand against whoever is standing there.
+	for g in 10:
+		_callings.draw_rect(Rect2(Vector2(-10, -8), CALLINGS.size + Vector2(20, 16)).grow(g * 4.0), Color(0, 0, 0, 0.05))
+	UiTheme.draw_text(_callings, UiTheme.display_font(), Vector2.ZERO, "%s'S CALLINGS" % _who.display_name().to_upper(), 17, UiTheme.MUTED, 4)
+	var level := _who.level()
+	var aside := "one at level %d" % RunConfig.CALLING_LEVEL if level < RunConfig.CALLING_LEVEL else "waiting to be chosen"
+	UiTheme.draw_text(_callings, UiTheme.italic_font(), Vector2(0.0, 2.0), aside, 15, UiTheme.MUTED, 4, CALLINGS.size.x, HORIZONTAL_ALIGNMENT_RIGHT)
+	_callings.draw_line(Vector2(0, 26.0), Vector2(CALLINGS.size.x, 26.0), Color(UiTheme.GOLD_DEEP, 0.7), 1.0)
 
 
 ## One notice pinned to the board: what the drill is, and what it would do for whoever is chosen.
@@ -744,6 +873,26 @@ func _build() -> void:
 	_why.size = Vector2(BOARD.size.x - NOTICE_X * 2.0 - ActionButton.W - 64.0, 60)
 	_why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_board.add_child(_why)
+
+	# The chosen companion's callings, at their feet, and the order to look elsewhere.
+	_callings.position = CALLINGS.position
+	_callings.size = CALLINGS.size
+	_callings.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_callings.draw.connect(_draw_callings)
+	add_child(_callings)
+	_look.focus_mode = Control.FOCUS_NONE
+	_look.add_theme_font_size_override("font_size", 22)
+	_look.position = Vector2(0.0, 34.0 + CALLING_PLATE_H + 10.0)
+	_look.size = Vector2(CALLINGS.size.x, 44.0)
+	_look.pressed.connect(look_elsewhere)
+	_callings.add_child(_look)
+	_look_why = UiTheme.label("", 17, UiTheme.INJURED, false, 4)
+	_look_why.add_theme_font_override("font", UiTheme.italic_font())
+	_look_why.position = Vector2(0.0, 34.0 + CALLING_PLATE_H + 58.0)
+	_look_why.size = Vector2(CALLINGS.size.x, 44.0)
+	_look_why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_look_why.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_callings.add_child(_look_why)
 
 	_purse.position = Vector2(1250, 28)
 	_purse.size = Vector2(300, 58)

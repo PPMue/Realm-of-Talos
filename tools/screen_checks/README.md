@@ -24,6 +24,10 @@ The folder must exist. Each script prints what it did and quits; look for `SCRIP
 | `battle_line.gd` | A battle where the whole line fights: Guard asking whom to shield, what the guard would take and the thread swinging to them, the blow caught, then the retreat asked for, sounded and its result (a day may follow the folder; default 16) |
 | `battle_wait.gd` | A line of two, as a run begins: both act, both are recovering, the orders offer only Wait; the wait and the turn after |
 | `battle_account.gd` | The account: the war table with a line of two, on an elite day, before a boss and late in a run (each report's WORST and SCOUTS lines), then a battle lost and the result's first beat, the HOW IT WENT page, and the last beat |
+| `calling_moment.gd` | A calling taken: the three cards, one picked, the gains; another's card closed; a Sage's schools and spells |
+| `calling_sheets.gd` | Callings on the Barracks sheet (the three drawn, one read, the one taken, another's closed) and on the Tavern's wall |
+| `calling_yard.gd` | A day to look elsewhere at the Drill Yard: the callings at the chosen companion's feet, one picked, the one drawn in its place |
+| `calling_battle.gd` | Callings in a battle: the calling over the name, Rouse asking whom, an Executioner's FELLS, a Mender's heal raising someone injured |
 | `battle_breath.gd` | A staggering art aimed (STAGGERS +1) and landed (the action DELAYED), the same art aimed again (ALREADY DELAYED); stamina coming back over the turns, then Focus (a day may follow the folder; default 16) |
 
 How they are written, for the next one:

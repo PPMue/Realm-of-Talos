@@ -13,6 +13,38 @@ static func art_figures(art: CombatArtData, cost: int = -1, recovery: int = -1) 
 	return [[str(cost if cost >= 0 else art.stamina_cost), "STAMINA"], [str(recovery if recovery >= 0 else art.recovery), "RECOVERY"]]
 
 
+## The figures of `art` for `p`: what it costs them (Health in place of stamina for a Berserker:
+## CompanionProgress.art_health_cost) and its recovery.
+static func art_figures_for(p: CompanionProgress, art: CombatArtData) -> Array:
+	var health := p.art_health_cost(art)
+	if health > 0:
+		return [[str(health), "HEALTH"], [str(art.recovery), "RECOVERY"]]
+	return art_figures(art, p.art_cost(art))
+
+
+## A calling as figures and lines (what it gives on the day; its rule, what grows and what it opens),
+## for `p`: {"figures", "lines"}. `holder`: who in the company holds it, "" if nobody.
+static func calling_reading(calling: CallingData, p: CompanionProgress, holder: String = "") -> Dictionary:
+	var stats := Run.calling_stats(calling, p)
+	var lead := p.calling_lead if p.calling == calling and p.calling_lead != "" else CallingData.lead_of(p)
+	var gains := calling.gains_for(lead)
+	var figures: Array = []
+	for key: String in [stats[0], stats[1]]:
+		figures.append(["+%d" % int(gains.get(key, 0)), Stat.name_of(key).to_upper()])
+	var lines: Array[String] = [calling.rule,
+		"Grows faster: %s, %s. Slower: %s" % [Stat.name_of(stats[0]), Stat.name_of(stats[1]), Stat.name_of(stats[2])]]
+	if calling.either_school:
+		lines.append("Opens a school of magic at %s, with a first spell" % Proficiency.grade_name(RunConfig.CALLING_OPEN_GRADE))
+	elif calling.school >= 0:
+		lines.append("Opens %s at %s, with a first spell" % [SpellData.school_name(calling.school), Proficiency.grade_name(RunConfig.CALLING_OPEN_GRADE)])
+	elif CallingCard.opens_text(calling, p) != "":
+		lines.append("Raises the %s in hand to grade %s" % [WeaponData.type_name(p.weapon.weapon_type).to_lower(),
+			Proficiency.grade_name(RunConfig.CALLING_OPEN_GRADE)])
+	if holder != "":
+		lines.append("%s holds it: closed to everyone else" % holder)
+	return {"figures": figures, "lines": lines}
+
+
 ## The figures of a spell. `uses_left` (when 0 or more) shows how many casts remain of its uses;
 ## `max_uses` (when above 0) is how many the caster has of it (their traits can change it).
 ## `recovery` (when 0 or more) is what it would be for the caster now, in a battle.

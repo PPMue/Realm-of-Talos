@@ -36,6 +36,22 @@ var retreats := 0
 ## Battle step 3: staggering arts used to push back a blow that would fell someone this turn.
 var staggers := 0
 var actions_by_rank: Array[int] = [0, 0, 0, 0]
+## Callings (design/callings.md): how often each was among the open choices when someone chose, and how
+## often it was the one taken (calling id -> count); who took what this run (name -> calling id); battles
+## fought and won with each calling in the line (calling id -> [fought, won]) and over all ([fought,
+## won]); Rouses ordered and companions raised.
+var callings_offered: Dictionary = {}
+var callings_taken: Dictionary = {}
+var calling_of: Dictionary = {}
+var calling_battles: Dictionary = {}
+var battles: Array[int] = [0, 0]
+var rouses := 0
+var raises := 0
+## POLICY_NO_CALLINGS=1: nobody ever takes a calling (to compare a run with and without them).
+var use_callings := OS.get_environment("POLICY_NO_CALLINGS") == ""
+## POLICY_ONLY_CALLING=<id>: only that calling is ever taken (by whoever is offered it first); everyone
+## else stays without one. For measuring what one calling is worth by itself.
+var only_calling := OS.get_environment("POLICY_ONLY_CALLING")
 
 ## The order the city is built up in, timber facilities: what helps the company stay in the fight
 ## first (shorter stays, better overnight heal, stronger walls, XP for the bench), then the rest.
@@ -56,6 +72,7 @@ func play(run: Run) -> int:
 	var guard := 0
 	while not run.is_over() and guard < 100:
 		guard += 1
+		take_callings(run)
 		prepare_party(run)
 		match run.day_type():
 			RunCalendar.DayType.BATTLE, RunCalendar.DayType.ELITE, RunCalendar.DayType.BOSS:
@@ -68,8 +85,17 @@ func play(run: Run) -> int:
 					yielded += 1
 				else:
 					var battle := run.start_battle(pick_front(run))
+					var in_line: Array[String] = []
+					for unit in battle.roster:
+						if unit.calling() != null:
+							in_line.append(unit.calling().id)
 					play_battle(battle)
 					won = run.finish_battle(battle).won
+					battles[0] += 1
+					battles[1] += 1 if won else 0
+					for id in in_line:
+						var seen: Array = calling_battles.get(id, [0, 0])
+						calling_battles[id] = [int(seen[0]) + 1, int(seen[1]) + (1 if won else 0)]
 				if elite:
 					var e: Array = elites.get(d, [0, 0])
 					elites[d] = [int(e[0]) + 1, int(e[1]) + (1 if won else 0)]
@@ -194,7 +220,85 @@ func market_day(run: Run) -> void:
 ## Hires the first at the tavern while fewer than a full line can fight.
 func hire(run: Run) -> void:
 	if run.available().size() < RunConfig.MAX_FIELDED and not run.tavern_offers.is_empty():
-		run.hire(run.tavern_offers[0])
+		if run.hire(run.tavern_offers[0]) != null:
+			take_callings(run)   # a hire at level 4 or above chooses on joining
+
+
+## Everyone whose calling is due takes one of those open to them: the one worth most by a rough score
+## (calling_value), each score shaken by up to 30% either way so the same one is not taken every time.
+## A calling of magic: the school they are better in (Black on a tie), and of the two spells a heal
+## first, else the one that hits hardest. It never looks elsewhere at the Drill Yard.
+func take_callings(run: Run) -> void:
+	if not use_callings:
+		return
+	for c in run.callings_due():
+		var best: CallingData = null
+		var best_value := -INF
+		for calling in run.open_callings(c):
+			if only_calling != "" and calling.id != only_calling:
+				continue
+			callings_offered[calling.id] = int(callings_offered.get(calling.id, 0)) + 1
+			var v := calling_value(run, c, calling) * rng.randf_range(0.7, 1.3)
+			if v > best_value:
+				best = calling
+				best_value = v
+		if best == null:
+			continue
+		var school := -1
+		var spell: SpellData = null
+		if best.is_magic():
+			school = best.school
+			if best.either_school:
+				var p := c.progress
+				school = SpellData.School.WHITE if p.magic_points_in(SpellData.School.WHITE) > p.magic_points_in(SpellData.School.BLACK) \
+					else SpellData.School.BLACK
+			for sp in run.calling_spell_choices(c, best, school):
+				if spell == null or (sp.heals and not spell.heals) or (sp.heals == spell.heals and sp.might > spell.might):
+					spell = sp
+		if not run.take_calling(c, best, school, spell).is_empty():
+			callings_taken[best.id] = int(callings_taken.get(best.id, 0)) + 1
+			calling_of[c.display_name()] = best.id
+
+
+## What `calling` is worth to `c`, a rough score: by whether they are a mage, and for a Mender whether
+## the company has a healer, for a Hexer whether they lay anything to pass on, for a Captain whether
+## there is a line to order.
+func calling_value(run: Run, c: RunCompanion, calling: CallingData) -> float:
+	var mage := c.data.is_mage()
+	match calling.id:
+		"executioner":
+			return 8.0
+		"harrier":
+			return 7.0
+		"hunter":
+			return 6.0
+		"captain":
+			return 5.0 if run.roster.size() >= 3 else 2.0
+		"skirmisher":
+			return 2.0 if mage else 7.0
+		"berserker":
+			return 1.0 if mage else 6.0
+		"champion":
+			return 1.0 if mage else 6.0
+		"warden":
+			return 1.0 if mage else 5.0
+		"spellblade":
+			return 2.0 if mage else 5.0
+		"sage":
+			return 9.0 if mage else 2.0
+		"hexer":
+			var lays := c.weapon() != null and c.weapon().on_hit_effect != null
+			for sp in c.progress.known_spells:
+				lays = lays or (sp.deals_damage() and sp.effect != null)
+			for art in c.progress.equipped_arts:
+				lays = lays or art.target_effect != null
+			return (5.0 if mage else 2.0) + (3.0 if lays else 0.0)
+		"mender":
+			var healer := false
+			for other in run.roster:
+				healer = healer or other.progress.known_spells.any(func(sp: SpellData) -> bool: return sp.heals)
+			return (7.0 if mage else 4.0) + (0.0 if healer else 3.0)
+	return 3.0
 
 
 ## Buys each companion the best better weapon of their type the smithy has, and hands it over.
@@ -640,7 +744,10 @@ func spell_fraction(run: Run) -> float:
 ## (it hits another, or guards or focuses instead), it covers a neighbour about to fall (cover_ward),
 ## it pushes back a blow that would fell someone this turn with a staggering art (stagger_answer),
 ## it guards when a heavy blow aimed at it lands next tick, and it sounds the retreat when the fight is
-## going badly (should_retreat).
+## going badly (should_retreat). With callings: a Mender raises whoever is injured as soon as they can
+## (cast_spell), a Captain rouses someone who would do clearly more than they would (rouse_pick), a
+## Hunter strikes an enemy about to act and an Executioner one they would finish (strike_target), a
+## Berserker keeps two fifths of their Health, and a Skirmisher mostly uses the plain Attack.
 func play_battle(b: Battle) -> void:
 	var ticks := 0
 	var acted := {}
@@ -682,13 +789,17 @@ func play_battle(b: Battle) -> void:
 				b.guard(c)
 			continue
 		var reflecting := foes.size() < b.living_enemies().size()
-		var target := foes[0]
-		for e in foes:
-			if e.hp < target.hp:
-				target = e
+		var target := strike_target(b, c, foes)
+		var roused := rouse_pick(b, c, target)
+		if roused != null and b.rouse(c, roused):
+			rouses += 1
+			continue
+		var quick := b.action_recovery(c, BattleConfig.RECOVERY_ATTACK, TraitModifier.Action.ATTACK) < BattleConfig.RECOVERY_ATTACK
 		var done := false
 		for art in c.arts():
-			if b.can_use_art(c, art) and rng.randf() < 0.6:
+			if b.pays_in_health(c) and (c.hp - b.art_health_cost(c, art)) * 5 < c.max_hp() * 2:
+				continue
+			if b.can_use_art(c, art) and rng.randf() < (0.3 if quick else 0.6):
 				if art.hits_all_enemies and reflecting:
 					break
 				done = b.use_art(c, art, target)
@@ -696,6 +807,57 @@ func play_battle(b: Battle) -> void:
 		if not done:
 			b.attack(c, target)
 	note_actions(b, acted)
+
+
+## Whom `c` strikes among `foes`: the one with the least Health; a Hunter the one with the least Health
+## among those about to act (the blow is critical); an Executioner one a plain hit would finish.
+func strike_target(b: Battle, c: CompanionUnit, foes: Array[EnemyUnit]) -> EnemyUnit:
+	var target := foes[0]
+	for e in foes:
+		if e.hp < target.hp:
+			target = e
+	var q := c.trait_query(TraitModifier.Kind.SURE_CRIT)
+	var hunted: EnemyUnit = null
+	for e in foes:
+		q.target = e
+		if TraitRules.any(q) and (hunted == null or e.hp < hunted.hp):
+			hunted = e
+	if hunted != null:
+		target = hunted
+	for e in foes:
+		var f := b.forecast(c, e)
+		if f.fells_by_rule(e.hp) and f.hit >= 70:
+			return e
+	return target
+
+
+## Whom a Captain should rouse in place of striking `target` themselves, or null: the recovering
+## companion whose plain strike (or best spell) on it would deal at least 1.3 times what the Captain's
+## own would, the hardest hitter of them.
+func rouse_pick(b: Battle, c: CompanionUnit, target: EnemyUnit) -> CompanionUnit:
+	var options := b.rouse_targets(c)
+	if options.is_empty() or target == null:
+		return null
+	var mine := _expected(b, c, target)
+	var best: CompanionUnit = null
+	var best_value := mine * 1.3
+	for o in options:
+		var v := _expected(b, o, target)
+		if v >= best_value:
+			best = o
+			best_value = v
+	return best
+
+
+## What `c` would deal to `target` on average with a plain strike, or with their best spell if that is more.
+func _expected(b: Battle, c: CompanionUnit, target: EnemyUnit) -> float:
+	var f := b.forecast(c, target)
+	var best := f.damage * f.strikes * f.hit / 100.0
+	for sp in c.spells():
+		if sp.deals_damage() and c.progress.uses_left(sp) > 0:
+			var sf := b.spell_forecast(c, sp, target)
+			best = maxf(best, sf.damage * sf.hit / 100.0)
+	return best
 
 
 ## The neighbour `c` should cover this turn, or null: one who would fall this turn (Battle.falls_on_turn
@@ -786,7 +948,7 @@ func should_guard(b: Battle, c: CompanionUnit) -> bool:
 	return false
 
 
-## A simple caster. White: heal whoever is injured or below half HP (an every-ally heal when several
+## A simple caster. White: heal whoever is below half HP (an every-ally heal when several
 ## are hurt), lift debuffs, otherwise now and then a buff on the front. Black: delay an enemy about to
 ## act, hit every enemy when there are several, prefer an effective spell, else the strongest one.
 ## Uses are spent sparingly: the last use of each spell is kept for healing emergencies.
@@ -799,11 +961,17 @@ func cast_spell(b: Battle, c: CompanionUnit) -> bool:
 		return false
 	var line := b.line()
 	var foes := b.living_enemies()
-	# White magic.
+	# A Mender raises whoever is injured as soon as they can.
+	for a in line:
+		for sp in ready:
+			if b.can_raise(c, sp, a) and b.cast(c, sp, a):
+				raises += 1
+				return true
+	# White magic. (The injured are out of the battle: a heal cannot reach them.)
 	var hurt: Array[CompanionUnit] = []
 	var worst: CompanionUnit = null
 	for a in line:
-		if a.is_injured() or a.hp * 2 < a.max_hp():
+		if a.is_active() and a.hp * 2 < a.max_hp():
 			hurt.append(a)
 			if worst == null or a.hp * worst.max_hp() < worst.hp * a.max_hp():
 				worst = a

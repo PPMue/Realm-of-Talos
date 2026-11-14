@@ -15,6 +15,8 @@ signal action_pressed(id: String)
 const ATTACK := "attack"
 const GUARD := "guard"
 const FOCUS := "focus"
+## A Captain's order (design/callings.md): only on the sheet of someone who has it.
+const ROUSE := "rouse"
 const WAIT := "wait"
 const MAGIC := "magic"
 const BACK := "back"
@@ -62,6 +64,8 @@ var _sheet := Control.new()
 var _sheet_title := "ORDERS"
 var _name: Label
 var _weapon: Label
+## What they have become, over their name (nothing without a calling); its rule is a pointer away.
+var _calling: Label
 var _grade: Label
 var _grade_seal := Control.new()
 var _grade_weapon := -1
@@ -137,6 +141,10 @@ func _init() -> void:
 	_name = UiTheme.label("", 64, UiTheme.TEXT, true, 12)
 	_name.position = Vector2(34, NAME_Y)
 	add_child(_name)
+	_calling = UiTheme.label("", 22, UiTheme.GOLD, true, 8)
+	_calling.position = Vector2(38, NAME_Y - 26.0)
+	_calling.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(_calling)
 	_weapon = UiTheme.label("", 17, UiTheme.TEXT, false, 6)
 	_weapon.position = Vector2(38, NAME_Y + 72.0)
 	add_child(_weapon)
@@ -168,9 +176,10 @@ func _init() -> void:
 	_sheet.draw.connect(_draw_sheet)
 	add_child(_sheet)
 
-	for id: String in [ATTACK, art_id(0), art_id(1), art_id(2), MAGIC, GUARD, FOCUS, WAIT, MORE, BACK]:
+	for id: String in [ATTACK, art_id(0), art_id(1), art_id(2), MAGIC, ROUSE, GUARD, FOCUS, WAIT, MORE, BACK]:
 		_add_button(id)
 	_buttons[ATTACK].title = "Attack"
+	_buttons[ROUSE].title = "Rouse"
 	_buttons[GUARD].title = "Guard"
 	_buttons[FOCUS].title = "Focus"
 	_buttons[WAIT].title = "Wait"
@@ -227,6 +236,8 @@ func show_companion(c: CompanionUnit, battle: Battle, active_id: String, enabled
 		order.append(art_id(i))
 	if not c.spells().is_empty():
 		order.append(MAGIC)
+	if battle.has_rouse(c):
+		order.append(ROUSE)
 	order.append_array([GUARD, FOCUS] as Array[String])
 	_arrange(order)
 
@@ -235,7 +246,7 @@ func show_companion(c: CompanionUnit, battle: Battle, active_id: String, enabled
 	_descriptions[ATTACK] = "Strike one enemy with %s%s. No cost. Recovery %d." % [w.display_name,
 		" (magic: MAG against RES)" if w.is_magic() else "",
 		battle.action_recovery(c, BattleConfig.RECOVERY_ATTACK, TraitModifier.Action.ATTACK)]
-	var guard_rest := battle.action_recovery(c, BattleConfig.RECOVERY_GUARD)
+	var guard_rest := battle.guard_recovery(c)
 	if battle.guard_wards(c).size() > 1:
 		_descriptions[GUARD] = "Until this turn ends: take half damage, or stand before a neighbour and take the blows aimed at them. Recovery %d." % guard_rest
 	else:
@@ -256,14 +267,27 @@ func show_companion(c: CompanionUnit, battle: Battle, active_id: String, enabled
 		var b: ActionButton = _buttons[id]
 		b.active = id == active_id
 		b.disabled = not enabled or (active_id != "" and id != active_id)
+	if battle.has_rouse(c):
+		# A Captain's order: whoever is recovering is ready at once, for the Captain's own turn.
+		var waiting := battle.rouse_targets(c).size()
+		var rb: ActionButton = _buttons[ROUSE]
+		rb.detail = "nobody waits" if waiting == 0 else ("%d waiting" % waiting)
+		if waiting == 0 and enabled and active_id == "":
+			rb.disabled = true
+		_descriptions[ROUSE] = "A companion who is recovering is ready at once. Recovery %d." % battle.rouse_recovery(c)
 	for i in arts.size():
 		var art := arts[i]
 		var b: ActionButton = _buttons[art_id(i)]
 		b.title = art.display_name
 		var cost := battle.art_cost(c, art)
-		b.detail = "%d stamina" % cost
+		# A Berserker pays in Health, half as much.
+		var in_health := battle.pays_in_health(c)
+		var health := battle.art_health_cost(c, art)
+		b.detail = "%d Health" % health if in_health else "%d stamina" % cost
 		var rest := battle.art_recovery(c, art)
 		var about := art_info(art, cost, rest)
+		if in_health:
+			about = about.replace("%d stamina" % cost, "%d Health" % health)
 		var why := ""
 		if battle.art_block_reason(c, art) != "":
 			if enabled and active_id == "":
@@ -271,14 +295,21 @@ func show_companion(c: CompanionUnit, battle: Battle, active_id: String, enabled
 			if c.weapon() == null or c.weapon().weapon_type != art.weapon_type:
 				b.detail = "%s ONLY" % art.type_name().to_upper()
 				why = "Needs a %s in hand." % art.type_name().to_lower()
+			elif in_health:
+				why = "Costs %d Health, %s has %d." % [health, c.display_name, c.hp]
 			else:
 				why = "Needs %d stamina, %s has %d. Focus to recover." % [cost, c.display_name, c.stamina]
 			about = "%s\n%s" % [why, about]
 		_descriptions[art_id(i)] = about
-		_facts[art_id(i)] = {"figures": ArtFacts.art_figures(art, cost, rest), "lines": ArtFacts.art_lines(art), "accent": UiTheme.GOLD, "note": why}
+		var figures := ArtFacts.art_figures(art, cost, rest)
+		if in_health:
+			figures = [[str(health), "HEALTH"], [str(rest), "RECOVERY"]]
+		_facts[art_id(i)] = {"figures": figures, "lines": ArtFacts.art_lines(art), "accent": UiTheme.GOLD, "note": why}
 
 	if active_id == GUARD:
 		_default_info = "Guard whom? Click %s or whoever stands beside them. Right-click or Esc to go back." % c.display_name
+	elif active_id == ROUSE:
+		_default_info = "Rouse whom? Click a companion who is recovering. Right-click or Esc to go back."
 	elif active_id != "":
 		var index := art_index(active_id)
 		if index >= 0 and index < arts.size() and arts[index].hits_all_enemies:
@@ -336,6 +367,10 @@ func show_spells(c: CompanionUnit, battle: Battle, active_id: String, enabled: b
 			about = "%s\n%s" % [why, about]
 		_descriptions[id] = about
 		var lines := ArtFacts.spell_lines(sp)
+		if battle.spell_is_free(c):
+			# A Sage's first spell of the battle.
+			b.detail += "  ·  free"
+			lines.append("Costs no use this time")
 		if sp.heals:
 			lines.append("Heals %d now" % battle.heal_amount(c, sp))
 		_facts[id] = {"figures": ArtFacts.spell_figures(sp, left, most, spell_recovery(sp, c, battle)), "lines": lines, "accent": UiTheme.school_color(sp.school), "note": why}
@@ -394,6 +429,7 @@ func show_wait(enabled: bool, next_up: CompanionUnit) -> void:
 	_sheet_title = "ORDERS"
 	_art.visible = next_up != null
 	_name.visible = next_up != null
+	_calling.visible = false
 	_weapon.visible = next_up != null
 	_penalty.text = ""
 	_grade.visible = false
@@ -511,6 +547,11 @@ func _show_art(c: CompanionUnit, tint: Color) -> void:
 	_art_tint = tint
 	_art.queue_redraw()
 	_name.text = c.display_name.to_upper()
+	var calling := c.calling()
+	_calling.visible = calling != null
+	if calling != null:
+		_calling.text = calling.display_name.to_upper()
+		_calling.tooltip_text = "%s\n%s" % [calling.display_name, calling.rule]
 
 
 func _spell_button(index: int) -> ActionButton:

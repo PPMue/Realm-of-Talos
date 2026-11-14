@@ -52,6 +52,10 @@ var _mason_screen := MasonScreen.new()
 var _jeweler_screen := JewelerScreen.new()
 var _battle_screen := BattleScreen.new()
 var _end_screen := RunEndScreen.new()
+## The moment a companion takes their calling: laid over whatever is open as soon as one is due
+## (_check_callings), and what waits behind it until everyone has chosen.
+var _calling := CallingPanel.new()
+var _after_callings := Callable()
 
 
 func _ready() -> void:
@@ -112,6 +116,7 @@ func refresh(animate: bool = true) -> void:
 	_city.set_phase(_phase(), animate)
 	_refresh_buildings()
 	_build_party()
+	_check_callings()
 
 
 # ---------------------------------------------------------------- commands (also used by tests and tools)
@@ -451,7 +456,32 @@ func _on_battle_finished(battle: Battle) -> void:
 
 func _on_battle_closed() -> void:
 	_battle_screen.visible = false
-	_after_day()
+	_check_callings(_after_day)   # whoever reached their calling in the battle chooses before the day turns
+
+
+## Puts the choice of a calling in front of the commander if anyone's is due (Run.callings_due): a level
+## reached in a battle, a drill or beyond the walls, or a hire who joined above it. `then` runs once
+## everyone has chosen, or at once when nobody is due. It cannot be put off: nothing else answers until
+## it is made.
+func _check_callings(then: Callable = Callable()) -> void:
+	if run == null or _calling.is_open():
+		return
+	if not run.is_over():
+		_after_callings = then
+		if _calling.open(run):
+			return
+		_after_callings = Callable()
+	if then.is_valid():
+		then.call()
+
+
+func _on_callings_done() -> void:
+	var then := _after_callings
+	_after_callings = Callable()
+	if then.is_valid():
+		then.call()
+	else:
+		refresh()
 
 
 # ---------------------------------------------------------------- words
@@ -765,7 +795,7 @@ func _hide_news() -> void:
 func _overlay_open() -> bool:
 	return _battle_screen.visible or _party_screen.visible or _store_screen.visible or _training_screen.visible or _infirmary_screen.visible \
 		or _scavenge_screen.visible or _mason_screen.visible or _jeweler_screen.visible \
-		or _end_screen.visible \
+		or _end_screen.visible or _calling.visible \
 		or _letter.visible or _war_table.visible
 
 
@@ -865,6 +895,9 @@ func _build() -> void:
 		screen.visible = false
 		screen.z_index = 10
 		add_child(screen)
+	_calling.z_index = 15   # over any screen, under the curtain between days
+	add_child(_calling)
+	_calling.finished.connect(_on_callings_done)
 	# A letter leaves the walls, the gold and the materials unshaded: its choices are paid in them.
 	_letter.window = Rect2(1336, 0, 584, 64)
 	_war_table.chosen.connect(defend)

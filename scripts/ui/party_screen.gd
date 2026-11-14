@@ -53,7 +53,10 @@ const FOOT_H := 204.0
 const FOOT_Y := SHEET.size.y - PAD - FOOT_H
 ## Height of a line for something to wear.
 const ACCESSORY_ROW := 56.0
-const DEFAULT_FOOT := "Point at an art or a spell to read it. Click an art to carry it into battle, or to leave it behind."
+## Column 3 begins with the calling: its head and a row of plates, then the arts.
+const CALLING_ROW := 44.0
+const ARTS_Y := TOP + StatTable.HEAD_H + CALLING_ROW + 12.0
+const DEFAULT_FOOT := "Point at a calling, an art or a spell to read it. Click an art to carry it into battle, or to leave it behind."
 
 var run: Run
 var _selected: RunCompanion
@@ -65,6 +68,8 @@ var _armory_scroll := ScrollContainer.new()
 var _armory := VBoxContainer.new()
 var _grades := Control.new()
 var _arts_scroll := ScrollContainer.new()
+## The callings drawn for them (or the one taken), as plates over the arts.
+var _callings := Control.new()
 var _arts := VBoxContainer.new()
 var _foot: Label
 var _foot_facts := Control.new()
@@ -268,6 +273,7 @@ func _refresh_sheet() -> void:
 	_clear(_case)
 	_clear(_grades)
 	_clear(_arts)
+	_clear(_callings)
 	_read({})
 	_sheet.queue_redraw()
 	var c := _selected
@@ -390,7 +396,17 @@ func _refresh_sheet() -> void:
 		cell.position = Vector2((i % 2) * cw, floorf(i / 2.0) * GRADE_ROW)
 		_grades.add_child(cell)
 
-	# Column 3: arts, then spells.
+	# Column 3: the calling (the one taken, or those drawn for them), then arts, then spells.
+	var shown: Array[CallingData] = []
+	if p.calling != null:
+		shown.append(p.calling)
+	else:
+		shown.assign(p.calling_offers)
+	var plate_w := C3_W if shown.size() <= 1 else (C3_W - 8.0 * (shown.size() - 1)) / shown.size()
+	for i in shown.size():
+		var plate := _calling_plate(c, shown[i], plate_w)
+		plate.position = Vector2(i * (plate_w + 8.0), 0.0)
+		_callings.add_child(plate)
 	var arts := _sorted_arts(p)
 	if arts.is_empty():
 		_arts.add_child(_section("No combat arts yet. Every weapon grade reached teaches one.", C3_W - 14.0))
@@ -509,7 +525,9 @@ func _art_row(p: CompanionProgress, art: CombatArtData) -> RowButton:
 	row.paper = true
 	row.title = art.display_name
 	row.type_icon = art.weapon_type
-	row.sub = "tier %s  ·  %d stamina%s" % [CombatArtData.tier_numeral(art.tier), p.art_cost(art),
+	var health := p.art_health_cost(art)
+	row.sub = "tier %s  ·  %d %s%s" % [CombatArtData.tier_numeral(art.tier), health if health > 0 else p.art_cost(art),
+		"Health" if health > 0 else "stamina",
 		"  ·  signature" if art == p.data.signature_art else ""]
 	var slot := p.equipped_arts.find(art) + 1
 	var wrong := p.weapon == null or p.weapon.weapon_type != art.weapon_type
@@ -523,7 +541,7 @@ func _art_row(p: CompanionProgress, art: CombatArtData) -> RowButton:
 	else:
 		row.detail = "needs a %s" % art.type_name().to_lower() if wrong else "left behind"
 	row.pressed.connect(toggle_art.bind(art))
-	_read_on_hover(row, {"figures": ArtFacts.art_figures(art, p.art_cost(art)),
+	_read_on_hover(row, {"figures": ArtFacts.art_figures_for(p, art),
 		"lines": ArtFacts.art_lines(art, p.weapon.weapon_type if p.weapon != null else -1)})
 	return row
 
@@ -555,6 +573,43 @@ func _sorted_arts(p: CompanionProgress) -> Array[CombatArtData]:
 
 
 ## While the pointer is on `row`, the foot of the third column sets out `what` ({figures, lines}).
+## A calling as a plate on the sheet: its name, lit if it is theirs, dimmed if someone else holds it.
+## Pointing at it reads it in the foot of the column, as an art is read.
+func _calling_plate(c: RunCompanion, calling: CallingData, w: float) -> Control:
+	var plate := Control.new()
+	plate.size = Vector2(w, CALLING_ROW)
+	plate.mouse_filter = Control.MOUSE_FILTER_STOP
+	var holder := run.calling_holder(calling)
+	var theirs := c.progress.calling == calling
+	var closed := holder != null and not theirs
+	var state := {"hover": false}
+	plate.mouse_entered.connect(func() -> void:
+		state.hover = true
+		plate.queue_redraw())
+	plate.mouse_exited.connect(func() -> void:
+		state.hover = false
+		plate.queue_redraw())
+	plate.draw.connect(func() -> void:
+		var ink := UiTheme.PARCHMENT_INK
+		var r := Rect2(Vector2.ZERO, plate.size)
+		plate.draw_rect(r, Color(UiTheme.WAX if theirs else ink, 0.16 if theirs else (0.1 if state.hover else 0.04)))
+		plate.draw_rect(Rect2(0.5, 0.5, r.size.x - 1.0, r.size.y - 1.0), Color(UiTheme.WAX if theirs else ink, 0.9 if theirs else (0.25 if closed else 0.55)),
+			false, 2.0 if theirs else 1.0)
+		var display := UiTheme.display_font()
+		var text := calling.display_name.to_upper()
+		var text_size := 22
+		while text_size > 13 and display.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, text_size).x > r.size.x - 16.0:
+			text_size -= 1
+		var top := 2.0 if closed else (r.size.y - display.get_height(text_size)) * 0.5
+		UiTheme.draw_text(plate, display, Vector2(0.0, top), text, text_size, Color(ink, 0.4 if closed else 1.0), 0, r.size.x,
+			HORIZONTAL_ALIGNMENT_CENTER)
+		if closed:
+			UiTheme.draw_text(plate, UiTheme.italic_font(), Vector2(0.0, r.size.y - 19.0), "%s's" % holder.display_name(), 13, UiTheme.WAX, 0,
+				r.size.x, HORIZONTAL_ALIGNMENT_CENTER))
+	_read_on_hover(plate, ArtFacts.calling_reading(calling, c.progress, holder.display_name() if closed else ""))
+	return plate
+
+
 func _read_on_hover(row: Control, what: Dictionary) -> void:
 	row.mouse_entered.connect(_read.bind(what))
 	row.mouse_exited.connect(func() -> void:
@@ -726,8 +781,12 @@ func _draw_sheet() -> void:
 	StatTable.head(_sheet, Vector2(C2_X, _armory_y), C2_W, "THE ARMORY", "%d more  ·  click one to take it in hand" % (run.inventory.weapons.size() - 1))
 	StatTable.head(_sheet, Vector2(C2_X, GRADES_Y), C2_W, "SKILL", "weapon and magic grades")
 
-	# Column 3.
-	StatTable.head(_sheet, Vector2(C3_X, TOP), C3_W, "COMBAT ARTS AND SPELLS",
+	# Column 3: what they have become, or will: taken at RunConfig.CALLING_LEVEL from those drawn for them.
+	var aside := "taken for the run" if p.calling != null else "one of these at level %d" % RunConfig.CALLING_LEVEL
+	if p.calling == null and c.level() >= RunConfig.CALLING_LEVEL:
+		aside = "waiting to be chosen"
+	StatTable.head(_sheet, Vector2(C3_X, TOP), C3_W, "CALLING", aside)
+	StatTable.head(_sheet, Vector2(C3_X, ARTS_Y), C3_W, "COMBAT ARTS AND SPELLS",
 		"%d of %d carried" % [p.equipped_arts.size(), BattleConfig.MAX_EQUIPPED_ARTS])
 	_sheet.draw_line(Vector2(C3_X, FOOT_Y - 8.0), Vector2(C3_X + C3_W, FOOT_Y - 8.0), Color(ink, 0.45), 1.0)
 
@@ -834,7 +893,11 @@ func _build() -> void:
 	_grades.size = Vector2(C2_W, GRADE_ROW * 4.0)
 	_grades.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_sheet.add_child(_grades)
-	_arts_scroll.position = Vector2(C3_X, TOP + StatTable.HEAD_H)
+	_callings.position = Vector2(C3_X, TOP + StatTable.HEAD_H)
+	_callings.size = Vector2(C3_W, CALLING_ROW)
+	_callings.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_sheet.add_child(_callings)
+	_arts_scroll.position = Vector2(C3_X, ARTS_Y + StatTable.HEAD_H)
 	_arts_scroll.size = Vector2(C3_W, FOOT_Y - 18.0 - _arts_scroll.position.y)
 	_arts_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_sheet.add_child(_arts_scroll)

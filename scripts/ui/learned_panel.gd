@@ -198,7 +198,7 @@ func _draw_card(card: Control, index: int, hover: bool) -> void:
 	UiTheme.draw_text(card, display, Vector2(pad, 36.0), art.display_name, name_size, Color(UiTheme.TEXT, a), 6)
 	ArtFacts.draw_tag(card, Vector2(pad, 79.0), art.weapon_type, -1, art.tier, 15, Color(UiTheme.TEXT.lerp(UiTheme.MUTED, 0.5), a), 4)
 	var held := _progress.weapon.weapon_type if _progress.weapon != null else -1
-	ArtFacts.draw(card, Vector2(pad, 106.0), inner, ArtFacts.art_figures(art, _progress.art_cost(art)), ArtFacts.art_lines(art, held),
+	ArtFacts.draw(card, Vector2(pad, 106.0), inner, ArtFacts.art_figures_for(_progress, art), ArtFacts.art_lines(art, held),
 		Color(tone if is_new else UiTheme.GOLD, a), Color(UiTheme.TEXT, a), Color(UiTheme.TEXT.lerp(UiTheme.MUTED, 0.3), a), 0.6,
 		h - 106.0 - 110.0, 4, "", Color.WHITE, 20)
 	# The foot: what happens to it, or what a click would do.
@@ -263,7 +263,7 @@ func _draw() -> void:
 	if _art != null:
 		kicker = "%s LEARNS A COMBAT ART" % _name.to_upper()
 		title = _art.display_name
-		figures = ArtFacts.art_figures(_art, p.art_cost(_art))
+		figures = ArtFacts.art_figures_for(p, _art)
 		lines = ArtFacts.art_lines(_art, p.weapon.weapon_type if p.weapon != null else -1)
 	else:
 		kicker = "%s LEARNS A SPELL" % _name.to_upper()

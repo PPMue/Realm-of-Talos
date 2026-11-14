@@ -121,6 +121,8 @@ var _hire_t := 0.0:
 		_apply_hire()
 var _frozen_offers: Array[CompanionData] = []
 var _frozen_traits := {}
+## The callings drawn for each of those at the counter while a hire is leaving (as _frozen_traits).
+var _frozen_callings := {}
 ## Those left at the counter closing up: where each stood before (CompanionData -> {"hire",
 ## "figure", "said"}: x of their stretch, their figure and their traits), and how far along (0..1).
 var _slide_from := {}
@@ -260,11 +262,14 @@ func hire(data: CompanionData) -> void:
 	# The counter as it stands: the rules take the hire off it at once, the room a moment later.
 	var offers := run.tavern_offers.duplicate()
 	var traits := {}
+	var callings := {}
 	for d in offers:
 		traits[d] = run.offer_traits(d)
+		callings[d] = _callings_shown(d)
 	var c := run.hire(data)
 	if c == null:
 		return
+	_frozen_callings = callings
 	_note.text = "%s joins the company, %s." % [c.display_name(), "in the line" if run.is_fielded(c) else "on the bench"]
 	_purse.queue_redraw()
 	_play_hire(data, offers, traits)
@@ -298,6 +303,7 @@ func _hire_settle() -> void:
 	_hired = null
 	_frozen_offers = []
 	_frozen_traits = {}
+	_frozen_callings = {}
 	_slide_from = from
 	_slide = 0.0
 	refresh()
@@ -315,6 +321,36 @@ func _traits_shown(data: CompanionData) -> Array[TraitData]:
 		out.assign(_frozen_traits[data])
 		return out
 	return run.offer_traits(data)
+
+
+## The callings drawn for `data` at the counter (design/callings.md): known before the hire is made.
+func _callings_shown(data: CompanionData) -> Array[CallingData]:
+	var out: Array[CallingData] = []
+	if _frozen_callings.has(data):
+		out.assign(_frozen_callings[data])
+		return out
+	var p := run.offer_progress(data)
+	if p != null:
+		out.assign(p.calling_offers)
+	return out
+
+
+## `callings` set out as rows of names no wider than `width` at `text_size`: [[CallingData, ...], ...].
+static func _calling_rows(callings: Array[CallingData], width: float, text_size: int) -> Array:
+	var rows: Array = []
+	var row: Array = []
+	var x := 0.0
+	for calling in callings:
+		var w := UiTheme.display_font().get_string_size(calling.display_name, HORIZONTAL_ALIGNMENT_LEFT, -1, text_size).x
+		if not row.is_empty() and x + w > width:
+			rows.append(row)
+			row = []
+			x = 0.0
+		row.append(calling)
+		x += w + 18.0
+	if not row.is_empty():
+		rows.append(row)
+	return rows
 
 
 ## How far `data` still stands from x `now` while the counter closes up (`what`: "hire", "figure" or
@@ -503,7 +539,8 @@ func _draw_tavern() -> void:
 	# What is said of each: their traits, in light on a soft shadow beside them.
 	for i in n:
 		var traits := _traits_shown(offers[i])
-		if traits.is_empty():
+		var callings := _callings_shown(offers[i])
+		if traits.is_empty() and callings.is_empty():
 			continue
 		# What was said of someone just hired goes out as they leave.
 		var seen := 1.0 - clampf((_hire_t - 0.2) / 0.25, 0.0, 1.0) if offers[i] == _hired else 1.0
@@ -513,17 +550,42 @@ func _draw_tavern() -> void:
 		var said_w := said.y
 		var k := 1.0 if n >= CROWD else 1.1
 		var at := Vector2(said.x + _dx(offers[i], "said", said.x), SAID_Y)
-		var tall := ArtFacts.traits_height(said_w, traits, k) + 34.0
+		# The callings are written as names in a row or two; with much to say of someone, all of it is set smaller.
+		var call_rows := _calling_rows(callings, said_w, 20)
+		var calling_step := 26.0
+		var calls_tall := (36.0 + calling_step * call_rows.size()) if not callings.is_empty() else 0.0
+		var traits_tall := (ArtFacts.traits_height(said_w, traits, k) + 34.0) if not traits.is_empty() else 0.0
+		while k > 0.72 and traits_tall + calls_tall > COUNTER_Y - 14.0 - SAID_Y:
+			k -= 0.04
+			traits_tall = ArtFacts.traits_height(said_w, traits, k) + 34.0
+		var tall := traits_tall + calls_tall
 		# With three at the counter the words lie over the figure's arm or hair: the shadow is deeper.
 		var crowd := n >= CROWD
 		for g in 12:
 			_tavern.draw_rect(Rect2(at - Vector2(10.0, 6.0), Vector2(said_w + 20.0, tall + 10.0)).grow(g * (3.0 if crowd else 4.0)),
 				Color(0, 0, 0, (0.1 if crowd else 0.055) * seen))
 		var outline := 4 if seen >= 1.0 else 0
-		UiTheme.draw_text(_tavern, UiTheme.display_font(), at, "TRAITS" if traits.size() > 1 else "TRAIT", 15, Color(UiTheme.MUTED, seen), outline)
-		_tavern.draw_line(at + Vector2(0, 24.0), at + Vector2(said_w, 24.0), Color(UiTheme.GOLD_DEEP, 0.7 * seen), 1.0)
-		ArtFacts.draw_traits(_tavern, at + Vector2(0, 32.0), said_w, traits, Color(UiTheme.GOLD, seen),
-			Color(UiTheme.TEXT.lerp(UiTheme.MUTED, 0.25), seen), Color(UiTheme.INJURED.lightened(0.15), seen), k, outline)
+		if not traits.is_empty():
+			UiTheme.draw_text(_tavern, UiTheme.display_font(), at, "TRAITS" if traits.size() > 1 else "TRAIT", 15, Color(UiTheme.MUTED, seen), outline)
+			_tavern.draw_line(at + Vector2(0, 24.0), at + Vector2(said_w, 24.0), Color(UiTheme.GOLD_DEEP, 0.7 * seen), 1.0)
+			ArtFacts.draw_traits(_tavern, at + Vector2(0, 32.0), said_w, traits, Color(UiTheme.GOLD, seen),
+				Color(UiTheme.TEXT.lerp(UiTheme.MUTED, 0.25), seen), Color(UiTheme.INJURED.lightened(0.15), seen), k, outline)
+		# The callings drawn for them, by name: one is taken at level 4 (a calling someone holds is closed).
+		if not callings.is_empty():
+			var cy := at.y + traits_tall + 4.0
+			UiTheme.draw_text(_tavern, UiTheme.display_font(), Vector2(at.x, cy), "CALLINGS", 15, Color(UiTheme.MUTED, seen), outline)
+			UiTheme.draw_text(_tavern, UiTheme.italic_font(), Vector2(at.x, cy + 1.0), "one at level %d" % RunConfig.CALLING_LEVEL, 14,
+				Color(UiTheme.MUTED, seen), outline, said_w, HORIZONTAL_ALIGNMENT_RIGHT)
+			_tavern.draw_line(Vector2(at.x, cy + 24.0), Vector2(at.x + said_w, cy + 24.0), Color(UiTheme.GOLD_DEEP, 0.7 * seen), 1.0)
+			cy += 30.0
+			for row: Array in call_rows:
+				var cx := at.x
+				for calling: CallingData in row:
+					var open := run.is_calling_open(calling)
+					UiTheme.draw_text(_tavern, UiTheme.display_font(), Vector2(cx, cy), calling.display_name, 20,
+						Color(UiTheme.GOLD if open else UiTheme.MUTED, seen * (1.0 if open else 0.55)), outline)
+					cx += UiTheme.display_font().get_string_size(calling.display_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x + 18.0
+				cy += calling_step
 	# The counter: a long board across the room.
 	var w := maxf(size.x, 1920.0)
 	var board := Rect2(0, COUNTER_Y, w, COUNTER_H)

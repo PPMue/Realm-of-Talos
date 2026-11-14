@@ -836,8 +836,8 @@ func wait() -> bool:
 	return true
 
 
-## Heals a companion still standing. An injured companion cannot be healed: nothing in battle undoes
-## an injury.
+## Heals a companion still standing. An injured companion cannot be healed: only a Mender's raising
+## undoes an injury (_raise).
 func heal(c: CompanionUnit, amount: int) -> void:
 	if c.is_injured() or amount <= 0:
 		return
