@@ -124,7 +124,16 @@ const BOSS_WEAPON_TIERS_ABOVE_SHOP := 1
 
 # --- Free days ---
 const FREE_DAY_ACTIONS := 1
+## A hire's price in week 1, and what it rises by each week after (week 6: 150). See Run.hire_cost.
 const HIRE_COST := 100
+const HIRE_COST_PER_WEEK := 10
+## Companions outside the company practise on their own: at every weekly restock after the first, each
+## gains this many proficiency points (rolled MIN..MAX), most in what they fight with. See Run._practise.
+const TAVERN_PRACTICE_MIN := 8
+const TAVERN_PRACTICE_MAX := 12
+## The share of the practice (percent, rounded up) that goes to the main weapon type or school; the
+## rest to one other they can already use (grade above E), drawn at random.
+const TAVERN_PRACTICE_MAIN_PERCENT := 75
 ## How many companions the tavern offers (at most; fewer if fewer are left to hire).
 const TAVERN_OFFERS_MIN := 1
 const TAVERN_OFFERS_MAX := 2

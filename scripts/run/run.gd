@@ -50,6 +50,10 @@ var _traits_taken: Array[TraitData] = []
 ## The traits of everyone offered at the tavern this run: CompanionData -> Array[TraitData], rolled the
 ## first time they are offered and theirs for the rest of the run (see offer_traits, _offer).
 var _rolled_traits: Dictionary = {}
+## Everyone outside the company: CompanionData -> CompanionProgress, made the first time it is needed
+## (CompanionProgress.create) and never made again: it only grows, by practice at each weekly restock
+## after the first (see _practise_outside). A hire joins with it (see offer_progress, hire).
+var _outside: Dictionary = {}
 
 ## 1-based. After the run ends it stays on the last day played.
 var day: int = 1
@@ -687,19 +691,22 @@ func hire_block_reason(data: CompanionData) -> String:
 	return ""
 
 
-## Hires a companion offered at the tavern. They join at the roster's average level (rounded down)
-## with the stat gains for those levels rolled now, at full HP, with their own weapon, and are fielded
-## if the line has room (on a battle or boss day they march out with it). Costs gold only, never the
-## day's action.
+## Hires a companion offered at the tavern. They join with what they have practised outside the
+## company (offer_progress: proficiency, arts, spells) and their traits, at the roster's average level
+## (rounded down) with the stat gains for those levels rolled now, at full HP, with their own weapon,
+## and are fielded if the line has room (on a battle or boss day they march out with it). Costs gold
+## only, never the day's action.
 func hire(data: CompanionData) -> RunCompanion:
 	if hire_block_reason(data) != "":
 		return null
 	gold -= hire_cost()
 	var traits := offer_traits(data)
+	var practised := _outside_progress(data)
 	tavern_offers.erase(data)
 	var level := hire_level()
-	var c := _join(data)
+	var c := _join(data, practised)
 	c.traits = traits
+	_outside.erase(data)
 	while c.level() < level:
 		Levels.level_up(c.progress, rng)
 	c.hp = c.max_hp()
@@ -810,16 +817,9 @@ func _drill_proficiency(r: DrillResult) -> void:
 	r.grade_after = drill.grade_of(p)
 	# Every grade reached teaches as in battle (Battle._gain_proficiency, Battle._gain_magic).
 	for g in range(r.grade_before + 1, r.grade_after + 1):
-		if drill.kind == Drill.Kind.WEAPON:
-			var art := ArtLearning.pick_art(rng, p, drill.weapon_type, g, art_pool)
-			var equipped := p.learn(art) if art != null else false
-			r.grade_ups.append({"actor": r.companion, "magic": false, "weapon_type": drill.weapon_type, "grade": g,
-				"art": art, "equipped": equipped})
-		else:
-			var spell := SpellLearning.pick_spell(rng, p, drill.school, g, spell_pool)
-			if spell != null:
-				p.learn_spell(spell)
-			r.grade_ups.append({"actor": r.companion, "magic": true, "school": drill.school, "grade": g, "spell": spell})
+		var up := _teach(p, drill, g)
+		up["actor"] = r.companion
+		r.grade_ups.append(up)
 
 
 ## XP and level-ups as a won battle grants them (see _grant_xp).
@@ -1223,10 +1223,12 @@ func repair_amount() -> int:
 		+ company_total(TraitModifier.Kind.REPAIR_AMOUNT)
 
 
-## Gold a hire costs (the Tavern level 2 lowers it).
-## Gold a hire costs: the Tavern's level 2 and the company's traits (Well-Liked) lower it, never below 0.
+## Gold a hire costs this week: RunConfig.HIRE_COST + RunConfig.HIRE_COST_PER_WEEK x (week - 1) (week 1:
+## 100, week 6: 150), then the Tavern's level 2 and the company's traits (Well-Liked) lower it, never
+## below 0. One price for everyone that week.
 func hire_cost() -> int:
-	return maxi(0, RunConfig.HIRE_COST - (RunConfig.TAVERN_HIRE_DISCOUNT if facility_level(Facility.TAVERN) >= 2 else 0)
+	var base := RunConfig.HIRE_COST + RunConfig.HIRE_COST_PER_WEEK * (RunCalendar.week_of(day) - 1)
+	return maxi(0, base - (RunConfig.TAVERN_HIRE_DISCOUNT if facility_level(Facility.TAVERN) >= 2 else 0)
 		+ company_total(TraitModifier.Kind.HIRE_COST))
 
 
@@ -1509,6 +1511,83 @@ func offer_traits(data: CompanionData) -> Array[TraitData]:
 	if tavern_offers.has(data):
 		out.assign(_rolled_traits.get(data, []))
 	return out
+
+
+## What `data`, offered at the tavern this week, would join with before the hire's level-ups: their
+## proficiency, arts and spells as practised outside the company, and their traits. Null if they are
+## not offered now. Read it only; it is the run's own copy.
+func offer_progress(data: CompanionData) -> CompanionProgress:
+	if data == null or not tavern_offers.has(data):
+		return null
+	return _outside_progress(data)
+
+
+## The one state of `d` outside the company (see _outside).
+func _outside_progress(d: CompanionData) -> CompanionProgress:
+	if not _outside.has(d):
+		_outside[d] = CompanionProgress.create(d)
+	return _outside[d]
+
+
+## At each weekly restock after the first, everyone outside the company practises (see _practise), in
+## the order of the companions in the content, offered or not.
+func _practise_outside() -> void:
+	for d in content.companions:
+		if not _in_roster(d):
+			_practise(_outside_progress(d))
+
+
+## One week's practice for `p`: RunConfig.TAVERN_PRACTICE_MIN..MAX points, RunConfig.TAVERN_PRACTICE_MAIN_PERCENT
+## of them (rounded up) in what they fight with (a caster: the school of their own spell; others: the
+## type of the weapon they carry), the rest in one other weapon type or school they already have above
+## E, drawn at random (all of it in the main one if there is none). Each grade reached teaches an art
+## or a spell as in battle; an art learned with every slot full goes into a slot in place of a random
+## equipped one, or stays unequipped, by chance (one of slots + 1). Returns the grade-ups, shaped like
+## DrillResult.grade_ups but without "actor".
+func _practise(p: CompanionProgress) -> Array[Dictionary]:
+	var ups: Array[Dictionary] = []
+	var n := rng.randi_range(RunConfig.TAVERN_PRACTICE_MIN, RunConfig.TAVERN_PRACTICE_MAX)
+	var main := Drill.magic(p.data.signature_spell.school) if p.data.is_mage() else Drill.weapon(p.weapon.weapon_type)
+	var others: Array[Drill] = []
+	for wt: int in WeaponData.WeaponType.values():
+		if p.grade(wt) > Proficiency.Grade.E and not (main.kind == Drill.Kind.WEAPON and main.weapon_type == wt):
+			others.append(Drill.weapon(wt))
+	for s: int in SpellData.School.values():
+		if p.magic_grade(s) > Proficiency.Grade.E and not (main.kind == Drill.Kind.MAGIC and main.school == s):
+			others.append(Drill.magic(s))
+	var main_n := n if others.is_empty() else ceili(n * RunConfig.TAVERN_PRACTICE_MAIN_PERCENT / 100.0)
+	ups.append_array(_practise_in(p, main, main_n))
+	if main_n < n:
+		ups.append_array(_practise_in(p, others[rng.randi_range(0, others.size() - 1)], n - main_n))
+	return ups
+
+
+func _practise_in(p: CompanionProgress, subject: Drill, amount: int) -> Array[Dictionary]:
+	var ups: Array[Dictionary] = []
+	var before := subject.grade_of(p)
+	subject.add_points(p, amount)
+	for g in range(before + 1, subject.grade_of(p) + 1):
+		var up := _teach(p, subject, g)
+		if up.get("art") != null and not up["equipped"]:
+			var k := rng.randi_range(0, p.equipped_arts.size())
+			if k < p.equipped_arts.size():
+				up["equipped"] = p.swap(p.equipped_arts[k], up["art"])
+		ups.append(up)
+	return ups
+
+
+## What reaching grade `g` in `subject` teaches `p`, as in battle (Battle._gain_proficiency,
+## Battle._gain_magic): a weapon type an art (equipped if a slot is free), a school a spell. Learns it
+## and returns the grade-up entry without "actor".
+func _teach(p: CompanionProgress, subject: Drill, g: int) -> Dictionary:
+	if subject.kind == Drill.Kind.WEAPON:
+		var art := ArtLearning.pick_art(rng, p, subject.weapon_type, g, art_pool)
+		var equipped := p.learn(art) if art != null else false
+		return {"magic": false, "weapon_type": subject.weapon_type, "grade": g, "art": art, "equipped": equipped}
+	var spell := SpellLearning.pick_spell(rng, p, subject.school, g, spell_pool)
+	if spell != null:
+		p.learn_spell(spell)
+	return {"magic": true, "school": subject.school, "grade": g, "spell": spell}
 
 
 ## Days `c` stays in the Infirmary when injured: RunConfig.INFIRMARY_DAYS plus what their traits add.
@@ -1932,6 +2011,8 @@ static func scaled_enemy(e: EnemyData, on_day: int) -> EnemyData:
 func _restock_week() -> void:
 	# Unhired offers keep their traits (in _rolled_traits) for when they are offered again.
 	tavern_offers.clear()
+	if RunCalendar.week_of(day) > 1:
+		_practise_outside()
 	shop_week.clear()
 	_make_tavern_offers()
 	_stock_shop()
@@ -2008,6 +2089,7 @@ func _offer(d: CompanionData) -> void:
 	tavern_offers.append(d)
 	if not _rolled_traits.has(d):
 		_rolled_traits[d] = _roll_traits(CompanionProgress.create(d))
+		_outside_progress(d).traits = _rolled_traits[d]
 
 
 ## When the run begins: one wooden weapon (the ladder's tier 0) of every weapon type the starters'
@@ -2189,8 +2271,11 @@ func _pick_event() -> EventData:
 
 # ---------------------------------------------------------------- internals
 
-func _join(data: CompanionData) -> RunCompanion:
+func _join(data: CompanionData, progress: CompanionProgress = null) -> RunCompanion:
 	var c := RunCompanion.create(data)
+	if progress != null:
+		c.progress = progress
+		c.hp = c.max_hp()
 	roster.append(c)
 	inventory.add(data.weapon, c)
 	if lineup.size() < RunConfig.MAX_FIELDED:

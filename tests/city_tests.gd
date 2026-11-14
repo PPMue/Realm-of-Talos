@@ -32,6 +32,10 @@ func tests() -> Array[Callable]:
 		test_move_enchant,
 		test_market_on_battle_days,
 		test_offer_open_at_the_march,
+		test_hire_cost_by_week,
+		test_outside_practice,
+		test_hire_joins_practised,
+		test_practice_numbers,
 	]
 
 
@@ -167,6 +171,150 @@ func test_offer_open_at_the_march() -> void:
 	t.check(run.start_battle(run.fronts[0]) != null, "marching out with it open")
 	t.check(run.enchant_offer == null, "the offer is closed")
 	t.eq(w.enchant_stats, {Stat.DEF: 3}, "the weapon kept what it had")
+
+
+# ---------------------------------------------------------------- the tavern over the weeks
+
+func test_hire_cost_by_week() -> void:
+	var run := rich_run(50)
+	t.eq(RunConfig.HIRE_COST_PER_WEEK, 10, "10 more a week")
+	for pair: Array in [[1, 100], [7, 100], [8, 110], [15, 120], [22, 130], [29, 140], [36, 150], [42, 150]]:
+		run.day = pair[0]
+		t.eq(run.hire_cost(), pair[1], "day %d: %d" % pair)
+	run.day = 2
+	build(run, F.TAVERN, 2)
+	run.day = 36
+	t.eq(run.hire_cost(), 125, "week 6 with the Tavern's level 2: 150 - 25")
+
+
+## Points in every weapon type and school of `p`.
+func total_points(p: CompanionProgress) -> int:
+	var n := 0
+	for wt: int in WeaponData.WeaponType.values():
+		n += p.points_in(wt)
+	for s: int in SpellData.School.values():
+		n += p.magic_points_in(s)
+	return n
+
+
+func main_points(p: CompanionProgress) -> int:
+	return p.magic_points_in(p.data.signature_spell.school) if p.data.is_mage() else p.points_in(p.weapon.weapon_type)
+
+
+## Everyone outside the company has one state for the run that only grows: from the second week's
+## restock on, 8-12 points a week, most in what they fight with, offered or not.
+func test_outside_practice() -> void:
+	t.eq([RunConfig.TAVERN_PRACTICE_MIN, RunConfig.TAVERN_PRACTICE_MAX], [8, 12], "8-12 a week")
+	for s in 20:
+		var run := make_run(5100 + s)
+		var outside: Array[CompanionData] = []
+		for d in run.content.companions:
+			if not run._in_roster(d):
+				outside.append(d)
+		# Week 1: as they start.
+		for d in outside:
+			var p := run.offer_progress(d)
+			if run.tavern_offers.has(d):
+				t.check(p != null, "an offer has a progress")
+				t.eq(total_points(p), total_points(CompanionProgress.create(d)), "week 1: as they start")
+				t.eq(p.traits, run.offer_traits(d), "with the traits shown")
+			else:
+				t.check(p == null, "not offered: none to read")
+		var states := {}
+		var totals := {}
+		var mains := {}
+		for d in outside:
+			states[d] = run._outside_progress(d)
+			totals[d] = total_points(states[d])
+			mains[d] = main_points(states[d])
+		run._restock_week()   # still day 1: the first restock has no practice
+		for d in outside:
+			t.eq(total_points(run._outside_progress(d)), totals[d], "no practice in week 1")
+		for week in range(2, 7):
+			run.day = (week - 1) * 7 + 1
+			run._restock_week()
+			for d in outside:
+				var p := run._outside_progress(d)
+				t.check(p == states[d], "week %d: the same state, never rolled again" % week)
+				var gained := total_points(p) - int(totals[d])
+				var main_gained := main_points(p) - int(mains[d])
+				var capped := main_points(p) >= Proficiency.points_for(Proficiency.max_grade())
+				if not capped:
+					t.check(gained >= 8 and gained <= 12, "week %d: %s gained %d (8-12)" % [week, d.display_name, gained])
+					t.check(main_gained >= 6, "week %d: %s, most in the main (%d)" % [week, d.display_name, main_gained])
+				t.check(p.equipped_arts.size() <= BattleConfig.MAX_EQUIPPED_ARTS, "slots respected")
+				for a in p.known_arts:
+					t.check(a.weapon_type == p.weapon.weapon_type or p.grade(a.weapon_type) > Proficiency.Grade.E, "an art of a type they use")
+				if run.tavern_offers.has(d):
+					t.check(run.offer_progress(d) == p, "the offer shows it")
+				totals[d] = total_points(p)
+				mains[d] = main_points(p)
+
+
+## A hire joins with what they practised and their traits; the level-ups are rolled at the hire.
+func test_hire_joins_practised() -> void:
+	var learned := 0
+	for s in 30:
+		var run := make_run(5200 + s)
+		for week in range(2, 6):
+			run.day = (week - 1) * 7 + 1
+			run._restock_week()
+		run.calendar[run.day - 1] = RunCalendar.DayType.FREE
+		run.event_days.erase(run.day)
+		run.gold = 10000
+		var d: CompanionData = run.tavern_offers[0]
+		var p := run.offer_progress(d)
+		var points := {}
+		for wt: int in WeaponData.WeaponType.values():
+			points[wt] = p.points_in(wt)
+		var arts := p.known_arts.duplicate()
+		var equipped := p.equipped_arts.duplicate()
+		var spells := p.known_spells.duplicate()
+		var traits := run.offer_traits(d)
+		var level := run.hire_level()
+		var c := run.hire(d)
+		t.check(c != null, "seed %d: hired" % s)
+		t.check(c.progress == p, "joins with that state")
+		for wt: int in WeaponData.WeaponType.values():
+			t.eq(c.progress.points_in(wt), points[wt], "the practised points")
+		t.eq(c.progress.known_arts, arts, "the arts")
+		t.eq(c.progress.equipped_arts, equipped, "equipped as they were")
+		t.eq(c.progress.known_spells, spells, "the spells")
+		t.eq(c.traits, traits, "the traits shown")
+		t.eq(c.level(), level, "the roster's average level")
+		t.eq(c.hp, c.max_hp(), "at full HP")
+		t.check(not run._outside.has(d), "no longer outside")
+		if arts.size() > CompanionProgress.create(d).known_arts.size() or spells.size() > CompanionProgress.create(d).known_spells.size():
+			learned += 1
+	t.check(learned > 0, "some hires learned something while outside (%d of 30)" % learned)
+
+
+## Where the practice lands: a week-6 hire about 50 points ahead of a week-1 hire, against up to
+## 8 a battle (3 a week) for someone fielded from week 1.
+func test_practice_numbers() -> void:
+	var gained := 0.0
+	var main_grades := 0.0
+	var arts := 0.0
+	var n := 0
+	for s in 60:
+		var run := make_run(5300 + s)
+		var start := {}
+		for d in run.content.companions:
+			if not run._in_roster(d):
+				start[d] = [total_points(run._outside_progress(d)), run._outside_progress(d).known_arts.size() + run._outside_progress(d).known_spells.size()]
+		for week in range(2, 7):
+			run.day = (week - 1) * 7 + 1
+			run._restock_week()
+		for d: CompanionData in start:
+			var p := run._outside_progress(d)
+			gained += total_points(p) - int(start[d][0])
+			arts += p.known_arts.size() + p.known_spells.size() - int(start[d][1])
+			main_grades += p.magic_grade(d.signature_spell.school) if d.is_mage() else p.grade(p.weapon.weapon_type)
+			n += 1
+	var avg := gained / n
+	print("  outside practice by week 6: %.1f points, main grade %.1f (E=0 .. S=10), %.2f arts or spells learned" % [avg, main_grades / n, arts / n])
+	t.check(avg > 45.0 and avg < 55.0, "a week-6 hire about 50 points ahead (%.1f)" % avg)
+	t.check(avg < 8 * 3 * 5, "behind someone fielded from week 1 (up to %d)" % (8 * 3 * 5))
 
 
 # ---------------------------------------------------------------- materials
