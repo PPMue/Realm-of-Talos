@@ -3,6 +3,7 @@ extends Control
 ## The city: the hub of a run. The screen is the place itself, and its buildings are the buttons:
 ##   the Gate        march out on battle and boss days, hear the morning's matter, end a free day
 ##   the Tavern      hire companions            the Smithy     buy weapons
+##                   (both also open on battle and boss days, until the company marches out)
 ##   the Inn         rest                       Mason's Yard   mend the walls
 ##   the Barracks    the party (always open)    the Watchtower the days ahead (always open)
 ## The sky is the clock: a free day runs from morning to dusk as its actions are spent, a battle day
@@ -491,7 +492,7 @@ func _day_title() -> String:
 func _day_text() -> String:
 	match run.day_type():
 		RunCalendar.DayType.BATTLE:
-			return "The enemy is moving on the walls. Go to the gate when the company is ready."
+			return "The enemy is moving on the walls. The smith and the tavern are still open. Go to the gate when the company is ready."
 		RunCalendar.DayType.BOSS:
 			return "It has come to the gate itself. If the company falls today, the city falls with it."
 	if run.event_pending():
