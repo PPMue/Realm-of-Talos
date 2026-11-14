@@ -26,9 +26,9 @@ func tests() -> Array[Callable]:
 		test_mason,
 		test_gate,
 		test_enchant_rules,
-		test_enchant_caps,
+		test_enchant_rolls,
+		test_smithy_two_rolls,
 		test_enchant_stats_reach_the_holder,
-		test_enchant_double_odds,
 		test_move_enchant,
 	]
 
@@ -380,77 +380,138 @@ func test_enchant_rules() -> void:
 	t.check(run.enchant_block_reason(w).contains("smithy"), "not before the Smithy is built up")
 	build(run, F.SMITHY, 1)
 	t.eq(run.enchant_block_reason(w), "", "then open")
-	t.eq(run.enchant_cost(w), {RunConfig.IRON_ORE: 1, "gold": 20}, "+0 to +1: 1 ore, 20 gold")
+	t.eq(run.enchant_cost(w), {RunConfig.IRON_ORE: 1, "gold": 40}, "iron: 1 ore and 20 x 2 gold")
+	t.eq(run.enchant_cost(owned(run, WeaponData.Tier.WOODEN)), {RunConfig.IRON_ORE: 1, "gold": 20}, "wooden: 20 gold (the tier, at least 1)")
+	t.eq(run.enchant_cost(owned(run, WeaponData.Tier.PLATINUM)), {RunConfig.IRON_ORE: 1, "gold": 100}, "platinum: 100")
+	t.eq(run.enchant_cost(run.inventory.add(run.content.rare_weapons[0])), {RunConfig.IRON_ORE: 1, "gold": 60}, "a rare weapon: 60")
 	var ore := run.material(RunConfig.IRON_ORE)
 	var gold := run.gold
-	var r := run.enchant(w)
-	t.check(r != null, "enchanted")
-	t.eq(run.material(RunConfig.IRON_ORE), ore - 1, "1 ore")
-	t.eq(run.gold, gold - 20, "20 gold")
-	t.eq(w.enchant_level, r.levels_gained, "its level")
-	t.eq(r.level_before, 0, "from +0")
-	t.eq(r.stats.size(), r.levels_gained, "a stat a level")
-	t.eq(w.enchant_order, r.stats, "kept in order")
-	t.eq(w.title(), "%s +%d" % [w.data.display_name, w.enchant_level], "named with its level")
-	t.check(not w.enchant_lines().is_empty() and w.enchant_lines()[0].begins_with("+"), "lists what it gives")
-	var n := w.enchant_level
-	t.eq(run.enchant_cost(w), {RunConfig.IRON_ORE: n + 1, "gold": 20 * (n + 1)}, "the cost rises with the level")
+	var offer := run.enchant(w)
+	t.check(offer != null, "an offer")
+	t.eq(run.enchant_offer, offer, "kept open")
+	t.eq(offer.weapon, w, "for the weapon")
+	t.eq(offer.current, {}, "it is plain now")
+	t.eq(offer.rolls.size(), 1, "level 1: one new roll")
+	t.eq(run.material(RunConfig.IRON_ORE), ore - 1, "1 ore paid")
+	t.eq(run.gold, gold - 40, "40 gold paid")
+	t.eq(offer.cost, {RunConfig.IRON_ORE: 1, "gold": 40}, "the cost on the offer")
+	t.check(not w.is_enchanted(), "nothing changes before the choice")
+	t.eq(run.enchant_block_reason(w), Run.OFFER_OPEN, "no new attempt while it is open")
+	t.eq(run.move_enchant_block_reason(w, owned(run, WeaponData.Tier.STEEL)), Run.OFFER_OPEN, "nor a move")
+	# Keep: plain stays plain, the cost is spent.
+	t.check(run.keep_enchant(), "kept")
+	t.check(run.enchant_offer == null and not w.is_enchanted(), "plain, the offer gone")
+	t.check(not run.keep_enchant() and not run.take_enchant(0), "nothing to choose now")
+	# Take.
+	offer = run.enchant(w)
+	var roll: Dictionary = offer.rolls[0]
+	t.check(not run.take_enchant(1), "no second roll at level 1")
+	t.check(run.take_enchant(0), "taken")
+	t.eq(w.enchant_stats, roll, "the weapon has the roll")
+	t.check(w.is_enchanted(), "enchanted")
+	t.eq(w.title(), "%s+" % w.data.display_name, "named with a +")
+	t.eq(w.enchant_lines(), OwnedWeapon.stat_lines(roll), "its lines")
+	# Again: the current one is offered beside the new.
+	offer = run.enchant(w)
+	t.eq(offer.current, roll, "the enchantment it has, to keep")
+	t.eq(run.enchant_cost(w), {RunConfig.IRON_ORE: 1, "gold": 40}, "a second try costs the same")
+	run.keep_enchant()
+	t.eq(w.enchant_stats, roll, "kept: unchanged")
 	t.eq(run.actions_left, 1, "never the day's action")
+	# The day ends with an offer open: the weapon keeps what it has.
+	run.enchant(w)
+	t.check(run.end_free_day(), "the day ends")
+	t.check(run.enchant_offer == null, "the offer is gone")
+	t.eq(w.enchant_stats, roll, "and the weapon kept its enchantment")
+	# Short of ore or gold; not the company's; free days only.
+	run = rich_run(14)
+	build(run, F.SMITHY, 1)
+	w = owned(run, WeaponData.Tier.IRON)
 	run.materials[RunConfig.IRON_ORE] = 0
 	t.check(run.enchant_block_reason(w).begins_with("Needs"), "needs the ore")
 	run.materials[RunConfig.IRON_ORE] = 100
 	run.gold = 0
 	t.check(run.enchant_block_reason(w).contains("gold"), "and the gold")
 	run.gold = 1000
-	var stranger := OwnedWeapon.new(w.data)
-	t.check(run.enchant_block_reason(stranger) != "", "only the company's weapons")
+	t.check(run.enchant_block_reason(OwnedWeapon.new(w.data)) != "", "only the company's weapons")
 	force_day(run, RunCalendar.DayType.BATTLE)
 	t.eq(run.enchant_block_reason(w), "Only on free days.", "free days only")
-	t.check(run.move_enchant_block_reason(w, owned(run, WeaponData.Tier.STEEL)) == "Only on free days.", "moving too")
-	# Every stat can come up.
-	var seen := {}
-	var r2 := rich_run(14)
-	build(r2, F.SMITHY, 1)
-	for i in 120:
-		var x := owned(r2, WeaponData.Tier.PLATINUM)
-		r2.materials[RunConfig.IRON_ORE] = 100
-		var res := r2.enchant(x)
-		for k in res.stats:
-			seen[k] = true
-	t.eq(seen.size(), 11, "all eleven stats come up")
 
 
-func test_enchant_caps() -> void:
+func test_enchant_rolls() -> void:
 	var run := rich_run(15)
-	build(run, F.SMITHY, 1)
+	t.eq(RunConfig.ENCHANT_BUDGET_BY_TIER, [1, 2, 3, 4, 5, 6] as Array[int], "budgets by tier")
 	for tier in 6:
-		var w := owned(run, tier)
-		t.eq(Run.enchant_cap(w), [1, 2, 3, 4, 5, 5][tier], "tier %d cap" % tier)
-		var guard := 0
-		while run.enchant_block_reason(w) == "" and guard < 20:
-			run.enchant(w)
-			guard += 1
-		t.eq(w.enchant_level, Run.enchant_cap(w), "tier %d: enchanted up to the cap, never past" % tier)
-		t.check(run.enchant_block_reason(w).contains("no more"), "then refused")
-	var rare := run.inventory.add(run.content.rare_weapons[0])
-	t.eq(Run.enchant_cap(rare), 4, "a rare weapon +4")
+		t.eq(Run.enchant_budget(owned(run, tier)), tier + 1, "tier %d: budget %d" % [tier, tier + 1])
+	t.eq(Run.enchant_budget(run.inventory.add(run.content.rare_weapons[0])), 4, "a rare weapon 4")
+	var seen := {}
+	for budget in [1, 2, 3, 4, 5, 6]:
+		var edged := 0
+		var ks := {}
+		var n := 1500
+		for i in n:
+			var roll := run.roll_enchant(budget)
+			var net := 0
+			var negatives := 0
+			var positive := 0
+			for key: String in roll:
+				t.check(Stat.COMPANION_KEYS.has(key), "a companion stat")
+				var v := int(roll[key])
+				t.check(v != 0, "no stat at 0")
+				net += v
+				if v < 0:
+					negatives += 1
+					ks[-v] = true
+				else:
+					positive += v
+				seen[key] = true
+			if net != budget or negatives > 1:
+				t.check(false, "budget %d: net %d, %d negative (%s)" % [budget, net, negatives, str(roll)])
+			if negatives == 1:
+				edged += 1
+				t.check(positive > budget, "the points the negative took are rolled again")
+		var want := 0.25 if budget >= 2 else 0.0
+		t.check(absf(edged / float(n) - want) < 0.035, "budget %d: two-edged %.3f, about %d%%" % [budget, edged / float(n), roundi(want * 100)])
+		if budget >= 2:
+			t.eq(ks.size(), budget / 2, "budget %d: the negative is 1 to %d" % [budget, budget / 2])
+			t.check(not ks.has(budget / 2 + 1), "never more")
+	t.eq(seen.size(), 11, "all eleven stats come up")
+	t.eq(RunConfig.ENCHANT_TWO_EDGED_PERCENT, 25, "25%")
+	# Lines: positives in stat order, the negative last.
+	t.eq(OwnedWeapon.stat_lines({Stat.LCK: -1, Stat.DEX: 1, Stat.STR: 2}), ["+2 Strength", "+1 Dexterity", "-1 Luck"] as Array[String], "lines")
+
+
+func test_smithy_two_rolls() -> void:
+	var run := rich_run(16)
+	build(run, F.SMITHY, 2)
+	t.eq(Run.facility_lines(F.SMITHY, 2), "The smith offers two enchantments to choose from", "its line")
+	var w := owned(run, WeaponData.Tier.STEEL)
+	var offer := run.enchant(w)
+	t.eq(offer.rolls.size(), 2, "level 2: two new rolls")
+	for roll in offer.rolls:
+		var net := 0
+		for key: String in roll:
+			net += int(roll[key])
+		t.eq(net, 4, "each the steel budget")
+	var second: Dictionary = offer.rolls[1]
+	t.check(run.take_enchant(1), "the second taken")
+	t.eq(w.enchant_stats, second, "the weapon has it")
 
 
 func test_enchant_stats_reach_the_holder() -> void:
-	var run := rich_run(16)
+	var run := rich_run(17)
 	build(run, F.SMITHY, 1)
 	var c := run.lineup[0]
 	var w := run.inventory.held_by(c)
 	var before := c.progress.stats()
 	var attack := c.attack()
-	w.enchant_order.assign([Stat.STR, Stat.STR, Stat.DEX])   # as if enchanted twice over
-	run.inventory.refresh(w)
+	run._set_enchant(w, {Stat.STR: 2, Stat.DEX: 1, Stat.LCK: -1})
 	t.eq(c.progress.enchant_stat_bonus(Stat.STR), 2, "the split: 2 STR from the enchantment")
+	t.eq(c.progress.enchant_stat_bonus(Stat.LCK), -1, "and -1 LCK")
 	t.eq(c.progress.enchant_stat_bonus(Stat.SPD), 0, "none in SPD")
 	t.eq(int(c.progress.stats()[Stat.STR]), int(before[Stat.STR]) + 2, "in the stats")
-	t.eq(int(c.progress.stats()[Stat.DEX]), int(before[Stat.DEX]) + 1, "DEX too")
+	t.eq(int(c.progress.stats()[Stat.LCK]), maxi(0, int(before[Stat.LCK]) - 1), "LCK down")
 	t.check(c.attack() > attack, "the Attack rises with STR")
-	t.eq(w.enchant_lines(), ["+2 Strength", "+1 Dexterity"] as Array[String], "the lines in stat order")
 	# In battle, the same.
 	run.day = 3
 	force_day(run, RunCalendar.DayType.BATTLE)
@@ -465,72 +526,44 @@ func test_enchant_stats_reach_the_holder() -> void:
 	run.equip_weapon(c, spare)
 	t.eq(c.progress.stats(), before, "back to the stats without it")
 	t.eq(c.attack(), attack, "and the Attack")
-	# Health: held, it raises max HP; put down, HP is held to the new max.
-	w.enchant_order.assign([Stat.HP, Stat.HP])
+	# Health: taken in hand it raises HP by what it adds; put down, HP is held to the new max.
 	run.equip_weapon(c, w)
-	var max_hp := c.max_hp()
-	c.hp = max_hp
+	c.hp = c.max_hp()
+	var hp := c.hp
+	run._set_enchant(w, {Stat.HP: 3})
+	t.eq(c.hp, hp + 3, "a new enchantment's Health is added to HP")
 	run.equip_weapon(c, spare)
-	t.eq(c.hp, max_hp - 2, "HP no more than the max without it")
-
-
-func test_enchant_double_odds() -> void:
-	for level in [1, 2]:
-		var run := rich_run(17)
-		run.gold = 10000000
-		build(run, F.SMITHY, level)
-		var doubles := 0
-		var n := 1500
-		for i in n:
-			var w := owned(run, WeaponData.Tier.PLATINUM)
-			run.materials[RunConfig.IRON_ORE] = 100
-			var r := run.enchant(w)
-			t.eq(r.levels_gained, 2 if r.double else 1, "room for both")
-			if r.double:
-				doubles += 1
-		var want: float = RunConfig.ENCHANT_DOUBLE_PERCENT[level - 1] / 100.0
-		t.check(absf(doubles / float(n) - want) < 0.035, "Smithy %d: +2 about %d%% (%.3f)" % [level, roundi(want * 100), doubles / float(n)])
-	t.eq(RunConfig.ENCHANT_DOUBLE_PERCENT, [20, 40] as Array[int], "20%, 40% with level 2")
-	# At one below the cap a double gives just the one level.
-	var run := rich_run(18)
-	build(run, F.SMITHY, 2)
-	var found := false
-	for s in 200:
-		var w := owned(run, WeaponData.Tier.WOODEN)
-		run.rng.seed = s
-		var r := run.enchant(w)
-		if r.double:
-			t.eq(r.levels_gained, 1, "a wooden weapon gains 1 even on a double")
-			t.eq(w.enchant_level, 1, "its cap")
-			found = true
-			break
-	t.check(found, "a double was rolled")
+	t.eq(c.hp, c.max_hp(), "HP no more than the max without it")
 
 
 func test_move_enchant() -> void:
 	var run := rich_run(19)
 	build(run, F.SMITHY, 1)
 	var from := owned(run, WeaponData.Tier.IRON)
-	from.enchant_order.assign([Stat.STR, Stat.SPD, Stat.LCK])
-	var to := owned(run, WeaponData.Tier.BRONZE)
+	run._set_enchant(from, {Stat.STR: 2, Stat.SPD: 1})
 	t.eq(run.move_enchant_cost(), {RunConfig.IRON_ORE: 2}, "2 iron ore")
+	var bronze := owned(run, WeaponData.Tier.BRONZE)
+	t.check(run.move_enchant_block_reason(from, bronze).contains("strong"), "not to a weapon of a smaller budget")
 	var axe := owned(run, WeaponData.Tier.STEEL, WeaponData.WeaponType.AXE)
 	t.check(run.move_enchant_block_reason(from, axe).contains("same type"), "the same weapon type only")
 	var other := owned(run, WeaponData.Tier.STEEL)
-	other.enchant_order.assign([Stat.DEF])
+	run._set_enchant(other, {Stat.DEF: 4})
 	t.check(run.move_enchant_block_reason(from, other).contains("already"), "not onto an enchanted weapon")
-	t.check(run.move_enchant_block_reason(to, from) != "", "not from a plain one")
+	t.check(run.move_enchant_block_reason(bronze, from) != "", "not from a plain one")
 	t.check(run.move_enchant_block_reason(from, from) != "", "not onto itself")
+	var iron := owned(run, WeaponData.Tier.IRON)
+	t.eq(run.move_enchant_block_reason(from, iron), "", "to a plain one of the same budget")
+	var steel := owned(run, WeaponData.Tier.STEEL)
 	var ore := run.material(RunConfig.IRON_ORE)
-	t.check(run.move_enchant(from, to), "moved to the bronze sword")
+	t.check(run.move_enchant(from, steel), "moved to a steel sword (a larger budget)")
 	t.eq(run.material(RunConfig.IRON_ORE), ore - 2, "2 ore")
-	t.eq(to.enchant_order, [Stat.STR, Stat.SPD] as Array[String], "levels above the cap lost, the last gained first")
-	t.eq(from.enchant_level, 0, "the old weapon is plain")
+	t.eq(steel.enchant_stats, {Stat.STR: 2, Stat.SPD: 1}, "moved whole")
+	t.check(not from.is_enchanted(), "the old weapon is plain")
 	t.eq(run.actions_left, 1, "an errand")
 	# Onto a weapon in hand: the holder carries it.
 	var c := run.lineup[0]
 	var held := run.inventory.held_by(c)
 	var spare := run.inventory.add(held.data)
-	spare.enchant_order.assign([Stat.MAG])
+	run._set_enchant(spare, {Stat.MAG: 1})
 	t.check(run.move_enchant(spare, held), "onto the weapon in hand")
 	t.eq(c.progress.enchant_stat_bonus(Stat.MAG), 1, "the holder has it")

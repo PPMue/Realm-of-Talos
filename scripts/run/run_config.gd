@@ -243,14 +243,19 @@ const GATE_EXTRA_SITES := 1
 const GATE_CITY_DAMAGE_LESS := 5
 
 # --- Enchanting (at the Smithy, from its level 1; see Run.enchant) ---
-## The most levels a weapon can hold, by tier (wooden .. platinum); a rare weapon: RARE.
-const ENCHANT_CAP_BY_TIER: Array[int] = [1, 2, 3, 4, 5, 5]
-const ENCHANT_RARE_CAP := 4
-## Chance (percent) an attempt adds 2 levels instead of 1 (room allowing), by Smithy level 1 / 2.
-const ENCHANT_DOUBLE_PERCENT: Array[int] = [20, 40]
-## To go from +n: (n + 1) x ORE iron ore and (n + 1) x GOLD gold.
-const ENCHANT_ORE_PER_LEVEL := 1
-const ENCHANT_GOLD_PER_LEVEL := 20
+## A weapon is plain or enchanted, once. An enchantment's net stat points by tier (wooden .. platinum);
+## a rare weapon RARE.
+const ENCHANT_BUDGET_BY_TIER: Array[int] = [1, 2, 3, 4, 5, 6]
+const ENCHANT_RARE_BUDGET := 4
+## Chance (percent) a roll is two-edged (one stat takes -k, k more points elsewhere), budget 2 or more.
+const ENCHANT_TWO_EDGED_PERCENT := 25
+## Every attempt, first or again: ORE iron ore and GOLD_PER_TIER x the tier (at least 1) gold; a rare
+## weapon RARE_GOLD gold.
+const ENCHANT_ORE := 1
+const ENCHANT_GOLD_PER_TIER := 20
+const ENCHANT_RARE_GOLD := 60
+## New rolls offered at each attempt, by Smithy level 1 / 2.
+const ENCHANT_ROLLS_BY_SMITHY: Array[int] = [1, 2]
 ## Moving a whole enchantment to another weapon of the same type.
 const MOVE_ENCHANT_COST := {IRON_ORE: 2}
 

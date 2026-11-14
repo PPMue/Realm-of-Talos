@@ -1367,7 +1367,7 @@ func test_playthrough() -> void:
 	var scavenge_injured := 0
 	var upgrades := {}
 	var upgrades_total := 0
-	var enchants := 0
+	var enchants := [0, 0, 0, 0]   # attempts, second tries, rolls taken, taken on second tries
 	var moves := 0
 	var swaps := 0
 	var taken := {RunConfig.TIMBER: 0, RunConfig.IRON_ORE: 0}
@@ -1386,7 +1386,10 @@ func test_playthrough() -> void:
 		for f: int in policy.upgrades:
 			upgrades[f] = int(upgrades.get(f, 0)) + int(policy.upgrades[f])
 			upgrades_total += int(policy.upgrades[f])
-		enchants += policy.enchant_levels
+		enchants[0] += policy.enchant_attempts
+		enchants[1] += policy.enchant_retries
+		enchants[2] += policy.enchant_taken
+		enchants[3] += policy.enchant_taken_retry
 		moves += policy.moves
 		swaps += policy.swaps
 		for m: String in taken:
@@ -1461,8 +1464,11 @@ func test_playthrough() -> void:
 	var built: Array[String] = []
 	for f: int in Run.Facility.values():
 		built.append("%s %.2f" % [Run.FACILITY_NAMES[f], float(upgrades.get(f, 0)) / runs])
-	print("    city: %.1f upgrades per run (%s); %.1f enchant levels, %.2f moves, %.1f swaps per run" % [
-		float(upgrades_total) / runs, ", ".join(built), float(enchants) / runs, float(moves) / runs, float(swaps) / runs])
+	print("    city: %.1f upgrades per run (%s); %.2f moves, %.1f swaps per run" % [
+		float(upgrades_total) / runs, ", ".join(built), float(moves) / runs, float(swaps) / runs])
+	print("    enchanting per run: %.1f attempts, %.1f of them second tries; new rolls taken %.1f (%.1f on second tries, %d%% of them)" % [
+		float(enchants[0]) / runs, float(enchants[1]) / runs, float(enchants[2]) / runs, float(enchants[3]) / runs,
+		roundi(100.0 * enchants[3] / maxf(1, enchants[1]))])
 	print("    materials taken in per run: %.1f timber, %.1f iron ore" % [float(taken[RunConfig.TIMBER]) / runs, float(taken[RunConfig.IRON_ORE]) / runs])
 	print("    bosses (faced / beaten / beaten %):")
 	for g in content().bosses:

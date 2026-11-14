@@ -13,10 +13,14 @@ var yielded := 0
 ## Scavenging trips by outcome (ScavengeResult.Outcome: full, half, nothing), and companions injured on them.
 var scavenged: Array[int] = [0, 0, 0]
 var scavenge_injured := 0
-## City errands: upgrades bought (Run.Facility -> levels), enchantment levels gained, enchantments
-## moved, material swaps.
+## City errands: upgrades bought (Run.Facility -> levels); enchanting attempts, those on a weapon
+## already enchanted, and the new rolls taken (all, and on those second tries); enchantments moved,
+## material swaps.
 var upgrades: Dictionary = {}
-var enchant_levels := 0
+var enchant_attempts := 0
+var enchant_retries := 0
+var enchant_taken := 0
+var enchant_taken_retry := 0
 var moves := 0
 var swaps := 0
 
@@ -158,9 +162,10 @@ func free_day(run: Run) -> void:
 
 ## At the day's end, with what the action and the repairs left: swap a pile of one material, build up
 ## the city (timber in TIMBER_ORDER, only while the walls are down 20 or less, keeping a repair's worth then),
-## and spend iron ore: the Smithy first, then the line's weapons up to +2, the Gate, the Smithy's
-## second level, the line's weapons to their caps, the Gate's second level. Each list stops at the
-## first thing it cannot pay for, to save up for it. Enchanting keeps 60 gold back.
+## and spend iron ore: the Smithy first, then one enchantment for each weapon in the line's hands, the
+## Gate, the Smithy's second level, a second try at each of the line's weapons (a day), the Gate's
+## second level. Each list stops at the first thing it cannot pay for, to save up for it. Enchanting
+## keeps 60 gold back.
 func city_errands(run: Run) -> void:
 	if run.errand_block_reason() != "":
 		return
@@ -176,8 +181,8 @@ func city_errands(run: Run) -> void:
 		var cost := run.upgrade_cost(f)
 		if run.material(RunConfig.TIMBER) - int(cost.get(RunConfig.TIMBER, 0)) < reserve or not _upgrade(run, f):
 			break
-	for step: Array in [["up", Run.Facility.SMITHY, 1], ["enchant", 2], ["up", Run.Facility.GATE, 1], ["up", Run.Facility.SMITHY, 2],
-			["enchant", 99], ["up", Run.Facility.GATE, 2]]:
+	for step: Array in [["up", Run.Facility.SMITHY, 1], ["enchant", false], ["up", Run.Facility.GATE, 1],
+			["up", Run.Facility.SMITHY, 2], ["enchant", true], ["up", Run.Facility.GATE, 2]]:
 		if step[0] == "up":
 			if run.facility_level(step[1]) >= step[2]:
 				continue
@@ -194,26 +199,59 @@ func _upgrade(run: Run, f: Run.Facility) -> bool:
 	return true
 
 
-## Enchants the weapons in the line's hands up to +`up_to` (their caps at most), the least enchanted
-## first. False if one was left short for want of ore or gold (to save up), true if all are there.
-func _enchant_line(run: Run, up_to: int) -> bool:
+## Enchants the weapons in the line's hands: the plain ones once (`again` false), or each one once
+## more (`again` true: a second try, at most one a weapon a day). From an offer it takes the roll that
+## adds most to what the wielder uses (see enchant_value), and only if it adds more than what the weapon
+## has. False if one was left for want of ore or gold (to save up), true if all were done.
+func _enchant_line(run: Run, again: bool) -> bool:
 	if run.facility_level(Run.Facility.SMITHY) < 1:
 		return false
-	while true:
-		var pick: OwnedWeapon = null
-		for c in run.lineup:
-			var w := run.inventory.held_by(c)
-			if w == null or w.enchant_level >= mini(up_to, Run.enchant_cap(w)):
-				continue
-			if pick == null or w.enchant_level < pick.enchant_level:
-				pick = w
-		if pick == null:
-			return true
-		if run.gold - int(run.enchant_cost(pick).get("gold", 0)) < 60 or run.enchant_block_reason(pick) != "":
+	for c in run.lineup:
+		var w := run.inventory.held_by(c)
+		if w == null or w.is_enchanted() != again:
+			continue
+		if run.gold - int(run.enchant_cost(w).get("gold", 0)) < 60 or run.enchant_block_reason(w) != "":
 			return false
-		var r := run.enchant(pick)
-		enchant_levels += r.levels_gained
+		var offer := run.enchant(w)
+		enchant_attempts += 1
+		if again:
+			enchant_retries += 1
+		var best := -1
+		var best_value := enchant_value(c, w, offer.current)
+		for i in offer.rolls.size():
+			var v := enchant_value(c, w, offer.rolls[i])
+			if v > best_value:
+				best = i
+				best_value = v
+		if best >= 0:
+			run.take_enchant(best)
+			enchant_taken += 1
+			if again:
+				enchant_taken_retry += 1
+		else:
+			run.keep_enchant()
 	return true
+
+
+## What `stats` (an enchantment) is worth to `c` holding `w`: the stats of their attack power most (by
+## the weapon type: STR, or MAG for a magic weapon; an axe's BLD half; a bow's DEX and a dagger's SPD half
+## of it), then DEF, SPD and Health, the rest a little.
+func enchant_value(c: RunCompanion, w: OwnedWeapon, stats: Dictionary) -> float:
+	var main := Stat.MAG if w.data.is_magic() else Stat.STR
+	var weights := {main: 10.0, Stat.DEF: 2.0, Stat.SPD: 2.0, Stat.HP: 2.0}
+	match w.data.weapon_type:
+		WeaponData.WeaponType.AXE:
+			weights[Stat.BLD] = 5.0
+		WeaponData.WeaponType.BOW:
+			weights[main] = 5.0
+			weights[Stat.DEX] = 6.0
+		WeaponData.WeaponType.DAGGER:
+			weights[main] = 5.0
+			weights[Stat.SPD] = 7.0
+	var total := 0.0
+	for key: String in stats:
+		total += int(stats[key]) * float(weights.get(key, 0.5))
+	return total
 
 
 ## A pile: while one material is 8 or more and at least 4 above the other, 2 of it become 1 of the other.
@@ -573,7 +611,7 @@ func _equip_best(run: Run, c: RunCompanion) -> void:
 			best = w
 	var old := run.inventory.held_by(c)
 	if best != old:
-		if old.enchant_level > 0 and run.move_enchant_block_reason(old, best) == "":
+		if old.is_enchanted() and run.move_enchant_block_reason(old, best) == "":
 			run.move_enchant(old, best)   # the enchantment goes with them to the better weapon
 			moves += 1
 		run.equip_weapon(c, best)

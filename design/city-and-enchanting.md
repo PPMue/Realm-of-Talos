@@ -21,7 +21,7 @@ level 1 costs 4, level 2 costs 8, of the facility's material).
 | Facility | Pays in | Level 1 | Level 2 |
 |---|---|---|---|
 | Watchtower | timber | The boss days and which boss comes are known | Tomorrow's fronts are known a day early |
-| Smithy | iron ore | Opens enchanting | An enchantment comes out +2 twice as often |
+| Smithy | iron ore | Opens enchanting | The smith offers two enchantments to choose from |
 | Tavern | timber | One more hire offered each week | Hires cost 25 gold less |
 | Inn | timber | Everyone heals 30% overnight instead of 20% | Every spell gets one use back each night |
 | Infirmary | timber | Stays are 3 days instead of 4 | Cures cost a quarter less |
@@ -35,21 +35,24 @@ day strip and the watch's report show only what the unimproved tower can see.
 
 ## Enchanting
 
-At the Smithy, once its first upgrade is built.
+At the Smithy, once its first upgrade is built. Revised on 2026-11-15: a weapon is plain or enchanted
+once ("Iron Sword+"); there are no levels.
 
 - Any weapon the company owns can be enchanted, in hand or in the armory.
-- **Each attempt adds +1, sometimes +2** (first guess: 20%; 40% with the Smithy's second upgrade),
-  never past the weapon's cap. The cost rises with the level the weapon already has (first guess:
-  to go from +n: n + 1 iron ore and 20 x (n + 1) gold).
-- **Each level is +1 to one stat, drawn at random from all eleven** (Health, Stamina, Strength, Magic,
-  Dexterity, Speed, Defence, Resistance, Critical, Luck, Build) while the weapon is held. Some come out
-  duds; that is intended. The same stat can come up again.
-- **The cap is by tier**: wooden +1, bronze +2, iron +3, steel +4, silver and platinum +5. A rare
-  weapon's cap follows the grade it needs (first guess: +4).
-- The weapon is named with its level ("Iron Sword +2") and lists what it gives ("+1 Strength, +1 Speed").
-- **Moving an enchantment**: for iron ore (first guess: 2) the smith moves a weapon's whole enchantment
-  to another owned weapon of the same type that has none. Levels above the new weapon's cap are lost,
-  the last ones gained first.
+- **The budget** is the net stat points an enchantment adds up to: wooden 1, bronze 2, iron 3, steel 4,
+  silver 5, platinum 6; a rare weapon 4.
+- **A roll**: every point is +1 to a stat drawn at random from all eleven (Health, Stamina, Strength,
+  Magic, Dexterity, Speed, Defence, Resistance, Critical, Luck, Build); the same stat can come up again,
+  some come out duds, and that is intended. A quarter of the rolls with a budget of 2 or more are
+  two-edged: one stat takes -k (k from 1 to half the budget) and k more points are rolled elsewhere, so
+  the net is still the budget. At most one stat is negative.
+- **Each attempt** costs 1 iron ore and 20 gold x the tier (at least 1; a rare weapon 60 gold), the
+  same every time. The smith offers a new roll (two with the Smithy's second upgrade) and the player
+  takes one or keeps what the weapon has; the cost is spent either way. An enchanted weapon can be
+  tried again any number of times.
+- The weapon is named with a + ("Iron Sword+") and lists what it gives ("+2 Strength", "-1 Luck").
+- **Moving an enchantment**: for 2 iron ore the smith moves a weapon's whole enchantment to a plain
+  owned weapon of the same type with at least the same budget.
 
 ## Still open
 

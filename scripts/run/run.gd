@@ -28,7 +28,7 @@ const FACILITY_NAMES: Array[String] = ["Watchtower", "Smithy", "Tavern", "Inn", 
 ## What each level does, as the design words it: [level 1, level 2] by Facility.
 const FACILITY_LINES := [
 	["The boss days and which boss comes are known", "Tomorrow's fronts are known a day early"],
-	["Opens enchanting", "An enchantment comes out +2 twice as often"],
+	["Opens enchanting", "The smith offers two enchantments to choose from"],
 	["One more hire offered each week", "Hires cost 25 gold less"],
 	["Everyone heals 30% overnight instead of 20%", "Every spell gets one use back each night"],
 	["Stays are 3 days instead of 4", "Cures cost a quarter less"],
@@ -91,6 +91,8 @@ var actions_used: Array[int] = []
 var _scavenge_sites: Array[ScavengeSite] = []
 ## Facility -> level (missing: 0). See facility_level.
 var facilities: Dictionary = {}
+## An enchanting attempt waiting for the player's choice (see enchant), or null.
+var enchant_offer: EnchantOffer
 ## The Watchtower level 2: the fronts of day _next_fronts_day, rolled a day early (see tomorrow_fronts).
 var _next_fronts: Array[Front] = []
 var _next_fronts_day: int = 0
@@ -461,6 +463,7 @@ func finish_battle(battle: Battle) -> BattleReport:
 const EVENT_FIRST := "First answer the matter at the gate."
 const NO_USEFUL_DRILL := "Nobody can learn anything from this week's drills."
 const NOBODY_FIT := "Nobody is fit to go."
+const OFFER_OPEN := "First choose what the smith offers."
 const FILL_EVERY_PLACE := "Fill every place."
 
 
@@ -1293,64 +1296,109 @@ func _roll_tomorrow() -> void:
 
 # ---------------------------------------------------------------- enchanting
 
-## The most levels `w` can hold: by tier (RunConfig.ENCHANT_CAP_BY_TIER), a rare weapon
-## RunConfig.ENCHANT_RARE_CAP.
-static func enchant_cap(w: OwnedWeapon) -> int:
+## The stat points an enchantment of `w` adds up to (net): by tier (RunConfig.ENCHANT_BUDGET_BY_TIER,
+## wooden 1 .. platinum 6), a rare weapon RunConfig.ENCHANT_RARE_BUDGET.
+static func enchant_budget(w: OwnedWeapon) -> int:
 	if w == null or w.data == null:
 		return 0
 	if w.data.is_rare():
-		return RunConfig.ENCHANT_RARE_CAP
-	return RunConfig.ENCHANT_CAP_BY_TIER[clampi(w.data.tier, 0, RunConfig.ENCHANT_CAP_BY_TIER.size() - 1)]
+		return RunConfig.ENCHANT_RARE_BUDGET
+	return RunConfig.ENCHANT_BUDGET_BY_TIER[clampi(w.data.tier, 0, RunConfig.ENCHANT_BUDGET_BY_TIER.size() - 1)]
 
 
-## What the next attempt on `w` costs: going from +n, (n + 1) x RunConfig.ENCHANT_ORE_PER_LEVEL iron
-## ore and (n + 1) x RunConfig.ENCHANT_GOLD_PER_LEVEL gold ("gold").
+## What one attempt on `w` costs, first or again: RunConfig.ENCHANT_ORE iron ore and
+## RunConfig.ENCHANT_GOLD_PER_TIER x the tier (at least 1) gold; a rare weapon RunConfig.ENCHANT_RARE_GOLD
+## ("gold").
 func enchant_cost(w: OwnedWeapon) -> Dictionary:
-	var step := (w.enchant_level if w != null else 0) + 1
-	return {RunConfig.IRON_ORE: step * RunConfig.ENCHANT_ORE_PER_LEVEL, "gold": step * RunConfig.ENCHANT_GOLD_PER_LEVEL}
+	var g := RunConfig.ENCHANT_GOLD_PER_TIER
+	if w != null and w.data != null:
+		g = RunConfig.ENCHANT_RARE_GOLD if w.data.is_rare() else RunConfig.ENCHANT_GOLD_PER_TIER * maxi(1, w.data.tier)
+	return {RunConfig.IRON_ORE: RunConfig.ENCHANT_ORE, "gold": g}
 
 
 ## Why `w` cannot be enchanted now, or "". An errand at the Smithy once it has its level 1; any weapon
-## the company owns, in hand or in the armory, below its cap.
+## the company owns, in hand or in the armory, plain or enchanted (then it is tried again); not while
+## an offer waits for a choice.
 func enchant_block_reason(w: OwnedWeapon) -> String:
 	var why := errand_block_reason()
 	if why != "":
 		return why
 	if facility_level(Facility.SMITHY) < 1:
 		return "The smithy cannot enchant until it is built up."
+	if enchant_offer != null:
+		return OFFER_OPEN
 	if w == null or not inventory.weapons.has(w):
 		return "That weapon is not the company's."
-	if w.enchant_level >= enchant_cap(w):
-		return "%s holds no more than +%d." % [w.data.display_name, enchant_cap(w)]
 	var cost := enchant_cost(w)
 	if not _can_afford(cost):
 		return "Needs %s." % _cost_with_gold(cost)
 	return ""
 
 
-## One attempt: pays enchant_cost(w) and adds a level, or two with RunConfig.ENCHANT_DOUBLE_PERCENT
-## (by Smithy level) when the cap leaves room. Each level is +1 to a stat drawn at random from all
-## eleven while the weapon is held (the same stat can come up again). The holder's HP rises with any
-## Health it gives. Returns what happened, or null if not allowed.
-func enchant(w: OwnedWeapon) -> EnchantResult:
+## One attempt: pays enchant_cost(w) and makes an offer of new rolls (one; two with the Smithy's level
+## 2; see roll_enchant), kept in `enchant_offer` until the player takes one (take_enchant) or keeps what
+## the weapon has (keep_enchant). Returns the offer, or null if not allowed.
+func enchant(w: OwnedWeapon) -> EnchantOffer:
 	if enchant_block_reason(w) != "":
 		return null
-	var r := EnchantResult.new()
-	r.weapon = w
-	r.level_before = w.enchant_level
-	r.cost = enchant_cost(w)
-	_pay_with_gold(r.cost)
-	var percent: int = RunConfig.ENCHANT_DOUBLE_PERCENT[clampi(facility_level(Facility.SMITHY) - 1, 0, RunConfig.ENCHANT_DOUBLE_PERCENT.size() - 1)]
-	r.double = rng.randi_range(1, 100) <= percent
-	r.levels_gained = 2 if r.double and w.enchant_level + 2 <= enchant_cap(w) else 1
-	for i in r.levels_gained:
-		var key: String = Stat.COMPANION_KEYS[rng.randi_range(0, Stat.COMPANION_KEYS.size() - 1)]
-		w.enchant_order.append(key)
-		r.stats.append(key)
+	var offer := EnchantOffer.new()
+	offer.weapon = w
+	offer.current = w.enchant_stats.duplicate()
+	offer.cost = enchant_cost(w)
+	_pay_with_gold(offer.cost)
+	var count: int = RunConfig.ENCHANT_ROLLS_BY_SMITHY[clampi(facility_level(Facility.SMITHY) - 1, 0, RunConfig.ENCHANT_ROLLS_BY_SMITHY.size() - 1)]
+	for i in count:
+		offer.rolls.append(roll_enchant(enchant_budget(w)))
+	enchant_offer = offer
+	return offer
+
+
+## The weapon of the open offer takes its roll `index`. Returns false if there is no such offer or roll.
+func take_enchant(index: int) -> bool:
+	if enchant_offer == null or index < 0 or index >= enchant_offer.rolls.size():
+		return false
+	_set_enchant(enchant_offer.weapon, enchant_offer.rolls[index])
+	enchant_offer = null
+	return true
+
+
+## The weapon of the open offer keeps what it has (plain stays plain; the cost is spent). False if no
+## offer is open.
+func keep_enchant() -> bool:
+	if enchant_offer == null:
+		return false
+	enchant_offer = null
+	return true
+
+
+## A new enchantment of `budget` net points: each point +1 to a stat drawn at random from all eleven
+## (the same can come up again). With RunConfig.ENCHANT_TWO_EDGED_PERCENT, and only when the budget is 2
+## or more, it is two-edged: one stat drawn at random takes -k (k drawn evenly from 1 to budget / 2,
+## rounded down) and k more points are rolled, none of them on that stat. The net is always the budget;
+## at most one stat is negative.
+func roll_enchant(budget: int) -> Dictionary:
+	var out := {}
+	var keys: Array[String] = Stat.COMPANION_KEYS.duplicate()
+	var k := 0
+	if budget >= 2 and rng.randi_range(1, 100) <= RunConfig.ENCHANT_TWO_EDGED_PERCENT:
+		var bad: String = keys.pop_at(rng.randi_range(0, keys.size() - 1))
+		k = rng.randi_range(1, budget / 2)
+		out[bad] = -k
+	for i in budget + k:
+		var key: String = keys[rng.randi_range(0, keys.size() - 1)]
+		out[key] = int(out.get(key, 0)) + 1
+	return out
+
+
+## Puts `stats` on `w` (empty: plain) and passes it to the holder: HP rises by any Health it adds over
+## what the weapon gave, and is held to the new max.
+func _set_enchant(w: OwnedWeapon, stats: Dictionary) -> void:
+	var before := int(w.enchant_stats.get(Stat.HP, 0))
+	w.enchant_stats = stats.duplicate()
 	inventory.refresh(w)
 	if w.holder != null:
-		w.holder.hp = mini(w.holder.max_hp(), w.holder.hp + r.stats.count(Stat.HP))
-	return r
+		var gained := maxi(0, int(stats.get(Stat.HP, 0)) - before)
+		w.holder.hp = clampi(w.holder.hp + gained, 1, w.holder.max_hp())
 
 
 ## What moving an enchantment costs (material id -> amount).
@@ -1359,40 +1407,40 @@ func move_enchant_cost() -> Dictionary:
 
 
 ## Why `from`'s enchantment cannot be moved to `to` now, or "". An errand at the Smithy (level 1): both
-## the company's, the same weapon type, `from` enchanted and `to` not.
+## the company's, the same weapon type, `from` enchanted, `to` plain with at least `from`'s budget.
 func move_enchant_block_reason(from: OwnedWeapon, to: OwnedWeapon) -> String:
 	var why := errand_block_reason()
 	if why != "":
 		return why
 	if facility_level(Facility.SMITHY) < 1:
 		return "The smithy cannot enchant until it is built up."
+	if enchant_offer != null:
+		return OFFER_OPEN
 	if from == null or to == null or not inventory.weapons.has(from) or not inventory.weapons.has(to):
 		return "That weapon is not the company's."
 	if from == to:
 		return "Choose another weapon to move it to."
-	if from.enchant_level == 0:
+	if not from.is_enchanted():
 		return "%s has no enchantment." % from.data.display_name
-	if to.enchant_level > 0:
+	if to.is_enchanted():
 		return "%s is already enchanted." % to.title()
 	if from.data.weapon_type != to.data.weapon_type:
 		return "Only to a weapon of the same type (%s)." % WeaponData.type_name(from.data.weapon_type).to_lower()
+	if enchant_budget(to) < enchant_budget(from):
+		return "%s cannot hold an enchantment that strong." % to.data.display_name
 	if not _can_pay(move_enchant_cost()):
 		return "Needs %s." % cost_text(move_enchant_cost())
 	return ""
 
 
-## Moves `from`'s whole enchantment to `to` for move_enchant_cost(). Levels above `to`'s cap are lost,
-## the last ones gained first.
+## Moves `from`'s whole enchantment to `to` for move_enchant_cost().
 func move_enchant(from: OwnedWeapon, to: OwnedWeapon) -> bool:
 	if move_enchant_block_reason(from, to) != "":
 		return false
 	_pay(move_enchant_cost())
-	to.enchant_order = from.enchant_order.slice(0, enchant_cap(to))
-	from.enchant_order.clear()
-	inventory.refresh(from)
-	inventory.refresh(to)
-	if from.holder != null:
-		from.holder.hp = mini(from.holder.hp, from.holder.max_hp())
+	var stats := from.enchant_stats.duplicate()
+	_set_enchant(from, {})
+	_set_enchant(to, stats)
 	return true
 
 
@@ -1713,6 +1761,8 @@ func _begin_day() -> void:
 
 
 func _end_day() -> void:
+	if enchant_offer != null:
+		keep_enchant()   # the day ends: the weapon keeps what it has
 	for c in available():
 		c.heal(day_heal(c))
 		if facility_level(Facility.INN) >= 2:

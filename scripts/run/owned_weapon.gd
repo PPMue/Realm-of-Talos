@@ -3,42 +3,46 @@ extends RefCounted
 ## One weapon in the run inventory. Two of the same weapon are two OwnedWeapons.
 ## `holder` is the companion holding it, or null while it sits in the armory.
 ##
-## It may be enchanted (Run.enchant): each level is +1 to one stat while it is held. The holder's
+## It is plain or enchanted (Run.enchant): an enchantment is a set of stat changes while it is held,
+## adding up to the weapon's budget (Run.enchant_budget), at most one of them negative. The holder's
 ## progress carries the held weapon's enchantment (CompanionProgress.enchant), so their stats include it.
 
 var data: WeaponData
 var holder: RunCompanion
-## The stat each enchantment level gave (Stat keys), in the order gained. Its size is the level.
-var enchant_order: Array[String] = []
-## Levels of enchantment (0: none).
-var enchant_level: int:
-	get:
-		return enchant_order.size()
-## Stat key -> amount it gives while held (only stats that came up).
-var enchant_stats: Dictionary:
-	get:
-		var out := {}
-		for key in enchant_order:
-			out[key] = int(out.get(key, 0)) + 1
-		return out
+## Stat key -> amount while held (one may be negative); empty: plain.
+var enchant_stats: Dictionary = {}
 
 
 func _init(p_data: WeaponData = null) -> void:
 	data = p_data
 
 
-## "Iron Sword +2"; just the name without enchantment.
+func is_enchanted() -> bool:
+	return not enchant_stats.is_empty()
+
+
+## "Iron Sword+", or just the name when plain.
 func title() -> String:
 	if data == null:
 		return ""
-	return data.display_name if enchant_level == 0 else "%s +%d" % [data.display_name, enchant_level]
+	return "%s+" % data.display_name if is_enchanted() else data.display_name
 
 
-## What the enchantment gives, one line a stat, in stat order: "+1 Strength", "+2 Speed".
+## What the enchantment gives, one line a stat: "+2 Strength", "-1 Luck" (positives in stat order,
+## the negative last).
 func enchant_lines() -> Array[String]:
+	return stat_lines(enchant_stats)
+
+
+## The same lines for any set of stat changes (an offered roll, say).
+static func stat_lines(stats: Dictionary) -> Array[String]:
 	var out: Array[String] = []
-	var s := enchant_stats
+	var minus: Array[String] = []
 	for key in Stat.COMPANION_KEYS:
-		if s.has(key):
-			out.append("+%d %s" % [int(s[key]), Stat.name_of(key)])
+		var n := int(stats.get(key, 0))
+		if n > 0:
+			out.append("+%d %s" % [n, Stat.name_of(key)])
+		elif n < 0:
+			minus.append("%d %s" % [n, Stat.name_of(key)])
+	out.append_array(minus)
 	return out
