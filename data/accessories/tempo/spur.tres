@@ -8,7 +8,7 @@
 script = ExtResource("2_lb55p")
 kind = 23
 amount = -1
-recovery_at_least = 2
+recovery_at_least = 3
 
 [sub_resource type="Resource" id="Resource_rm8f6"]
 script = ExtResource("1_fxxfp")
@@ -21,5 +21,5 @@ script = ExtResource("3_8o8ul")
 id = "spur"
 display_name = "Spur"
 family = 3
-gives = Array[String](["First action: 1 less recovery (not below 1)", "First 2 actions: 1 less recovery (not below 1)", "First 3 actions: 1 less recovery (not below 1)", "First 4 actions: 1 less recovery (not below 1)", "First 5 actions: 1 less recovery (not below 1)"])
+gives = Array[String](["First action: 1 less recovery (not below 2)", "First 2 actions: 1 less recovery (not below 2)", "First 3 actions: 1 less recovery (not below 2)", "First 4 actions: 1 less recovery (not below 2)", "First 5 actions: 1 less recovery (not below 2)"])
 effects = Array[ExtResource("1_fxxfp")]([SubResource("Resource_rm8f6")])

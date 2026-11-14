@@ -28,6 +28,12 @@ var elites: Dictionary = {}
 ## Accessories crafted, by type id; and accessories put on (a new wearer).
 var crafted: Dictionary = {}
 var worn_changes := 0
+## Battle step 2: neighbours covered by a Guard, retreats sounded, and the companions' actions in each
+## battle sorted busiest first ([busiest, second, third, fourth], summed over battles of four standing
+## at the start).
+var covers := 0
+var retreats := 0
+var actions_by_rank: Array[int] = [0, 0, 0, 0]
 
 ## The order the city is built up in, timber facilities: what helps the company stay in the fight
 ## first (shorter stays, better overnight heal, stronger walls, XP for the bench), then the rest.
@@ -629,17 +635,29 @@ func spell_fraction(run: Run) -> float:
 ## Greedy battle play: each ready companion casts a sensible spell if it has one (see cast_spell),
 ## else uses an affordable art if it has one, otherwise attacks, always at the enemy with the least HP.
 ## It answers the mechanics in obvious ways: it never strikes an enemy whose reflecting stance is up
-## (it hits another, or guards or focuses instead), and it guards when a heavy blow it is the likely
-## target of lands next tick.
+## (it hits another, or guards or focuses instead), it covers a neighbour about to fall (cover_ward),
+## it guards when a heavy blow aimed at it lands next tick, and it sounds the retreat when the fight is
+## going badly (should_retreat).
 func play_battle(b: Battle) -> void:
 	var ticks := 0
+	var acted := {}
 	while not b.is_over() and ticks < 1000:
 		ticks += 1
+		if should_retreat(b):
+			b.retreat()
+			retreats += 1
+			break
 		if b.can_wait():
 			b.wait()
 			continue
 		var c := b.ready_companions()[0]
+		acted[c] = int(acted.get(c, 0)) + 1
 		if cast_spell(b, c):
+			continue
+		var ward := cover_ward(b, c)
+		if ward != null:
+			b.guard(c, ward)
+			covers += 1
 			continue
 		if should_guard(b, c):
 			b.guard(c)
@@ -669,6 +687,52 @@ func play_battle(b: Battle) -> void:
 				break
 		if not done:
 			b.attack(c, target)
+	note_actions(b, acted)
+
+
+## The neighbour `c` should cover this turn, or null: one who would fall this turn (Battle.falls_on_turn
+## 1) when, with `c` guarding them, neither would (Battle.guard_preview).
+func cover_ward(b: Battle, c: CompanionUnit) -> CompanionUnit:
+	if b.is_lone_companion(c):
+		return null
+	var wards := b.guard_wards(c)
+	for i in range(1, wards.size()):
+		var w := wards[i]
+		if b.falls_on_turn(w) != 1:
+			continue
+		var p := b.guard_preview(c, w)
+		if not p.falls and not p.ward_falls:
+			return w
+	return null
+
+
+## Retreat (not from a boss: Battle.can_retreat) when at least half the line is injured and the enemies
+## still have more than half their Health.
+func should_retreat(b: Battle) -> bool:
+	if not b.can_retreat():
+		return false
+	var line := b.line()
+	if (line.size() - b.standing().size()) * 2 < line.size():
+		return false
+	var left := 0
+	var full := 0
+	for e in b.enemies:
+		left += maxi(0, e.hp)
+		full += e.max_hp()
+	return left * 2 > full
+
+
+## Records how the actions of a finished battle were spread (actions_by_rank).
+func note_actions(b: Battle, acted: Dictionary) -> void:
+	if b.line().size() != 4:
+		return
+	var counts: Array[int] = []
+	for c in b.line():
+		counts.append(int(acted.get(c, 0)))
+	counts.sort()
+	counts.reverse()
+	for i in 4:
+		actions_by_rank[i] += counts[i]
 
 
 ## Guard when an enemy acts next tick with a heavy single blow aimed at this companion

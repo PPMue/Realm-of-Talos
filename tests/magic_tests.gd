@@ -225,14 +225,18 @@ func test_spell_costs_no_stamina_and_one_tick() -> void:
 
 
 func test_spell_recovery_by_tier() -> void:
+	# Four in the line (the cap is 3): tier 1 sits out 2, tier 2 3, tier 3 3 (held to the cap).
+	var four: Array[CompanionData] = t.three_companions()
+	four.append(t.make_companion("Fourth"))
 	for tier in [1, 2, 3]:
 		var sp := make_spell("S%d" % tier, SpellData.School.BLACK, tier, SpellData.Targeting.ONE_ENEMY, 1)
-		var b := battle_with(t.three_companions(), one(enemy_with(0)), [sp])
+		sp.recovery = tier + 1
+		var b := battle_with(four, one(enemy_with(0)), [sp])
 		b.cast(b.roster[2], sp, b.enemies[0])
-		t.eq(b.roster[2].recovery, tier, "tier %d sits out %d" % [tier, tier])
+		t.eq(b.roster[2].recovery, mini(tier + 1, 3), "tier %d sits out %d" % [tier, mini(tier + 1, 3)])
 	var lib := SpellLibrary.load_default()
 	for sp in lib.spells:
-		t.eq(sp.recovery, sp.tier, "%s: recovery grows with tier" % sp.display_name)
+		t.eq(sp.recovery, sp.tier + 1, "%s: recovery grows with tier" % sp.display_name)
 
 
 # ---------------------------------------------------------------- proficiency and learning
@@ -797,7 +801,7 @@ func load_spell(path: String) -> SpellData:
 func test_thornward_reflects_like_a_stance() -> void:
 	var thorn := load_spell("white/thornward")
 	t.eq([thorn.school, thorn.tier, thorn.targeting, thorn.uses, thorn.recovery],
-		[SpellData.School.WHITE, 2, SpellData.Targeting.ONE_ALLY, 4, 2], "Thornward: white, tier 2, one ally, 4 uses, recovery 2")
+		[SpellData.School.WHITE, 2, SpellData.Targeting.ONE_ALLY, 4, 3], "Thornward: white, tier 2, one ally, 4 uses, recovery 3")
 	t.eq([thorn.effect.display_name, thorn.effect.reflect_percent, int(thorn.effect.stat_mods.get(Stat.DEF, 0)), thorn.effect.duration_ticks],
 		["Thornward", 40, 2, 3], "reflects 40%, DEF +2, 3 turns")
 	# The brute hits everyone, left to right, for STR 10 + Mt 20 every turn.
@@ -834,7 +838,7 @@ func test_thornward_reflects_like_a_stance() -> void:
 func test_blight_kills_and_credits_the_caster() -> void:
 	var blight := load_spell("black/blight")
 	t.eq([blight.school, blight.tier, blight.targeting, blight.uses, blight.recovery, blight.might, blight.hit],
-		[SpellData.School.BLACK, 2, SpellData.Targeting.ONE_ENEMY, 4, 2, 3, 90], "Blight: black, tier 2, one enemy, 4 uses, recovery 2, Mt 3, Hit 90")
+		[SpellData.School.BLACK, 2, SpellData.Targeting.ONE_ENEMY, 4, 3, 3, 90], "Blight: black, tier 2, one enemy, 4 uses, recovery 3, Mt 3, Hit 90")
 	t.eq([blight.effect.display_name, blight.effect.damage_per_tick, blight.effect.duration_ticks], ["Blighted", 4, 4], "Blighted: 4 a turn for 4 turns")
 	var a: CompanionData = t.make_companion("A", 100)
 	var mage := caster("Mage", 10, [blight], 100)
@@ -858,7 +862,7 @@ func test_blight_kills_and_credits_the_caster() -> void:
 func test_sanctuary_heals_and_cleanses_everyone() -> void:
 	var sanctuary := load_spell("white/sanctuary")
 	t.eq([sanctuary.school, sanctuary.tier, sanctuary.targeting, sanctuary.uses, sanctuary.recovery, sanctuary.heals, sanctuary.heal_power, sanctuary.cleanse],
-		[SpellData.School.WHITE, 3, SpellData.Targeting.ALL_ALLIES, 2, 3, true, 3, true], "Sanctuary: white, tier 3, every ally, 2 uses, recovery 3, heals MAG + 3, cleanses")
+		[SpellData.School.WHITE, 3, SpellData.Targeting.ALL_ALLIES, 2, 4, true, 3, true], "Sanctuary: white, tier 3, every ally, 2 uses, recovery 4, heals MAG + 3, cleanses")
 	var cs: Array[CompanionData] = [t.make_companion("A", 50), t.make_companion("B", 50), caster("Mage", 9, [sanctuary], 50)]
 	var b := battle_with(cs, one(enemy_with(0)), [sanctuary])
 	for c in b.roster:
@@ -880,7 +884,7 @@ func test_sanctuary_heals_and_cleanses_everyone() -> void:
 func test_entomb_delays_once() -> void:
 	var entomb := load_spell("black/entomb")
 	t.eq([entomb.school, entomb.tier, entomb.targeting, entomb.uses, entomb.recovery, entomb.might, entomb.hit, entomb.delay_ticks],
-		[SpellData.School.BLACK, 3, SpellData.Targeting.ONE_ENEMY, 2, 3, 8, 90, 3], "Entomb: black, tier 3, one enemy, 2 uses, recovery 3, Mt 8, Hit 90, delay 3")
+		[SpellData.School.BLACK, 3, SpellData.Targeting.ONE_ENEMY, 2, 4, 8, 90, 3], "Entomb: black, tier 3, one enemy, 2 uses, recovery 4, Mt 8, Hit 90, delay 3")
 	var acts: Array[EnemyActionData] = [t.make_action("Slam", 6)]
 	var foe: EnemyData = t.make_enemy("Foe", acts, 500)
 	foe.resistance = 0

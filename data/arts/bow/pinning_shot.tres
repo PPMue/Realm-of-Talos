@@ -18,6 +18,6 @@ description = "An arrow through the boot: it cannot dodge the next blows."
 weapon_type = 3
 tier = 1
 stamina_cost = 5
-recovery = 1
+recovery = 2
 durability_cost = 1
 target_effect = SubResource("Resource_target")

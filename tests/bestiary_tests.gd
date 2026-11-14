@@ -347,8 +347,8 @@ func test_recovery_pressure_and_lone_companion() -> void:
 	var e: EnemyData = t.make_enemy("Clock", [stare] as Array[EnemyActionData], 999)
 	var b: Battle = t.make_battle(cs(3, 99), t.one_enemy(e))
 	var actor := b.roster[0]
-	t.check(b.guard(actor), "guard (recovery 1)")
-	t.eq(actor.recovery, 1 + 2, "the actor: its own recovery plus 2")
+	t.check(b.guard(actor), "guard (recovery 2)")
+	t.eq(actor.recovery, 2 + 2, "the actor: its own recovery plus 2, uncapped")
 	t.eq(b.roster[1].recovery, 2 - 1, "others: +2, then this tick's countdown")
 	t.eq(b.roster[2].recovery, 1, "every companion")
 	t.eq(events_of(b, "recovery").size(), 3, "a recovery event for each")
@@ -359,7 +359,7 @@ func test_recovery_pressure_and_lone_companion() -> void:
 	t.set_injured(b2.roster[0])
 	b2.roster[0].state = CompanionUnit.State.INJURED
 	b2.guard(b2.roster[1])
-	t.eq(b2.roster[1].recovery, 1 + 3, "hit and held")
+	t.eq(b2.roster[1].recovery, 0 + 3, "hit and held (alone: none of its own, 3 from the enemy)")
 	t.eq(b2.roster[0].recovery, 0, "the injured one gains none")
 	# The lone companion still ignores recovery.
 	t.check(b2.is_lone_companion(b2.roster[1]), "alone")

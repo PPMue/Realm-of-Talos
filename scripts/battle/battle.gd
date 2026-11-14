@@ -8,6 +8,12 @@ extends RefCounted
 ##   3. enemies at 0 act, left to right, then pick their next action (and, for one that strikes a single
 ##      companion, its target: the aim is fixed then and shown; see pick_next_action)
 ##   4. companion recovery counters tick down (not the companion who just acted)
+##
+## A companion's recovery after their own action is never more than the others standing
+## (recovery_cap): two alternate, three take turns, four have one to spare. Recovery an enemy adds
+## comes on top. Guard can cover a standing neighbour (guard): single blows that would land on them
+## this turn land on the guard instead, halved. Outside a boss fight the company can sound the retreat
+## (retreat): the battle is lost at once and only those already injured are.
 ##   5. damage over time (poison, burning) strikes every unit that carries it
 ##   6. timed effects (Guard, buffs, defends, debuffs) lose a tick and expire
 ##
@@ -68,6 +74,14 @@ var _next_ally_from: int = 0
 ## True for an elite fight (set by Run.start_battle): accessories that count against a boss count
 ## against every enemy here (TraitModifier.big_fight).
 var elite: bool = false
+## True when the company may sound the retreat (Run.start_battle: every fight but a boss's).
+var allow_retreat: bool = false
+## True once the battle was ended by retreat() (a DEFEAT).
+var retreated: bool = false
+## This turn's cover (guard with a ward): single blows on `_cover_ward` land on `_cover_guard`. Both null
+## when nobody covers anyone; cleared when the turn ends or either is injured.
+var _cover_guard: CompanionUnit = null
+var _cover_ward: CompanionUnit = null
 
 
 ## `party` holds each companion's progress, in the same order as `companion_data`; it is read and
@@ -133,10 +147,21 @@ func kills_of(c: CompanionUnit) -> int:
 	return int(kills.get(c, 0))
 
 
-## True when only one companion is able to act at all; that companion ignores recovery.
+## True when only one companion is able to act at all; that companion ignores recovery (enemy-added
+## too). The same rule as recovery_cap with nobody else standing.
 func is_lone_companion(c: CompanionUnit) -> bool:
 	var active := active_companions()
 	return active.size() == 1 and active[0] == c
+
+
+## The most actions `c` sits out after their own action: the other companions standing. With one
+## other at most 1, with two at most 2, alone 0. Recovery an enemy adds (add_recovery) is not held to it.
+func recovery_cap(c: CompanionUnit) -> int:
+	var n := 0
+	for o in active_companions():
+		if o != c:
+			n += 1
+	return n
 
 
 func can_act(c: CompanionUnit) -> bool:
@@ -179,25 +204,26 @@ func art_block_reason(c: CompanionUnit, art: CombatArtData) -> String:
 
 
 ## Actions `c` sits out after `art`: its recovery plus what traits change (TraitModifier.Kind.RECOVERY),
-## never below 0.
+## never below 0, and never more than recovery_cap (the number the action menu shows is what happens).
 func art_recovery(c: CompanionUnit, art: CombatArtData) -> int:
 	var q := c.trait_query(TraitModifier.Kind.RECOVERY)
 	q.action = TraitModifier.Action.ART
 	q.weapon_type = art.weapon_type
 	q.recovery = art.recovery
-	return maxi(0, art.recovery + TraitRules.sum(q))
+	return clampi(art.recovery + TraitRules.sum(q), 0, recovery_cap(c))
 
 
 ## Actions `c` sits out after an attack, a spell, Guard or Focus (`action`: TraitModifier.Action, ANY for
 ## Guard and Focus): `base` plus what traits and accessories change (TraitModifier.Kind.RECOVERY; a
-## Spur only where `base` is 2 or more), never below 0. An art's: art_recovery.
+## Spur only where `base` is 3 or more), never below 0 and never more than recovery_cap. An art's:
+## art_recovery.
 func action_recovery(c: CompanionUnit, base: int, action: int = TraitModifier.Action.ANY, school: int = -1) -> int:
 	var q := c.trait_query(TraitModifier.Kind.RECOVERY)
 	q.action = action
 	q.school = school
 	q.weapon_type = c.weapon().weapon_type if action == TraitModifier.Action.ATTACK and c.weapon() != null else -1
 	q.recovery = base
-	return maxi(0, base + TraitRules.sum(q))
+	return clampi(base + TraitRules.sum(q), 0, recovery_cap(c))
 
 
 ## Stamina `art` costs `c`: its own cost plus what traits add (TraitModifier.Kind.ART_STAMINA), never
@@ -500,14 +526,149 @@ func cast(c: CompanionUnit, spell: SpellData, target: Combatant = null) -> bool:
 	return true
 
 
-func guard(c: CompanionUnit) -> bool:
+## Guard: `c` takes half damage until the turn ends. With `ward`, a standing neighbour (guard_wards),
+## `c` also covers them this turn: every single-target enemy action that would land on the ward lands on
+## `c` instead (worked out against `c`, halved by the Guard; its effect and added recovery land on `c`;
+## a "cover" event before it). Blows on the whole line are not caught. The cover ends with the turn, or
+## at once when either is injured. `ward` null or `c`: guarding themselves.
+func guard(c: CompanionUnit, ward: CompanionUnit = null) -> bool:
 	if not can_act(c):
+		return false
+	if ward == c:
+		ward = null
+	if ward != null and not guard_wards(c).has(ward):
 		return false
 	_begin_tick()
 	c.add_effect(StatusEffect.guard())
-	_log("%s guards." % c.display_name)
-	_emit({"type": "guard", "actor": c})
+	if ward != null:
+		_cover_guard = c
+		_cover_ward = ward
+		_log("%s guards %s." % [c.display_name, ward.display_name])
+	else:
+		_log("%s guards." % c.display_name)
+	_emit({"type": "guard", "actor": c, "ward": ward})
 	_end_player_action(c, action_recovery(c, BattleConfig.RECOVERY_GUARD), true)
+	return true
+
+
+## Who `c` can guard: themselves first, then their standing neighbours in line() (the places either side;
+## an injured one keeps their place but cannot be covered). Empty if `c` cannot act.
+func guard_wards(c: CompanionUnit) -> Array[CompanionUnit]:
+	var out: Array[CompanionUnit] = []
+	if c == null or not c.is_active() or not roster.has(c):
+		return out
+	out.append(c)
+	var l := line()
+	var i := l.find(c)
+	for j in [i - 1, i + 1]:
+		if j >= 0 and j < l.size() and l[j].is_active():
+			out.append(l[j])
+	return out
+
+
+## What `c` would take this turn if they guarded `ward` now (`ward` == `c` or null: themselves) and every
+## blow landed, none critical. Only actions that land this turn (countdown 1) count, in the order the
+## enemies act. {"blows": [{"enemy", "action", "whole_line", "forecast"}] (forecasts on `c` with the
+## Guard's halving; a caught blow included), "damage": what `c` loses (blows, then damage over time),
+## "falls": bool, "ward_damage" and "ward_falls": the same for the ward with the cover up (blows on the
+## whole line and damage over time; a single blow too if `c` falls first)}. For `c` alone, the ward's
+## figures are `c`'s. A Locket or Clings to Life is counted once for each.
+func guard_preview(c: CompanionUnit, ward: CompanionUnit = null) -> Dictionary:
+	if ward == null:
+		ward = c
+	var out := {"blows": [], "damage": 0, "falls": false, "ward_damage": 0, "ward_falls": false}
+	if c == null or not c.is_active() or not roster.has(c) or not ward.is_active():
+		return out
+	var saved: Array[StatusEffect] = c.effects.duplicate()
+	c.add_effect(StatusEffect.guard())
+	var hp := {c: c.hp, ward: ward.hp}
+	var lost := {c: 0, ward: 0}
+	var saves := {c: c.survived_once, ward: ward.survived_once}
+	var blows: Array = []
+	for e in living_enemies():
+		var a := e.pending_action
+		if a == null or e.countdown != 1:
+			continue
+		var whole := a.targeting == EnemyActionData.Targeting.ALL_COMPANIONS
+		var hits: Array[CompanionUnit] = []
+		if whole:
+			hits.append(c)
+			if ward != c:
+				hits.append(ward)
+		elif a.targeting == EnemyActionData.Targeting.SINGLE and e.pending_target == c:
+			hits.append(c)
+		elif a.targeting == EnemyActionData.Targeting.SINGLE and e.pending_target == ward:
+			hits.append(c if int(hp[c]) > 0 else ward)   # caught while the guard stands
+		for u in hits:
+			if int(hp[u]) <= 0:
+				continue
+			var f: AttackForecast
+			if a.deals_damage:
+				f = enemy_forecast(e, a, u, whole)
+			else:
+				f = AttackForecast.new()
+				f.hit = 100
+			if u == c:
+				blows.append({"enemy": e, "action": a, "whole_line": whole, "forecast": f})
+			var dmg := f.damage if a.deals_damage else 0
+			if dmg >= int(hp[u]) and not bool(saves[u]):
+				var stand := _survive_hp_at(u, int(hp[u]))
+				if stand > 0:
+					saves[u] = true
+					hp[u] = maxi(int(hp[u]), stand)
+					dmg = int(hp[u]) - stand
+			hp[u] = int(hp[u]) - dmg
+			lost[u] = int(lost[u]) + dmg
+	c.effects.assign(saved)
+	var units: Array[CompanionUnit] = [c]
+	if ward != c:
+		units.append(ward)
+	for u in units:
+		if int(hp[u]) > 0:
+			var dot := _dot_this_turn(u)
+			hp[u] = int(hp[u]) - dot
+			lost[u] = int(lost[u]) + dot
+	out.blows = blows
+	out.damage = int(lost[c])
+	out.falls = int(hp[c]) <= 0
+	out.ward_damage = int(lost[ward])
+	out.ward_falls = int(hp[ward]) <= 0
+	return out
+
+
+## The damage over time `c` takes at the end of this turn (less a Talisman's share; none if immune).
+func _dot_this_turn(c: CompanionUnit) -> int:
+	var total := 0
+	for fx in c.effects:
+		if fx.damage_per_tick > 0:
+			total += fx.damage_per_tick
+	var cut := _trait_sum(c, TraitModifier.Kind.DOT_TAKEN_PERCENT)
+	if cut != 0:
+		total = maxi(0, floori(total * (100 + maxi(-100, cut)) / 100.0))
+	if _trait_any(c, TraitModifier.Kind.DOT_IMMUNE):
+		return 0
+	return total
+
+
+## True while the company may still fall back: allowed (not a boss) and the battle not over.
+func can_retreat() -> bool:
+	return allow_retreat and not is_over()
+
+
+## Sounds the retreat: no turn passes and nothing lands; the battle is lost at once (DEFEAT, `retreated`),
+## with a "retreat" event, and what the battle taught is learned as on any end. Only those already
+## injured are (Run.finish_battle sends only them to the Infirmary).
+func retreat() -> bool:
+	if not can_retreat():
+		return false
+	events.clear()
+	retreated = true
+	outcome = Outcome.DEFEAT
+	_cover_guard = null
+	_cover_ward = null
+	_log("The company sounds the retreat.")
+	_emit({"type": "retreat"})
+	learn_after_battle()
 	return true
 
 
@@ -649,6 +810,10 @@ func perform_enemy_action(e: EnemyUnit, action: EnemyActionData) -> void:
 			var target := e.pending_target if action == e.pending_action else null
 			if target == null or not target.is_active() or not roster.has(target):
 				target = pick_target(e.aims_reversed(action))   # no aim kept: drawn as it lands
+			if target != null and target == _cover_ward and _cover_guard != null and _cover_guard.is_active():
+				_log("  %s steps in front of %s." % [_cover_guard.display_name, target.display_name])
+				_emit({"type": "cover", "guard": _cover_guard, "ward": target, "enemy": e, "action": action})
+				target = _cover_guard
 			if target != null:
 				_enemy_strike(e, action, target)
 		EnemyActionData.Targeting.ALL_COMPANIONS:
@@ -718,6 +883,8 @@ func _is_valid_target(target: EnemyUnit) -> bool:
 
 
 func _begin_tick() -> void:
+	_cover_guard = null
+	_cover_ward = null
 	for c in roster:
 		c.felled_this_action = false
 	tick += 1
@@ -730,7 +897,7 @@ func _end_player_action(c: CompanionUnit, recovery: int, steady: bool = false) -
 	if c.felled_this_action and _trait_any(c, TraitModifier.Kind.KILL_NO_RECOVERY):
 		recovery = 0
 		_log("  %s presses on: no recovery." % c.display_name)
-	c.recovery = recovery
+	c.recovery = mini(recovery, recovery_cap(c))   # someone may have fallen during the action
 	var breath := _trait_sum(c, TraitModifier.Kind.ACTION_STAMINA)
 	if breath != 0 and c.is_active():
 		c.stamina = clampi(c.stamina + breath, 0, c.max_stamina())
@@ -790,6 +957,8 @@ func _advance(acted: CompanionUnit) -> void:
 		for expired in unit.tick_effects():
 			if expired.display_name != "Guard":
 				_log("%s's %s wears off." % [unit.display_name, expired.display_name])
+	_cover_guard = null
+	_cover_ward = null
 	_check_end()
 
 
@@ -1351,6 +1520,12 @@ func _injure(c: CompanionUnit) -> void:
 		injured_ever.append(c)
 	_log("  %s is injured and out of the battle!" % c.display_name)
 	_emit({"type": "injured", "target": c})
+	if c == _cover_guard or c == _cover_ward:
+		_cover_guard = null
+		_cover_ward = null
+	# Fewer standing: nobody waits longer than there are others now (enemy-added recovery included).
+	for o in active_companions():
+		o.recovery = mini(o.recovery, recovery_cap(o))
 	for e in _aimed_at(c):
 		var to := _draw_aim(e, e.pending_action)
 		if to == null:

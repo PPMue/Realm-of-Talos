@@ -23,10 +23,12 @@ const EFFECTIVE_DAMAGE_BONUS_PERCENT := 50
 const WEIGHT_PENALTY_PER_POINT := 1     # DEX and SPD lost per point of total WT above BLD
 
 # --- Recovery: how many following player actions a companion sits out ---
-const RECOVERY_ATTACK := 1
-const RECOVERY_GUARD := 1
-const RECOVERY_FOCUS := 1
-# Combat arts carry their own recovery in their data (tier 1: 1, tier 2: 2, tier 3: 3).
+const RECOVERY_ATTACK := 2
+const RECOVERY_GUARD := 2
+const RECOVERY_FOCUS := 2
+# Combat arts and spells carry their own recovery in their data (tier 1: 2, tier 2: 3, tier 3: 4).
+# Nobody sits out longer than there are others standing (Battle.recovery_cap); recovery an enemy adds
+# comes on top.
 
 # --- Guard (lasts until the end of the tick it was used in) ---
 const GUARD_DAMAGE_TAKEN_MULT := 0.5

@@ -17,6 +17,6 @@ description = "Bang the haft on the shield and dare them to come."
 weapon_type = 1
 tier = 1
 stamina_cost = 5
-recovery = 1
+recovery = 2
 durability_cost = 1
 self_effect = SubResource("Resource_self")

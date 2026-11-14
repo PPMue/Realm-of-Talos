@@ -10,6 +10,6 @@ school = 1
 tier = 1
 targeting = 2
 uses = 6
-recovery = 1
+recovery = 2
 heals = true
 heal_power = 4

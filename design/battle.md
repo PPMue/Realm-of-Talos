@@ -119,6 +119,29 @@ as well as Clings to Life, and only blows (not damage over time) can be saved fr
   time: the battle is lost and the walls pay for it, but nobody else is injured. Today a lost battle
   puts the whole line in the Infirmary for four days, and the next fight is two days away.
 
+**Built** (2026-11-14). Recovery: Attack, Guard and Focus 2 (`BattleConfig.RECOVERY_*`); every art and
+spell file carries tier + 1 (the cards show what happens). `Battle.recovery_cap(c)` is the others
+standing; `action_recovery` and `art_recovery` return the capped number, and `_end_player_action` caps
+again in case someone fell during the action. Enemy-added recovery comes on top; an injury cuts every
+standing companion to the new cap, enemy-added included. `is_lone_companion` stays (a lone companion
+still ignores even an enemy's recovery). Wait now happens only through an enemy's added recovery.
+Spur: "3 or more", "not below 2" (data/accessories/tempo/spur.tres; the generator line in
+tools/generate_accessories.gd still says 2 and wants the same change). Quick Hands and Relentless
+keep their rules (a tier 1 art 2 -> 1; a felling action 0). Grades per battle were left alone: points
+per companion per battle went from 4.7 to 4.6 and the share of companion-battles at the cap from 16%
+to 13%. Guard a neighbour: `Battle.guard(c, ward)`, `guard_wards(c)`, `guard_preview(c, ward)`, the
+"cover" event and "ward" on the "guard" event, as proposed; a neighbour is the place either side in
+`line()`, standing, never stepped over. `guard_preview`'s "damage" counts the guard's damage over time
+too, the Locket or Clings to Life once each, and a caught blow goes to the ward once the guard would
+have fallen. Retreat: `allow_retreat`, `can_retreat()`, `retreat()`, `retreated`,
+`BattleReport.retreated`; `Run.finish_battle` already sent only the injured to the Infirmary. The
+automated player covers a neighbour who would fall this turn when, covering, neither would, and
+retreats (not from a boss) once half the line is injured and the enemies keep more than half their
+Health. Balance: 16% of 200 runs won after the change (20% before); enemy Health growth with the day
+lowered from 3.5% to 3% (`RunConfig.ENEMY_HP_GROWTH_PER_DAY`, day 42 x2.23 in place of x2.44) brought
+it to 21%. With four in the line the automated player's actions went 38% / 31% / 24% / 7%, busiest
+first: three rotate and the fourth acts only when chosen.
+
 ## Step 3: more to say each turn
 
 - **Breath comes back.** A standing companion regains 1 stamina at the end of every turn they did

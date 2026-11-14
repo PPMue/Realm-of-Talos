@@ -371,8 +371,9 @@ func test_enemy_scaling() -> void:
 	t.eq(d42.defense, orc.defense + floori(41.0 / RunConfig.ENEMY_DEF_EVERY_DAYS), "day 42 DEF")
 	t.eq(d42.speed, orc.speed + floori(41.0 / RunConfig.ENEMY_SPD_EVERY_DAYS), "day 42 SPD")
 	t.check(d42.strength > orc.strength and d42.defense > orc.defense, "day 42 enemies are stronger")
-	# Fitted so day 42 is about what day 30 was with the old 30-day growth (HP x2.45, +7 STR, +4 DEF, +3 SPD).
-	t.check(absf(d42.max_hp / 42.0 - 2.45) < 0.05, "day 42 HP is about x2.45 (%d)" % d42.max_hp)
+	# Fitted so day 42 is about what day 30 was with the old 30-day growth (+7 STR, +4 DEF, +3 SPD); Health
+	# x2.23, lowered from x2.44 when the whole line came to fight (battle step 2).
+	t.check(absf(d42.max_hp / 42.0 - 2.23) < 0.05, "day 42 HP is about x2.23 (%d)" % d42.max_hp)
 	t.eq(d42.strength - orc.strength, 7, "day 42: +7 STR")
 	t.eq(d42.defense - orc.defense, 4, "day 42: +4 DEF")
 	t.eq(d42.speed - orc.speed, 3, "day 42: +3 SPD")
@@ -1396,6 +1397,9 @@ func test_playthrough() -> void:
 	var crafted := {}   # accessory type id -> made
 	var crafted_total := 0
 	var worn_changes := 0
+	var covers := 0
+	var retreats := 0
+	var by_busiest := [0, 0, 0, 0]
 	var by_rank := [0, 0, 0, 0, 0]
 	var stones := 0
 	var stones_by_rank := [0, 0, 0, 0, 0]
@@ -1429,6 +1433,10 @@ func test_playthrough() -> void:
 			crafted[id] = int(crafted.get(id, 0)) + int(policy.crafted[id])
 			crafted_total += int(policy.crafted[id])
 		worn_changes += policy.worn_changes
+		covers += policy.covers
+		retreats += policy.retreats
+		for i in 4:
+			by_busiest[i] += policy.actions_by_rank[i]
 		for a in run.accessories:
 			by_rank[a.rank - 1] += 1
 		for r in range(1, 6):
@@ -1509,6 +1517,10 @@ func test_playthrough() -> void:
 		made_text.append("%s %d" % [id, crafted[id]])
 	print("    accessories per run: %.2f made (Topaz..Diamond %s), %.2f put on; %d types seen: %s" % [
 		float(crafted_total) / runs, str(by_rank), float(worn_changes) / runs, made.size(), ", ".join(made_text)])
+	var acts: int = by_busiest[0] + by_busiest[1] + by_busiest[2] + by_busiest[3]
+	print("    battles: %.2f covers and %.2f retreats per run; with four in the line, actions busiest first %d%% / %d%% / %d%% / %d%%" % [
+		float(covers) / runs, float(retreats) / runs, roundi(100.0 * by_busiest[0] / maxi(1, acts)), roundi(100.0 * by_busiest[1] / maxi(1, acts)),
+		roundi(100.0 * by_busiest[2] / maxi(1, acts)), roundi(100.0 * by_busiest[3] / maxi(1, acts))])
 	var trips: int = scavenged[0] + scavenged[1] + scavenged[2]
 	print("    scavenging: %.1f trips per run (full %d%%, half %d%%, nothing %d%%); %.2f injured per run" % [
 		float(trips) / runs, roundi(100.0 * scavenged[0] / maxf(1, trips)), roundi(100.0 * scavenged[1] / maxf(1, trips)),

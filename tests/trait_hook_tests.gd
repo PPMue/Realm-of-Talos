@@ -176,7 +176,7 @@ func measure(traits: Array[TraitData], metric: String, opts: Dictionary) -> int:
 	art.display_name = "Test Cut"
 	art.weapon_type = wt
 	art.stamina_cost = 5
-	art.recovery = 1
+	art.recovery = 2   # a tier 1 art's
 	u.progress.learn(art)
 	var action := e.pending_action
 	match metric:
@@ -391,8 +391,8 @@ static func table() -> Array:
 		["second_wind", "second_wind", 30, {}],
 		["steady_breath", "focus", 3, {}],
 		["tireless", "action_stamina", 1, {}],
-		["quick_hands", "art_recovery", -1, {}], ["quick_hands", "art_recovery", 0, {"arts_used": 1}],
-		["relentless", "kill_recovery", -1, sure],
+		["quick_hands", "art_recovery", -1, {"line": 4}], ["quick_hands", "art_recovery", 0, {"line": 4, "arts_used": 1}],
+		["relentless", "kill_recovery", -2, {"hit": 999, "line": 4}],
 		["bloodrush", "kill_stamina", 4, {}],
 		["blood_drinker", "kill_hp", 2, {}],
 		["staggering_blow", "crit_delay", 1, {"hit": 999, "crt": 60}], ["staggering_blow", "crit_delay", 0, {"hit": 999, "crt": 0}],

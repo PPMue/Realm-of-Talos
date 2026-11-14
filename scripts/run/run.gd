@@ -469,6 +469,7 @@ func start_battle(front: Front) -> Battle:
 		party.append(c.progress)
 	var battle := Battle.new(datas, front.enemies, battle_rng, party, art_pool, spell_pool)
 	battle.elite = front.is_elite
+	battle.allow_retreat = not front.is_boss
 	for i in lineup.size():
 		battle.roster[i].hp = clampi(lineup[i].hp, 1, lineup[i].max_hp())
 	return battle
@@ -482,6 +483,7 @@ func finish_battle(battle: Battle) -> BattleReport:
 	var report := BattleReport.new()
 	report.front = front
 	report.won = battle.outcome == Battle.Outcome.VICTORY
+	report.retreated = battle.retreated
 	battle.learn_after_battle()   # the battle did it when it ended; harmless again
 	report.grade_ups = battle.grade_ups.duplicate()
 	var fielded := lineup.duplicate()

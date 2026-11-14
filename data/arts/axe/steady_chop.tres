@@ -9,6 +9,6 @@ description = "Choke up on the haft and make sure it lands."
 weapon_type = 1
 tier = 1
 stamina_cost = 4
-recovery = 1
+recovery = 2
 durability_cost = 1
 hit_bonus = 20

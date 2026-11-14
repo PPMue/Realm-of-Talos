@@ -26,7 +26,7 @@ const SCHOOL_NAMES: Array[String] = ["Black Magic", "White Magic"]
 ## Casts each companion has before a Rest (about 6 at tier 1, 4 at tier 2, 2 at tier 3).
 @export var uses: int = 6
 ## Following player actions the caster sits out afterwards.
-@export var recovery: int = 1
+@export var recovery: int = 2
 
 @export_group("Black Magic")
 @export var might: int = 0

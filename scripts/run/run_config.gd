@@ -54,7 +54,7 @@ const BAND_AGE_WEIGHT: Array[float] = [1.0, 0.3, 0.12]
 # --- Enemy scaling with the day (normal fronts only; bosses are built for their day) ---
 # Assumes companions level at the pace below (about level 13 by day 42, roughly +4 to +6 in each
 # main stat), plus better weapons and grades.
-const ENEMY_HP_GROWTH_PER_DAY := 0.035  # max HP x (1 + 0.035 x (day - 1)): day 42 is x2.44
+const ENEMY_HP_GROWTH_PER_DAY := 0.030  # max HP x (1 + 0.030 x (day - 1)): day 42 is x2.23
 const ENEMY_STR_EVERY_DAYS := 5.5       # +1 STR and MAG on days 7, 12, 18, 23, 29, 34, 40 (+7)
 const ENEMY_DEF_EVERY_DAYS := 9         # +1 DEF on days 10, 19, 28, 37 (+4)
 const ENEMY_SPD_EVERY_DAYS := 11        # +1 SPD and DEX on days 12, 23, 34 (+3)

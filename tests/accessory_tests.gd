@@ -207,8 +207,8 @@ func test_accessory_library() -> void:
 	# The rank's value lands in the right field.
 	t.eq(one("bell", 2).effect().modifiers[0].mult, 2.0, "Bell: a multiplier")
 	var spur := one("spur", 3).effect().modifiers[0]
-	t.eq([spur.amount, spur.action_to, spur.recovery_at_least], [-1, 3, 2], "Spur: 1 less for the first 3 actions, where it is 2 or more")
-	t.eq(type_of("spur").gives_line(3), "First 3 actions: 1 less recovery (not below 1)", "a Spur's line")
+	t.eq([spur.amount, spur.action_to, spur.recovery_at_least], [-1, 3, 3], "Spur: 1 less for the first 3 actions, where it is 3 or more")
+	t.eq(type_of("spur").gives_line(3), "First 3 actions: 1 less recovery (not below 2)", "a Spur's line")
 	t.eq(type_of("poultice").gives_line(3), "Heals 12% more of their Health at day's end", "a Poultice's line")
 	t.eq(type_of("bell").gives_line(3), "Drawn x2.5, +2 Defence", "a Bell's line")
 	t.eq(type_of("compass").gives_line(3), "Scavenging: +3 to what is asked, 30% more brought back", "a Compass's line")
@@ -506,32 +506,36 @@ func test_hourglass() -> void:
 	t.eq(e.countdown, before + 1, "a spell's first hit")
 
 
-## A Spur: their first actions of a battle have 1 less recovery where the action's own is 2 or more (so
-## never below 1); an action of recovery 1 is unchanged but still counts as one of the first.
+## A Spur: their first actions of a battle have 1 less recovery where the action's own is 3 or more (so
+## never below 2); an action of recovery 2 (an attack, Guard, Focus, a tier 1 art) is unchanged but
+## still counts as one of the first. Four in the line, so the cap (3) does not get in the way.
 func test_spur() -> void:
-	var b := battle([one("spur", 2)])
+	var b := battle([one("spur", 2)], 4)
 	var u := b.roster[0]
 	for n in 4:
 		u.actions_taken = n
-		t.eq(b.action_recovery(u, 2, TraitModifier.Action.SPELL), 1 if n < 2 else 2, "action %d, recovery 2" % (n + 1))
-		t.eq(b.action_recovery(u, 1, TraitModifier.Action.ATTACK), 1, "action %d, recovery 1: unchanged" % (n + 1))
+		t.eq(b.action_recovery(u, 3, TraitModifier.Action.SPELL), 2 if n < 2 else 3, "action %d, recovery 3" % (n + 1))
+		t.eq(b.action_recovery(u, 2, TraitModifier.Action.ATTACK), 2, "action %d, recovery 2: unchanged" % (n + 1))
 	u.actions_taken = 0
-	t.eq(b.action_recovery(u, 1), 1, "Guard or Focus: unchanged")
+	t.eq(b.action_recovery(u, BattleConfig.RECOVERY_GUARD), 2, "Guard or Focus: unchanged")
 	var art := CombatArtData.new()
 	art.display_name = "Slow Cut"
 	art.weapon_type = u.weapon().weapon_type
 	art.recovery = 3
 	t.eq(b.art_recovery(u, art), 2, "an art too")
 	# A plain attack first still uses up one of the first actions.
-	b = battle([one("spur", 1)])
+	b = battle([one("spur", 1)], 4)
 	u = b.roster[0]
 	var e := b.enemies[0]
 	b.attack(u, e)
 	t.eq(u.recovery, BattleConfig.RECOVERY_ATTACK, "the first action, an attack: recovery as always")
 	t.eq(u.actions_taken, 1, "it counted")
 	t.eq(b.art_recovery(u, art), 3, "the second action is not the Topaz's")
-	var plain := battle([])
-	t.eq(plain.action_recovery(plain.roster[0], 2, TraitModifier.Action.ATTACK), 2, "without it, as before")
+	var plain := battle([], 4)
+	t.eq(plain.action_recovery(plain.roster[0], 3, TraitModifier.Action.SPELL), 3, "without it, as before")
+	# The cap still holds: with two in the line a Spur changes nothing (both 1).
+	var two := battle([one("spur", 5)], 2)
+	t.eq(two.action_recovery(two.roster[0], 3, TraitModifier.Action.SPELL), 1, "two in the line: held to 1 anyway")
 
 
 ## A Compass: the party brings back more (and the wearer counts higher in what is asked).

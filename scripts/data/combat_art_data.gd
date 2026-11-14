@@ -16,7 +16,7 @@ extends Resource
 @export_range(1, 3) var tier: int = 1
 @export var stamina_cost: int = 5
 ## Following player actions the user sits out afterwards.
-@export var recovery: int = 1
+@export var recovery: int = 2
 ## Reserved for weapon durability: uses this art takes from the weapon. Not used yet.
 @export var durability_cost: int = 1
 

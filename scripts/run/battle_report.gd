@@ -18,6 +18,9 @@ var injured: Array[String] = []
 ## True if the day was given up because nobody could be fielded (Run.yield_day): a lost battle at the
 ## worst front, with no fighting.
 var yielded: bool = false
+## True if the company sounded the retreat (Battle.retreated): lost, but only those already injured went
+## to the Infirmary.
+var retreated: bool = false
 ## Battle.grade_ups entries: {"actor", "weapon_type", "grade", "art", "equipped"}.
 var grade_ups: Array[Dictionary] = []
 ## XP each fielded companion still in the run received, by name, in line order (empty on a loss).

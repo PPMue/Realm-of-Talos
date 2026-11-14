@@ -9,6 +9,6 @@ description = "A short stab, too fast to see coming."
 weapon_type = 4
 tier = 1
 stamina_cost = 4
-recovery = 1
+recovery = 2
 durability_cost = 1
 hit_bonus = 15

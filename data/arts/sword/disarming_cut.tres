@@ -17,6 +17,6 @@ display_name = "Disarm"
 description = "Knock the weapon arm aside so its next blows land softer."
 tier = 1
 stamina_cost = 5
-recovery = 1
+recovery = 2
 durability_cost = 1
 target_effect = SubResource("Resource_target")
