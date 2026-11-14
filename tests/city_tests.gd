@@ -30,6 +30,8 @@ func tests() -> Array[Callable]:
 		test_smithy_two_rolls,
 		test_enchant_stats_reach_the_holder,
 		test_move_enchant,
+		test_market_on_battle_days,
+		test_offer_open_at_the_march,
 	]
 
 
@@ -74,6 +76,97 @@ func win(run: Run) -> BattleReport:
 
 func owned(run: Run, tier: int, type: int = WeaponData.WeaponType.SWORD) -> OwnedWeapon:
 	return run.inventory.add(run.content.ladder_weapon(tier, type))
+
+
+# ---------------------------------------------------------------- the smithy and tavern on battle days
+
+## On a battle or boss day, until the company marches out, the smithy (buy, enchant, move) and the
+## tavern (hire) work as on a free day; everything else keeps to free days.
+func test_market_on_battle_days() -> void:
+	for type in [RunCalendar.DayType.BATTLE, RunCalendar.DayType.BOSS]:
+		var name := "battle" if type == RunCalendar.DayType.BATTLE else "boss"
+		var run := rich_run(30 + type)
+		build(run, F.SMITHY, 1)
+		var spare := owned(run, WeaponData.Tier.IRON)
+		var target := owned(run, WeaponData.Tier.STEEL)
+		run.day = 3
+		force_day(run, type)
+		t.eq(run.day_type(), type, "a %s day" % name)
+		t.check(not run.fronts.is_empty(), "%s day: a front to march to" % name)
+		t.eq(run.market_block_reason(), "", "%s day: the market is open" % name)
+		if run.tavern_offers.is_empty():
+			run._make_tavern_offers()
+		for a in [Run.FreeAction.SHOP, Run.FreeAction.TAVERN]:
+			t.eq(run.visit_block_reason(a), "", "%s day: %s can be visited" % [name, Run.FREE_ACTION_NAMES[a]])
+			t.eq(run.free_action_block_reason(a), run.visit_block_reason(a), "%s day: %s agrees" % [name, Run.FREE_ACTION_NAMES[a]])
+		# Buy.
+		var item: ShopItemData = run.shop_stock()[0]
+		var gold := run.gold
+		t.eq(run.buy_block_reason(item), "", "%s day: buy" % name)
+		t.check(run.buy(item) != null, "%s day: bought" % name)
+		t.eq(run.gold, gold - run.shop_price(item), "%s day: paid" % name)
+		# Hire: into the line if there is room, and they march out with it.
+		while run.lineup.size() >= RunConfig.MAX_FIELDED:
+			run.bench(run.lineup[-1])
+		var hired := run.hire(run.tavern_offers[0])
+		t.check(hired != null, "%s day: hired" % name)
+		t.check(hired != null and run.is_fielded(hired), "%s day: in the line" % name)
+		# Enchant and take, then again and keep.
+		var offer := run.enchant(spare)
+		t.check(offer != null, "%s day: an enchanting offer" % name)
+		t.check(run.take_enchant(0), "%s day: taken" % name)
+		t.check(spare.is_enchanted(), "%s day: enchanted" % name)
+		t.check(run.enchant(spare) != null, "%s day: tried again" % name)
+		t.check(run.keep_enchant(), "%s day: kept" % name)
+		# Move.
+		t.eq(run.move_enchant_block_reason(spare, target), "", "%s day: a move" % name)
+		t.check(run.move_enchant(spare, target), "%s day: moved" % name)
+		t.check(target.is_enchanted() and not spare.is_enchanted(), "%s day: on the steel sword" % name)
+		# Everything else keeps to free days.
+		var free := "Only on free days."
+		t.eq(run.errand_block_reason(), free, "%s day: errands keep their meaning" % name)
+		t.eq(run.cure_block_reason(run.roster[0]), free, "%s day: no cure" % name)
+		t.eq(run.visit_block_reason(Run.FreeAction.CURE), free, "%s day: the infirmary's visit" % name)
+		t.eq(run.upgrade_block_reason(F.GATE), free, "%s day: no upgrade" % name)
+		t.eq(run.swap_block_reason(RunConfig.IRON_ORE, RunConfig.TIMBER), free, "%s day: no swap" % name)
+		for a in [Run.FreeAction.REST, Run.FreeAction.REPAIR, Run.FreeAction.TRAIN, Run.FreeAction.SCAVENGE]:
+			t.eq(run.free_action_block_reason(a), free, "%s day: no %s" % [name, Run.FREE_ACTION_NAMES[a]])
+		if not run.drills.is_empty():
+			t.eq(run.drill_block_reason(run.drills[0], run.roster[0]), free, "%s day: no drill" % name)
+		t.check(not run.rest(), "%s day: no rest" % name)
+		# Marched out: closed.
+		t.check(run.start_battle(run.fronts[0]) != null, "%s day: march out" % name)
+		t.eq(run.market_block_reason(), Run.BATTLE_BEGUN, "%s day: closed once the battle has begun" % name)
+		if run.tavern_offers.is_empty():
+			run._make_tavern_offers()
+		t.eq(run.buy_block_reason(run.shop_stock()[0]), Run.BATTLE_BEGUN, "%s day: no buying" % name)
+		t.eq(run.hire_block_reason(run.tavern_offers[0]), Run.BATTLE_BEGUN, "%s day: no hiring" % name)
+		t.eq(run.free_action_block_reason(Run.FreeAction.SHOP), Run.BATTLE_BEGUN, "%s day: the smithy says so" % name)
+		t.eq(run.enchant_block_reason(target), Run.BATTLE_BEGUN, "%s day: no enchanting" % name)
+		t.eq(run.move_enchant_block_reason(target, spare), Run.BATTLE_BEGUN, "%s day: no move" % name)
+	# A free day with its event waiting: the event first, as before; the run over: closed.
+	var run := rich_run(40)
+	run.calendar[run.day - 1] = RunCalendar.DayType.FREE
+	if not run.event_days.has(run.day):
+		run.event_days.append(run.day)
+	run._begin_day()
+	t.eq(run.market_block_reason(), Run.EVENT_FIRST, "a free day: the event first")
+	run.outcome = Run.Outcome.DEFEAT
+	t.eq(run.market_block_reason(), "The run is over.", "over")
+
+
+## An enchanting offer still open when the company marches out is kept as "keep".
+func test_offer_open_at_the_march() -> void:
+	var run := rich_run(42)
+	build(run, F.SMITHY, 1)
+	var w := owned(run, WeaponData.Tier.IRON)
+	run._set_enchant(w, {Stat.DEF: 3})
+	run.day = 3
+	force_day(run, RunCalendar.DayType.BATTLE)
+	t.check(run.enchant(w) != null, "an offer on a battle day")
+	t.check(run.start_battle(run.fronts[0]) != null, "marching out with it open")
+	t.check(run.enchant_offer == null, "the offer is closed")
+	t.eq(w.enchant_stats, {Stat.DEF: 3}, "the weapon kept what it had")
 
 
 # ---------------------------------------------------------------- materials
@@ -435,7 +528,9 @@ func test_enchant_rules() -> void:
 	run.gold = 1000
 	t.check(run.enchant_block_reason(OwnedWeapon.new(w.data)) != "", "only the company's weapons")
 	force_day(run, RunCalendar.DayType.BATTLE)
-	t.eq(run.enchant_block_reason(w), "Only on free days.", "free days only")
+	t.eq(run.enchant_block_reason(w), "", "a battle day too, before the march")
+	run.start_battle(run.fronts[0])
+	t.eq(run.enchant_block_reason(w), Run.BATTLE_BEGUN, "not once the battle has begun")
 
 
 func test_enchant_rolls() -> void:

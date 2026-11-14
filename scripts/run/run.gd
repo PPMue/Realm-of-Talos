@@ -318,7 +318,7 @@ func battle_block_reason(front: Front) -> String:
 	if is_over():
 		return "The run is over."
 	if committed_front != null:
-		return "Today's battle has already begun."
+		return BATTLE_BEGUN
 	if not fronts.has(front):
 		return "That front is not open today."
 	if lineup.is_empty():
@@ -337,7 +337,7 @@ func yield_block_reason() -> String:
 	if day_type() != RunCalendar.DayType.BATTLE and day_type() != RunCalendar.DayType.BOSS:
 		return "Only on a battle or boss day."
 	if committed_front != null:
-		return "Today's battle has already begun."
+		return BATTLE_BEGUN
 	if fronts.is_empty():
 		return "No front is open today."
 	if not available().is_empty():
@@ -371,10 +371,13 @@ func yield_day() -> BattleReport:
 
 
 ## Commits to a front and returns the battle to fight there, with the fielded companions at their
-## current HP and full stamina. Report the result with finish_battle().
+## current HP and full stamina. Report the result with finish_battle(). An enchanting offer still open
+## is closed first: the weapon keeps what it has (as at the day's end).
 func start_battle(front: Front) -> Battle:
 	if battle_block_reason(front) != "":
 		return null
+	if enchant_offer != null:
+		keep_enchant()
 	committed_front = front
 	var battle_rng := RandomNumberGenerator.new()
 	battle_rng.seed = rng.randi()
@@ -467,9 +470,9 @@ const OFFER_OPEN := "First choose what the smith offers."
 const FILL_EVERY_PLACE := "Fill every place."
 
 
-## Why the smithy, the tavern and the infirmary cannot be used now, or "": only on free days, once
-## the day's event is answered. Buying, hiring and curing cost gold, never the day's action, and can
-## be done any number of times, before or after it.
+## Why the free-day errands cannot be done now, or "": curing, the Mason's Yard (upgrades, swaps) and,
+## through free_action_block_reason, rest, repair, drills and scavenging. Only on free days, once the
+## day's event is answered. The smithy and the tavern are open on more days: see market_block_reason.
 func errand_block_reason() -> String:
 	if is_over() or day_type() != RunCalendar.DayType.FREE:
 		return "Only on free days."
@@ -478,15 +481,38 @@ func errand_block_reason() -> String:
 	return ""
 
 
-## True for the free-day errands that cost gold but not the day's action (shop, tavern, cure).
+const BATTLE_BEGUN := "Today's battle has already begun."
+
+
+## Why the smithy (buying, enchanting, moving an enchantment) and the tavern (hiring) cannot be used
+## now, or "". Open on any day, free, battle or boss, until the run is over: on a free day once the
+## day's event is answered, on a battle or boss day until the company marches out (start_battle).
+## They cost gold (and ore), never the day's action.
+func market_block_reason() -> String:
+	if is_over():
+		return "The run is over."
+	if committed_front != null:
+		return BATTLE_BEGUN
+	if event_pending():
+		return EVENT_FIRST
+	return ""
+
+
+## True for the errands that cost gold but not the day's action (shop, tavern, cure).
 static func is_errand(a: FreeAction) -> bool:
 	return a == FreeAction.SHOP or a == FreeAction.TAVERN or a == FreeAction.CURE
 
 
+## True for the smithy and the tavern, open on battle and boss days too (market_block_reason).
+static func is_market(a: FreeAction) -> bool:
+	return a == FreeAction.SHOP or a == FreeAction.TAVERN
+
+
 ## Why `a` cannot be done now, or "". Rest, repair, train and scavenge share the day's one action; shop,
-## tavern and cure are errands (see errand_block_reason) and never use it.
+## tavern and cure are errands and never use it. Shop and tavern follow market_block_reason (any day
+## until the march), the rest errand_block_reason (free days).
 func free_action_block_reason(a: FreeAction) -> String:
-	var why := errand_block_reason()
+	var why := market_block_reason() if is_market(a) else errand_block_reason()
 	if why != "":
 		return why
 	if not is_errand(a) and actions_used.has(a):
@@ -520,8 +546,9 @@ func free_action_block_reason(a: FreeAction) -> String:
 
 
 ## Why the smithy (SHOP), tavern (TAVERN) or infirmary (CURE) cannot be used now, or "". The same as
-## free_action_block_reason for them: free days, the event first, and their own checks (someone to
-## hire, someone to cure). They never use the day's action.
+## free_action_block_reason for them: the smithy and the tavern on any day until the march
+## (market_block_reason), the infirmary on free days; the event first, and their own checks (someone
+## to hire, someone to cure). They never use the day's action.
 func visit_block_reason(a: FreeAction) -> String:
 	return free_action_block_reason(a)
 
@@ -587,7 +614,7 @@ func repair() -> bool:
 	return true
 
 
-## What the smithy sells this week (it can only be bought on free days).
+## What the smithy sells this week (bought on any day until the march; see market_block_reason).
 func shop_stock() -> Array[ShopItemData]:
 	return shop_week
 
@@ -660,7 +687,8 @@ func hire_block_reason(data: CompanionData) -> String:
 
 ## Hires a companion offered at the tavern. They join at the roster's average level (rounded down)
 ## with the stat gains for those levels rolled now, at full HP, with their own weapon, and are fielded
-## if the line has room. Costs gold only, never the day's action.
+## if the line has room (on a battle or boss day they march out with it). Costs gold only, never the
+## day's action.
 func hire(data: CompanionData) -> RunCompanion:
 	if hire_block_reason(data) != "":
 		return null
@@ -1316,11 +1344,11 @@ func enchant_cost(w: OwnedWeapon) -> Dictionary:
 	return {RunConfig.IRON_ORE: RunConfig.ENCHANT_ORE, "gold": g}
 
 
-## Why `w` cannot be enchanted now, or "". An errand at the Smithy once it has its level 1; any weapon
-## the company owns, in hand or in the armory, plain or enchanted (then it is tried again); not while
-## an offer waits for a choice.
+## Why `w` cannot be enchanted now, or "". At the Smithy once it has its level 1, on any day until the
+## march (market_block_reason); any weapon the company owns, in hand or in the armory, plain or
+## enchanted (then it is tried again); not while an offer waits for a choice.
 func enchant_block_reason(w: OwnedWeapon) -> String:
-	var why := errand_block_reason()
+	var why := market_block_reason()
 	if why != "":
 		return why
 	if facility_level(Facility.SMITHY) < 1:
@@ -1406,10 +1434,11 @@ func move_enchant_cost() -> Dictionary:
 	return RunConfig.MOVE_ENCHANT_COST.duplicate()
 
 
-## Why `from`'s enchantment cannot be moved to `to` now, or "". An errand at the Smithy (level 1): both
-## the company's, the same weapon type, `from` enchanted, `to` plain with at least `from`'s budget.
+## Why `from`'s enchantment cannot be moved to `to` now, or "". At the Smithy (level 1), on any day
+## until the march (market_block_reason): both the company's, the same weapon type, `from` enchanted,
+## `to` plain with at least `from`'s budget.
 func move_enchant_block_reason(from: OwnedWeapon, to: OwnedWeapon) -> String:
-	var why := errand_block_reason()
+	var why := market_block_reason()
 	if why != "":
 		return why
 	if facility_level(Facility.SMITHY) < 1:

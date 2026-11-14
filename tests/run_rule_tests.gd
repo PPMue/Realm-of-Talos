@@ -643,17 +643,15 @@ func test_free_day_action_limits() -> void:
 	force_day(run, RunCalendar.DayType.FREE)
 	t.eq(run.actions_left, 1, "never more than one")
 	t.eq(run.actions_used.size(), 0, "nothing used yet")
-	# Not on other days.
+	# Not on other days, but for the smithy and the tavern (until the march).
 	force_day(run, RunCalendar.DayType.BATTLE)
 	t.check(not run.rest(), "no rest on a battle day")
-	t.eq(run.errand_block_reason(), "Only on free days.", "no errands on a battle day")
+	t.eq(run.errand_block_reason(), "Only on free days.", "no free-day errands on a battle day")
 	run.gold = 1000
-	t.check(run.buy(run.shop_stock()[0]) == null, "no buying on a battle day")
-	t.eq(run.buy_block_reason(run.shop_stock()[0]), "Only on free days.", "says why")
+	t.check(run.buy(run.shop_stock()[0]) != null, "but buying on a battle day")
 	if run.tavern_offers.is_empty():
 		run._make_tavern_offers()
-	t.check(run.hire(run.tavern_offers[0]) == null, "no hiring on a battle day")
-	t.eq(run.hire_block_reason(run.tavern_offers[0]), "Only on free days.", "says why")
+	t.check(run.hire(run.tavern_offers[0]) != null, "and hiring")
 	t.check(not run.end_free_day(), "no ending a battle day without the battle")
 
 

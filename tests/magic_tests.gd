@@ -917,7 +917,7 @@ func test_rare_shop_stock() -> void:
 	t.eq(run2.day_type(), RunCalendar.DayType.BATTLE, "day 1 is a battle")
 	t.check(not run2.shop_stock().is_empty(), "the week's stock is there on a battle day")
 	run2.gold = 1000
-	t.eq(run2.buy_block_reason(run2.shop_stock()[0]), "Only on free days.", "but it is only sold on free days")
+	t.eq(run2.buy_block_reason(run2.shop_stock()[0]), "", "and it is sold then too, before the march")
 	var hermit_has_weapon := false
 	for ev in RunContent.load_default().events:
 		for ch in ev.choices:

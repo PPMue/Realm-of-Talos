@@ -46,6 +46,7 @@ func play(run: Run) -> int:
 		prepare_party(run)
 		match run.day_type():
 			RunCalendar.DayType.BATTLE, RunCalendar.DayType.BOSS:
+				market_day(run)
 				if run.lineup.is_empty() and run.yield_block_reason() == "":
 					run.yield_day()   # forced: everyone is in the infirmary
 					yielded += 1
@@ -141,14 +142,10 @@ func free_day(run: Run) -> void:
 	if run.city_health <= 40:
 		run.repair()
 	cure_best(run)
-	if run.available().size() < RunConfig.MAX_FIELDED and not run.tavern_offers.is_empty():
-		run.hire(run.tavern_offers[0])
+	hire(run)
 	if hp_fraction(run) < 0.6 or spell_fraction(run) < 0.5:
 		run.rest()
-	for c in run.roster:
-		var item := _upgrade_for(run, c)
-		if item != null and run.buy(item) != null:
-			_equip_best(run, c)
+	buy_upgrades(run)
 	if hp_fraction(run) < 0.8:
 		run.rest()
 	run.repair()
@@ -158,6 +155,32 @@ func free_day(run: Run) -> void:
 	scavenge(run)
 	city_errands(run)
 	run.end_free_day()
+
+
+## On a battle or boss day, before marching out: the smithy and tavern errands as on a free day (hire
+## to fill the line, buy better weapons, enchant), then the line is drawn up again with them. Upgrades,
+## swaps and cures wait for a free day.
+func market_day(run: Run) -> void:
+	if run.market_block_reason() != "":
+		return
+	hire(run)
+	buy_upgrades(run)
+	prepare_party(run)
+	_smithy_steps(run)
+
+
+## Hires the first at the tavern while fewer than a full line can fight.
+func hire(run: Run) -> void:
+	if run.available().size() < RunConfig.MAX_FIELDED and not run.tavern_offers.is_empty():
+		run.hire(run.tavern_offers[0])
+
+
+## Buys each companion the best better weapon of their type the smithy has, and hands it over.
+func buy_upgrades(run: Run) -> void:
+	for c in run.roster:
+		var item := _upgrade_for(run, c)
+		if item != null and run.buy(item) != null:
+			_equip_best(run, c)
 
 
 ## At the day's end, with what the action and the repairs left: swap a pile of one material, build up
@@ -181,6 +204,12 @@ func city_errands(run: Run) -> void:
 		var cost := run.upgrade_cost(f)
 		if run.material(RunConfig.TIMBER) - int(cost.get(RunConfig.TIMBER, 0)) < reserve or not _upgrade(run, f):
 			break
+	_smithy_steps(run)
+
+
+## The iron ore list of city_errands. On a battle or boss day the upgrades cannot be built, so it goes as
+## far as the first one not yet built.
+func _smithy_steps(run: Run) -> void:
 	for step: Array in [["up", Run.Facility.SMITHY, 1], ["enchant", false], ["up", Run.Facility.GATE, 1],
 			["up", Run.Facility.SMITHY, 2], ["enchant", true], ["up", Run.Facility.GATE, 2]]:
 		if step[0] == "up":

@@ -11,6 +11,9 @@ Decided with the user on 2026-11-14. Numbers marked "first guess" are to be tune
 - Upgrading, enchanting, moving an enchantment and swapping are errands like buying and curing: they
   cost materials (and gold where said), never the day's action, on free days once the day's event is
   answered. An upgrade works from the moment it is paid for.
+- Revised on 2026-11-14: the Smithy (buying, enchanting, moving an enchantment) and the Tavern (hiring)
+  are open on battle and boss days too, until the company marches out; an enchanting offer still open
+  then is kept as "keep". Curing, upgrades, swaps, rest, drills and scavenging stay on free days.
 
 ## Facility upgrades
 
