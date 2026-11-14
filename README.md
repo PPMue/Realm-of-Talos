@@ -262,6 +262,7 @@ Exit code 0 means every test passed. The runner loads every data resource under 
 - `data/traits/<family>/` one `.tres` per companion trait and `data/traits/trait_library.tres` listing those handed out; written by `tools/generate_traits.gd` (`godot --headless --path . -s res://tools/generate_traits.gd`); a trait can also be written by hand as a `.tres` and added to the library.
 - `data/accessories/<family>/` one `.tres` per accessory type and `data/accessories/accessory_library.tres`; written by `tools/generate_accessories.gd` (run the same way), whose table holds every type's five numbers.
 - `tools/screen_checks/` scripts that open the real game, click through one screen and save screenshots, for checking UI work by eye (see its `README.md`). They are not tests and nothing runs them automatically.
+- `tools/battle_probe.gd` measures how battles play out (run like the generators; `PROBE_RUNS`, `PROBE_REPLAYS`): the automated player plays whole runs, and every battle it meets is replayed from the same start by three players (the automated one, one that lets the strongest act, one that attacks at random). It prints how long battles are, how the actions are shared along the line, how hard enemy blows are, how often the same battle is won again, and how the three compare. Not a test. `design/battle.md` (proposed, not built) is written from its figures.
 - `assets/` character and enemy art.
 
 ## Weapons

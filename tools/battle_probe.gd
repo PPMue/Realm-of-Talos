@@ -1,0 +1,318 @@
+extends SceneTree
+## Measures how battles play out, for judging the battle rules (not a test: nothing is asserted).
+## Run:  godot --headless --path . -s res://tools/battle_probe.gd
+## PROBE_RUNS (default 12) whole runs are played by the automated player (tests/run_policy.gd). Every
+## battle it meets is also replayed PROBE_REPLAYS (default 6) times from the same starting state, with
+## fresh dice, by each of three players:
+##   greedy    the automated player's battle play: the first ready companion acts
+##   strongest the same, but whoever of the ready would deal the most acts (a healer when someone is hurt)
+##   random    a random ready companion makes a plain Attack on a random enemy
+## It prints: how long battles are, how the actions are shared along the line, how hard single enemy
+## blows are, how often the same battle is won on a replay, and how the three players compare.
+
+const RunPolicyScript := preload("res://tests/run_policy.gd")
+
+enum Mode { GREEDY, STRONGEST, RANDOM }
+const MODE_NAMES := ["greedy", "strongest", "random"]
+
+var _replays := 6
+var _held: Array[Resource] = []
+## One row per battle met: {"day", "kind", "size", "p": [win share by mode], ...}.
+var _rows: Array[Dictionary] = []
+## Sums over every replay, by mode.
+var _stats: Array[Dictionary] = []
+
+
+class Probe extends RunPolicyScript:
+	var owner_tree: SceneTree
+	var run_ref: Run
+
+	func play(run: Run) -> int:
+		run_ref = run
+		return super.play(run)
+
+	func play_battle(b: Battle) -> void:
+		owner_tree.call("measure", run_ref, b)
+		super.play_battle(b)
+
+
+func _init() -> void:
+	var runs := int(OS.get_environment("PROBE_RUNS")) if OS.get_environment("PROBE_RUNS") != "" else 12
+	if OS.get_environment("PROBE_REPLAYS") != "":
+		_replays = int(OS.get_environment("PROBE_REPLAYS"))
+	_hold("res://data")
+	for m in 3:
+		_stats.append({"battles": 0, "ticks": 0, "actions": 0, "waits": 0, "guards": 0, "top1": 0.0, "top2": 0.0,
+			"blows": 0, "blows_half": 0, "blows_fell": 0, "blows_fell_full": 0, "misses": 0, "strikes": 0,
+			"injured": 0, "fielded": 0, "idle": 0, "attacks": 0, "arts": 0, "spells": 0, "focuses": 0})
+	var started := Time.get_ticks_msec()
+	for s in runs:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 1000 + s
+		var run := Run.create(rng, RunContent.load_default(), ArtLibrary.load_default().arts,
+			SpellLibrary.load_default().spells)
+		var prng := RandomNumberGenerator.new()
+		prng.seed = 5000 + s
+		var policy := Probe.new(prng)
+		policy.owner_tree = self
+		policy.play(run)
+		print("run %d: ended day %d, %s (%.0f s)" % [s + 1, run.day, "won" if run.outcome == Run.Outcome.VICTORY else "lost",
+			(Time.get_ticks_msec() - started) / 1000.0])
+	_report()
+	quit(0)
+
+
+func _hold(dir: String) -> void:
+	for f in DirAccess.get_files_at(dir):
+		if f.ends_with(".tres"):
+			_held.append(load(dir + "/" + f))
+	for d in DirAccess.get_directories_at(dir):
+		_hold(dir + "/" + d)
+
+
+## Replays the battle `b` (not yet begun) from copies of its starting state.
+func measure(run: Run, b: Battle) -> void:
+	var front := run.committed_front
+	var kind := "boss" if front.is_boss else ("elite" if front.is_elite else "battle")
+	var row := {"day": run.day, "kind": kind, "size": b.roster.size(), "p": [0.0, 0.0, 0.0]}
+	for mode in 3:
+		var wins := 0
+		for k in _replays:
+			var datas: Array[CompanionData] = []
+			var party: Array[CompanionProgress] = []
+			for c in b.roster:
+				datas.append(c.data)
+				party.append(c.progress.copy())
+			var rng := RandomNumberGenerator.new()
+			rng.seed = hash([run.day, mode, k, _rows.size()])
+			var copy := Battle.new(datas, front.enemies, rng, party, b.art_pool, b.spell_pool)
+			copy.elite = b.elite
+			for i in b.roster.size():
+				copy.roster[i].hp = b.roster[i].hp
+			var prng := RandomNumberGenerator.new()
+			prng.seed = rng.seed + 7
+			if _play(copy, mode, RunPolicyScript.new(prng)):
+				wins += 1
+		row.p[mode] = float(wins) / _replays
+	_rows.append(row)
+
+
+## Plays `b` to its end as `mode` would. Returns true if it was won.
+func _play(b: Battle, mode: int, policy: RefCounted) -> bool:
+	var st: Dictionary = _stats[mode]
+	var rng: RandomNumberGenerator = policy.rng
+	var ticks := 0
+	while not b.is_over() and ticks < 1000:
+		ticks += 1
+		if b.can_wait():
+			b.wait()
+			st.waits += 1
+			_scan(b, st)
+			continue
+		var ready := b.ready_companions()
+		if mode == Mode.RANDOM:
+			var foes := b.living_enemies()
+			b.attack(ready[rng.randi_range(0, ready.size() - 1)], foes[rng.randi_range(0, foes.size() - 1)])
+			st.attacks += 1
+			_scan(b, st)
+			continue
+		var c: CompanionUnit = ready[0]
+		if mode == Mode.STRONGEST:
+			c = _strongest(b, ready)
+		if policy.cast_spell(b, c):
+			st.spells += 1
+			_scan(b, st)
+			continue
+		if policy.should_guard(b, c):
+			b.guard(c)
+			st.guards += 1
+			_scan(b, st)
+			continue
+		var foes: Array[EnemyUnit] = []
+		for e in b.living_enemies():
+			if e.reflect_percent() <= 0:
+				foes.append(e)
+		if foes.is_empty():
+			if c.stamina < c.max_stamina():
+				b.focus(c)
+				st.focuses += 1
+			else:
+				b.guard(c)
+				st.guards += 1
+			_scan(b, st)
+			continue
+		var reflecting := foes.size() < b.living_enemies().size()
+		var target := foes[0]
+		for e in foes:
+			if e.hp < target.hp:
+				target = e
+		var done := false
+		for art in c.arts():
+			if b.can_use_art(c, art) and rng.randf() < 0.6:
+				if art.hits_all_enemies and reflecting:
+					break
+				done = b.use_art(c, art, target)
+				break
+		if done:
+			st.arts += 1
+		else:
+			b.attack(c, target)
+			st.attacks += 1
+		_scan(b, st)
+	# Who did the acting.
+	var counts: Array[int] = []
+	var total := 0
+	for c in b.roster:
+		counts.append(c.actions_taken)
+		total += c.actions_taken
+		if c.actions_taken == 0:
+			st.idle += 1
+		if c.is_injured():
+			st.injured += 1
+	counts.sort()
+	counts.reverse()
+	st.battles += 1
+	st.ticks += b.tick
+	st.actions += total
+	st.fielded += b.roster.size()
+	if total > 0:
+		st.top1 += float(counts[0]) / total
+		st.top2 += float(counts[0] + (counts[1] if counts.size() > 1 else 0)) / total
+	return b.outcome == Battle.Outcome.VICTORY
+
+
+## Of the ready, a healer when someone is below half and they can heal; else whoever's plain Attack on
+## the weakest enemy is worth most.
+func _strongest(b: Battle, ready: Array[CompanionUnit]) -> CompanionUnit:
+	var hurt := false
+	for a in b.active_companions():
+		if a.hp * 2 < a.max_hp():
+			hurt = true
+	if hurt:
+		for c in ready:
+			for sp in c.spells():
+				if sp.heals and b.can_cast(c, sp):
+					return c
+	var target: EnemyUnit = null
+	for e in b.living_enemies():
+		if e.reflect_percent() <= 0 and (target == null or e.hp < target.hp):
+			target = e
+	if target == null:
+		return ready[0]
+	var best: CompanionUnit = ready[0]
+	var best_value := -1.0
+	for c in ready:
+		var f := b.forecast(c, target)
+		var value := f.damage * f.strikes * f.hit / 100.0
+		for sp in c.spells():
+			if sp.deals_damage() and b.can_cast(c, sp):
+				var sf := b.spell_forecast(c, sp, target)
+				value = maxf(value, sf.damage * sf.hit / 100.0)
+		if value > best_value:
+			best_value = value
+			best = c
+	return best
+
+
+## Reads the last action's events: enemy blows on companions and how hard they were, and misses.
+func _scan(b: Battle, st: Dictionary) -> void:
+	for ev in b.events:
+		match ev.type:
+			"damage":
+				if ev.target is CompanionUnit:
+					var c := ev.target as CompanionUnit
+					var before: int = int(ev.hp) + int(ev.amount)
+					st.blows += 1
+					if int(ev.amount) * 2 >= c.max_hp():
+						st.blows_half += 1
+					if int(ev.hp) <= 0:
+						st.blows_fell += 1
+						if before * 10 >= c.max_hp() * 8:
+							st.blows_fell_full += 1
+				else:
+					st.strikes += 1
+			"miss":
+				if not (ev.target is CompanionUnit):
+					st.misses += 1
+					st.strikes += 1
+
+
+func _report() -> void:
+	print("")
+	print("=== %d battles met, each replayed %d times by each player ===" % [_rows.size(), _replays])
+	for m in 3:
+		var st: Dictionary = _stats[m]
+		var n := maxi(1, int(st.battles))
+		print("")
+		print("%s:" % MODE_NAMES[m])
+		print("  turns a battle %.1f; waits %.1f; guards %.2f; fielded %.2f" % [float(st.ticks) / n, float(st.waits) / n,
+			float(st.guards) / n, float(st.fielded) / n])
+		print("  actions by the busiest companion %.0f%%, by the busiest two %.0f%%; fielded who never acted %.2f a battle" % [
+			100.0 * st.top1 / n, 100.0 * st.top2 / n, float(st.idle) / n])
+		var acts := maxi(1, int(st.attacks) + int(st.arts) + int(st.spells) + int(st.guards) + int(st.focuses))
+		print("  of the actions: Attack %.0f%%, arts %.0f%%, spells %.0f%%, Guard %.0f%%, Focus %.0f%%" % [100.0 * st.attacks / acts,
+			100.0 * st.arts / acts, 100.0 * st.spells / acts, 100.0 * st.guards / acts, 100.0 * st.focuses / acts])
+		print("  companion strikes that missed %.0f%%" % (100.0 * st.misses / maxi(1, int(st.strikes))))
+		print("  enemy blows landed %.1f a battle; taking half of max HP or more %.0f%%; felling %.0f%%; felling from 80%% HP or more %.1f%%" % [
+			float(st.blows) / n, 100.0 * st.blows_half / maxi(1, int(st.blows)), 100.0 * st.blows_fell / maxi(1, int(st.blows)),
+			100.0 * st.blows_fell_full / maxi(1, int(st.blows))])
+		print("  injured a battle %.2f" % (float(st.injured) / n))
+	print("")
+	print("Win share over the replays, all battles: greedy %.0f%%, strongest %.0f%%, random %.0f%%" % [
+		100.0 * _mean(0, ""), 100.0 * _mean(1, ""), 100.0 * _mean(2, "")])
+	for kind in ["battle", "elite", "boss"]:
+		print("  %s (%d): greedy %.0f%%, strongest %.0f%%, random %.0f%%" % [kind, _count(kind), 100.0 * _mean(0, kind),
+			100.0 * _mean(1, kind), 100.0 * _mean(2, kind)])
+	for week in range(1, 7):
+		var n := 0
+		var sums := [0.0, 0.0, 0.0]
+		for r in _rows:
+			if (int(r.day) - 1) / 7 + 1 == week:
+				n += 1
+				for m in 3:
+					sums[m] += float(r.p[m])
+		if n > 0:
+			print("  week %d (%d): greedy %.0f%%, strongest %.0f%%, random %.0f%%" % [week, n, 100.0 * sums[0] / n,
+				100.0 * sums[1] / n, 100.0 * sums[2] / n])
+	print("")
+	print("How settled a battle is before it begins (greedy, share of battles by win share over the replays):")
+	var sure_win := 0
+	var sure_loss := 0
+	var open := 0
+	for r in _rows:
+		var p := float(r.p[0])
+		if p >= 0.9:
+			sure_win += 1
+		elif p <= 0.1:
+			sure_loss += 1
+		else:
+			open += 1
+	var total := maxi(1, _rows.size())
+	print("  won 9 times in 10 or more %.0f%%, lost 9 times in 10 or more %.0f%%, in between %.0f%%" % [100.0 * sure_win / total, 100.0 * sure_loss / total,
+		100.0 * open / total])
+	var by_size := {}
+	for r in _rows:
+		var e: Array = by_size.get(r.size, [0, 0.0])
+		by_size[r.size] = [int(e[0]) + 1, float(e[1]) + float(r.p[0])]
+	for size in [1, 2, 3, 4]:
+		if by_size.has(size):
+			print("  %d in the line: %d battles, greedy wins %.0f%%" % [size, by_size[size][0],
+				100.0 * float(by_size[size][1]) / int(by_size[size][0])])
+
+
+func _mean(mode: int, kind: String) -> float:
+	var n := 0
+	var sum := 0.0
+	for r in _rows:
+		if kind == "" or r.kind == kind:
+			n += 1
+			sum += float(r.p[mode])
+	return sum / maxi(1, n)
+
+
+func _count(kind: String) -> int:
+	var n := 0
+	for r in _rows:
+		if r.kind == kind:
+			n += 1
+	return n

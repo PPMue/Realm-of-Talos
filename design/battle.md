@@ -1,0 +1,167 @@
+# Battles: the enemy's hand shown, the whole line fighting (design; proposed, not built)
+
+Written 2026-11-14 after the user's play reports ("not engaging; sometimes I don't know why I win or
+lose"). Nothing here is decided: the section "Yours to decide" lists what needs an answer. Numbers
+marked "first guess" are to be tuned with the probe.
+
+## What is wrong, measured
+
+`tools/battle_probe.gd` has the automated player play 30 runs (456 battles) and replays every battle
+20 times from the same start, with fresh dice, by three players: the automated player as it is (the
+first ready companion acts), the same but with whoever hits hardest acting, and one that makes a plain
+Attack with a random ready companion on a random enemy.
+
+| | Automated player | ...the strongest acts | Random Attacks |
+|---|---|---|---|
+| Battles won | 72% | 76% | 53% |
+| Week 1 / week 2 / week 6 | 90 / 87 / 34% | 93 / 91 / 37% | 77 / 67 / 27% |
+| Actions taken by the busiest two | 94% | 90% | 82% |
+| Fielded who never act, a battle | 0.8 | 0.6 | 0.1 |
+| Enemy blows that land, a battle | 4.5 | 4.0 | 5.7 |
+| ...taking half of max Health or more | 49% | 46% | 50% |
+| ...felling the companion | 27% | 25% | 34% |
+| Injured, a battle | 1.3 | 1.1 | 2.0 |
+| Guard / Focus, share of actions | 3% / 0% | 6% / 0% | none |
+
+A battle lasts about 15 turns, 3.2 are fielded on average. Of the 456 battles, the automated player
+wins 58% nine times in ten or more and loses 17% nine times in ten or more; a quarter are in between.
+
+What that says:
+
+1. **Most battles are settled before the first order.** Three in four come out the same way whatever
+   the dice do. The player cannot see what settles them (the enemies' growth with the day is nowhere
+   on screen), so a win feels unearned and a loss unexplained.
+2. **Orders are worth little.** Never using an art, a spell or Guard and striking at random still wins
+   53% of all battles and 77% in week 1. Choosing who acts is worth 4 points.
+3. **Two companions do the fighting.** An Attack has Recovery 1, so two can alternate for ever; the
+   third and fourth are there to be hit. In a game about building a party, most of the party does not
+   play.
+4. **A battle turns on four or five blows nobody could see coming.** Half of the enemy blows that land
+   take half a companion's Health, one in four fells them, and who they land on is a hidden roll. Even
+   while winning 72% of battles the automated player has 1.3 companions injured in each.
+5. **Two of the five orders are dead.** Guard is 3% of actions and Focus none: guarding is a guess
+   while the target is hidden, and a turn is worth more than 5 stamina.
+
+These are an automated player's battles, not a person's. A person plays better; the shape is the rules'.
+
+## The aim
+
+A battle is a row of threats the player can read (who is struck, how hard, in how many turns) and a
+few actions to answer each with, and everyone in the line has something only they can do about it.
+A loss can be traced to a blow that was on the table and went unanswered.
+
+Kept as they are: one action is one turn and every enemy's countdown drops by it; stamina, arts,
+spells and their data; proficiency and learning; the enemies' data and mechanics; the look.
+
+## Step 1: the enemy's hand is shown
+
+The smallest change in the rules and the largest in what the player understands. First to build.
+
+- **The aim is fixed when the action is chosen.** When an enemy picks its next action and it strikes
+  one companion, it draws its target then, with the weights as they stand then (mirrored for one that
+  aims from the left), and keeps it (`EnemyUnit.pending_target`). Today the target is drawn when the
+  blow lands. The place in the line still decides how often someone is chosen.
+- **Everything about the coming action is shown**: its name, its kind, the turns left, and for a blow
+  the companion it is aimed at with the damage and the chance to hit, worked out as things stand now
+  (so it changes at once when the target guards, is warded or the enemy is weakened). A blow on the
+  whole line shows on everyone. `Battle.enemy_forecast` already gives the numbers.
+- **What moves an aim once fixed**, and nothing else:
+  - the target is injured: every blow aimed at them is drawn again at once among those standing;
+  - someone draws the eye (Beacon, and the arts Challenge and Phalanx): every single blow already
+    aimed moves to them; while the effect lasts, new aims are drawn with its weight as today;
+  - someone is hidden (Veil, the art Fade): blows aimed at them are drawn again among the others;
+  - Guard on a neighbour (step 2).
+- **Guard no longer makes the enemy aim at the guard** (x4 today). With aims fixed and shown it would
+  only attract blows that land after the guard is down.
+- **Enemies do not strike critically** unless an action says so, and then it is shown. Today it is
+  2 x CRT - LCK, unseen: nothing for most, but about one blow in ten from a Stalker or a Blackwing
+  and one in five from Shadowed Wings does double damage. The purest "why did I lose".
+- Still unknown: whether a blow lands (its chance is shown), and what an enemy will choose next.
+
+On screen (mine to build): each enemy's plate carries the action's name and figures; a thread runs
+from it to the portrait it is aimed at; each portrait lists what is coming at it in the order it
+lands (whose blow, how much, in how many turns) and is marked in red with the turn when those blows,
+all landing, would fell them. Shift on an enemy lists everything it can do. The "targeted N%" roundel
+stays, as the chance of being chosen next.
+
+Rules: `pending_target`, drawing it in `pick_next_action`, the re-aims above, `Battle.incoming(c)`
+(what is aimed at a companion, in order, with forecasts) and `Battle.falls_on_turn(c)` for the screen
+and the automated player, whose `should_guard` reads the aim in place of guessing it.
+
+## Step 2: the whole line fights
+
+- **Recovery is one longer for everything**: Attack, Guard and Focus 2; arts and spells 2 / 3 / 4 by
+  tier. **Nobody sits out longer than there are others standing**: with one other, at most 1; with
+  two, at most 2. (Today's rule that a lone companion ignores recovery is this rule with nobody else.)
+  So two alternate as now, three take turns, and four have one to spare each round: someone is always
+  ready, and which three act this round is a choice. Recovery an enemy adds comes on top, uncapped.
+  To recheck: the Spur (now "3 or more"), Quick Hands, Relentless, grades per battle (the actions
+  spread out), and the enemies' Health, since the weaker half of the line now strikes too.
+- **Guard a neighbour.** Guard is aimed: at oneself (half damage this turn, as now) or at whoever
+  stands beside them. Single blows that land on that neighbour this turn land on the guard instead,
+  halved. Whole-line blows are not caught. Knowing the turn a blow lands, the player has to have the
+  right companion free on that turn: that is the plan a round is made of, and it gives the sturdy a
+  job and the order of the line a second meaning.
+- **Sound the retreat.** In a battle or an elite fight (not a boss) the company can fall back at any
+  time: the battle is lost and the walls pay for it, but nobody else is injured. Today a lost battle
+  puts the whole line in the Infirmary for four days, and the next fight is two days away.
+
+## Step 3: more to say each turn
+
+- **Breath comes back.** A standing companion regains 1 stamina at the end of every turn they did
+  not act in (first guess). Today stamina is spent in the first few turns and the rest is Attack
+  (46% of the automated player's actions). Focus restores half of max stamina in place of 5.
+- **Some arts stagger.** One tier 2 art of each weapon type also pushes the target's coming action
+  back 1 turn, once per action as spells do. Five arts; spells keep the long delays.
+- **Light and heavy blows.** Companions' base Health up by half (first guess: 16-24 becomes 24-36),
+  the enemies' Health and growth retuned to hold the win rate. An ordinary blow should be a cost and
+  a heavy one (countdown 4 or more) a threat to answer.
+
+## The account
+
+- **Before**, on each report at the war table: the hardest blow that front has against the line as it
+  stands ("Crushing Blow: 21 to Freya"), and the scouts' word for the fight, from the turns the line
+  needs to bring them down against the turns they need to fell the line. Three words, set with the
+  probe so they are true: the automated player wins the first nine times in ten, the last fewer than
+  four.
+- **After**, one more beat in the result, "How it went", at most five lines the rules write
+  (`BattleReport.account`): each fall (who, to which blow, how much, what they had left, the turn),
+  the blows that missed on both sides, and who dealt and took the most.
+
+## What it reverses
+
+- Hidden targets (decided 2026-11-12).
+- "Combat arts never touch countdowns" (2026-11-13), for five arts and one turn.
+- Guard drawing the enemy's aim.
+
+## How we will know
+
+The probe gains a fourth player, the reader, who uses what is shown: guards or covers the blow that
+would fell someone, strikes first at whatever is about to land a heavy blow, falls back from a lost
+fight. Against today's figures:
+
+| | Today | After |
+|---|---|---|
+| Reader's win share over random Attacks | 19 points (automated player) | 40 or more |
+| Actions by the busiest two, four in the line | 94% | 60% or less |
+| Fielded who never act | 0.8 a battle | about none |
+| Guard, share of the reader's actions | 3% | 10% or more |
+| Blows taking half of max Health or more | 49% | about 20%, nearly all heavy |
+| Injured a battle, battles won | 1.3 (all battles) | under 0.5 |
+
+And the user's own word after playing each step, which outranks the table.
+
+## Yours to decide
+
+1. Show the target and the damage (proposed), or the target only.
+2. Whether any art may stagger at all.
+3. Retreat: battles only, or elites too (proposed: both, never a boss).
+4. Health up by half, or the enemies' blows cut down one by one.
+5. Step 1 alone first, played, before 2 and 3 (proposed), or all three together.
+
+## Considered and left
+
+- Countdowns that drop once a round in place of once an action: the usual way to make a party count,
+  but it gives up "every action is a turn" and every countdown in the data would be set again.
+- A flat Recovery 2 with no cap: two companions (how a run begins) would have to Wait every third turn.
+- A bonus for striking after a different companion: two alternating already earn it.
