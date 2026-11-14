@@ -31,7 +31,21 @@ var _checks := 0
 var _current := ""
 
 
+## Every data resource, held for the whole suite. load() keeps a resource cached only while something
+## refers to it, so without this every test that builds a run loads the whole content again.
+var _held: Array[Resource] = []
+
+
+func _hold(dir: String) -> void:
+	for f in DirAccess.get_files_at(dir):
+		if f.ends_with(".tres"):
+			_held.append(load(dir.path_join(f)))
+	for d in DirAccess.get_directories_at(dir):
+		_hold(dir.path_join(d))
+
+
 func _init() -> void:
+	_hold("res://data")
 	var tests: Array[Callable] = [
 		test_damage_minimum,
 		test_accuracy_clamps,
